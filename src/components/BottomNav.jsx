@@ -31,22 +31,22 @@ export default function BottomNav({ currentPage, onNav }) {
       // position context for the sliding pill
       overflow: 'hidden',
     }}>
-      {/* Sliding active pill — sits behind the labels */}
+      {/* Sliding active pill */}
       {activeIdx !== -1 && (
         <div style={{
           position: 'absolute',
-          top: 4,
+          top: 3,
           left: `calc(${activeIdx} * 33.333% + 8%)`,
           width: '17.333%',
-          height: 26,
+          height: 22,
           background: dark ? 'rgba(74,123,247,0.13)' : 'rgba(74,123,247,0.09)',
-          borderRadius: 8,
+          borderRadius: 7,
           transition: 'left 0.28s cubic-bezier(0.25,0.46,0.45,0.94)',
           pointerEvents: 'none',
         }} />
       )}
 
-      <div style={{ display: 'flex', position: 'relative' }}>
+      <div style={{ display: 'flex', position: 'relative', height: 44 }}>
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
           return (
@@ -57,8 +57,8 @@ export default function BottomNav({ currentPage, onNav }) {
                 flex: 1,
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                gap: 2,
-                padding: '4px 0 3px',
+                gap: 1,
+                padding: 0,
                 background: 'none', border: 'none',
                 cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
@@ -66,7 +66,7 @@ export default function BottomNav({ currentPage, onNav }) {
               }}
             >
               <span style={{
-                fontSize: 15,
+                fontSize: 14,
                 color: active ? ACCENT : C.textMuted,
                 lineHeight: 1,
                 transition: 'color 0.2s, transform 0.2s',
@@ -83,7 +83,6 @@ export default function BottomNav({ currentPage, onNav }) {
               }}>
                 {tab.label}
               </span>
-              {/* Active dot */}
               <div style={{
                 position: 'absolute',
                 bottom: 2,

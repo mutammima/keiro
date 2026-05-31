@@ -20,6 +20,7 @@ import StoreMap from './components/StoreMap';
 import Notes from './components/Notes';
 import Home from './components/Home';
 import EndOfDay from './components/EndOfDay';
+import WhatsNew, { hasSeenWhatsNew } from './components/WhatsNew';
 import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/SectionGuide';
 import UpdateBanner from './components/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
@@ -81,6 +82,7 @@ function AppInner() {
   const [selectedStore,  setSelectedStore]  = useState(null);
   const [showTutorial,   setShowTutorial]   = useState(false);
   const [guideSection,   setGuideSection]   = useState(null);
+  const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
   const { updateAvailable, applyUpdate }    = useAppUpdate();
 
   // Sections that have a contextual guide
@@ -170,6 +172,7 @@ function AppInner() {
         position: 'relative',
       }}
     >
+      {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {showTutorial && <InteractiveTutorial currentPage={page} onClose={() => setShowTutorial(false)} />}
       {guideSection  && <SectionGuide section={guideSection} onDismiss={() => setGuideSection(null)} />}
       {updateAvailable && (
