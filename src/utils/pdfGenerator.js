@@ -2,24 +2,25 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 /**
- * Generates a clean, professional invoice PDF matching the reference design
- * and triggers native share sheet (or download fallback).
+ * Generates a clean, professional invoice PDF and triggers native share sheet (or download fallback).
  *
  * @param {Object} invoice
  * @param {string} invoice.businessName
+ * @param {string} invoice.businessPhone
  * @param {number} invoice.number
  * @param {string} invoice.storeName
+ * @param {string} invoice.storePhone
  * @param {string} invoice.date
+ * @param {string} invoice.time
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
 export async function generateAndSharePDF(invoice) {
-  const { businessName, number, storeName, date, items } = invoice;
+  const { businessName, businessPhone, number, storeName, storePhone, date, time, items } = invoice;
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 56;
-  const contentW = pageW - margin * 2;
 
   // ── Thin top border line ─────────────────────────────────────────────────
   doc.setDrawColor(180, 180, 180);
@@ -30,32 +31,52 @@ export async function generateAndSharePDF(invoice) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
   doc.setTextColor(30, 30, 30);
-  // Simulate letter spacing by spreading chars
   const bizName = (businessName || 'My Business').toUpperCase();
   doc.text(bizName, pageW / 2, 72, { align: 'center', charSpace: 3 });
+
+  // ── Business Phone ────────────────────────────────────────────────────────
+  let headerBottomY = 82;
+  if (businessPhone) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(businessPhone, pageW / 2, 86, { align: 'center' });
+    headerBottomY = 94;
+  }
 
   // ── Thin rule under business name ────────────────────────────────────────
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
-  doc.line(margin, 82, pageW - margin, 82);
+  doc.line(margin, headerBottomY, pageW - margin, headerBottomY);
 
   // ── Invoice meta (centered) ───────────────────────────────────────────────
+  const metaY = headerBottomY + 18;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
-  doc.text(`Invoice No. ${number}`, pageW / 2, 104, { align: 'center' });
-  doc.text(`Issue Date:  ${date}`, pageW / 2, 118, { align: 'center' });
+  doc.text(`Invoice No. ${number}`, pageW / 2, metaY, { align: 'center' });
+  const dateTimeStr = time ? `Issue Date:  ${date}  ·  ${time}` : `Issue Date:  ${date}`;
+  doc.text(dateTimeStr, pageW / 2, metaY + 14, { align: 'center' });
 
   // ── Bill To (centered) ───────────────────────────────────────────────────
+  const billY = metaY + 40;
   doc.setFontSize(10);
   doc.setTextColor(60, 60, 60);
   doc.setFont('helvetica', 'bold');
-  doc.text(storeName, pageW / 2, 148, { align: 'center' });
+  doc.text(storeName, pageW / 2, billY, { align: 'center' });
+
+  if (storePhone) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(storePhone, pageW / 2, billY + 14, { align: 'center' });
+  }
 
   // ── Divider ──────────────────────────────────────────────────────────────
+  const dividerY = storePhone ? billY + 28 : billY + 16;
   doc.setDrawColor(210, 210, 210);
   doc.setLineWidth(0.5);
-  doc.line(margin, 164, pageW - margin, 164);
+  doc.line(margin, dividerY, pageW - margin, dividerY);
 
   // ── Items Table ───────────────────────────────────────────────────────────
   const tableRows = items.map((item) => [
@@ -66,7 +87,7 @@ export async function generateAndSharePDF(invoice) {
   ]);
 
   autoTable(doc, {
-    startY: 172,
+    startY: dividerY + 8,
     margin: { left: margin, right: margin },
     head: [['Description', 'Qty', 'Unit Price', 'Line Total']],
     body: tableRows,
@@ -97,7 +118,7 @@ export async function generateAndSharePDF(invoice) {
     theme: 'plain',
   });
 
-  // ── Totals block (right-aligned, like reference) ──────────────────────────
+  // ── Totals block ──────────────────────────────────────────────────────────
   const subtotal = items.reduce(
     (sum, item) => sum + Number(item.qty) * Number(item.price),
     0
@@ -108,7 +129,6 @@ export async function generateAndSharePDF(invoice) {
   const valueX = pageW - margin;
   const rowH = 18;
 
-  // Light divider above totals
   doc.setDrawColor(210, 210, 210);
   doc.setLineWidth(0.4);
   doc.line(labelX - 10, finalY - 4, valueX, finalY - 4);
@@ -123,7 +143,6 @@ export async function generateAndSharePDF(invoice) {
   doc.text('Payments', labelX, finalY + rowH * 2);
   doc.text('$0.00', valueX, finalY + rowH * 2, { align: 'right' });
 
-  // Thin rule before Due
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.4);
   doc.line(labelX - 10, finalY + rowH * 2 + 8, valueX, finalY + rowH * 2 + 8);
@@ -157,7 +176,6 @@ export async function generateAndSharePDF(invoice) {
     }
   }
 
-  // Fallback: direct download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

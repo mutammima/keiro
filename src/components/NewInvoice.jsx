@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import AutofillInput from './AutofillInput';
 import BarcodeScanner from './BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
+import EditItemModal from './EditItemModal';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import {
   getNextInvoiceNumber,
@@ -14,57 +15,77 @@ import {
   getProductNames,
   getBusinessName,
   saveBusinessName,
+  getBusinessPhone,
+  saveBusinessPhone,
+  getStorePhone,
+  saveStorePhone,
 } from '../utils/storage';
 
 function todayString() {
   const d = new Date();
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function nowTimeString() {
+  const d = new Date();
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export default function NewInvoice() {
-  // Business name — loaded from storage, saved on change
-  const [businessName, setBusinessName] = useState(
-    () => getBusinessName() || 'J&Y Distributions'
-  );
-  const [editingBiz, setEditingBiz] = useState(false);
+export default function NewInvoice({ onOpenDrawer }) {
+  // Business identity
+  const [businessName, setBusinessName]   = useState(() => getBusinessName() || 'J&Y Distributions');
+  const [businessPhone, setBusinessPhone] = useState(() => getBusinessPhone() || '');
+  const [editingBiz, setEditingBiz]       = useState(false);
+  const [editingBizPhone, setEditingBizPhone] = useState(false);
 
   // Invoice metadata
-  const [storeName, setStoreName] = useState('');
-  const [date, setDate] = useState(todayString());
-  const [storeNames] = useState(() => getStoreNames());
+  const [storeName, setStoreName]   = useState('');
+  const [storePhone, setStorePhone] = useState('');
+  const [date, setDate]             = useState(todayString());
+  const [time, setTime]             = useState(nowTimeString());
+  const [storeNames]  = useState(() => getStoreNames());
   const [productNames] = useState(() => getProductNames());
 
   // Current item being built
   const [productName, setProductName] = useState('');
-  const [qty, setQty] = useState('');
-  const [price, setPrice] = useState('');
+  const [qty, setQty]                 = useState('');
+  const [price, setPrice]             = useState('');
   const [lastBarcode, setLastBarcode] = useState('');
 
   // Items on the invoice
   const [items, setItems] = useState([]);
 
+  // Edit modal
+  const [editingItem, setEditingItem] = useState(null);
+
   // UI state
   const [showScanner, setShowScanner] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [generating, setGenerating]   = useState(false);
+  const [error, setError]             = useState('');
+  const [success, setSuccess]         = useState('');
 
-  // ── Business name persistence ────────────────────────────────────────────
+  // ── Business name / phone ────────────────────────────────────────────────
   function handleBizBlur(val) {
     const trimmed = (val || businessName).trim();
-    if (trimmed) {
-      setBusinessName(trimmed);
-      saveBusinessName(trimmed);
-    }
+    if (trimmed) { setBusinessName(trimmed); saveBusinessName(trimmed); }
     setEditingBiz(false);
+  }
+  function handleBizPhoneBlur(val) {
+    const trimmed = (val || businessPhone).trim();
+    setBusinessPhone(trimmed);
+    saveBusinessPhone(trimmed);
+    setEditingBizPhone(false);
+  }
+
+  // ── Store name change → auto-load phone ─────────────────────────────────
+  function handleStoreNameChange(val) {
+    setStoreName(val);
+    const saved = getStorePhone(val);
+    if (saved) setStorePhone(saved);
   }
 
   // ── Barcode scanned ──────────────────────────────────────────────────────
@@ -84,29 +105,25 @@ export default function NewInvoice() {
   function addItem() {
     setError('');
     if (!productName.trim()) return setError('Enter a product name.');
-    const qtyNum = Number(qty);
+    const qtyNum   = Number(qty);
     const priceNum = Number(price);
-    if (!qty || isNaN(qtyNum) || qtyNum <= 0) return setError('Enter a valid quantity.');
-    if (price === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
+    if (!qty   || isNaN(qtyNum)   || qtyNum   <= 0) return setError('Enter a valid quantity.');
+    if (price  === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
 
     saveProductName(productName.trim());
-    if (lastBarcode) {
-      saveProductBarcode(lastBarcode, productName.trim(), priceNum);
-    }
+    if (lastBarcode) saveProductBarcode(lastBarcode, productName.trim(), priceNum);
 
-    setItems((prev) => [
-      ...prev,
-      { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum },
-    ]);
-
-    setProductName('');
-    setQty('');
-    setPrice('');
-    setLastBarcode('');
+    setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
+    setProductName(''); setQty(''); setPrice(''); setLastBarcode('');
   }
 
   function removeItem(id) {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItems(prev => prev.filter(i => i.id !== id));
+  }
+
+  function handleEditSave(updated) {
+    setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+    setEditingItem(null);
   }
 
   // ── Generate PDF ─────────────────────────────────────────────────────────
@@ -120,24 +137,26 @@ export default function NewInvoice() {
       const invoiceNumber = getNextInvoiceNumber();
       const invoice = {
         businessName: businessName.trim(),
+        businessPhone: businessPhone.trim(),
         number: invoiceNumber,
         storeName: storeName.trim(),
+        storePhone: storePhone.trim(),
         date,
+        time,
         items,
         createdAt: new Date().toISOString(),
       };
 
       saveInvoice(invoice);
       saveStoreName(storeName.trim());
+      if (storePhone.trim()) saveStorePhone(storeName.trim(), storePhone.trim());
 
       await generateAndSharePDF(invoice);
 
       setSuccess(`Invoice #${invoiceNumber} created!`);
       setTimeout(() => {
-        setItems([]);
-        setStoreName('');
-        setDate(todayString());
-        setSuccess('');
+        setItems([]); setStoreName(''); setStorePhone('');
+        setDate(todayString()); setTime(nowTimeString()); setSuccess('');
       }, 2000);
     } catch (err) {
       console.error(err);
@@ -151,35 +170,61 @@ export default function NewInvoice() {
   return (
     <>
       {showScanner && (
-        <BarcodeScanner
-          onScan={handleScan}
-          onClose={() => setShowScanner(false)}
+        <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
+      )}
+      {editingItem && (
+        <EditItemModal
+          item={editingItem}
+          onSave={handleEditSave}
+          onClose={() => setEditingItem(null)}
         />
       )}
 
       <div style={styles.page}>
         {/* ── Header ── */}
         <div style={styles.header}>
-          {editingBiz ? (
-            <input
-              autoFocus
-              style={styles.bizNameInput}
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              onBlur={(e) => handleBizBlur(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleBizBlur(businessName)}
-            />
-          ) : (
-            <button
-              style={styles.bizNameBtn}
-              onClick={() => setEditingBiz(true)}
-              title="Tap to edit business name"
-            >
-              {businessName}
-              <span style={styles.editPencil}>✎</span>
-            </button>
-          )}
-          <span style={styles.headerSub}>New Invoice</span>
+          <button style={styles.hamburger} onClick={onOpenDrawer} aria-label="Open menu">
+            ☰
+          </button>
+
+          <div style={styles.headerCenter}>
+            {/* Business name */}
+            {editingBiz ? (
+              <input
+                autoFocus
+                style={styles.bizNameInput}
+                value={businessName}
+                onChange={e => setBusinessName(e.target.value)}
+                onBlur={e => handleBizBlur(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleBizBlur(businessName)}
+              />
+            ) : (
+              <button style={styles.bizNameBtn} onClick={() => setEditingBiz(true)} title="Tap to edit">
+                {businessName}<span style={styles.editPencil}>✎</span>
+              </button>
+            )}
+
+            {/* Business phone */}
+            {editingBizPhone ? (
+              <input
+                autoFocus
+                style={styles.bizPhoneInput}
+                value={businessPhone}
+                placeholder="Your phone number"
+                inputMode="tel"
+                onChange={e => setBusinessPhone(e.target.value)}
+                onBlur={e => handleBizPhoneBlur(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleBizPhoneBlur(businessPhone)}
+              />
+            ) : (
+              <button style={styles.bizPhoneBtn} onClick={() => setEditingBizPhone(true)}>
+                {businessPhone || '+ Add phone number'}
+                <span style={styles.editPencil}>✎</span>
+              </button>
+            )}
+
+            <span style={styles.headerSub}>New Invoice</span>
+          </div>
         </div>
 
         <div style={styles.body}>
@@ -189,17 +234,29 @@ export default function NewInvoice() {
               label="Store / Customer Name"
               placeholder="e.g. Sunrise Deli"
               value={storeName}
-              onChange={setStoreName}
+              onChange={handleStoreNameChange}
               suggestions={storeNames}
               required
             />
             <div style={{ marginTop: 14 }}>
-              <label style={styles.label}>Date</label>
+              <label style={styles.label}>Store Phone (optional)</label>
               <input
                 style={styles.input}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                inputMode="tel"
+                placeholder="e.g. (718) 555-0123"
+                value={storePhone}
+                onChange={e => setStorePhone(e.target.value)}
               />
+            </div>
+            <div style={styles.dateTimeRow}>
+              <div style={{ flex: 2 }}>
+                <label style={styles.label}>Date</label>
+                <input style={styles.input} value={date} onChange={e => setDate(e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={styles.label}>Time</label>
+                <input style={styles.input} value={time} onChange={e => setTime(e.target.value)} />
+              </div>
             </div>
           </section>
 
@@ -218,19 +275,12 @@ export default function NewInvoice() {
                   required
                 />
               </div>
-              <button
-                style={styles.scanBtn}
-                onClick={() => setShowScanner(true)}
-                aria-label="Scan barcode"
-                type="button"
-              >
+              <button style={styles.scanBtn} onClick={() => setShowScanner(true)} aria-label="Scan barcode" type="button">
                 <span style={{ fontSize: 22 }}>📷</span>
               </button>
             </div>
 
-            {lastBarcode && (
-              <p style={styles.barcodeTag}>Barcode: {lastBarcode}</p>
-            )}
+            {lastBarcode && <p style={styles.barcodeTag}>Barcode: {lastBarcode}</p>}
 
             <div style={styles.qtyPriceRow}>
               <div style={{ flex: 1 }}>
@@ -243,7 +293,7 @@ export default function NewInvoice() {
                   step="1"
                   placeholder="1"
                   value={qty}
-                  onChange={(e) => setQty(e.target.value)}
+                  onChange={e => setQty(e.target.value)}
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -256,26 +306,22 @@ export default function NewInvoice() {
                   step="0.01"
                   placeholder="0.00"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={e => setPrice(e.target.value)}
                 />
               </div>
             </div>
 
             {error && <p style={styles.error}>{error}</p>}
 
-            <button style={styles.addBtn} onClick={addItem} type="button">
-              + Add Item
-            </button>
+            <button style={styles.addBtn} onClick={addItem} type="button">+ Add Item</button>
           </section>
 
           {/* ── Invoice Preview ── */}
           <section style={styles.card}>
-            <InvoicePreview items={items} onRemove={removeItem} />
+            <InvoicePreview items={items} onRemove={removeItem} onEdit={setEditingItem} />
           </section>
 
-          {success && (
-            <div style={styles.successBanner}>✓ {success}</div>
-          )}
+          {success && <div style={styles.successBanner}>✓ {success}</div>}
 
           <button
             style={{ ...styles.generateBtn, opacity: generating ? 0.7 : 1 }}
@@ -303,8 +349,25 @@ const styles = {
   header: {
     background: '#fff',
     borderBottom: '1px solid #e5e5e5',
-    padding: '14px 20px 12px',
+    padding: '14px 16px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  hamburger: {
+    background: 'none',
+    border: 'none',
+    fontSize: 24,
+    color: '#333',
+    cursor: 'pointer',
+    padding: '2px 4px',
+    marginTop: 2,
+    WebkitTapHighlightColor: 'transparent',
+    flexShrink: 0,
+  },
+  headerCenter: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -325,11 +388,6 @@ const styles = {
     textTransform: 'uppercase',
     WebkitTapHighlightColor: 'transparent',
   },
-  editPencil: {
-    fontSize: 14,
-    color: '#aaa',
-    fontWeight: 400,
-  },
   bizNameInput: {
     fontSize: 20,
     fontWeight: 800,
@@ -342,12 +400,37 @@ const styles = {
     textAlign: 'center',
     background: 'transparent',
     width: '100%',
-    maxWidth: 300,
+    maxWidth: 280,
     padding: '2px 4px',
   },
+  bizPhoneBtn: {
+    background: 'none',
+    border: 'none',
+    padding: '1px 4px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 13,
+    color: '#777',
+    WebkitTapHighlightColor: 'transparent',
+  },
+  bizPhoneInput: {
+    fontSize: 13,
+    color: '#555',
+    border: 'none',
+    borderBottom: `1.5px solid ${ACCENT}`,
+    outline: 'none',
+    textAlign: 'center',
+    background: 'transparent',
+    width: '100%',
+    maxWidth: 200,
+    padding: '1px 4px',
+  },
+  editPencil: { fontSize: 13, color: '#bbb', fontWeight: 400 },
   headerSub: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 11,
+    color: '#bbb',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     fontWeight: 500,
@@ -397,6 +480,11 @@ const styles = {
     WebkitAppearance: 'none',
     appearance: 'none',
   },
+  dateTimeRow: {
+    display: 'flex',
+    gap: 12,
+    marginTop: 14,
+  },
   productRow: {
     display: 'flex',
     gap: 10,
@@ -425,17 +513,8 @@ const styles = {
     margin: '-4px 0 10px',
     fontFamily: 'monospace',
   },
-  qtyPriceRow: {
-    display: 'flex',
-    gap: 12,
-    marginTop: 2,
-  },
-  error: {
-    color: '#c53030',
-    fontSize: 14,
-    margin: '8px 0 0',
-    fontWeight: 600,
-  },
+  qtyPriceRow: { display: 'flex', gap: 12, marginTop: 2 },
+  error: { color: '#c53030', fontSize: 14, margin: '8px 0 0', fontWeight: 600 },
   addBtn: {
     width: '100%',
     marginTop: 14,

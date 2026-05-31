@@ -1,11 +1,13 @@
 // ─── Keys ───────────────────────────────────────────────────────────────────
 const KEYS = {
-  INVOICE_NUMBER: 'inv_number',
-  INVOICES: 'inv_list',
-  PRODUCT_CATALOG: 'inv_catalog',   // barcode → { name, lastPrice }
-  STORE_NAMES: 'inv_stores',        // string[]
-  PRODUCT_NAMES: 'inv_product_names', // string[]
-  BUSINESS_NAME: 'inv_business_name', // string
+  INVOICE_NUMBER:   'inv_number',
+  INVOICES:         'inv_list',
+  PRODUCT_CATALOG:  'inv_catalog',        // barcode → { name, lastPrice }
+  STORE_NAMES:      'inv_stores',         // string[]
+  PRODUCT_NAMES:    'inv_product_names',  // string[]
+  BUSINESS_NAME:    'inv_business_name',
+  BUSINESS_PHONE:   'inv_business_phone',
+  STORE_PHONES:     'inv_store_phones',   // { storeName: phone }
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -61,6 +63,22 @@ export function saveProductBarcode(barcode, name, price) {
   set(KEYS.PRODUCT_CATALOG, catalog);
 }
 
+export function getAllProducts() {
+  return get(KEYS.PRODUCT_CATALOG, {});
+}
+
+export function updateProduct(barcode, name, price) {
+  const catalog = get(KEYS.PRODUCT_CATALOG, {});
+  catalog[barcode] = { name, lastPrice: Number(price) };
+  set(KEYS.PRODUCT_CATALOG, catalog);
+}
+
+export function deleteProduct(barcode) {
+  const catalog = get(KEYS.PRODUCT_CATALOG, {});
+  delete catalog[barcode];
+  set(KEYS.PRODUCT_CATALOG, catalog);
+}
+
 // ─── Store Name History ───────────────────────────────────────────────────────
 export function getStoreNames() {
   return get(KEYS.STORE_NAMES, []);
@@ -77,6 +95,20 @@ export function saveStoreName(name) {
   }
 }
 
+// ─── Store Phones ─────────────────────────────────────────────────────────────
+export function getStorePhone(storeName) {
+  if (!storeName?.trim()) return '';
+  const phones = get(KEYS.STORE_PHONES, {});
+  return phones[storeName.trim()] || '';
+}
+
+export function saveStorePhone(storeName, phone) {
+  if (!storeName?.trim()) return;
+  const phones = get(KEYS.STORE_PHONES, {});
+  phones[storeName.trim()] = phone.trim();
+  set(KEYS.STORE_PHONES, phones);
+}
+
 // ─── Business Name ────────────────────────────────────────────────────────────
 export function getBusinessName() {
   return get(KEYS.BUSINESS_NAME, '');
@@ -84,6 +116,15 @@ export function getBusinessName() {
 
 export function saveBusinessName(name) {
   set(KEYS.BUSINESS_NAME, name.trim());
+}
+
+// ─── Business Phone ───────────────────────────────────────────────────────────
+export function getBusinessPhone() {
+  return get(KEYS.BUSINESS_PHONE, '');
+}
+
+export function saveBusinessPhone(phone) {
+  set(KEYS.BUSINESS_PHONE, phone.trim());
 }
 
 // ─── Product Name History ─────────────────────────────────────────────────────
@@ -100,4 +141,9 @@ export function saveProductName(name) {
     if (names.length > 200) names.pop();
     set(KEYS.PRODUCT_NAMES, names);
   }
+}
+
+export function deleteProductName(name) {
+  const names = get(KEYS.PRODUCT_NAMES, []);
+  set(KEYS.PRODUCT_NAMES, names.filter(n => n !== name));
 }

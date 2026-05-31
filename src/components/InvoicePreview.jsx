@@ -3,9 +3,10 @@
  *
  * Props:
  *   items: [{ id, name, qty, price }]
- *   onRemove(id): removes an item
+ *   onRemove(id)
+ *   onEdit(item)
  */
-export default function InvoicePreview({ items, onRemove }) {
+export default function InvoicePreview({ items, onRemove, onEdit }) {
   const subtotal = items.reduce(
     (sum, item) => sum + Number(item.qty) * Number(item.price),
     0
@@ -37,6 +38,15 @@ export default function InvoicePreview({ items, onRemove }) {
               <span style={styles.itemTotal}>
                 ${(Number(item.qty) * Number(item.price)).toFixed(2)}
               </span>
+              {onEdit && (
+                <button
+                  style={styles.editBtn}
+                  onClick={() => onEdit(item)}
+                  aria-label={`Edit ${item.name}`}
+                >
+                  ✎
+                </button>
+              )}
               <button
                 style={styles.removeBtn}
                 onClick={() => onRemove(item.id)}
@@ -58,9 +68,7 @@ export default function InvoicePreview({ items, onRemove }) {
 }
 
 const styles = {
-  wrap: {
-    marginTop: 8,
-  },
+  wrap: { marginTop: 8 },
   heading: {
     fontSize: 15,
     fontWeight: 700,
@@ -96,22 +104,34 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  itemMeta: {
-    fontSize: 13,
-    color: '#777',
-  },
+  itemMeta: { fontSize: 13, color: '#777' },
   rowRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 4,
     flexShrink: 0,
   },
   itemTotal: {
     fontSize: 15,
     fontWeight: 700,
     color: '#222',
-    minWidth: 60,
+    minWidth: 56,
     textAlign: 'right',
+  },
+  editBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#888',
+    fontSize: 18,
+    cursor: 'pointer',
+    width: 32,
+    height: 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    padding: 0,
+    WebkitTapHighlightColor: 'transparent',
   },
   removeBtn: {
     background: 'none',
@@ -144,10 +164,7 @@ const styles = {
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  subtotalAmount: {
-    fontSize: 22,
-    fontWeight: 800,
-  },
+  subtotalAmount: { fontSize: 22, fontWeight: 800 },
   empty: {
     display: 'flex',
     flexDirection: 'column',
@@ -155,12 +172,6 @@ const styles = {
     padding: '32px 0',
     gap: 8,
   },
-  emptyIcon: {
-    fontSize: 36,
-  },
-  emptyText: {
-    color: '#aaa',
-    fontSize: 15,
-    margin: 0,
-  },
+  emptyIcon: { fontSize: 36 },
+  emptyText: { color: '#aaa', fontSize: 15, margin: 0 },
 };
