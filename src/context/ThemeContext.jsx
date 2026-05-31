@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext({ dark: false, toggleDark: () => {} });
 
 function applyThemeColor(dark) {
-  const color = dark ? '#000000' : '#f4f4f5';
+  const color = dark ? '#000000' : '#f0ede8';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
   document.documentElement.style.background = color;
   document.body.style.background = color;
