@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { generatePDFBlob } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT } from '../theme';
+import { LIGHT, DARK, ACCENT, STATUS } from '../theme';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -10,13 +10,11 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [busy, setBusy] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const subtotal = invoice.items.reduce(
-    (s, i) => s + Number(i.qty) * Number(i.price), 0
-  );
+  const subtotal = invoice.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+  const sc = dark ? STATUS[invoice.paymentStatus || 'unpaid']?.dark : STATUS[invoice.paymentStatus || 'unpaid']?.light;
 
   async function getBlob() {
-    const { blob, filename } = await generatePDFBlob(invoice);
-    return { blob, filename };
+    return generatePDFBlob(invoice);
   }
 
   async function handleDownload() {
@@ -27,11 +25,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       const a = document.createElement('a');
       a.href = url; a.download = filename; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setBusy('');
-    }
+    } catch (e) { console.error(e); }
+    finally { setBusy(''); }
   }
 
   async function handleShare() {
@@ -42,17 +37,13 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
       } else {
-        // fallback download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
       }
-    } catch (e) {
-      if (e?.name !== 'AbortError') console.error(e);
-    } finally {
-      setBusy('');
-    }
+    } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
+    finally { setBusy(''); }
   }
 
   function handleCopy() {
@@ -65,6 +56,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       '',
       `Bill To: ${invoice.storeName}`,
       invoice.storePhone || '',
+      invoice.storeAddress || '',
       '',
       '---',
       ...invoice.items.map(i =>
@@ -72,86 +64,82 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       ),
       '---',
       `Total: $${subtotal.toFixed(2)}`,
-    ].filter((l, i, a) => !(l === '' && a[i - 1] === '')); // collapse double blanks
-
+      ...(invoice.notes ? ['', `Notes: ${invoice.notes}`] : []),
+    ].filter((l, i, a) => !(l === '' && (a[i - 1] === '' || i === 0)));
     navigator.clipboard?.writeText(lines.join('\n')).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
     });
   }
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
-      {/* Header */}
       <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
-        <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>
-          ← Back
-        </button>
+        <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
         <span style={{ ...s.title, color: C.text }}>Invoice #{invoice.number}</span>
-        <div style={{ width: 64 }} />
+        <div style={{ width: 60 }} />
       </div>
 
       <div style={s.body}>
-        {/* Invoice card */}
-        <div style={{ ...s.card, background: C.card }}>
-          {/* Business */}
+        {/* Invoice document */}
+        <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+          {/* Business header */}
           <div style={s.bizBlock}>
             <p style={{ ...s.bizName, color: C.text }}>{invoice.businessName}</p>
-            {invoice.businessPhone && (
-              <p style={{ ...s.bizPhone, color: C.textMuted }}>{invoice.businessPhone}</p>
-            )}
+            {invoice.businessPhone && <p style={{ ...s.bizPhone, color: C.textMuted }}>{invoice.businessPhone}</p>}
           </div>
 
-          <div style={{ ...s.metaDivider, background: C.headerBorder }} />
+          <div style={{ ...s.rule, background: C.divider }} />
 
-          {/* Meta */}
-          <div style={s.metaGrid}>
-            <div>
-              <p style={{ ...s.metaLabel, color: C.textMuted }}>Invoice No.</p>
-              <p style={{ ...s.metaValue, color: C.text }}>#{invoice.number}</p>
+          {/* Meta row */}
+          <div style={s.metaRow}>
+            <div style={s.metaCell}>
+              <span style={{ ...s.metaLabel, color: C.textMuted }}>Invoice</span>
+              <span style={{ ...s.metaValue, color: C.text }}>#{invoice.number}</span>
             </div>
-            <div>
-              <p style={{ ...s.metaLabel, color: C.textMuted }}>Date</p>
-              <p style={{ ...s.metaValue, color: C.text }}>{invoice.date}</p>
+            <div style={s.metaCell}>
+              <span style={{ ...s.metaLabel, color: C.textMuted }}>Date</span>
+              <span style={{ ...s.metaValue, color: C.text }}>{invoice.date}</span>
             </div>
             {invoice.time && (
-              <div>
-                <p style={{ ...s.metaLabel, color: C.textMuted }}>Time</p>
-                <p style={{ ...s.metaValue, color: C.text }}>{invoice.time}</p>
+              <div style={s.metaCell}>
+                <span style={{ ...s.metaLabel, color: C.textMuted }}>Time</span>
+                <span style={{ ...s.metaValue, color: C.text }}>{invoice.time}</span>
               </div>
             )}
+            <div style={s.metaCell}>
+              <span style={{ ...s.metaLabel, color: C.textMuted }}>Status</span>
+              <span style={{ ...s.statusPill, background: sc?.bg, color: sc?.text }}>
+                {STATUS[invoice.paymentStatus || 'unpaid']?.label}
+              </span>
+            </div>
           </div>
 
-          <div style={{ ...s.metaDivider, background: C.headerBorder }} />
+          <div style={{ ...s.rule, background: C.divider }} />
 
           {/* Bill To */}
           <div style={s.billTo}>
-            <p style={{ ...s.metaLabel, color: C.textMuted }}>Bill To</p>
+            <span style={{ ...s.metaLabel, color: C.textMuted }}>Bill To</span>
             <p style={{ ...s.storeName, color: C.text }}>{invoice.storeName}</p>
-            {invoice.storePhone && (
-              <p style={{ ...s.metaValue, color: C.textMuted }}>{invoice.storePhone}</p>
-            )}
+            {invoice.storePhone && <p style={{ ...s.storeDetail, color: C.textMuted }}>{invoice.storePhone}</p>}
+            {invoice.storeAddress && <p style={{ ...s.storeDetail, color: C.textMuted }}>{invoice.storeAddress}</p>}
           </div>
 
-          <div style={{ ...s.metaDivider, background: C.headerBorder }} />
+          <div style={{ ...s.rule, background: C.divider }} />
 
-          {/* Items */}
-          <div style={s.itemsHeader}>
-            <span style={{ ...s.col1, ...s.colHeader, color: C.textMuted }}>Description</span>
-            <span style={{ ...s.colNum, ...s.colHeader, color: C.textMuted }}>Qty</span>
-            <span style={{ ...s.colNum, ...s.colHeader, color: C.textMuted }}>Price</span>
-            <span style={{ ...s.colNum, ...s.colHeader, color: C.textMuted }}>Total</span>
+          {/* Items table header */}
+          <div style={s.tableHead}>
+            <span style={{ ...s.col1, ...s.colHead, color: C.textMuted }}>Item</span>
+            <span style={{ ...s.colQ, ...s.colHead, color: C.textMuted }}>Qty</span>
+            <span style={{ ...s.colP, ...s.colHead, color: C.textMuted }}>Price</span>
+            <span style={{ ...s.colT, ...s.colHead, color: C.textMuted }}>Total</span>
           </div>
 
           {invoice.items.map((item, idx) => (
-            <div key={idx} style={{
-              ...s.itemRow,
-              borderBottomColor: C.divider,
-            }}>
+            <div key={idx} style={{ ...s.tableRow, borderBottomColor: C.divider }}>
               <span style={{ ...s.col1, color: C.text }}>{item.name}</span>
-              <span style={{ ...s.colNum, color: C.textSub }}>{item.qty}</span>
-              <span style={{ ...s.colNum, color: C.textSub }}>${Number(item.price).toFixed(2)}</span>
-              <span style={{ ...s.colNum, color: C.text, fontWeight: 700 }}>
+              <span style={{ ...s.colQ, color: C.textSub }}>{item.qty}</span>
+              <span style={{ ...s.colP, color: C.textSub }}>${Number(item.price).toFixed(2)}</span>
+              <span style={{ ...s.colT, color: C.text, fontWeight: 700 }}>
                 ${(Number(item.qty) * Number(item.price)).toFixed(2)}
               </span>
             </div>
@@ -162,9 +150,17 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             <span style={{ ...s.totalLabel, color: C.subtotalText }}>Total Due</span>
             <span style={{ ...s.totalAmt, color: C.subtotalText }}>${subtotal.toFixed(2)}</span>
           </div>
+
+          {/* Notes */}
+          {invoice.notes && (
+            <div style={{ ...s.notesBox, borderTopColor: C.divider }}>
+              <span style={{ ...s.metaLabel, color: C.textMuted }}>Notes</span>
+              <p style={{ ...s.notesText, color: C.textSub }}>{invoice.notes}</p>
+            </div>
+          )}
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <button
           style={{ ...s.primaryBtn, opacity: busy === 'download' ? 0.7 : 1 }}
           onClick={handleDownload}
@@ -175,14 +171,14 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
         <div style={s.secondaryRow}>
           <button
-            style={{ ...s.secondaryBtn, background: C.card, color: C.text, borderColor: C.inputBorder, opacity: busy === 'share' ? 0.7 : 1 }}
+            style={{ ...s.secondaryBtn, background: C.card, color: C.text, borderColor: C.cardBorder, opacity: busy === 'share' ? 0.7 : 1 }}
             onClick={handleShare}
             disabled={!!busy}
           >
             {busy === 'share' ? '…' : 'Share'}
           </button>
           <button
-            style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.inputBorder }}
+            style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.cardBorder }}
             onClick={handleCopy}
           >
             {copied ? 'Copied!' : 'Copy Text'}
@@ -190,7 +186,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
         </div>
 
         <button
-          style={{ ...s.newInvoiceBtn, color: ACCENT, background: C.card, borderColor: C.inputBorder }}
+          style={{ ...s.ghostBtn, color: ACCENT, borderColor: C.cardBorder, background: C.card }}
           onClick={onNewInvoice}
         >
           New Invoice
@@ -201,179 +197,83 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 }
 
 const s = {
-  page: {
-    minHeight: '100dvh',
-    display: 'flex',
-    flexDirection: 'column',
-  },
+  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
     borderBottom: '1px solid',
-    padding: '14px 16px 12px',
-    paddingTop: 'max(14px, env(safe-area-inset-top))',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: '12px 16px 10px',
+    paddingTop: 'max(12px, env(safe-area-inset-top))',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
   backBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: 16,
-    fontWeight: 600,
-    cursor: 'pointer',
-    padding: '4px 0',
-    WebkitTapHighlightColor: 'transparent',
+    background: 'none', border: 'none', fontSize: 15, fontWeight: 600,
+    cursor: 'pointer', padding: '4px 0', WebkitTapHighlightColor: 'transparent',
   },
-  title: {
-    fontSize: 17,
-    fontWeight: 800,
-  },
+  title: { fontSize: 16, fontWeight: 700 },
   body: {
-    padding: '16px 16px 48px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    maxWidth: 480,
-    width: '100%',
-    margin: '0 auto',
-    boxSizing: 'border-box',
+    padding: '14px 16px 48px',
+    display: 'flex', flexDirection: 'column', gap: 10,
+    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   card: {
-    borderRadius: 16,
-    padding: '20px 18px',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
+    borderRadius: 12, border: '1px solid', overflow: 'hidden',
   },
-  bizBlock: {
-    textAlign: 'center',
-    paddingBottom: 16,
+  bizBlock: { padding: '16px 16px 12px', textAlign: 'center' },
+  bizName: { fontSize: 16, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', margin: 0 },
+  bizPhone: { fontSize: 12, margin: '3px 0 0' },
+  rule: { height: 1 },
+  metaRow: {
+    display: 'flex', flexWrap: 'wrap', gap: 0,
+    padding: '12px 16px',
   },
-  bizName: {
-    fontSize: 18,
-    fontWeight: 800,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    margin: 0,
+  metaCell: {
+    display: 'flex', flexDirection: 'column', gap: 2,
+    marginRight: 20, marginBottom: 4,
   },
-  bizPhone: {
-    fontSize: 13,
-    margin: '4px 0 0',
+  metaLabel: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  metaValue: { fontSize: 13, fontWeight: 600 },
+  statusPill: {
+    fontSize: 11, fontWeight: 700, padding: '2px 8px',
+    borderRadius: 20, display: 'inline-block', letterSpacing: '0.03em',
   },
-  metaDivider: {
-    height: 1,
-    margin: '0 0 14px',
+  billTo: { padding: '12px 16px' },
+  storeName: { fontSize: 15, fontWeight: 700, margin: '3px 0 0' },
+  storeDetail: { fontSize: 12, margin: '2px 0 0' },
+  tableHead: {
+    display: 'flex', padding: '8px 16px 6px',
   },
-  metaGrid: {
-    display: 'flex',
-    gap: 24,
-    flexWrap: 'wrap',
-    paddingBottom: 14,
-  },
-  metaLabel: {
-    fontSize: 11,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    margin: '0 0 2px',
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: 600,
-    margin: 0,
-  },
-  billTo: {
-    paddingBottom: 16,
-  },
-  storeName: {
-    fontSize: 16,
-    fontWeight: 700,
-    margin: '2px 0 0',
-  },
-  itemsHeader: {
-    display: 'flex',
-    gap: 4,
-    paddingBottom: 6,
-  },
-  colHeader: {
-    fontSize: 11,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  itemRow: {
-    display: 'flex',
-    gap: 4,
-    paddingTop: 10,
-    paddingBottom: 10,
+  tableRow: {
+    display: 'flex', padding: '9px 16px',
     borderBottom: '1px solid',
   },
-  col1: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: 500,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  colNum: {
-    width: 58,
-    flexShrink: 0,
-    fontSize: 13,
-    textAlign: 'right',
-  },
+  col1: { flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  colQ: { width: 36, flexShrink: 0, fontSize: 13, textAlign: 'right' },
+  colP: { width: 60, flexShrink: 0, fontSize: 13, textAlign: 'right' },
+  colT: { width: 62, flexShrink: 0, fontSize: 13, textAlign: 'right' },
+  colHead: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' },
   totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-    padding: '14px 16px',
-    borderRadius: 10,
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '13px 16px',
   },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  totalAmt: {
-    fontSize: 22,
-    fontWeight: 800,
-  },
+  totalLabel: { fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  totalAmt: { fontSize: 20, fontWeight: 800 },
+  notesBox: { padding: '12px 16px', borderTop: '1px solid' },
+  notesText: { fontSize: 13, margin: '4px 0 0', lineHeight: 1.5 },
   primaryBtn: {
-    width: '100%',
-    height: 58,
-    background: ACCENT,
-    border: 'none',
-    borderRadius: 16,
-    fontSize: 17,
-    fontWeight: 800,
-    color: '#fff',
-    cursor: 'pointer',
-    boxShadow: '0 4px 16px rgba(26,115,232,0.35)',
+    width: '100%', height: 52,
+    background: ACCENT, border: 'none', borderRadius: 10,
+    fontSize: 16, fontWeight: 700, color: '#fff',
+    cursor: 'pointer', boxShadow: '0 2px 12px rgba(26,115,232,0.3)',
     WebkitTapHighlightColor: 'transparent',
   },
-  secondaryRow: {
-    display: 'flex',
-    gap: 10,
-  },
+  secondaryRow: { display: 'flex', gap: 10 },
   secondaryBtn: {
-    flex: 1,
-    height: 48,
-    border: '1.5px solid',
-    borderRadius: 12,
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    transition: 'background 0.15s',
+    flex: 1, height: 44, border: '1px solid',
+    borderRadius: 10, fontSize: 14, fontWeight: 600,
+    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
-  newInvoiceBtn: {
-    width: '100%',
-    height: 48,
-    border: '1.5px solid',
-    borderRadius: 12,
-    fontSize: 15,
-    fontWeight: 700,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
+  ghostBtn: {
+    width: '100%', height: 44, border: '1px solid',
+    borderRadius: 10, fontSize: 14, fontWeight: 600,
+    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
 };

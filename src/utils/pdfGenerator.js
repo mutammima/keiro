@@ -15,7 +15,7 @@ import autoTable from 'jspdf-autotable';
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
 async function buildPDF(invoice) {
-  const { businessName, businessPhone, number, storeName, storePhone, date, time, items } = invoice;
+  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes } = invoice;
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -65,15 +65,25 @@ async function buildPDF(invoice) {
   doc.setFont('helvetica', 'bold');
   doc.text(storeName, pageW / 2, billY, { align: 'center' });
 
+  let billBottomY = billY;
   if (storePhone) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(storePhone, pageW / 2, billY + 14, { align: 'center' });
+    billBottomY = billY + 14;
+  }
+  if (storeAddress) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    const addrY = billBottomY + 14;
+    doc.text(storeAddress, pageW / 2, addrY, { align: 'center' });
+    billBottomY = addrY;
   }
 
   // ── Divider ──────────────────────────────────────────────────────────────
-  const dividerY = storePhone ? billY + 28 : billY + 16;
+  const dividerY = billBottomY + 14;
   doc.setDrawColor(210, 210, 210);
   doc.setLineWidth(0.5);
   doc.line(margin, dividerY, pageW - margin, dividerY);
@@ -152,6 +162,23 @@ async function buildPDF(invoice) {
   doc.setTextColor(30, 30, 30);
   doc.text('Due (USD):', labelX, finalY + rowH * 3 + 6);
   doc.text(`$${subtotal.toFixed(2)}`, valueX, finalY + rowH * 3 + 6, { align: 'right' });
+
+  // ── Notes ─────────────────────────────────────────────────────────────────
+  let notesEndY = finalY + rowH * 3 + 6;
+  if (notes && notes.trim()) {
+    const notesStartY = notesEndY + 22;
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.4);
+    doc.line(margin, notesStartY - 8, pageW - margin, notesStartY - 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Notes:', margin, notesStartY);
+    doc.setFont('helvetica', 'normal');
+    const noteLines = doc.splitTextToSize(notes.trim(), pageW - margin * 2 - 48);
+    doc.text(noteLines, margin + 48, notesStartY);
+    notesEndY = notesStartY + noteLines.length * 13;
+  }
 
   // ── Footer ────────────────────────────────────────────────────────────────
   doc.setDrawColor(180, 180, 180);

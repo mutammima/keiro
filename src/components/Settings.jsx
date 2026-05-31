@@ -7,35 +7,25 @@ export default function Settings({ onOpenDrawer }) {
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
-      {/* Header */}
       <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">
-          ☰
-        </button>
+        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Settings</span>
         <div style={{ width: 36 }} />
       </div>
 
       <div style={s.body}>
-        {/* Appearance */}
-        <div style={{ ...s.section, background: C.card }}>
-          <p style={{ ...s.sectionTitle, color: C.textMuted }}>Appearance</p>
-
+        <p style={{ ...s.groupLabel, color: C.textMuted }}>Appearance</p>
+        <div style={{ ...s.section, background: C.card, borderColor: C.cardBorder }}>
           <div style={s.row}>
-            <div style={s.rowLeft}>
-              <span style={{ ...s.rowLabel, color: C.text }}>Dark Mode</span>
-              <span style={{ ...s.rowSub, color: C.textMuted }}>
-                {dark ? 'On — using dark theme' : 'Off — using light theme'}
-              </span>
+            <div>
+              <p style={{ ...s.rowLabel, color: C.text }}>Dark Mode</p>
+              <p style={{ ...s.rowSub, color: C.textMuted }}>{dark ? 'On' : 'Off'}</p>
             </div>
             <button
               role="switch"
               aria-checked={dark}
               onClick={toggleDark}
-              style={{
-                ...s.toggle,
-                background: dark ? ACCENT : C.toggleTrack || '#e0e0e0',
-              }}
+              style={{ ...s.toggle, background: dark ? ACCENT : C.toggleTrack }}
             >
               <span style={{
                 ...s.toggleThumb,
@@ -45,17 +35,16 @@ export default function Settings({ onOpenDrawer }) {
           </div>
         </div>
 
-        {/* About */}
-        <div style={{ ...s.section, background: C.card }}>
-          <p style={{ ...s.sectionTitle, color: C.textMuted }}>About</p>
+        <p style={{ ...s.groupLabel, color: C.textMuted, marginTop: 8 }}>About</p>
+        <div style={{ ...s.section, background: C.card, borderColor: C.cardBorder }}>
           <div style={s.row}>
-            <span style={{ ...s.rowLabel, color: C.text }}>InvoiceGo</span>
-            <span style={{ ...s.rowSub2, color: C.textMuted }}>v2</span>
+            <span style={{ ...s.rowLabel, color: C.text }}>Version</span>
+            <span style={{ ...s.rowRight, color: C.textMuted }}>3.0</span>
           </div>
           <div style={{ ...s.divider, background: C.divider }} />
           <div style={s.row}>
-            <span style={{ ...s.rowLabel, color: C.text }}>Data Storage</span>
-            <span style={{ ...s.rowSub2, color: C.textMuted }}>On-device only</span>
+            <span style={{ ...s.rowLabel, color: C.text }}>Storage</span>
+            <span style={{ ...s.rowRight, color: C.textMuted }}>On-device only</span>
           </div>
         </div>
       </div>
@@ -64,105 +53,49 @@ export default function Settings({ onOpenDrawer }) {
 }
 
 const s = {
-  page: {
-    minHeight: '100dvh',
-    display: 'flex',
-    flexDirection: 'column',
-  },
+  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
     borderBottom: '1px solid',
-    padding: '14px 16px 12px',
-    paddingTop: 'max(14px, env(safe-area-inset-top))',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
+    padding: '12px 16px 10px',
+    paddingTop: 'max(12px, env(safe-area-inset-top))',
+    display: 'flex', alignItems: 'center', gap: 12,
   },
   hamburger: {
-    background: 'none',
-    border: 'none',
-    fontSize: 24,
-    cursor: 'pointer',
-    padding: '2px 4px',
-    WebkitTapHighlightColor: 'transparent',
-    flexShrink: 0,
+    background: 'none', border: 'none', fontSize: 22,
+    cursor: 'pointer', padding: '3px 4px',
+    WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 800,
-    textAlign: 'center',
-  },
+  title: { flex: 1, fontSize: 17, fontWeight: 700, textAlign: 'center' },
   body: {
     padding: '20px 16px 48px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 14,
-    maxWidth: 480,
-    width: '100%',
-    margin: '0 auto',
-    boxSizing: 'border-box',
+    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+  },
+  groupLabel: {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: '0.07em', margin: '0 0 8px 4px',
   },
   section: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    margin: 0,
-    padding: '14px 18px 6px',
+    borderRadius: 12, border: '1px solid', overflow: 'hidden',
+    marginBottom: 0,
   },
   row: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '14px 18px',
-    gap: 12,
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', padding: '14px 16px', gap: 12,
   },
-  rowLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    flex: 1,
-  },
-  rowLabel: {
-    fontSize: 16,
-    fontWeight: 600,
-  },
-  rowSub: {
-    fontSize: 12,
-  },
-  rowSub2: {
-    fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    margin: '0 18px',
-  },
+  rowLabel: { fontSize: 15, fontWeight: 500 },
+  rowSub: { fontSize: 12, marginTop: 1 },
+  rowRight: { fontSize: 14 },
+  divider: { height: 1, margin: '0 16px' },
   toggle: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    border: 'none',
-    cursor: 'pointer',
-    padding: 0,
-    position: 'relative',
-    flexShrink: 0,
-    transition: 'background 0.2s',
-    WebkitTapHighlightColor: 'transparent',
+    width: 48, height: 28, borderRadius: 14,
+    border: 'none', cursor: 'pointer', padding: 0,
+    position: 'relative', flexShrink: 0,
+    transition: 'background 0.2s', WebkitTapHighlightColor: 'transparent',
   },
   toggleThumb: {
-    position: 'absolute',
-    top: 2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    background: '#ffffff',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-    transition: 'transform 0.2s',
-    display: 'block',
+    position: 'absolute', top: 2, width: 24, height: 24,
+    borderRadius: 12, background: '#ffffff',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+    transition: 'transform 0.2s', display: 'block',
   },
 };

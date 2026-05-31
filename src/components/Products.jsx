@@ -10,9 +10,7 @@ import {
   saveProductName,
 } from '../utils/storage';
 
-function uid() {
-  return '_' + Math.random().toString(36).slice(2);
-}
+function uid() { return '_' + Math.random().toString(36).slice(2); }
 
 export default function Products({ onOpenDrawer }) {
   const { dark } = useTheme();
@@ -21,69 +19,60 @@ export default function Products({ onOpenDrawer }) {
   const [catalog, setCatalog] = useState(() => getAllProducts());
   const [editingBarcode, setEditingBarcode] = useState(null);
   const [editName, setEditName] = useState('');
-
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState('');
 
-  const products = Object.entries(catalog).map(([barcode, data]) => ({
-    barcode,
-    name: data.name,
-  })).sort((a, b) => a.name.localeCompare(b.name));
+  const products = Object.entries(catalog)
+    .map(([barcode, data]) => ({ barcode, name: data.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  function startEdit(p) {
-    setEditingBarcode(p.barcode);
-    setEditName(p.name);
-  }
+  function startEdit(p) { setEditingBarcode(p.barcode); setEditName(p.name); }
 
   function saveEdit() {
     if (!editName.trim()) return;
-    // Keep the existing lastPrice when renaming
     const existing = catalog[editingBarcode];
     updateProduct(editingBarcode, editName.trim(), existing?.lastPrice ?? 0);
-    setCatalog(getAllProducts());
-    setEditingBarcode(null);
+    setCatalog(getAllProducts()); setEditingBarcode(null);
   }
 
   function handleDelete(barcode) {
-    deleteProduct(barcode);
-    setCatalog(getAllProducts());
+    deleteProduct(barcode); setCatalog(getAllProducts());
   }
 
   function handleClearAll() {
-    if (!window.confirm('Clear all products? This cannot be undone.')) return;
-    clearAllProducts();
-    setCatalog({});
+    if (!window.confirm('Delete all products? This cannot be undone.')) return;
+    clearAllProducts(); setCatalog({});
   }
 
   function handleAddProduct() {
     setAddError('');
     if (!newName.trim()) return setAddError('Enter a product name.');
-    const barcode = 'manual_' + uid();
-    saveProductBarcode(barcode, newName.trim(), 0);
+    saveProductBarcode('manual_' + uid(), newName.trim(), 0);
     saveProductName(newName.trim());
     setCatalog(getAllProducts());
-    setNewName('');
-    setShowAdd(false);
+    setNewName(''); setShowAdd(false);
   }
+
+  const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Products</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
-          {showAdd ? '✕' : '+ Add'}
+          {showAdd ? 'Cancel' : '+ Add'}
         </button>
       </div>
 
       <div style={s.body}>
         {showAdd && (
-          <div style={{ ...s.card, background: C.card }}>
-            <p style={{ ...s.sectionTitle, color: C.textSub }}>New Product</p>
-            <label style={{ ...s.label, color: C.textSub }}>Product Name *</label>
+          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+            <p style={{ ...s.sectionLabel, color: C.textMuted }}>New Product</p>
+            <label style={{ ...s.fieldLabel, color: C.textSub }}>Product Name</label>
             <input
-              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
+              style={{ ...s.input, ...inp }}
               placeholder="e.g. Marlboro Reds"
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -91,252 +80,134 @@ export default function Products({ onOpenDrawer }) {
               autoFocus
             />
             {addError && <p style={{ ...s.error, color: C.danger }}>{addError}</p>}
-            <button style={s.saveNewBtn} onClick={handleAddProduct}>Save Product</button>
+            <button style={s.saveBtn} onClick={handleAddProduct}>Save Product</button>
           </div>
         )}
 
         {products.length === 0 && !showAdd ? (
           <div style={s.empty}>
-            <span style={{ fontSize: 48 }}>📦</span>
             <p style={{ ...s.emptyText, color: C.textSub }}>No products yet.</p>
             <p style={{ ...s.emptySubText, color: C.textMuted }}>
-              Products are saved automatically when you add items to invoices or scan a barcode. You can also add them manually above.
+              Products save automatically when you add items to invoices. You can also add them manually above.
             </p>
           </div>
-        ) : (
-          products.length > 0 && (
-            <div style={{ ...s.card, background: C.card }}>
-              <div style={s.listHeader}>
-                <p style={{ ...s.sectionTitle, color: C.textSub, margin: 0 }}>
-                  Saved Products ({products.length})
-                </p>
-                <button
-                  style={{ ...s.clearBtn, color: C.danger }}
-                  onClick={handleClearAll}
-                >
-                  Clear All
-                </button>
-              </div>
-
-              <div style={s.list}>
-                {products.map((p, idx) => (
-                  <div key={p.barcode}>
-                    {idx > 0 && <div style={{ ...s.divider, background: C.divider }} />}
-                    {editingBarcode === p.barcode ? (
-                      <div style={s.editRow}>
-                        <input
-                          style={{ ...s.editInput, borderColor: ACCENT, background: C.inputBg, color: C.text }}
-                          value={editName}
-                          onChange={e => setEditName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
-                          autoFocus
-                        />
-                        <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
-                        <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
-                      </div>
-                    ) : (
-                      <div style={s.productRow}>
-                        <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
-                        {!p.barcode.startsWith('manual_') && (
-                          <span style={{ ...s.barcodeTag, color: C.textMuted }}>📷</span>
-                        )}
-                        <div style={s.productActions}>
-                          <button style={{ ...s.iconBtn, color: C.textLight }} onClick={() => startEdit(p)}>✎</button>
-                          <button style={{ ...s.iconBtn, color: C.danger }} onClick={() => handleDelete(p.barcode)}>🗑</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+        ) : products.length > 0 && (
+          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+            <div style={s.listHeader}>
+              <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>
+                {products.length} Product{products.length !== 1 ? 's' : ''}
+              </p>
+              <button style={{ ...s.clearBtn, color: C.danger }} onClick={handleClearAll}>
+                Clear All
+              </button>
             </div>
-          )
+            {products.map((p, idx) => (
+              <div key={p.barcode}>
+                {idx > 0 && <div style={{ ...s.divider, background: C.divider }} />}
+                {editingBarcode === p.barcode ? (
+                  <div style={s.editRow}>
+                    <input
+                      style={{ ...s.input, ...inp, borderColor: ACCENT, flex: 1, marginBottom: 0 }}
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
+                      autoFocus
+                    />
+                    <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
+                    <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
+                  </div>
+                ) : (
+                  <div style={s.productRow}>
+                    <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                    {!p.barcode.startsWith('manual_') && (
+                      <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
+                    )}
+                    <div style={s.actions}>
+                      <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
+                      <button style={{ ...s.iconBtn, color: C.danger }} onClick={() => handleDelete(p.barcode)}>🗑</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
-
-        <div style={{ ...s.infoBox, background: C.infoBox }}>
-          <p style={{ ...s.infoText, color: C.infoText }}>
-            Products are automatically saved when you add items to an invoice. Next time you type that product name it will autofill instantly.
-          </p>
-        </div>
       </div>
     </div>
   );
 }
 
 const s = {
-  page: {
-    minHeight: '100dvh',
-    display: 'flex',
-    flexDirection: 'column',
-  },
+  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
     borderBottom: '1px solid',
-    padding: '14px 16px 12px',
-    paddingTop: 'max(14px, env(safe-area-inset-top))',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
+    padding: '12px 16px 10px',
+    paddingTop: 'max(12px, env(safe-area-inset-top))',
+    display: 'flex', alignItems: 'center', gap: 12,
   },
   hamburger: {
-    background: 'none',
-    border: 'none',
-    fontSize: 24,
-    cursor: 'pointer',
-    padding: '2px 4px',
-    WebkitTapHighlightColor: 'transparent',
-    flexShrink: 0,
+    background: 'none', border: 'none', fontSize: 22,
+    cursor: 'pointer', padding: '3px 4px',
+    WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 800,
-    textAlign: 'center',
-  },
+  title: { flex: 1, fontSize: 17, fontWeight: 700, textAlign: 'center' },
   addBtn: {
-    background: ACCENT,
-    border: 'none',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: 14,
-    padding: '8px 14px',
-    borderRadius: 20,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
+    background: ACCENT, border: 'none', color: '#fff',
+    fontWeight: 600, fontSize: 13, padding: '6px 14px',
+    borderRadius: 8, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
   body: {
-    padding: '16px 16px 40px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 14,
-    maxWidth: 480,
-    width: '100%',
-    margin: '0 auto',
-    boxSizing: 'border-box',
+    padding: '14px 16px 48px',
+    display: 'flex', flexDirection: 'column', gap: 10,
+    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
-  card: {
-    borderRadius: 16,
-    padding: 18,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+  card: { borderRadius: 12, padding: '14px 16px', border: '1px solid' },
+  sectionLabel: {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 10px',
+  },
+  fieldLabel: { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 5 },
+  input: {
+    width: '100%', boxSizing: 'border-box', height: 44,
+    fontSize: 15, padding: '0 12px',
+    border: '1px solid', borderRadius: 8,
+    outline: 'none', WebkitAppearance: 'none', marginBottom: 4,
+  },
+  error: { fontSize: 13, margin: '4px 0 0', fontWeight: 600 },
+  saveBtn: {
+    width: '100%', marginTop: 10, height: 44,
+    background: ACCENT, border: 'none', borderRadius: 8,
+    fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer',
   },
   listHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
   },
   clearBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-    padding: '4px 0',
-    WebkitTapHighlightColor: 'transparent',
+    background: 'none', border: 'none', fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', padding: '2px 0', WebkitTapHighlightColor: 'transparent',
   },
-  label: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 600,
-    marginBottom: 4,
-    marginTop: 12,
-  },
-  input: {
-    width: '100%',
-    boxSizing: 'border-box',
-    height: 52,
-    fontSize: 16,
-    padding: '0 14px',
-    border: '1.5px solid',
-    borderRadius: 10,
-    outline: 'none',
-    WebkitAppearance: 'none',
-    marginBottom: 4,
-  },
-  error: { fontSize: 13, margin: '6px 0 0', fontWeight: 600 },
-  saveNewBtn: {
-    width: '100%',
-    marginTop: 14,
-    height: 52,
-    background: ACCENT,
-    border: 'none',
-    borderRadius: 12,
-    fontSize: 16,
-    fontWeight: 700,
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  list: { display: 'flex', flexDirection: 'column' },
-  divider: { height: 1, margin: '2px 0' },
+  divider: { height: 1, margin: '0' },
   productRow: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 0',
-    gap: 8,
+    display: 'flex', alignItems: 'center',
+    padding: '11px 0', gap: 8,
   },
   productName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: 600,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    flex: 1, fontSize: 15, fontWeight: 500,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  barcodeTag: {
-    fontSize: 14,
-    flexShrink: 0,
-  },
-  productActions: { display: 'flex', gap: 4, flexShrink: 0 },
+  actions: { display: 'flex', gap: 2, flexShrink: 0 },
   iconBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: 18,
-    cursor: 'pointer',
-    width: 36,
-    height: 36,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    padding: 0,
-    WebkitTapHighlightColor: 'transparent',
+    background: 'none', border: 'none', fontSize: 17,
+    cursor: 'pointer', width: 34, height: 34,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 17, padding: 0, WebkitTapHighlightColor: 'transparent',
   },
   editRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '8px 0',
-  },
-  editInput: {
-    flex: 1,
-    height: 44,
-    fontSize: 15,
-    padding: '0 10px',
-    border: '1.5px solid',
-    borderRadius: 8,
-    outline: 'none',
-    minWidth: 0,
+    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0',
   },
   empty: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: 60,
-    gap: 8,
-    textAlign: 'center',
+    paddingTop: 60, textAlign: 'center', display: 'flex',
+    flexDirection: 'column', alignItems: 'center', gap: 6,
   },
-  emptyText: { fontSize: 18, fontWeight: 700, margin: 0 },
-  emptySubText: { fontSize: 13, margin: 0, maxWidth: 300, lineHeight: 1.5 },
-  infoBox: {
-    borderRadius: 12,
-    padding: '14px 16px',
-  },
-  infoText: {
-    fontSize: 13,
-    margin: 0,
-    lineHeight: 1.6,
-  },
+  emptyText: { fontSize: 17, fontWeight: 700, margin: 0 },
+  emptySubText: { fontSize: 13, margin: 0, maxWidth: 280, lineHeight: 1.5 },
 };

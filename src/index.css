@@ -3,19 +3,25 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: #f2f2f7;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f4f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
 }
 
-input:focus {
+input, textarea, button {
+  font-family: inherit;
+}
+
+input:focus, textarea:focus {
   border-color: #1a73e8 !important;
-  box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
+  box-shadow: 0 0 0 3px rgba(26,115,232,0.12) !important;
+  outline: none;
 }
 
 button:active {
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
 /* Remove number input spinners */
@@ -25,3 +31,7 @@ input[type=number]::-webkit-inner-spin-button {
   margin: 0;
 }
 input[type=number] { -moz-appearance: textfield; }
+
+textarea {
+  resize: none;
+}

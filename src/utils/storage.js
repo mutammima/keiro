@@ -8,6 +8,7 @@ const KEYS = {
   BUSINESS_NAME:    'inv_business_name',
   BUSINESS_PHONE:   'inv_business_phone',
   STORE_PHONES:     'inv_store_phones',   // { storeName: phone }
+  STORE_ADDRESSES:  'inv_store_addrs',    // { storeName: address }
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -112,6 +113,30 @@ export function saveStorePhone(storeName, phone) {
   const phones = get(KEYS.STORE_PHONES, {});
   phones[storeName.trim()] = phone.trim();
   set(KEYS.STORE_PHONES, phones);
+}
+
+// ─── Store Addresses ──────────────────────────────────────────────────────────
+export function getStoreAddress(storeName) {
+  if (!storeName?.trim()) return '';
+  const addrs = get(KEYS.STORE_ADDRESSES, {});
+  return addrs[storeName.trim()] || '';
+}
+
+export function saveStoreAddress(storeName, address) {
+  if (!storeName?.trim()) return;
+  const addrs = get(KEYS.STORE_ADDRESSES, {});
+  addrs[storeName.trim()] = address.trim();
+  set(KEYS.STORE_ADDRESSES, addrs);
+}
+
+// ─── Invoice Payment Status ───────────────────────────────────────────────────
+export function updateInvoicePaymentStatus(number, status) {
+  const list = get(KEYS.INVOICES, []);
+  const idx = list.findIndex(inv => inv.number === number);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], paymentStatus: status };
+    set(KEYS.INVOICES, list);
+  }
 }
 
 // ─── Business Name ────────────────────────────────────────────────────────────
