@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { generatePDFBlob } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, STATUS } from '../theme';
+import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../theme';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -73,7 +73,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
-      <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
+      <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
         <span style={{ ...s.title, color: C.text }}>Invoice #{invoice.number}</span>
         <div style={{ width: 60 }} />
@@ -199,7 +199,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 const s = {
   page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
-    borderBottom: '1px solid',
     padding: '12px 16px 10px',
     paddingTop: 'max(12px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',

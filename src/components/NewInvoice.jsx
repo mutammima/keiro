@@ -4,7 +4,7 @@ import BarcodeScanner from './BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
 import EditItemModal from './EditItemModal';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT } from '../theme';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import {
   getNextInvoiceNumber,
   saveInvoice,
@@ -160,7 +160,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
 
       <div style={{ ...s.page, background: C.bg }}>
         {/* Header */}
-        <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
+        <div style={{ ...s.header, ...glassStyle(dark) }}>
           <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
           <div style={s.headerCenter}>
             {editingBiz ? (
@@ -332,7 +332,6 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
 const s = {
   page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
-    borderBottom: '1px solid',
     padding: '12px 16px 10px',
     paddingTop: 'max(12px, env(safe-area-inset-top))',
     display: 'flex',

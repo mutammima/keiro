@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT } from '../theme';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import {
   getAllProducts,
   saveProductBarcode,
@@ -58,7 +58,7 @@ export default function Products({ onOpenDrawer }) {
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
-      <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
+      <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Products</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
@@ -140,7 +140,6 @@ export default function Products({ onOpenDrawer }) {
 const s = {
   page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
-    borderBottom: '1px solid',
     padding: '12px 16px 10px',
     paddingTop: 'max(12px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', gap: 12,

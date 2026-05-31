@@ -66,6 +66,23 @@ export const DARK = {
   toggleTrack: '#333333',
 };
 
+// Liquid-glass sticky header style
+export function glassStyle(dark) {
+  return {
+    position: 'sticky',
+    top: 0,
+    zIndex: 200,
+    backdropFilter: 'blur(20px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+    background: dark
+      ? 'rgba(0,0,0,0.72)'
+      : 'rgba(244,244,245,0.80)',
+    borderBottom: dark
+      ? '1px solid rgba(255,255,255,0.06)'
+      : '1px solid rgba(0,0,0,0.08)',
+  };
+}
+
 export const STATUS = {
   paid:    { label: 'Paid',    light: { bg: '#f0fdf4', text: '#16a34a' }, dark: { bg: '#052e1a', text: '#4ade80' } },
   unpaid:  { label: 'Unpaid',  light: { bg: '#fef2f2', text: '#dc2626' }, dark: { bg: '#2d0a0a', text: '#f87171' } },
