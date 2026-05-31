@@ -9,7 +9,7 @@ import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../hooks/useInvoiceHistory';
 
-export default function InvoiceHistory({ onOpenDrawer }) {
+export default function InvoiceHistory({ onOpenDrawer, onSelectStore }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -48,7 +48,12 @@ export default function InvoiceHistory({ onOpenDrawer }) {
         {/* Top row: store + actions */}
         <div style={s.cardTop}>
           <div style={s.cardTopLeft}>
-            <span style={{ ...s.storeName, color: C.text }}>{inv.storeName}</span>
+            <button
+              style={{ ...s.storeName, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+              onClick={() => onSelectStore?.(inv.storeName)}
+            >
+              {inv.storeName}
+            </button>
             <span style={{ ...s.cardMeta, color: C.textMuted }}>
               #{inv.number}  ·  {inv.date}{inv.time ? `  ·  ${inv.time}` : ''}
             </span>

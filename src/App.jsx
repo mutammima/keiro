@@ -7,6 +7,7 @@ import NewInvoice from './components/NewInvoice';
 import InvoiceView from './components/InvoiceView';
 import InvoiceHistory from './components/InvoiceHistory';
 import Products from './components/Products';
+import StoreBalance from './components/StoreBalance';
 import './App.css';
 
 function AppInner() {
@@ -15,6 +16,7 @@ function AppInner() {
   const [page, setPage] = useState('invoice');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
+  const [selectedStore, setSelectedStore] = useState(null);
 
   function openDrawer() { setDrawerOpen(true); }
   function closeDrawer() { setDrawerOpen(false); }
@@ -42,8 +44,11 @@ function AppInner() {
           onNewInvoice={() => { setCurrentInvoice(null); navigate('invoice'); }}
         />
       )}
-      {page === 'history'  && <InvoiceHistory onOpenDrawer={openDrawer} />}
+      {page === 'history'  && <InvoiceHistory onOpenDrawer={openDrawer} onSelectStore={s => { setSelectedStore(s); setPage('store-balance'); }} />}
       {page === 'products' && <Products       onOpenDrawer={openDrawer} />}
+      {page === 'store-balance' && selectedStore && (
+        <StoreBalance storeName={selectedStore} onBack={() => setPage('history')} />
+      )}
     </div>
   );
 }

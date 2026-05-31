@@ -105,6 +105,20 @@ export function getProductByBarcode(barcode) {
 }
 
 /**
+ * Searches the catalog for a product by name (case-insensitive).
+ * Used to auto-fill the price when a product name is typed or selected.
+ * @param {string} name - Product name to search for.
+ * @returns {{ name: string, lastPrice: number } | null} First match, or null.
+ */
+export function getProductByName(name) {
+  if (!name?.trim()) return null;
+  const catalog = get(KEYS.PRODUCT_CATALOG, {});
+  const lower = name.trim().toLowerCase();
+  const match = Object.values(catalog).find(p => p.name.toLowerCase() === lower);
+  return match || null;
+}
+
+/**
  * Inserts or updates a product in the catalog.
  * @param {string} barcode - The barcode key.
  * @param {string} name - Human-readable product name.

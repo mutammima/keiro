@@ -1,3 +1,8 @@
+/**
+ * NavDrawer — slide-in navigation sidebar.
+ * Opens from the left; closes via the back arrow or backdrop tap.
+ */
+
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 
@@ -13,23 +18,30 @@ export default function NavDrawer({ open, onClose, onNav, currentPage }) {
 
   return (
     <>
-      {open && (
-        <div
-          style={{ ...s.backdrop }}
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+      {/* Dimmed backdrop — fades in/out with the drawer */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        style={{
+          ...s.backdrop,
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+      />
+
+      {/* Drawer panel */}
       <div style={{
         ...s.drawer,
         background: C.drawerBg,
-        borderRightColor: C.drawerBorder,
         transform: open ? 'translateX(0)' : 'translateX(-100%)',
       }}>
-        <div style={{ ...s.drawerHeader, borderBottomColor: C.drawerBorder }}>
-          <span style={{ ...s.drawerTitle, color: C.text }}>Menu</span>
-          <button style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>✕</button>
+        {/* Header — just the back arrow, no "Menu" title */}
+        <div style={{ ...s.drawerHeader }}>
+          <button style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>
+            ←
+          </button>
         </div>
+
         <nav style={s.nav}>
           {NAV_ITEMS.map(item => {
             const active = currentPage === item.id || (item.id === 'invoice' && currentPage === 'invoice-view');
@@ -59,24 +71,24 @@ const s = {
     position: 'fixed', inset: 0,
     background: 'rgba(0,0,0,0.6)',
     zIndex: 1500,
+    transition: 'opacity 2.5s ease-in-out',
   },
   drawer: {
     position: 'fixed', top: 0, left: 0, bottom: 0,
     width: 'min(200px, 58vw)', zIndex: 1600,
-    transition: 'transform 1.5s cubic-bezier(0.32,0.72,0,1)',
+    transition: 'transform 2.5s ease-in-out',
     display: 'flex', flexDirection: 'column',
   },
   drawerHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    display: 'flex', alignItems: 'center',
     padding: '16px 16px 12px',
     paddingTop: 'max(16px, env(safe-area-inset-top))',
   },
-  drawerTitle: { fontSize: 15, fontWeight: 700, letterSpacing: 0.2 },
   closeBtn: {
-    background: 'rgba(255,255,255,0.08)', border: 'none', fontSize: 15,
-    cursor: 'pointer', padding: 0, lineHeight: 1,
-    width: 32, height: 32, borderRadius: 16,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'none', border: 'none',
+    fontSize: 22, fontWeight: 300,
+    cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+    WebkitTapHighlightColor: 'transparent',
   },
   nav: {
     display: 'flex', flexDirection: 'column',

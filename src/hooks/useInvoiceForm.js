@@ -8,6 +8,7 @@ import {
   getNextInvoiceNumber,
   saveInvoice,
   getProductByBarcode,
+  getProductByName,
   saveProductBarcode,
   saveStoreName,
   saveProductName,
@@ -76,6 +77,22 @@ export function useInvoiceForm(onGenerated) {
   const [pinnedStores] = useState(() => getPinnedStores());
 
   // ── Add-item form state ──────────────────────────────────────────────────
+
+  /**
+   * Sets the product name and — if a saved price exists for that product —
+   * auto-fills the price field. This fires when the user selects from autocomplete
+   * or finishes typing a name that matches a catalog entry.
+   * @param {string} val - Product name being set.
+   */
+  function handleProductNameChange(val) {
+    setProductName(val);
+    // Only auto-fill price when the field is currently empty to avoid overwriting
+    const saved = getProductByName(val);
+    if (saved && saved.lastPrice > 0) {
+      setPrice(String(saved.lastPrice));
+    }
+  }
+
   const [productName, setProductName] = useState('');
   const [qty, setQty]                 = useState('');
   const [price, setPrice]             = useState('');
@@ -246,7 +263,8 @@ export function useInvoiceForm(onGenerated) {
     date, setDate, time, setTime, notes, setNotes,
 
     // Add-item form
-    productName, setProductName,
+    productName,
+    setProductName: handleProductNameChange,  // auto-fills price from catalog
     qty, setQty,
     price, setPrice,
     lastBarcode,

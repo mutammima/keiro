@@ -12,6 +12,9 @@ import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
 import { useInvoiceForm } from '../hooks/useInvoiceForm';
 
+/** Small red asterisk for required fields. */
+const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
+
 export default function NewInvoice({ onOpenDrawer, onGenerated }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
@@ -116,7 +119,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             )}
 
             <AutofillInput
-              label="Store / Customer Name"
+              label={<>Store / Customer Name <Req /></>}
               placeholder="e.g. Sunrise Deli"
               value={storeName}
               onChange={handleStoreNameChange}
@@ -131,7 +134,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
               </div>
             </div>
             <div style={{ marginTop: 12 }}>
-              <label style={{ ...s.fieldLabel, color: C.textSub }}>Address (optional)</label>
+              <label style={{ ...s.fieldLabel, color: C.textSub }}>Address</label>
               <input style={{ ...s.input, ...inp }} placeholder="123 Main St, Brooklyn, NY"
                 value={storeAddress} onChange={e => setStoreAddress(e.target.value)} />
             </div>
@@ -142,7 +145,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Invoice Details</p>
             <div style={s.twoCol}>
               <div style={{ flex: 2 }}>
-                <label style={{ ...s.fieldLabel, color: C.textSub }}>Date</label>
+                <label style={{ ...s.fieldLabel, color: C.textSub }}>Date <Req /></label>
                 <input style={{ ...s.input, ...inp }} value={date} onChange={e => setDate(e.target.value)} />
               </div>
               <div style={{ flex: 1 }}>
@@ -157,7 +160,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <AutofillInput label="Product Name" placeholder="e.g. Marlboro Reds"
+                <AutofillInput label={<>Product Name <Req /></>} placeholder="e.g. Marlboro Reds"
                   value={productName} onChange={setProductName} suggestions={productNames} required dark={dark} />
               </div>
               <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
@@ -172,12 +175,12 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             )}
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
-                <label style={{ ...s.fieldLabel, color: C.textSub }}>Qty</label>
+                <label style={{ ...s.fieldLabel, color: C.textSub }}>Qty <Req /></label>
                 <input style={{ ...s.input, ...inp }} inputMode="decimal" type="number" min="0" step="1"
                   placeholder="1" value={qty} onChange={e => setQty(e.target.value)} />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ ...s.fieldLabel, color: C.textSub }}>Unit Price ($)</label>
+                <label style={{ ...s.fieldLabel, color: C.textSub }}>Unit Price ($) <Req /></label>
                 <input style={{ ...s.input, ...inp }} inputMode="decimal" type="number" min="0" step="0.01"
                   placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)} />
               </div>
