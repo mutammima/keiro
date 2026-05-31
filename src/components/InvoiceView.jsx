@@ -8,6 +8,7 @@ import { generatePDFBlob } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../theme';
 import { getBusinessName } from '../utils/storage';
+import SignaturePad from './SignaturePad';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -16,6 +17,9 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   // ── State ──────────────────────────────────────────────────────────────────
   const [busy, setBusy] = useState('');   // 'download' | 'share' | ''
   const [copied, setCopied] = useState(false);
+  const [sellerSig, setSellerSig] = useState(null);
+  const [buyerSig,  setBuyerSig]  = useState(null);
+  const [showSigs,  setShowSigs]  = useState(false);
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const subtotal = invoice.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
@@ -23,40 +27,74 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
   /** Generates the PDF blob + filename for this invoice. */
   async function getBlob() {
-    return generatePDFBlob(invoice);
+    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig });
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  /** Generates the PDF and triggers a browser file download. */
+  /**
+   * Opens the PDF in a new tab.
+   * We open the tab SYNCHRONOUSLY (inside the user gesture) before any await,
+   * then navigate it once the PDF blob is ready — browsers allow this pattern
+   * without blocking it as a popup.
+   */
   async function handleDownload() {
+    // Must open synchronously before any await to avoid popup blockers
+    const newTab = window.open('', '_blank');
     setBusy('download');
     try {
-      const { blob, filename } = await getBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) { console.error(e); }
-    finally { setBusy(''); }
+      const { doc } = await getBlob();
+      const blobUrl = doc.output('bloburl');
+      if (newTab) {
+        newTab.location.href = blobUrl;
+      } else {
+        // Popup was blocked — fall back to same-tab navigation
+        window.location.href = blobUrl;
+      }
+    } catch (e) {
+      console.error(e);
+      if (newTab) newTab.close();
+    } finally { setBusy(''); }
   }
 
-  /** Generates the PDF and opens the native share sheet, or downloads as fallback. */
+  /** Generates the PDF and opens the native share sheet, or opens in new tab as fallback. */
   async function handleShare() {
     setBusy('share');
     try {
-      const { blob, filename } = await getBlob();
+      const { blob, filename, doc } = await getBlob();
       const file = new File([blob], filename, { type: 'application/pdf' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
       } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        const blobUrl = doc.output('bloburl');
+        window.open(blobUrl, '_blank');
       }
     } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
     finally { setBusy(''); }
+  }
+
+  /** Opens WhatsApp with a pre-filled invoice summary message. */
+  function handleWhatsApp() {
+    const phone = (invoice.storePhone || '').replace(/\D/g, '');
+    const lines = [
+      `*Invoice #${invoice.number}*`,
+      `${invoice.date}`,
+      '',
+      `*${invoice.businessName || ''}*`,
+      `Bill To: ${invoice.storeName}`,
+      '',
+      ...invoice.items.map(i =>
+        `${i.name}  ${i.qty} × $${Number(i.price).toFixed(2)} = *$${(i.qty * i.price).toFixed(2)}*`
+      ),
+      '',
+      `*Total: $${subtotal.toFixed(2)}*`,
+      ...(invoice.notes ? [`\nNotes: ${invoice.notes}`] : []),
+    ].join('\n');
+    const encoded = encodeURIComponent(lines);
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encoded}`
+      : `https://wa.me/?text=${encoded}`;
+    window.open(url, '_blank');
   }
 
   /** Formats the invoice as plain text and copies it to the clipboard. */
@@ -178,6 +216,33 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
           )}
         </div>
 
+        {/* Signatures */}
+        <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showSigs ? 14 : 0 }}>
+            <div>
+              <p style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: 0 }}>Signatures</p>
+              <p style={{ color: C.textMuted, fontSize: 12, margin: '2px 0 0' }}>
+                {sellerSig || buyerSig ? 'Signed — will appear in PDF' : 'Optional · included in PDF'}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSigs(v => !v)}
+              style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+            >
+              {showSigs ? 'Hide' : 'Sign'}
+            </button>
+          </div>
+          {showSigs && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <SignaturePad label="Seller / Deliverer" dark={dark} C={C} onChange={setSellerSig} />
+              <SignaturePad label="Buyer / Recipient"  dark={dark} C={C} onChange={setBuyerSig}  />
+              <p style={{ color: C.textLight, fontSize: 11, margin: 0, lineHeight: 1.5 }}>
+                Signing electronically here embeds your signature in the PDF. If you prefer a physical signature, print the invoice and sign the paper copy.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Actions */}
         <button
           style={{ ...s.primaryBtn, opacity: busy === 'download' ? 0.7 : 1 }}
@@ -204,6 +269,23 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
         </div>
 
         <button
+          style={{
+            ...s.ghostBtn,
+            background: '#25d366',
+            color: '#fff',
+            borderColor: '#25d366',
+            fontWeight: 700,
+            gap: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={handleWhatsApp}
+        >
+          <span style={{ fontSize: 16 }}>💬</span> Send via WhatsApp
+        </button>
+
+        <button
           style={{ ...s.ghostBtn, color: ACCENT, borderColor: C.cardBorder, background: C.card }}
           onClick={onNewInvoice}
         >
@@ -227,7 +309,7 @@ const s = {
   },
   title: { fontSize: 17, fontWeight: 700 },
   body: {
-    padding: '14px 16px 48px',
+    padding: '14px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 12,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },

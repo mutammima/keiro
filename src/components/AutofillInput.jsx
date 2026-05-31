@@ -27,7 +27,7 @@ export default function AutofillInput({
     <div ref={wrapRef} style={{ position: 'relative', width: '100%' }} className={className}>
       {label && (
         <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: C.textSub, marginBottom: 5 }}>
-          {label}{required && <span style={{ color: C.danger }}> *</span>}
+          {label}
         </label>
       )}
       <input

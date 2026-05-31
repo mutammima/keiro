@@ -15,7 +15,7 @@ import { useInvoiceForm } from '../hooks/useInvoiceForm';
 /** Small red asterisk for required fields. */
 const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
 
-export default function NewInvoice({ onOpenDrawer, onGenerated }) {
+export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -26,7 +26,8 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
     editingBiz, setEditingBiz,
     editingBizPhone, setEditingBizPhone,
     handleBizBlur, handleBizPhoneBlur,
-    storeName, storePhone, setStorePhone,
+    storeName, customerName, setCustomerName,
+    storePhone, setStorePhone,
     storeAddress, setStoreAddress,
     handleStoreNameChange,
     storeNames, pinnedStores,
@@ -91,7 +92,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
 
         <div style={s.body}>
           {/* Customer */}
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div className="card-enter-1" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Customer</p>
 
             {/* Pinned store chips */}
@@ -119,13 +120,18 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             )}
 
             <AutofillInput
-              label={<>Store / Customer Name <Req /></>}
-              placeholder="e.g. Sunrise Deli"
+              label={<>Store Name <Req /></>}
+              placeholder="Sunrise Deli"
               value={storeName}
               onChange={handleStoreNameChange}
               suggestions={storeNames}
               required dark={dark}
             />
+            <div style={{ marginTop: 12 }}>
+              <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <Req /></label>
+              <input style={{ ...s.input, ...inp }} placeholder="John Smith"
+                value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            </div>
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Phone</label>
@@ -141,7 +147,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           </div>
 
           {/* Invoice details */}
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div className="card-enter-2" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Invoice Details</p>
             <div style={s.twoCol}>
               <div style={{ flex: 2 }}>
@@ -156,11 +162,11 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           </div>
 
           {/* Add item */}
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div className="card-enter-3" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <AutofillInput label={<>Product Name <Req /></>} placeholder="e.g. Marlboro Reds"
+                <AutofillInput label={<>Product Name <Req /></>} placeholder="Marlboro Reds"
                   value={productName} onChange={setProductName} suggestions={productNames} required dark={dark} />
               </div>
               <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
@@ -176,8 +182,8 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Qty <Req /></label>
-                <input style={{ ...s.input, ...inp }} inputMode="decimal" type="number" min="0" step="1"
-                  placeholder="1" value={qty} onChange={e => setQty(e.target.value)} />
+                <input style={{ ...s.input, ...inp }} inputMode="numeric" type="number" min="1" step="1"
+                  placeholder="1" value={qty} onChange={e => setQty(e.target.value.replace(/[^0-9]/g, ''))} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Unit Price ($) <Req /></label>
@@ -185,6 +191,17 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
                   placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)} />
               </div>
             </div>
+            {/* Live line total */}
+            {qty > 0 && price >= 0 && !isNaN(qty) && !isNaN(price) && Number(qty) > 0 && price !== '' && (
+              <div style={{ ...s.lineTotal, background: C.rowBg }}>
+                <span style={{ color: C.textMuted, fontSize: 13 }}>
+                  {qty} × ${Number(price).toFixed(2)}
+                </span>
+                <span style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>
+                  = ${(Number(qty) * Number(price)).toFixed(2)}
+                </span>
+              </div>
+            )}
             {error && <p style={{ ...s.error, color: C.danger }}>{error}</p>}
             <button style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub }} onClick={addItem} type="button">
               + Add Item
@@ -192,16 +209,16 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           </div>
 
           {/* Items list */}
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div className="card-enter-4" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <InvoicePreview items={items} onRemove={removeItem} onEdit={setEditingItem} dark={dark} />
           </div>
 
           {/* Notes */}
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div className="card-enter-5" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Notes</p>
             <textarea
               style={{ ...s.textarea, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
-              placeholder="e.g. Cash on delivery, leave with manager…"
+              placeholder="Cash on delivery, leave with manager…"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
@@ -215,7 +232,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           >
             {generating ? 'Saving…' : 'Generate Invoice'}
           </button>
-          <AppFooter />
+          <AppFooter onNav={onNav} />
         </div>
       </div>
     </>
@@ -223,7 +240,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
 }
 
 const s = {
-  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
+  page: { minHeight: "100%", display: "flex", flexDirection: "column", overflowX: "hidden" },
   header: {
     padding: '12px 16px 10px',
     paddingTop: 'max(12px, env(safe-area-inset-top))',
@@ -261,7 +278,7 @@ const s = {
     outline: 'none', textAlign: 'center', background: 'transparent', maxWidth: 190, padding: '1px 4px',
   },
   body: {
-    padding: '14px 16px 48px',
+    padding: '14px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 12,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
@@ -290,6 +307,10 @@ const s = {
     outline: 'none', lineHeight: 1.5,
   },
   twoCol: { display: 'flex', gap: 10, marginTop: 12 },
+  lineTotal: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    borderRadius: 10, padding: '10px 14px', marginTop: 8,
+  },
   productRow: { display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 10 },
   scanBtn: {
     flexShrink: 0, width: 46, height: 46,

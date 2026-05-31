@@ -15,7 +15,7 @@ import autoTable from 'jspdf-autotable';
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
 async function buildPDF(invoice) {
-  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes } = invoice;
+  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature } = invoice;
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -180,6 +180,34 @@ async function buildPDF(invoice) {
     notesEndY = notesStartY + noteLines.length * 13;
   }
 
+  // ── Signatures ────────────────────────────────────────────────────────────
+  let sigStartY = notesEndY + 28;
+  const sigBoxW = (pageW - margin * 2 - 20) / 2;
+  const sigBoxH = 60;
+
+  // Seller
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(130, 130, 130);
+  doc.text('Seller / Deliverer Signature', margin, sigStartY);
+  if (sellerSignature) {
+    try { doc.addImage(sellerSignature, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch {}
+  }
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.5);
+  doc.line(margin, sigStartY + sigBoxH + 8, margin + sigBoxW, sigStartY + sigBoxH + 8);
+
+  // Buyer
+  const buyerX = margin + sigBoxW + 20;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(130, 130, 130);
+  doc.text('Buyer / Recipient Signature', buyerX, sigStartY);
+  if (buyerSignature) {
+    try { doc.addImage(buyerSignature, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch {}
+  }
+  doc.line(buyerX, sigStartY + sigBoxH + 8, buyerX + sigBoxW, sigStartY + sigBoxH + 8);
+
   // ── Footer ────────────────────────────────────────────────────────────────
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
@@ -193,7 +221,7 @@ async function buildPDF(invoice) {
 
   const filename = `Invoice_${number}_${storeName.replace(/\s+/g, '_')}.pdf`;
   const blob = doc.output('blob');
-  return { blob, filename, doc };
+  return { blob, filename, doc };  // doc exposed so callers can use doc.output('bloburl')
 }
 
 /**
@@ -206,21 +234,27 @@ export async function generatePDFBlob(invoice) {
 /**
  * Generates the PDF and triggers native share sheet (or download fallback).
  */
-export async function generateAndSharePDF(invoice) {
-  const { blob, filename } = await buildPDF(invoice);
+/**
+ * NOTE: callers must open a blank tab BEFORE calling this function
+ * (to satisfy browser popup-blocker requirements), then pass it as `targetTab`.
+ * If targetTab is null/undefined the PDF will still open but may be blocked.
+ */
+export async function generateAndSharePDF(invoice, targetTab) {
+  const { blob, filename, doc } = await buildPDF(invoice);
 
   if (navigator.share && navigator.canShare) {
     const file = new File([blob], filename, { type: 'application/pdf' });
     if (navigator.canShare({ files: [file] })) {
+      if (targetTab) targetTab.close(); // close the pre-opened tab if sharing natively
       await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
       return;
     }
   }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const blobUrl = doc.output('bloburl');
+  if (targetTab) {
+    targetTab.location.href = blobUrl;
+  } else {
+    window.open(blobUrl, '_blank');
+  }
 }

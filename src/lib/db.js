@@ -21,6 +21,15 @@ async function getCurrentUserId() {
   return data?.user?.id ?? null;
 }
 
+/**
+ * Returns { noSession: true } if there is no real Supabase session,
+ * so callers fall back to localStorage gracefully.
+ */
+async function noSession() {
+  const id = await getCurrentUserId();
+  return !id;
+}
+
 // ── Invoices ──────────────────────────────────────────────────────────────────
 
 /**
@@ -29,6 +38,7 @@ async function getCurrentUserId() {
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
 export async function getInvoices() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
   try {
     const { data, error } = await supabase
       .from('invoices')
@@ -193,6 +203,7 @@ export async function getNextInvoiceNumber() {
  * @returns {Promise<{ data: Object.<string,{name:string,lastPrice:number}>|null, error: object|null }>}
  */
 export async function getAllProducts() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
   try {
     const { data, error } = await supabase
       .from('products')
@@ -349,6 +360,7 @@ export async function clearAllProducts() {
  * @returns {Promise<{ data: string[]|null, error: object|null }>}
  */
 export async function getStoreNames() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
   try {
     const { data, error } = await supabase
       .from('stores')

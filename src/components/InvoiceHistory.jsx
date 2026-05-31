@@ -9,7 +9,7 @@ import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../hooks/useInvoiceHistory';
 
-export default function InvoiceHistory({ onOpenDrawer, onSelectStore }) {
+export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -43,17 +43,35 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore }) {
     const colors  = sc(inv.paymentStatus);
     const menuOpen = openMenu === inv.number;
 
+    // Overdue: unpaid/partial and older than 7 days
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const invDate = new Date(inv.date);
+    const isOverdue = (inv.paymentStatus !== 'paid') &&
+      !isNaN(invDate) && invDate.getTime() < sevenDaysAgo;
+
     return (
-      <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+      <div style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder }}>
         {/* Top row: store + actions */}
         <div style={s.cardTop}>
           <div style={s.cardTopLeft}>
-            <button
-              style={{ ...s.storeName, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-              onClick={() => onSelectStore?.(inv.storeName)}
-            >
-              {inv.storeName}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+              <button
+                style={{ ...s.storeName, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => onSelectStore?.(inv.storeName)}
+              >
+                {inv.storeName}
+              </button>
+              {isOverdue && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800,
+                  background: dark ? 'rgba(239,68,68,0.18)' : '#fef2f2',
+                  color: '#ef4444',
+                  border: '1px solid ' + (dark ? 'rgba(239,68,68,0.35)' : '#fca5a5'),
+                  borderRadius: 5, padding: '1px 6px',
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>Overdue</span>
+              )}
+            </div>
             <span style={{ ...s.cardMeta, color: C.textMuted }}>
               #{inv.number}  ·  {inv.date}{inv.time ? `  ·  ${inv.time}` : ''}
             </span>
@@ -285,14 +303,14 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore }) {
             )}
           </>
         )}
-        <AppFooter />
+        <AppFooter onNav={onNav} />
       </div>
     </div>
   );
 }
 
 const s = {
-  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
+  page: { minHeight: "100%", display: "flex", flexDirection: "column", overflowX: "hidden" },
   header: {
     padding: '14px 20px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
@@ -305,7 +323,7 @@ const s = {
   },
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
   body: {
-    padding: '12px 16px 56px',
+    padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },

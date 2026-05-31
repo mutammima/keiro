@@ -3,16 +3,12 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// Register service worker
+// Register service worker.
+// Update detection and the user-facing "Update available" banner are handled
+// by the useAppUpdate hook inside the app — NOT here. No silent force-reloads.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    // Auto-reload when a new version of the app is deployed
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      if (event.data?.type === 'SW_UPDATED') {
-        window.location.reload();
-      }
-    });
   });
 }
 

@@ -16,8 +16,11 @@ export default function LoginScreen({ onLogin }) {
   const C = dark ? DARK : LIGHT;
 
   const [mode, setMode]         = useState('signin'); // 'signin' | 'signup'
-  const [email, setEmail]       = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  // Convert username → fake email Supabase accepts
+  function toEmail(u) { return u.trim().toLowerCase() + '@invoicego.app'; }
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [info, setInfo]         = useState('');
@@ -27,23 +30,21 @@ export default function LoginScreen({ onLogin }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(''); setInfo('');
-    if (!email.trim() || !password) {
-      setError('Please enter your email and password.'); return;
+    if (!username.trim() || !password) {
+      setError('Please enter your username and password.'); return;
     }
     setLoading(true);
     try {
       let result;
+      const email = toEmail(username);
       if (mode === 'signin') {
-        result = await signInWithEmail(email.trim(), password);
+        result = await signInWithEmail(email, password);
       } else {
-        result = await signUpWithEmail(email.trim(), password);
+        result = await signUpWithEmail(email, password);
       }
 
       if (result.error) {
         setError(result.error.message || 'Something went wrong.');
-      } else if (mode === 'signup' && !result.user?.confirmed_at) {
-        setInfo('Account created! Check your email to confirm your address, then sign in.');
-        setMode('signin');
       } else {
         onLogin(result.user);
       }
@@ -92,11 +93,12 @@ export default function LoginScreen({ onLogin }) {
         {/* Form */}
         <form onSubmit={handleSubmit} style={s.form}>
           <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            autoComplete="email"
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
             style={{ ...s.input, background: C.inputBg, border: `1px solid ${C.inputBorder}`, color: C.text }}
           />
           <input
@@ -127,6 +129,14 @@ export default function LoginScreen({ onLogin }) {
             Use Face ID / Passkey
           </button>
         )}
+
+        {/* Dev bypass */}
+        <button
+          onClick={() => onLogin({ id: 'dev', email: 'dev@invoicego.app' })}
+          style={{ ...s.toggleBtn, color: C.textMuted, fontSize: 13, width: '100%', marginTop: -4 }}
+        >
+          Continue without account
+        </button>
 
         {/* Toggle mode */}
         <div style={s.toggle}>

@@ -69,13 +69,20 @@ export async function peekInvoiceNumber() {
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /**
- * Save an invoice to Supabase.
+ * Save an invoice to Supabase, falling back to localStorage if not authenticated.
  * @param {object} invoice
  * @returns {Promise<void>}
  */
 export async function saveInvoice(invoice) {
   const { error } = await db.saveInvoice(invoice);
-  if (error) console.error('saveInvoice error', error);
+  if (error) {
+    console.warn('saveInvoice: cloud save failed, using localStorage fallback', error);
+    const list = lsGet('inv_list', []);
+    // Replace if same number exists, otherwise prepend
+    const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
+    if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
+    lsSet('inv_list', list);
+  }
 }
 
 /**
@@ -149,7 +156,7 @@ export async function getProductByName(name) {
 }
 
 /**
- * Upsert a product in the cloud catalog.
+ * Upsert a product in the cloud catalog, falling back to localStorage if not authenticated.
  * @param {string} barcode
  * @param {string} name
  * @param {number} price
@@ -157,7 +164,12 @@ export async function getProductByName(name) {
  */
 export async function saveProductBarcode(barcode, name, price) {
   const { error } = await db.saveProductBarcode(barcode, name, price);
-  if (error) console.error('saveProductBarcode error', error);
+  if (error) {
+    console.warn('saveProductBarcode: cloud save failed, using localStorage fallback', error);
+    const catalog = lsGet('inv_catalog', {});
+    catalog[barcode] = { name, lastPrice: Number(price) };
+    lsSet('inv_catalog', catalog);
+  }
 }
 
 /**
@@ -183,7 +195,11 @@ export async function getAllProducts() {
  */
 export async function updateProduct(barcode, name, price) {
   const { error } = await db.updateProduct(barcode, name, price);
-  if (error) console.error('updateProduct error', error);
+  if (error) {
+    const catalog = lsGet('inv_catalog', {});
+    catalog[barcode] = { name, lastPrice: Number(price) };
+    lsSet('inv_catalog', catalog);
+  }
 }
 
 /**
@@ -193,7 +209,11 @@ export async function updateProduct(barcode, name, price) {
  */
 export async function deleteProduct(barcode) {
   const { error } = await db.deleteProduct(barcode);
-  if (error) console.error('deleteProduct error', error);
+  if (error) {
+    const catalog = lsGet('inv_catalog', {});
+    delete catalog[barcode];
+    lsSet('inv_catalog', catalog);
+  }
 }
 
 /**
@@ -223,14 +243,19 @@ export async function getStoreNames() {
 }
 
 /**
- * Upsert a store name.
+ * Upsert a store name, falling back to localStorage if not authenticated.
  * @param {string} name
  * @returns {Promise<void>}
  */
 export async function saveStoreName(name) {
   if (!name?.trim()) return;
   const { error } = await db.saveStoreName(name);
-  if (error) console.error('saveStoreName error', error);
+  if (error) {
+    console.warn('saveStoreName: cloud save failed, using localStorage fallback', error);
+    const stores = lsGet('inv_stores', []);
+    if (!stores.includes(name.trim())) stores.unshift(name.trim());
+    lsSet('inv_stores', stores);
+  }
 }
 
 // ─── Store Phones ─────────────────────────────────────────────────────────────

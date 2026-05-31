@@ -1,2 +1,77 @@
-/* App-level reset */
+/* ── Global reset ──────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
+
+/* ── Cross-platform viewport lock ──────────────────────────────────── */
+html, body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* dvh not supported on older Safari/desktop — fall back to vh */
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Every element inherits touch-action */
+* { touch-action: inherit; }
+
+/* ── Desktop centering — app never exceeds phone width on big screens ── */
+#root {
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  /* thin side shadow so it looks framed on desktop */
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ── Page slide / fade transitions ───────────────────────────────── */
+/* Used by AppInner when navigating between pages.                     */
+/* The wrapper gets `key={page}` so React remounts it on every nav.   */
+
+@keyframes page-from-right {
+  from { transform: translateX(40px);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes page-from-left {
+  from { transform: translateX(-40px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes page-from-bottom {
+  from { transform: translateY(22px);  opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes page-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.page-from-right  { animation: page-from-right  0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.page-from-left   { animation: page-from-left   0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.page-from-bottom { animation: page-from-bottom 0.30s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.page-fade        { animation: page-fade        0.22s ease both; }
+
+/* ── New Invoice card stagger ────────────────────────────────────── */
+/* Each section card on the new-invoice screen enters sequentially.  */
+
+@keyframes card-enter {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.card-enter-1 { animation: card-enter 0.32s 0.04s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.card-enter-2 { animation: card-enter 0.32s 0.10s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.card-enter-3 { animation: card-enter 0.32s 0.16s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.card-enter-4 { animation: card-enter 0.32s 0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.card-enter-5 { animation: card-enter 0.32s 0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.card-enter-6 { animation: card-enter 0.32s 0.31s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+
+/* ── Bottom-nav active dot slide ────────────────────────────────── */
+/* The sliding pill under the active tab.                            */
+
+@keyframes dot-slide-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}

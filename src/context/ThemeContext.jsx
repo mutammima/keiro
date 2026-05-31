@@ -1,3 +1,9 @@
+/**
+ * ThemeContext — provides dark/light state.
+ * Theme change is a CSS fade (transition: background-color) on all elements.
+ * No overlay or wipe — just a clean cross-fade.
+ */
+
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext({ dark: false, toggleDark: () => {} });

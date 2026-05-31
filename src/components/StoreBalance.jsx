@@ -66,6 +66,8 @@ export default function StoreBalance({ storeName, onBack }) {
   }
 
   async function handleShare(inv) {
+    // Open tab synchronously (user gesture) before any async work
+    const targetTab = window.open('', '_blank');
     const normalised = {
       ...inv,
       number: inv.number || inv.invoice_number,
@@ -77,7 +79,7 @@ export default function StoreBalance({ storeName, onBack }) {
       paymentStatus: getStatus(inv),
     };
     setSharing(normalised.number);
-    try { await generateAndSharePDF(normalised); } catch {}
+    try { await generateAndSharePDF(normalised, targetTab); } catch { if (targetTab) targetTab.close(); }
     finally { setSharing(null); }
   }
 
@@ -213,7 +215,7 @@ const s = {
   },
   title: { fontSize: 17, fontWeight: 700, textAlign: 'center', flex: 1 },
   body: {
-    padding: '12px 16px 56px',
+    padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },

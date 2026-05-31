@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { useBackup } from '../hooks/useBackup';
-import { signOut } from '../lib/auth';
+import ThemeToggle from './ThemeToggle';
 
 const WHATS_NEW = [
   { v: '3.2', notes: ['Barcode auto-lookup from product database', 'Backup & restore your data', 'Emoji-free clean UI'] },
@@ -26,7 +26,7 @@ const ROADMAP = [
   'CSV export for bookkeeping',
 ];
 
-export default function AppFooter() {
+export default function AppFooter({ onNav }) {
   const { dark, toggleDark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -42,30 +42,7 @@ export default function AppFooter() {
       <div style={{ ...s.footer, borderTopColor: C.divider }}>
 
         {/* Light / Dark toggle */}
-        <div style={{ ...s.modeRow, background: dark ? '#1a1a1a' : '#e0e0e0' }}>
-          <button
-            style={{
-              ...s.modeBtn,
-              background: !dark ? '#ffffff' : 'none',
-              color: !dark ? '#09090b' : C.textMuted,
-              boxShadow: !dark ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
-            }}
-            onClick={() => { if (dark) toggleDark(); }}
-          >
-            Light
-          </button>
-          <button
-            style={{
-              ...s.modeBtn,
-              background: dark ? '#2a2a2a' : 'none',
-              color: dark ? '#ffffff' : C.textMuted,
-              boxShadow: dark ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
-            }}
-            onClick={() => { if (!dark) toggleDark(); }}
-          >
-            Dark
-          </button>
-        </div>
+        <ThemeToggle />
 
         {/* Links — pipe-separated like Daimun */}
         <div style={s.linkRow}>
@@ -75,9 +52,9 @@ export default function AppFooter() {
           <Pipe C={C} />
           <FooterLink label="Backup"       onPress={() => setModal('backup')}  C={C} accent />
           <Pipe C={C} />
-          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoiceGo Bug Report', '_blank')} C={C} />
+          <FooterLink label="About"        onPress={() => onNav?.('about')}    C={C} />
           <Pipe C={C} />
-          <FooterLink label="Sign Out" onPress={async () => { await signOut(); window.location.reload(); }} C={C} />
+          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoiceGo Bug Report', '_blank')} C={C} />
         </div>
 
         <p style={{ ...s.version, color: C.textLight }}>InvoiceGo v4.0 · Cloud sync</p>

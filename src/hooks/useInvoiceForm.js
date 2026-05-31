@@ -67,9 +67,10 @@ export function useInvoiceForm(onGenerated) {
   const [editingBizPhone, setEditingBizPhone] = useState(false);
 
   // ── Store / customer state ───────────────────────────────────────────────
-  const [storeName, setStoreName]       = useState('');
-  const [storePhone, setStorePhone]     = useState('');
-  const [storeAddress, setStoreAddress] = useState('');
+  const [storeName, setStoreName]         = useState('');
+  const [customerName, setCustomerName]   = useState('');
+  const [storePhone, setStorePhone]       = useState('');
+  const [storeAddress, setStoreAddress]   = useState('');
 
   // ── Invoice details state ────────────────────────────────────────────────
   const [date, setDate]   = useState(todayString);
@@ -220,6 +221,7 @@ export function useInvoiceForm(onGenerated) {
   async function handleGenerate() {
     setError('');
     if (!storeName.trim()) return setError('Enter a store name.');
+    if (!customerName.trim()) return setError('Enter a customer name.');
     if (items.length === 0) return setError('Add at least one item.');
 
     setGenerating(true);
@@ -230,6 +232,7 @@ export function useInvoiceForm(onGenerated) {
         businessPhone: businessPhone.trim(),
         number: invoiceNumber,
         storeName: storeName.trim(),
+        customerName: customerName.trim(),
         storePhone: storePhone.trim(),
         storeAddress: storeAddress.trim(),
         date, time, items,
@@ -244,7 +247,7 @@ export function useInvoiceForm(onGenerated) {
       if (storeAddress.trim()) await saveStoreAddress(storeName.trim(), storeAddress.trim());
 
       // Reset form fields
-      setItems([]); setStoreName(''); setStorePhone(''); setStoreAddress('');
+      setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');
       setDate(todayString()); setTime(nowTimeString()); setNotes('');
       onGenerated(invoice);
     } catch (err) {
@@ -265,7 +268,8 @@ export function useInvoiceForm(onGenerated) {
     handleBizBlur, handleBizPhoneBlur,
 
     // Store / customer
-    storeName, storePhone, setStorePhone,
+    storeName, customerName, setCustomerName,
+    storePhone, setStorePhone,
     storeAddress, setStoreAddress,
     handleStoreNameChange,
     storeNames, pinnedStores,

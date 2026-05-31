@@ -14,7 +14,21 @@ import {
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
 
-export default function Products({ onOpenDrawer }) {
+/** Group a sorted array of products by first letter */
+function groupByLetter(products) {
+  const map = {};
+  for (const p of products) {
+    const letter = p.name[0]?.toUpperCase() ?? '#';
+    if (!map[letter]) map[letter] = [];
+    map[letter].push(p);
+  }
+  // Return as sorted array of { letter, items }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([letter, items]) => ({ letter, items }));
+}
+
+export default function Products({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -27,7 +41,6 @@ export default function Products({ onOpenDrawer }) {
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState('');
 
-  // Load catalog async on mount
   useEffect(() => {
     getAllProducts().then(c => { setCatalog(c || {}); setLoadingCatalog(false); }).catch(() => setLoadingCatalog(false));
   }, []);
@@ -35,6 +48,8 @@ export default function Products({ onOpenDrawer }) {
   const products = Object.entries(catalog)
     .map(([barcode, data]) => ({ barcode, name: data.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const groups = groupByLetter(products);
 
   function startEdit(p) { setEditingBarcode(p.barcode); setEditName(p.name); }
 
@@ -110,8 +125,9 @@ export default function Products({ onOpenDrawer }) {
               Products save automatically when you add items to invoices. You can also add them manually above.
             </p>
           </div>
-        ) : products.length > 0 && (
-          <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+        ) : groups.length > 0 && (
+          <div>
+            {/* Count + Clear All header */}
             <div style={s.listHeader}>
               <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>
                 {products.length} Product{products.length !== 1 ? 's' : ''}
@@ -120,46 +136,59 @@ export default function Products({ onOpenDrawer }) {
                 Clear All
               </button>
             </div>
-            {products.map((p, idx) => (
-              <div key={p.barcode}>
-                {idx > 0 && <div style={{ ...s.divider, background: C.divider }} />}
-                {editingBarcode === p.barcode ? (
-                  <div style={s.editRow}>
-                    <input
-                      style={{ ...s.input, ...inp, borderColor: ACCENT, flex: 1, marginBottom: 0 }}
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
-                      autoFocus
-                    />
-                    <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
-                    <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
-                  </div>
-                ) : (
-                  <div style={s.productRow}>
-                    <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
-                    {!p.barcode.startsWith('manual_') && (
-                      <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
-                    )}
-                    <div style={s.actions}>
-                      <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
-                      <button style={{ ...s.iconBtn, color: C.danger }} onClick={() => handleDelete(p.barcode)}>🗑</button>
+
+            {/* Alphabetical sections */}
+            {groups.map(({ letter, items }) => (
+              <div key={letter} style={{ marginBottom: 4 }}>
+                {/* Letter index header */}
+                <div style={{ ...s.letterHeader, color: C.textMuted, borderBottomColor: C.divider }}>
+                  {letter}
+                </div>
+                <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: '0 18px' }}>
+                  {items.map((p, idx) => (
+                    <div key={p.barcode}>
+                      {idx > 0 && <div style={{ ...s.divider, background: C.divider }} />}
+                      {editingBarcode === p.barcode ? (
+                        <div style={s.editRow}>
+                          <input
+                            style={{ ...s.input, ...inp, borderColor: ACCENT, flex: 1, marginBottom: 0 }}
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
+                            autoFocus
+                          />
+                          <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
+                          <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
+                        </div>
+                      ) : (
+                        <div style={s.productRow}>
+                          <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                          {!p.barcode.startsWith('manual_') && (
+                            <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
+                          )}
+                          <div style={s.actions}>
+                            <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
+                            <button style={{ ...s.iconBtn, color: C.danger, fontSize: 12, fontWeight: 600 }} onClick={() => handleDelete(p.barcode)}>Remove</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         )}
-        <AppFooter />
+        <AppFooter onNav={onNav} />
       </div>
     </div>
   );
 }
 
 const s = {
-  page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
+  page: { display: 'flex', flexDirection: 'column', overflowX: 'hidden' },
   header: {
+    position: 'sticky', top: 0, zIndex: 100,
     padding: '14px 20px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', gap: 14,
@@ -176,11 +205,17 @@ const s = {
     borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
   body: {
-    padding: '14px 16px 48px',
+    padding: '14px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
-  card: { borderRadius: 18, padding: '16px 18px', border: '1px solid' },
+  card: { borderRadius: 18, border: '1px solid' },
+  letterHeader: {
+    fontSize: 12, fontWeight: 800, textTransform: 'uppercase',
+    letterSpacing: '0.1em', padding: '10px 4px 4px',
+    borderBottom: '1px solid',
+    marginBottom: 6,
+  },
   sectionLabel: {
     fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px',
   },
@@ -199,7 +234,7 @@ const s = {
     boxShadow: '0 4px 16px rgba(74,123,247,0.3)',
   },
   listHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },
   clearBtn: {
     background: 'none', border: 'none', fontSize: 13, fontWeight: 600,
