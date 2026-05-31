@@ -1,48 +1,77 @@
 // ── InvoiceGo Service Worker ──────────────────────────────────────────────────
-// Bump CACHE_NAME on every deploy so browsers detect a new SW version.
-// The app controls when the new SW takes over — it never skips waiting
-// silently. Instead it waits for a SKIP_WAITING message from the UI.
+// Aggressive update strategy:
+//   • skipWaiting() on install — new SW takes over immediately on all clients
+//   • clients.claim() on activate — existing tabs get the new SW right away
+//   • Cache-busted on every deploy via CACHE_NAME version bump
+//   • index.html is always fetched network-first (never served stale from cache)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'invoicego-v4';
+const CACHE_NAME = 'invoicego-v5';
 
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
   '/manifest.json',
 ];
 
-// ── Install: pre-cache shell, but do NOT skip waiting ────────────────────────
-// The new SW sits in "waiting" state until the app sends SKIP_WAITING.
+// ── Install: skip waiting immediately so all tabs get new SW without delay ────
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  // intentionally no self.skipWaiting() here
+  self.skipWaiting(); // aggressive: take over immediately
 });
 
-// ── Activate: clear old caches, claim clients ─────────────────────────────────
+// ── Activate: wipe old caches, claim all open tabs instantly ──────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
       )
-    ).then(() => self.clients.claim())
+    ).then(() => self.clients.claim()) // take over all open tabs immediately
   );
 });
 
-// ── Message: app posts SKIP_WAITING when user approves the update ─────────────
+// ── Message: still support manual SKIP_WAITING from the UI banner ─────────────
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// ── Fetch: network-first, fall back to cache ──────────────────────────────────
+// ── Fetch strategy ────────────────────────────────────────────────────────────
+// • index.html → always network-first, never cache (ensures latest app shell)
+// • JS/CSS assets → cache-first (they are content-hashed, safe to cache long)
+// • Everything else → network-first with cache fallback
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+
+  // Always fetch index.html fresh from the network
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Hashed assets (e.g. /assets/index-abc123.js) — cache-first
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Everything else — network-first, cache as fallback
   event.respondWith(
     fetch(event.request)
       .then((response) => {
