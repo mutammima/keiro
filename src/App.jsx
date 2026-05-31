@@ -29,7 +29,7 @@ function AppInner() {
     <div data-theme-transition style={{
       minHeight: '100dvh',
       background: C.bg,
-      transition: 'background-color 0.28s ease',
+      transition: 'background-color 1s ease',
     }}>
       <NavDrawer open={drawerOpen} onClose={closeDrawer} onNav={navigate} currentPage={page} />
       {page === 'invoice' && (

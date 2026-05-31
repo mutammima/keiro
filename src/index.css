@@ -1,8 +1,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Smooth theme transitions */
-body, #root, [data-theme-transition] {
-  transition: background-color 0.28s ease, color 0.2s ease;
+*, *::before, *::after {
+  transition: background-color 1s ease, border-color 1s ease, color 0.6s ease !important;
 }
 
 html {
