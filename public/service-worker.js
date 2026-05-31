@@ -47,6 +47,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Never cache version.json — always go to network
+  if (url.pathname === '/version.json') {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+    return;
+  }
+
   // Always fetch index.html fresh from the network
   if (url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
