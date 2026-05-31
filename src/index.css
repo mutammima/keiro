@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 html, body {

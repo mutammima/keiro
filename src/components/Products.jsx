@@ -8,6 +8,7 @@ import {
   deleteProduct,
   clearAllProducts,
   saveProductName,
+  getBusinessName,
 } from '../utils/storage';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
@@ -16,6 +17,7 @@ export default function Products({ onOpenDrawer }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
+  const bizName = getBusinessName() || 'J&Y Distributions';
   const [catalog, setCatalog] = useState(() => getAllProducts());
   const [editingBarcode, setEditingBarcode] = useState(null);
   const [editName, setEditName] = useState('');
@@ -60,7 +62,7 @@ export default function Products({ onOpenDrawer }) {
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
-        <span style={{ ...s.title, color: C.text }}>Products</span>
+        <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? 'Cancel' : '+ Add'}
         </button>

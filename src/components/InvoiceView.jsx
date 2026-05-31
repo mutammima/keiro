@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { generatePDFBlob } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../theme';
+import { getBusinessName } from '../utils/storage';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -75,7 +76,10 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
-        <span style={{ ...s.title, color: C.text }}>Invoice #{invoice.number}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ ...s.title, color: C.text }}>{getBusinessName() || 'J&Y Distributions'}</span>
+          <span style={{ fontSize: 12, color: C.textMuted }}>Invoice #{invoice.number}</span>
+        </div>
         <div style={{ width: 60 }} />
       </div>
 

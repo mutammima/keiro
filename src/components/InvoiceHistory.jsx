@@ -5,6 +5,7 @@ import {
   deleteInvoice,
   togglePinnedStore,
   isStorePinned,
+  getBusinessName,
 } from '../utils/storage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +27,7 @@ export default function InvoiceHistory({ onOpenDrawer }) {
   const C = dark ? DARK : LIGHT;
 
   const [invoices, setInvoices] = useState(() => [...getInvoices()].reverse());
+  const bizName = getBusinessName() || 'J&Y Distributions';
   const [expanded, setExpanded]   = useState(null);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -261,7 +263,7 @@ export default function InvoiceHistory({ onOpenDrawer }) {
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
-        <span style={{ ...s.title, color: C.text }}>History</span>
+        <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <div style={{ width: 36 }} />
       </div>
 

@@ -1,15 +1,17 @@
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import { getBusinessName } from '../utils/storage';
 
 export default function Settings({ onOpenDrawer }) {
   const { dark, toggleDark } = useTheme();
   const C = dark ? DARK : LIGHT;
+  const bizName = getBusinessName() || 'J&Y Distributions';
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
-        <span style={{ ...s.title, color: C.text }}>Settings</span>
+        <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <div style={{ width: 36 }} />
       </div>
 
