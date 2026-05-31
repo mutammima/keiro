@@ -6,7 +6,6 @@ import NewInvoice from './components/NewInvoice';
 import InvoiceView from './components/InvoiceView';
 import InvoiceHistory from './components/InvoiceHistory';
 import Products from './components/Products';
-import Settings from './components/Settings';
 import './App.css';
 
 export default function App() {
@@ -43,7 +42,6 @@ export default function App() {
       )}
       {page === 'history'  && <InvoiceHistory onOpenDrawer={openDrawer} />}
       {page === 'products' && <Products       onOpenDrawer={openDrawer} />}
-      {page === 'settings' && <Settings       onOpenDrawer={openDrawer} />}
     </ThemeProvider>
   );
 }

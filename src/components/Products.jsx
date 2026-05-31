@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import AppFooter from './AppFooter';
 import {
   getAllProducts,
   saveProductBarcode,
@@ -134,6 +135,7 @@ export default function Products({ onOpenDrawer }) {
             ))}
           </div>
         )}
+        <AppFooter />
       </div>
     </div>
   );

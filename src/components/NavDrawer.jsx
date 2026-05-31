@@ -5,7 +5,6 @@ const NAV_ITEMS = [
   { id: 'invoice',  label: 'New Invoice',     icon: '🧾' },
   { id: 'history',  label: 'Invoice History', icon: '📋' },
   { id: 'products', label: 'Products',         icon: '📦' },
-  { id: 'settings', label: 'Settings',         icon: '⚙️' },
 ];
 
 export default function NavDrawer({ open, onClose, onNav, currentPage }) {

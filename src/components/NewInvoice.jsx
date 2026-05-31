@@ -5,6 +5,7 @@ import InvoicePreview from './InvoicePreview';
 import EditItemModal from './EditItemModal';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import AppFooter from './AppFooter';
 import {
   getNextInvoiceNumber,
   saveInvoice,
@@ -323,6 +324,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           >
             {generating ? 'Saving…' : 'Generate Invoice'}
           </button>
+          <AppFooter />
         </div>
       </div>
     </>

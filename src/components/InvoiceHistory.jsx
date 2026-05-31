@@ -10,6 +10,7 @@ import {
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../theme';
+import AppFooter from './AppFooter';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 const PAGE_SIZE = 8;
@@ -357,6 +358,7 @@ export default function InvoiceHistory({ onOpenDrawer }) {
             )}
           </>
         )}
+        <AppFooter />
       </div>
     </div>
   );
