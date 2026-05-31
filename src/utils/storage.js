@@ -79,6 +79,11 @@ export function deleteProduct(barcode) {
   set(KEYS.PRODUCT_CATALOG, catalog);
 }
 
+export function clearAllProducts() {
+  set(KEYS.PRODUCT_CATALOG, {});
+  set(KEYS.PRODUCT_NAMES, []);
+}
+
 // ─── Store Name History ───────────────────────────────────────────────────────
 export function getStoreNames() {
   return get(KEYS.STORE_NAMES, []);

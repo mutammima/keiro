@@ -19,27 +19,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     return { blob, filename };
   }
 
-  async function handleShare() {
-    setBusy('share');
-    try {
-      const { blob, filename } = await getBlob();
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
-      } else {
-        // fallback: download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-      }
-    } catch (e) {
-      if (e?.name !== 'AbortError') console.error(e);
-    } finally {
-      setBusy('');
-    }
-  }
-
   async function handleDownload() {
     setBusy('download');
     try {
@@ -55,21 +34,22 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     }
   }
 
-  async function handlePrint() {
-    setBusy('print');
+  async function handleShare() {
+    setBusy('share');
     try {
-      const { blob } = await getBlob();
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank');
-      if (win) {
-        win.addEventListener('load', () => {
-          win.focus();
-          win.print();
-        });
+      const { blob, filename } = await getBlob();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
+      } else {
+        // fallback download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) {
-      console.error(e);
+      if (e?.name !== 'AbortError') console.error(e);
     } finally {
       setBusy('');
     }
@@ -186,27 +166,20 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
         {/* Action buttons */}
         <button
-          style={{ ...s.primaryBtn, opacity: busy === 'share' ? 0.7 : 1 }}
-          onClick={handleShare}
+          style={{ ...s.primaryBtn, opacity: busy === 'download' ? 0.7 : 1 }}
+          onClick={handleDownload}
           disabled={!!busy}
         >
-          {busy === 'share' ? 'Preparing…' : 'Share PDF'}
+          {busy === 'download' ? 'Preparing…' : 'Download PDF'}
         </button>
 
         <div style={s.secondaryRow}>
           <button
-            style={{ ...s.secondaryBtn, background: C.card, color: C.text, borderColor: C.inputBorder, opacity: busy === 'download' ? 0.7 : 1 }}
-            onClick={handleDownload}
+            style={{ ...s.secondaryBtn, background: C.card, color: C.text, borderColor: C.inputBorder, opacity: busy === 'share' ? 0.7 : 1 }}
+            onClick={handleShare}
             disabled={!!busy}
           >
-            {busy === 'download' ? '…' : 'Download'}
-          </button>
-          <button
-            style={{ ...s.secondaryBtn, background: C.card, color: C.text, borderColor: C.inputBorder, opacity: busy === 'print' ? 0.7 : 1 }}
-            onClick={handlePrint}
-            disabled={!!busy}
-          >
-            {busy === 'print' ? '…' : 'Print'}
+            {busy === 'share' ? '…' : 'Share'}
           </button>
           <button
             style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.inputBorder }}

@@ -6,7 +6,7 @@ import {
   saveProductBarcode,
   updateProduct,
   deleteProduct,
-  getProductNames,
+  clearAllProducts,
   saveProductName,
 } from '../utils/storage';
 
@@ -21,30 +21,26 @@ export default function Products({ onOpenDrawer }) {
   const [catalog, setCatalog] = useState(() => getAllProducts());
   const [editingBarcode, setEditingBarcode] = useState(null);
   const [editName, setEditName] = useState('');
-  const [editPrice, setEditPrice] = useState('');
 
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newPrice, setNewPrice] = useState('');
   const [addError, setAddError] = useState('');
 
   const products = Object.entries(catalog).map(([barcode, data]) => ({
     barcode,
     name: data.name,
-    price: data.lastPrice,
   })).sort((a, b) => a.name.localeCompare(b.name));
 
   function startEdit(p) {
     setEditingBarcode(p.barcode);
     setEditName(p.name);
-    setEditPrice(String(p.price));
   }
 
   function saveEdit() {
     if (!editName.trim()) return;
-    const priceNum = Number(editPrice);
-    if (isNaN(priceNum) || priceNum < 0) return;
-    updateProduct(editingBarcode, editName.trim(), priceNum);
+    // Keep the existing lastPrice when renaming
+    const existing = catalog[editingBarcode];
+    updateProduct(editingBarcode, editName.trim(), existing?.lastPrice ?? 0);
     setCatalog(getAllProducts());
     setEditingBarcode(null);
   }
@@ -54,16 +50,21 @@ export default function Products({ onOpenDrawer }) {
     setCatalog(getAllProducts());
   }
 
+  function handleClearAll() {
+    if (!window.confirm('Clear all products? This cannot be undone.')) return;
+    clearAllProducts();
+    setCatalog({});
+  }
+
   function handleAddProduct() {
     setAddError('');
     if (!newName.trim()) return setAddError('Enter a product name.');
-    const priceNum = Number(newPrice);
-    if (newPrice !== '' && (isNaN(priceNum) || priceNum < 0)) return setAddError('Enter a valid price.');
     const barcode = 'manual_' + uid();
-    saveProductBarcode(barcode, newName.trim(), priceNum || 0);
+    saveProductBarcode(barcode, newName.trim(), 0);
     saveProductName(newName.trim());
     setCatalog(getAllProducts());
-    setNewName(''); setNewPrice(''); setShowAdd(false);
+    setNewName('');
+    setShowAdd(false);
   }
 
   return (
@@ -71,10 +72,7 @@ export default function Products({ onOpenDrawer }) {
       <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
         <span style={{ ...s.title, color: C.text }}>Products</span>
-        <button
-          style={{ ...s.addBtn }}
-          onClick={() => setShowAdd(v => !v)}
-        >
+        <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? '✕' : '+ Add'}
         </button>
       </div>
@@ -89,18 +87,8 @@ export default function Products({ onOpenDrawer }) {
               placeholder="e.g. Marlboro Reds"
               value={newName}
               onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddProduct()}
               autoFocus
-            />
-            <label style={{ ...s.label, color: C.textSub }}>Default Price ($)</label>
-            <input
-              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text, marginBottom: 0 }}
-              inputMode="decimal"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={newPrice}
-              onChange={e => setNewPrice(e.target.value)}
             />
             {addError && <p style={{ ...s.error, color: C.danger }}>{addError}</p>}
             <button style={s.saveNewBtn} onClick={handleAddProduct}>Save Product</button>
@@ -118,7 +106,18 @@ export default function Products({ onOpenDrawer }) {
         ) : (
           products.length > 0 && (
             <div style={{ ...s.card, background: C.card }}>
-              <p style={{ ...s.sectionTitle, color: C.textSub }}>Saved Products ({products.length})</p>
+              <div style={s.listHeader}>
+                <p style={{ ...s.sectionTitle, color: C.textSub, margin: 0 }}>
+                  Saved Products ({products.length})
+                </p>
+                <button
+                  style={{ ...s.clearBtn, color: C.danger }}
+                  onClick={handleClearAll}
+                >
+                  Clear All
+                </button>
+              </div>
+
               <div style={s.list}>
                 {products.map((p, idx) => (
                   <div key={p.barcode}>
@@ -129,29 +128,18 @@ export default function Products({ onOpenDrawer }) {
                           style={{ ...s.editInput, borderColor: ACCENT, background: C.inputBg, color: C.text }}
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
                           autoFocus
-                        />
-                        <input
-                          style={{ ...s.editInput, width: 80, flexShrink: 0, borderColor: ACCENT, background: C.inputBg, color: C.text }}
-                          inputMode="decimal"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={editPrice}
-                          onChange={e => setEditPrice(e.target.value)}
                         />
                         <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
                         <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
                       </div>
                     ) : (
                       <div style={s.productRow}>
-                        <div style={s.productInfo}>
-                          <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
-                          <span style={{ ...s.productPrice }}>${Number(p.price).toFixed(2)}</span>
-                          {!p.barcode.startsWith('manual_') && (
-                            <span style={{ ...s.barcodeTag, color: C.textMuted }}>📷 {p.barcode}</span>
-                          )}
-                        </div>
+                        <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                        {!p.barcode.startsWith('manual_') && (
+                          <span style={{ ...s.barcodeTag, color: C.textMuted }}>📷</span>
+                        )}
                         <div style={s.productActions}>
                           <button style={{ ...s.iconBtn, color: C.textLight }} onClick={() => startEdit(p)}>✎</button>
                           <button style={{ ...s.iconBtn, color: C.danger }} onClick={() => handleDelete(p.barcode)}>🗑</button>
@@ -167,7 +155,7 @@ export default function Products({ onOpenDrawer }) {
 
         <div style={{ ...s.infoBox, background: C.infoBox }}>
           <p style={{ ...s.infoText, color: C.infoText }}>
-            Products are automatically saved when you add items to an invoice. Next time you type that product name, it will autofill with the price.
+            Products are automatically saved when you add items to an invoice. Next time you type that product name it will autofill instantly.
           </p>
         </div>
       </div>
@@ -230,10 +218,24 @@ const s = {
     padding: 18,
     boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
   },
+  listHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: 700,
-    margin: '0 0 14px',
+  },
+  clearBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+    padding: '4px 0',
+    WebkitTapHighlightColor: 'transparent',
   },
   label: {
     display: 'block',
@@ -268,35 +270,24 @@ const s = {
     cursor: 'pointer',
   },
   list: { display: 'flex', flexDirection: 'column' },
-  divider: { height: 1, margin: '4px 0' },
+  divider: { height: 1, margin: '2px 0' },
   productRow: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 0',
+    padding: '12px 0',
     gap: 8,
   },
-  productInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    minWidth: 0,
-    flex: 1,
-  },
   productName: {
+    flex: 1,
     fontSize: 15,
     fontWeight: 600,
-    whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
-  productPrice: { fontSize: 14, color: ACCENT, fontWeight: 700 },
   barcodeTag: {
-    fontSize: 11,
-    fontFamily: 'monospace',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    fontSize: 14,
+    flexShrink: 0,
   },
   productActions: { display: 'flex', gap: 4, flexShrink: 0 },
   iconBtn: {
