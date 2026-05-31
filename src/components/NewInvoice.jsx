@@ -25,6 +25,7 @@ import {
   saveStoreAddress,
   getPinnedStores,
 } from '../utils/storage';
+import { lookupBarcode } from '../utils/barcodeApi';
 
 function todayString() {
   const d = new Date();
@@ -86,11 +87,27 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
     if (a) setStoreAddress(a);
   }
 
-  const handleScan = useCallback((barcode) => {
+  const handleScan = useCallback(async (barcode) => {
     setLastBarcode(barcode);
-    const product = getProductByBarcode(barcode);
-    if (product) { setProductName(product.name); setPrice(String(product.lastPrice)); }
-    else { setProductName(''); setPrice(''); }
+
+    // 1. Check local catalog first (instant)
+    const cached = getProductByBarcode(barcode);
+    if (cached) {
+      setProductName(cached.name);
+      setPrice(String(cached.lastPrice));
+      return;
+    }
+
+    // 2. Look up from barcode database
+    setProductName('Looking up…');
+    setPrice('');
+    const name = await lookupBarcode(barcode);
+    if (name) {
+      setProductName(name);
+    } else {
+      setProductName('');
+      setError('Product not found — enter name manually.');
+    }
   }, []);
 
   function addItem() {
