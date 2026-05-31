@@ -1,0 +1,491 @@
+/**
+ * db.js — ALL raw Supabase database calls live here.
+ *
+ * Every function returns { data, error } for consistency.
+ * RLS policies on each table ensure users only see their own rows —
+ * the authenticated Supabase client passes the JWT automatically.
+ *
+ * Table schema: see SUPABASE_SETUP.md
+ */
+
+import { supabase } from './supabase';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the user id of the currently authenticated user, or null.
+ * @returns {Promise<string|null>}
+ */
+async function getCurrentUserId() {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id ?? null;
+}
+
+// ── Invoices ──────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch all invoices for the current user, newest first, with their line items.
+ * Items are stored in a separate `invoice_items` table and joined here.
+ * @returns {Promise<{ data: object[]|null, error: object|null }>}
+ */
+export async function getInvoices() {
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        invoice_items (*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) return { data: null, error };
+
+    // Reshape to match existing app shape: { items: [...], number, ... }
+    const shaped = (data || []).map(inv => ({
+      ...inv,
+      number: inv.invoice_number,
+      items: (inv.invoice_items || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        qty: item.qty,
+        price: item.price,
+      })),
+      invoice_items: undefined,
+    }));
+
+    return { data: shaped, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Save an invoice and its line items.
+ * Inserts the invoice row first, then batch-inserts items.
+ * @param {object} invoice - Full invoice object from useInvoiceForm.
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveInvoice(invoice) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    // Insert the invoice header
+    const { data: invRow, error: invErr } = await supabase
+      .from('invoices')
+      .insert({
+        user_id: userId,
+        invoice_number: invoice.number,
+        store_name: invoice.storeName,
+        store_phone: invoice.storePhone || '',
+        store_address: invoice.storeAddress || '',
+        business_name: invoice.businessName || '',
+        business_phone: invoice.businessPhone || '',
+        date: invoice.date,
+        time: invoice.time || '',
+        notes: invoice.notes || '',
+        payment_status: invoice.paymentStatus || 'unpaid',
+        created_at: invoice.createdAt || new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (invErr) return { data: null, error: invErr };
+
+    // Batch-insert line items
+    if (invoice.items && invoice.items.length > 0) {
+      const itemRows = invoice.items.map(item => ({
+        invoice_id: invRow.id,
+        user_id: userId,
+        name: item.name,
+        qty: item.qty,
+        price: item.price,
+      }));
+
+      const { error: itemsErr } = await supabase
+        .from('invoice_items')
+        .insert(itemRows);
+
+      if (itemsErr) return { data: invRow, error: itemsErr };
+    }
+
+    return { data: invRow, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Delete an invoice and its items (cascade handled by FK in DB, or manually here).
+ * @param {number} number - Invoice number to delete.
+ * @returns {Promise<{ data: null, error: object|null }>}
+ */
+export async function deleteInvoice(number) {
+  try {
+    // Delete items first (if no CASCADE defined)
+    const { data: invRow } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('invoice_number', number)
+      .single();
+
+    if (invRow?.id) {
+      await supabase.from('invoice_items').delete().eq('invoice_id', invRow.id);
+    }
+
+    const { error } = await supabase
+      .from('invoices')
+      .delete()
+      .eq('invoice_number', number);
+
+    return { data: null, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Update the payment_status of a single invoice.
+ * @param {number} number - Invoice number.
+ * @param {string} status - 'unpaid' | 'paid' | 'partial'
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function updateInvoicePaymentStatus(number, status) {
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .update({ payment_status: status })
+      .eq('invoice_number', number)
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Returns the next invoice number for the current user (max + 1, min 1001).
+ * @returns {Promise<{ data: number, error: object|null }>}
+ */
+export async function getNextInvoiceNumber() {
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .order('invoice_number', { ascending: false })
+      .limit(1);
+
+    if (error) return { data: 1001, error };
+    const max = data?.[0]?.invoice_number ?? 1000;
+    return { data: max + 1, error: null };
+  } catch (err) {
+    return { data: 1001, error: err };
+  }
+}
+
+// ── Products ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns all products as a barcode-keyed object: { barcode: { name, lastPrice } }
+ * Matches the shape previously returned by getAllProducts() in storage.js.
+ * @returns {Promise<{ data: Object.<string,{name:string,lastPrice:number}>|null, error: object|null }>}
+ */
+export async function getAllProducts() {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('barcode, name, last_price');
+
+    if (error) return { data: null, error };
+
+    const catalog = {};
+    (data || []).forEach(row => {
+      catalog[row.barcode] = { name: row.name, lastPrice: row.last_price };
+    });
+
+    return { data: catalog, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Look up a single product by barcode.
+ * @param {string} barcode
+ * @returns {Promise<{ data: {name:string,lastPrice:number}|null, error: object|null }>}
+ */
+export async function getProductByBarcode(barcode) {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('barcode, name, last_price')
+      .eq('barcode', barcode)
+      .maybeSingle();
+
+    if (error) return { data: null, error };
+    if (!data) return { data: null, error: null };
+    return { data: { name: data.name, lastPrice: data.last_price }, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Case-insensitive product name search.
+ * @param {string} name
+ * @returns {Promise<{ data: {name:string,lastPrice:number}|null, error: object|null }>}
+ */
+export async function getProductByName(name) {
+  if (!name?.trim()) return { data: null, error: null };
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('barcode, name, last_price')
+      .ilike('name', name.trim())
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return { data: null, error };
+    if (!data) return { data: null, error: null };
+    return { data: { name: data.name, lastPrice: data.last_price }, error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Upsert (insert or update) a product by barcode.
+ * @param {string} barcode
+ * @param {string} name
+ * @param {number} price
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveProductBarcode(barcode, name, price) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data, error } = await supabase
+      .from('products')
+      .upsert(
+        { user_id: userId, barcode, name, last_price: Number(price) },
+        { onConflict: 'user_id,barcode' }
+      )
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Update an existing product's name and price.
+ * @param {string} barcode
+ * @param {string} name
+ * @param {number|string} price
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function updateProduct(barcode, name, price) {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .update({ name, last_price: Number(price) })
+      .eq('barcode', barcode)
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Delete a product by barcode.
+ * @param {string} barcode
+ * @returns {Promise<{ data: null, error: object|null }>}
+ */
+export async function deleteProduct(barcode) {
+  try {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('barcode', barcode);
+
+    return { data: null, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Delete all products for the current user.
+ * @returns {Promise<{ data: null, error: object|null }>}
+ */
+export async function clearAllProducts() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('user_id', userId);
+
+    return { data: null, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+// ── Stores ────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns an array of store names for the current user.
+ * @returns {Promise<{ data: string[]|null, error: object|null }>}
+ */
+export async function getStoreNames() {
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('name')
+      .order('updated_at', { ascending: false });
+
+    if (error) return { data: null, error };
+    return { data: (data || []).map(r => r.name), error: null };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Upsert a store name (creates row if it doesn't exist yet).
+ * @param {string} name
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveStoreName(name) {
+  if (!name?.trim()) return { data: null, error: null };
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data, error } = await supabase
+      .from('stores')
+      .upsert(
+        { user_id: userId, name: name.trim(), updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,name' }
+      )
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Returns the phone number for a store.
+ * @param {string} storeName
+ * @returns {Promise<{ data: string, error: object|null }>}
+ */
+export async function getStorePhone(storeName) {
+  if (!storeName?.trim()) return { data: '', error: null };
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('store_phone')
+      .eq('name', storeName.trim())
+      .maybeSingle();
+
+    if (error) return { data: '', error };
+    return { data: data?.store_phone || '', error: null };
+  } catch (err) {
+    return { data: '', error: err };
+  }
+}
+
+/**
+ * Upsert store phone (creates store row if needed).
+ * @param {string} storeName
+ * @param {string} phone
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveStorePhone(storeName, phone) {
+  if (!storeName?.trim()) return { data: null, error: null };
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data, error } = await supabase
+      .from('stores')
+      .upsert(
+        { user_id: userId, name: storeName.trim(), store_phone: phone.trim(), updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,name' }
+      )
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Returns the address for a store.
+ * @param {string} storeName
+ * @returns {Promise<{ data: string, error: object|null }>}
+ */
+export async function getStoreAddress(storeName) {
+  if (!storeName?.trim()) return { data: '', error: null };
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('store_address')
+      .eq('name', storeName.trim())
+      .maybeSingle();
+
+    if (error) return { data: '', error };
+    return { data: data?.store_address || '', error: null };
+  } catch (err) {
+    return { data: '', error: err };
+  }
+}
+
+/**
+ * Upsert store address (creates store row if needed).
+ * @param {string} storeName
+ * @param {string} address
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveStoreAddress(storeName, address) {
+  if (!storeName?.trim()) return { data: null, error: null };
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data, error } = await supabase
+      .from('stores')
+      .upsert(
+        { user_id: userId, name: storeName.trim(), store_address: address.trim(), updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,name' }
+      )
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+// ── Business info / settings — kept in localStorage (single-user config) ──────
+// Delegated to storage.js; see getBusinessName / saveBusinessName etc. there.
+
+// ── Pinned stores — kept in localStorage (UI preference) ─────────────────────
+// Delegated to storage.js; see getPinnedStores / togglePinnedStore etc. there.

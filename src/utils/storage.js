@@ -1,32 +1,27 @@
 /**
- * storage.js — centralised localStorage helpers for InvoiceGo.
- * All reads and writes to localStorage go through this module.
+ * storage.js — centralised data helpers for InvoiceGo.
+ *
+ * Functions that touch cloud data delegate to src/lib/db.js.
+ * Functions that touch device-only preferences (business name, pinned stores,
+ * dark mode) still use localStorage directly — they are not worth a DB table.
+ *
+ * IMPORTANT: invoice/product/store functions are now async.
+ * Callers that previously called these synchronously must be updated to await them.
  */
 
-// ─── Keys ───────────────────────────────────────────────────────────────────
+import * as db from '../lib/db';
+
+// ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {
-  INVOICE_NUMBER:   'inv_number',
-  INVOICES:         'inv_list',
-  PRODUCT_CATALOG:  'inv_catalog',        // barcode → { name, lastPrice }
-  STORE_NAMES:      'inv_stores',         // string[]
-  PRODUCT_NAMES:    'inv_product_names',  // string[]
   BUSINESS_NAME:    'inv_business_name',
   BUSINESS_PHONE:   'inv_business_phone',
-  STORE_PHONES:     'inv_store_phones',   // { storeName: phone }
-  STORE_ADDRESSES:  'inv_store_addrs',    // { storeName: address }
-  PINNED_STORES:    'inv_pinned_stores',  // string[]
+  PINNED_STORES:    'inv_pinned_stores',
+  PRODUCT_NAMES:    'inv_product_names',  // autocomplete cache (derived from DB)
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Reads a JSON-encoded value from localStorage.
- * @template T
- * @param {string} key - The localStorage key to read.
- * @param {T} fallback - Value to return if the key is missing or parse fails.
- * @returns {T} The parsed value, or `fallback`.
- */
-function get(key, fallback) {
+function lsGet(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
@@ -35,13 +30,7 @@ function get(key, fallback) {
   }
 }
 
-/**
- * JSON-encodes a value and writes it to localStorage.
- * Logs to console.error if the write fails (e.g. storage quota exceeded).
- * @param {string} key - The localStorage key to write.
- * @param {*} value - Any JSON-serialisable value.
- */
-function set(key, value) {
+function lsSet(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
@@ -52,328 +41,310 @@ function set(key, value) {
 // ─── Invoice Number ───────────────────────────────────────────────────────────
 
 /**
- * Increments the stored invoice counter and returns the new number.
- * Call once per invoice generation — it mutates the stored counter.
- * @returns {number} The next invoice number.
+ * Returns the next invoice number from the cloud (max existing + 1, min 1001).
+ * @returns {Promise<number>}
  */
-export function getNextInvoiceNumber() {
-  const current = get(KEYS.INVOICE_NUMBER, 1000);
-  const next = current + 1;
-  set(KEYS.INVOICE_NUMBER, next);
-  return next;
+export async function getNextInvoiceNumber() {
+  const { data, error } = await db.getNextInvoiceNumber();
+  if (error) {
+    console.error('getNextInvoiceNumber error', error);
+    // Fallback to localStorage counter for offline support
+    const current = lsGet('inv_number', 1000);
+    const next = current + 1;
+    lsSet('inv_number', next);
+    return next;
+  }
+  return data;
 }
 
 /**
- * Returns what the next invoice number *would* be, without incrementing.
- * Safe to call for display purposes.
- * @returns {number} The next invoice number (read-only).
+ * Returns what the next invoice number would be (read-only). Used for display.
+ * @returns {Promise<number>}
  */
-export function peekInvoiceNumber() {
-  return get(KEYS.INVOICE_NUMBER, 1000) + 1;
+export async function peekInvoiceNumber() {
+  const { data } = await db.getNextInvoiceNumber();
+  return data ?? (lsGet('inv_number', 1000) + 1);
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /**
- * Appends a new invoice object to the persisted invoice list.
- * @param {object} invoice - The invoice to save.
+ * Save an invoice to Supabase.
+ * @param {object} invoice
+ * @returns {Promise<void>}
  */
-export function saveInvoice(invoice) {
-  const list = get(KEYS.INVOICES, []);
-  list.push(invoice);
-  set(KEYS.INVOICES, list);
+export async function saveInvoice(invoice) {
+  const { error } = await db.saveInvoice(invoice);
+  if (error) console.error('saveInvoice error', error);
 }
 
 /**
- * Returns the full list of saved invoices in creation order (oldest first).
- * @returns {object[]} Array of invoice objects.
+ * Returns all invoices, newest first.
+ * Falls back to localStorage on error (offline support).
+ * @returns {Promise<object[]>}
  */
-export function getInvoices() {
-  return get(KEYS.INVOICES, []);
-}
-
-// ─── Product Catalog (barcode → { name, lastPrice }) ─────────────────────────
-
-/**
- * Looks up a product in the local catalog by barcode.
- * @param {string} barcode - The barcode string.
- * @returns {{ name: string, lastPrice: number } | null} The product, or null if not found.
- */
-export function getProductByBarcode(barcode) {
-  const catalog = get(KEYS.PRODUCT_CATALOG, {});
-  return catalog[barcode] || null;
-}
-
-/**
- * Searches the catalog for a product by name (case-insensitive).
- * Used to auto-fill the price when a product name is typed or selected.
- * @param {string} name - Product name to search for.
- * @returns {{ name: string, lastPrice: number } | null} First match, or null.
- */
-export function getProductByName(name) {
-  if (!name?.trim()) return null;
-  const catalog = get(KEYS.PRODUCT_CATALOG, {});
-  const lower = name.trim().toLowerCase();
-  const match = Object.values(catalog).find(p => p.name.toLowerCase() === lower);
-  return match || null;
-}
-
-/**
- * Inserts or updates a product in the catalog.
- * @param {string} barcode - The barcode key.
- * @param {string} name - Human-readable product name.
- * @param {number} price - Most recent unit price.
- */
-export function saveProductBarcode(barcode, name, price) {
-  const catalog = get(KEYS.PRODUCT_CATALOG, {});
-  catalog[barcode] = { name, lastPrice: price };
-  set(KEYS.PRODUCT_CATALOG, catalog);
-}
-
-/**
- * Returns the entire product catalog as a barcode-keyed object.
- * @returns {Object.<string, { name: string, lastPrice: number }>}
- */
-export function getAllProducts() {
-  return get(KEYS.PRODUCT_CATALOG, {});
-}
-
-/**
- * Updates the name and price of an existing catalog entry.
- * @param {string} barcode - The barcode key to update.
- * @param {string} name - New product name.
- * @param {number|string} price - New unit price (coerced to Number).
- */
-export function updateProduct(barcode, name, price) {
-  const catalog = get(KEYS.PRODUCT_CATALOG, {});
-  catalog[barcode] = { name, lastPrice: Number(price) };
-  set(KEYS.PRODUCT_CATALOG, catalog);
-}
-
-/**
- * Removes a product from the catalog by barcode.
- * @param {string} barcode - The barcode key to delete.
- */
-export function deleteProduct(barcode) {
-  const catalog = get(KEYS.PRODUCT_CATALOG, {});
-  delete catalog[barcode];
-  set(KEYS.PRODUCT_CATALOG, catalog);
-}
-
-/**
- * Wipes the entire product catalog and product name history.
- * This action is irreversible without a backup restore.
- */
-export function clearAllProducts() {
-  set(KEYS.PRODUCT_CATALOG, {});
-  set(KEYS.PRODUCT_NAMES, []);
-}
-
-// ─── Store Name History ───────────────────────────────────────────────────────
-
-/**
- * Returns the list of previously used store names (most-recent first).
- * @returns {string[]}
- */
-export function getStoreNames() {
-  return get(KEYS.STORE_NAMES, []);
-}
-
-/**
- * Adds a store name to the history list if it is not already present.
- * Caps the list at 50 entries (oldest entry dropped).
- * @param {string} name - Store name to record.
- */
-export function saveStoreName(name) {
-  if (!name || !name.trim()) return;
-  const names = get(KEYS.STORE_NAMES, []);
-  const trimmed = name.trim();
-  if (!names.includes(trimmed)) {
-    names.unshift(trimmed);
-    if (names.length > 50) names.pop();
-    set(KEYS.STORE_NAMES, names);
+export async function getInvoices() {
+  const { data, error } = await db.getInvoices();
+  if (error || !data) {
+    console.warn('getInvoices falling back to localStorage', error);
+    return lsGet('inv_list', []);
   }
+  return data;
+}
+
+/**
+ * Delete an invoice by invoice number.
+ * @param {number} number
+ * @returns {Promise<void>}
+ */
+export async function deleteInvoice(number) {
+  const { error } = await db.deleteInvoice(number);
+  if (error) console.error('deleteInvoice error', error);
+}
+
+/**
+ * Update payment status of an invoice.
+ * @param {number} number
+ * @param {string} status
+ * @returns {Promise<void>}
+ */
+export async function updateInvoicePaymentStatus(number, status) {
+  const { error } = await db.updateInvoicePaymentStatus(number, status);
+  if (error) console.error('updateInvoicePaymentStatus error', error);
+}
+
+// ─── Product Catalog ──────────────────────────────────────────────────────────
+
+/**
+ * Look up a product by barcode.
+ * Falls back to localStorage cache on error.
+ * @param {string} barcode
+ * @returns {Promise<{name:string,lastPrice:number}|null>}
+ */
+export async function getProductByBarcode(barcode) {
+  const { data, error } = await db.getProductByBarcode(barcode);
+  if (error) {
+    // offline fallback
+    const catalog = lsGet('inv_catalog', {});
+    return catalog[barcode] || null;
+  }
+  return data;
+}
+
+/**
+ * Case-insensitive product name search.
+ * @param {string} name
+ * @returns {Promise<{name:string,lastPrice:number}|null>}
+ */
+export async function getProductByName(name) {
+  if (!name?.trim()) return null;
+  const { data, error } = await db.getProductByName(name);
+  if (error) {
+    // offline fallback
+    const catalog = lsGet('inv_catalog', {});
+    const lower = name.trim().toLowerCase();
+    return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
+  }
+  return data;
+}
+
+/**
+ * Upsert a product in the cloud catalog.
+ * @param {string} barcode
+ * @param {string} name
+ * @param {number} price
+ * @returns {Promise<void>}
+ */
+export async function saveProductBarcode(barcode, name, price) {
+  const { error } = await db.saveProductBarcode(barcode, name, price);
+  if (error) console.error('saveProductBarcode error', error);
+}
+
+/**
+ * Returns the full product catalog as { barcode: { name, lastPrice } }.
+ * Falls back to localStorage cache on error.
+ * @returns {Promise<Object.<string,{name:string,lastPrice:number}>>}
+ */
+export async function getAllProducts() {
+  const { data, error } = await db.getAllProducts();
+  if (error || !data) {
+    console.warn('getAllProducts falling back to localStorage', error);
+    return lsGet('inv_catalog', {});
+  }
+  return data;
+}
+
+/**
+ * Update an existing product.
+ * @param {string} barcode
+ * @param {string} name
+ * @param {number|string} price
+ * @returns {Promise<void>}
+ */
+export async function updateProduct(barcode, name, price) {
+  const { error } = await db.updateProduct(barcode, name, price);
+  if (error) console.error('updateProduct error', error);
+}
+
+/**
+ * Delete a product by barcode.
+ * @param {string} barcode
+ * @returns {Promise<void>}
+ */
+export async function deleteProduct(barcode) {
+  const { error } = await db.deleteProduct(barcode);
+  if (error) console.error('deleteProduct error', error);
+}
+
+/**
+ * Clear all products for the current user.
+ * @returns {Promise<void>}
+ */
+export async function clearAllProducts() {
+  const { error } = await db.clearAllProducts();
+  if (error) console.error('clearAllProducts error', error);
+  lsSet('inv_product_names', []);
+}
+
+// ─── Store Names ──────────────────────────────────────────────────────────────
+
+/**
+ * Returns string[] of store names.
+ * Falls back to localStorage on error.
+ * @returns {Promise<string[]>}
+ */
+export async function getStoreNames() {
+  const { data, error } = await db.getStoreNames();
+  if (error || !data) {
+    console.warn('getStoreNames falling back to localStorage', error);
+    return lsGet('inv_stores', []);
+  }
+  return data;
+}
+
+/**
+ * Upsert a store name.
+ * @param {string} name
+ * @returns {Promise<void>}
+ */
+export async function saveStoreName(name) {
+  if (!name?.trim()) return;
+  const { error } = await db.saveStoreName(name);
+  if (error) console.error('saveStoreName error', error);
 }
 
 // ─── Store Phones ─────────────────────────────────────────────────────────────
 
 /**
- * Returns the saved phone number for a store, or empty string if unknown.
+ * Returns the phone for a store.
  * @param {string} storeName
- * @returns {string}
+ * @returns {Promise<string>}
  */
-export function getStorePhone(storeName) {
-  if (!storeName?.trim()) return '';
-  const phones = get(KEYS.STORE_PHONES, {});
-  return phones[storeName.trim()] || '';
+export async function getStorePhone(storeName) {
+  const { data, error } = await db.getStorePhone(storeName);
+  if (error) {
+    const phones = lsGet('inv_store_phones', {});
+    return phones[storeName?.trim()] || '';
+  }
+  return data;
 }
 
 /**
- * Associates a phone number with a store name.
+ * Upsert store phone.
  * @param {string} storeName
  * @param {string} phone
+ * @returns {Promise<void>}
  */
-export function saveStorePhone(storeName, phone) {
-  if (!storeName?.trim()) return;
-  const phones = get(KEYS.STORE_PHONES, {});
-  phones[storeName.trim()] = phone.trim();
-  set(KEYS.STORE_PHONES, phones);
+export async function saveStorePhone(storeName, phone) {
+  const { error } = await db.saveStorePhone(storeName, phone);
+  if (error) console.error('saveStorePhone error', error);
 }
 
 // ─── Store Addresses ──────────────────────────────────────────────────────────
 
 /**
- * Returns the saved address for a store, or empty string if unknown.
+ * Returns the address for a store.
  * @param {string} storeName
- * @returns {string}
+ * @returns {Promise<string>}
  */
-export function getStoreAddress(storeName) {
-  if (!storeName?.trim()) return '';
-  const addrs = get(KEYS.STORE_ADDRESSES, {});
-  return addrs[storeName.trim()] || '';
+export async function getStoreAddress(storeName) {
+  const { data, error } = await db.getStoreAddress(storeName);
+  if (error) {
+    const addrs = lsGet('inv_store_addrs', {});
+    return addrs[storeName?.trim()] || '';
+  }
+  return data;
 }
 
 /**
- * Associates a street address with a store name.
+ * Upsert store address.
  * @param {string} storeName
  * @param {string} address
+ * @returns {Promise<void>}
  */
-export function saveStoreAddress(storeName, address) {
-  if (!storeName?.trim()) return;
-  const addrs = get(KEYS.STORE_ADDRESSES, {});
-  addrs[storeName.trim()] = address.trim();
-  set(KEYS.STORE_ADDRESSES, addrs);
+export async function saveStoreAddress(storeName, address) {
+  const { error } = await db.saveStoreAddress(storeName, address);
+  if (error) console.error('saveStoreAddress error', error);
 }
 
-// ─── Delete Invoice ───────────────────────────────────────────────────────────
+// ─── Pinned Stores — localStorage (UI preference) ────────────────────────────
 
-/**
- * Permanently removes an invoice from the persisted list.
- * @param {number} number - The invoice number to delete.
- */
-export function deleteInvoice(number) {
-  const list = get(KEYS.INVOICES, []);
-  set(KEYS.INVOICES, list.filter(inv => inv.number !== number));
-}
-
-// ─── Pinned Stores ────────────────────────────────────────────────────────────
-
-/**
- * Returns the list of pinned store names (most-recently pinned first).
- * @returns {string[]}
- */
 export function getPinnedStores() {
-  return get(KEYS.PINNED_STORES, []);
+  return lsGet(KEYS.PINNED_STORES, []);
 }
 
-/**
- * Pins the store if it is not already pinned; unpins it if it is.
- * @param {string} storeName
- * @returns {string[]} The updated pinned-stores list.
- */
 export function togglePinnedStore(storeName) {
   if (!storeName?.trim()) return [];
-  const pinned = get(KEYS.PINNED_STORES, []);
+  const pinned = lsGet(KEYS.PINNED_STORES, []);
   const idx = pinned.indexOf(storeName.trim());
   if (idx >= 0) pinned.splice(idx, 1);
   else pinned.unshift(storeName.trim());
-  set(KEYS.PINNED_STORES, pinned);
+  lsSet(KEYS.PINNED_STORES, pinned);
   return [...pinned];
 }
 
-/**
- * Returns true if the given store name is currently pinned.
- * @param {string} storeName
- * @returns {boolean}
- */
 export function isStorePinned(storeName) {
   if (!storeName?.trim()) return false;
-  return get(KEYS.PINNED_STORES, []).includes(storeName.trim());
+  return lsGet(KEYS.PINNED_STORES, []).includes(storeName.trim());
 }
 
-// ─── Invoice Payment Status ───────────────────────────────────────────────────
+// ─── Business Name / Phone — localStorage (single-user config) ───────────────
 
-/**
- * Updates the `paymentStatus` field of a single invoice in place.
- * @param {number} number - Invoice number to update.
- * @param {string} status - One of 'unpaid' | 'paid' | 'partial'.
- */
-export function updateInvoicePaymentStatus(number, status) {
-  const list = get(KEYS.INVOICES, []);
-  const idx = list.findIndex(inv => inv.number === number);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], paymentStatus: status };
-    set(KEYS.INVOICES, list);
-  }
-}
-
-// ─── Business Name ────────────────────────────────────────────────────────────
-
-/**
- * Returns the saved business name, or empty string if not set.
- * @returns {string}
- */
 export function getBusinessName() {
-  return get(KEYS.BUSINESS_NAME, '');
+  return lsGet(KEYS.BUSINESS_NAME, '');
 }
 
-/**
- * Persists the business name (trimmed).
- * @param {string} name
- */
 export function saveBusinessName(name) {
-  set(KEYS.BUSINESS_NAME, name.trim());
+  lsSet(KEYS.BUSINESS_NAME, name.trim());
 }
 
-// ─── Business Phone ───────────────────────────────────────────────────────────
-
-/**
- * Returns the saved business phone number, or empty string if not set.
- * @returns {string}
- */
 export function getBusinessPhone() {
-  return get(KEYS.BUSINESS_PHONE, '');
+  return lsGet(KEYS.BUSINESS_PHONE, '');
 }
 
-/**
- * Persists the business phone number (trimmed).
- * @param {string} phone
- */
 export function saveBusinessPhone(phone) {
-  set(KEYS.BUSINESS_PHONE, phone.trim());
+  lsSet(KEYS.BUSINESS_PHONE, phone.trim());
 }
 
-// ─── Product Name History ─────────────────────────────────────────────────────
+// ─── Product Name History (autocomplete cache) ────────────────────────────────
+// Derived from products table; local list is a fast cache for autocomplete UI.
 
-/**
- * Returns the list of previously used product names for autocomplete (most-recent first).
- * @returns {string[]}
- */
 export function getProductNames() {
-  return get(KEYS.PRODUCT_NAMES, []);
+  return lsGet(KEYS.PRODUCT_NAMES, []);
 }
 
-/**
- * Adds a product name to the history list if not already present.
- * Caps the list at 200 entries.
- * @param {string} name - Product name to record.
- */
 export function saveProductName(name) {
-  if (!name || !name.trim()) return;
-  const names = get(KEYS.PRODUCT_NAMES, []);
+  if (!name?.trim()) return;
+  const names = lsGet(KEYS.PRODUCT_NAMES, []);
   const trimmed = name.trim();
   if (!names.includes(trimmed)) {
     names.unshift(trimmed);
     if (names.length > 200) names.pop();
-    set(KEYS.PRODUCT_NAMES, names);
+    lsSet(KEYS.PRODUCT_NAMES, names);
   }
 }
 
-/**
- * Removes a specific product name from the history list.
- * @param {string} name - Product name to remove.
- */
 export function deleteProductName(name) {
-  const names = get(KEYS.PRODUCT_NAMES, []);
-  set(KEYS.PRODUCT_NAMES, names.filter(n => n !== name));
+  const names = lsGet(KEYS.PRODUCT_NAMES, []);
+  lsSet(KEYS.PRODUCT_NAMES, names.filter(n => n !== name));
 }

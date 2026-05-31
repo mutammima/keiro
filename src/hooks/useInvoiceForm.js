@@ -1,9 +1,13 @@
 /**
  * useInvoiceForm — manages all state and business logic for the New Invoice form.
  * Keeps NewInvoice.jsx as a pure rendering component.
+ *
+ * NOTE: Storage functions are now async (cloud-backed). All calls to storage
+ * helpers in this hook use await. The barcode/product lookups that were already
+ * async are unchanged.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   getNextInvoiceNumber,
   saveInvoice,
@@ -56,6 +60,7 @@ function uid() {
  */
 export function useInvoiceForm(onGenerated) {
   // ── Business info state ──────────────────────────────────────────────────
+  // Business name/phone are synchronous localStorage reads — no async needed.
   const [businessName, setBusinessName]       = useState(() => getBusinessName() || 'J&Y Distributions');
   const [businessPhone, setBusinessPhone]     = useState(() => getBusinessPhone() || '');
   const [editingBiz, setEditingBiz]           = useState(false);
@@ -71,10 +76,15 @@ export function useInvoiceForm(onGenerated) {
   const [time, setTime]   = useState(nowTimeString);
   const [notes, setNotes] = useState('');
 
-  // ── Autocomplete lists (loaded once) ────────────────────────────────────
-  const [storeNames]   = useState(() => getStoreNames());
-  const [productNames] = useState(() => getProductNames());
-  const [pinnedStores] = useState(() => getPinnedStores());
+  // ── Autocomplete lists (async loaded) ────────────────────────────────────
+  const [storeNames, setStoreNames]     = useState(() => []);
+  const [productNames]                  = useState(() => getProductNames()); // sync cache
+  const [pinnedStores]                  = useState(() => getPinnedStores()); // sync localStorage
+
+  // Load store names from cloud on mount
+  useEffect(() => {
+    getStoreNames().then(names => setStoreNames(names || [])).catch(() => {});
+  }, []);
 
   // ── Add-item form state ──────────────────────────────────────────────────
 
@@ -86,11 +96,12 @@ export function useInvoiceForm(onGenerated) {
    */
   function handleProductNameChange(val) {
     setProductName(val);
-    // Only auto-fill price when the field is currently empty to avoid overwriting
-    const saved = getProductByName(val);
-    if (saved && saved.lastPrice > 0) {
-      setPrice(String(saved.lastPrice));
-    }
+    // Async lookup — only auto-fill when price field is currently empty
+    getProductByName(val).then(saved => {
+      if (saved && saved.lastPrice > 0) {
+        setPrice(String(saved.lastPrice));
+      }
+    }).catch(() => {});
   }
 
   const [productName, setProductName] = useState('');
@@ -127,28 +138,28 @@ export function useInvoiceForm(onGenerated) {
   }
 
   /**
-   * Updates the store name field and auto-fills phone/address from storage
+   * Updates the store name field and async-loads phone/address from cloud
    * if a known store is selected.
    * @param {string} val - Selected or typed store name.
    */
   function handleStoreNameChange(val) {
     setStoreName(val);
-    const p = getStorePhone(val);
-    const a = getStoreAddress(val);
-    if (p) setStorePhone(p);
-    if (a) setStoreAddress(a);
+    if (val?.trim()) {
+      getStorePhone(val).then(p => { if (p) setStorePhone(p); }).catch(() => {});
+      getStoreAddress(val).then(a => { if (a) setStoreAddress(a); }).catch(() => {});
+    }
   }
 
   /**
-   * Handles a barcode scan: checks the local product catalog first, then
+   * Handles a barcode scan: checks the cloud product catalog first, then
    * falls back to the remote barcode API.
    * @param {string} barcode - The scanned barcode string.
    */
   const handleScan = useCallback(async (barcode) => {
     setLastBarcode(barcode);
 
-    // 1. Check local catalog first (instant)
-    const cached = getProductByBarcode(barcode);
+    // 1. Check cloud catalog first
+    const cached = await getProductByBarcode(barcode);
     if (cached) {
       setProductName(cached.name);
       setPrice(String(cached.lastPrice));
@@ -169,7 +180,7 @@ export function useInvoiceForm(onGenerated) {
 
   /**
    * Validates the current add-item fields and appends a new line item to the
-   * items list. Also persists the product to the catalog.
+   * items list. Also persists the product to the cloud catalog.
    */
   function addItem() {
     setError('');
@@ -179,12 +190,12 @@ export function useInvoiceForm(onGenerated) {
     if (price === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
 
     saveProductName(productName.trim());
-    if (lastBarcode) {
-      saveProductBarcode(lastBarcode, productName.trim(), priceNum);
-    } else {
-      const key = 'manual_' + productName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      saveProductBarcode(key, productName.trim(), priceNum);
-    }
+    const barcodeKey = lastBarcode
+      ? lastBarcode
+      : 'manual_' + productName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+    // Async — fire and forget; UI doesn't wait
+    saveProductBarcode(barcodeKey, productName.trim(), priceNum).catch(() => {});
 
     setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
     setProductName(''); setQty(''); setPrice(''); setLastBarcode('');
@@ -213,7 +224,7 @@ export function useInvoiceForm(onGenerated) {
 
     setGenerating(true);
     try {
-      const invoiceNumber = getNextInvoiceNumber();
+      const invoiceNumber = await getNextInvoiceNumber();
       const invoice = {
         businessName: businessName.trim(),
         businessPhone: businessPhone.trim(),
@@ -227,10 +238,10 @@ export function useInvoiceForm(onGenerated) {
         createdAt: new Date().toISOString(),
       };
 
-      saveInvoice(invoice);
-      saveStoreName(storeName.trim());
-      if (storePhone.trim()) saveStorePhone(storeName.trim(), storePhone.trim());
-      if (storeAddress.trim()) saveStoreAddress(storeName.trim(), storeAddress.trim());
+      await saveInvoice(invoice);
+      await saveStoreName(storeName.trim());
+      if (storePhone.trim()) await saveStorePhone(storeName.trim(), storePhone.trim());
+      if (storeAddress.trim()) await saveStoreAddress(storeName.trim(), storeAddress.trim());
 
       // Reset form fields
       setItems([]); setStoreName(''); setStorePhone(''); setStoreAddress('');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
@@ -19,12 +19,18 @@ export default function Products({ onOpenDrawer }) {
   const C = dark ? DARK : LIGHT;
 
   const bizName = getBusinessName() || 'J&Y Distributions';
-  const [catalog, setCatalog] = useState(() => getAllProducts());
+  const [catalog, setCatalog] = useState({});
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [editingBarcode, setEditingBarcode] = useState(null);
   const [editName, setEditName] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState('');
+
+  // Load catalog async on mount
+  useEffect(() => {
+    getAllProducts().then(c => { setCatalog(c || {}); setLoadingCatalog(false); }).catch(() => setLoadingCatalog(false));
+  }, []);
 
   const products = Object.entries(catalog)
     .map(([barcode, data]) => ({ barcode, name: data.name }))
@@ -32,28 +38,34 @@ export default function Products({ onOpenDrawer }) {
 
   function startEdit(p) { setEditingBarcode(p.barcode); setEditName(p.name); }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editName.trim()) return;
     const existing = catalog[editingBarcode];
-    updateProduct(editingBarcode, editName.trim(), existing?.lastPrice ?? 0);
-    setCatalog(getAllProducts()); setEditingBarcode(null);
+    await updateProduct(editingBarcode, editName.trim(), existing?.lastPrice ?? 0);
+    const updated = await getAllProducts();
+    setCatalog(updated || {});
+    setEditingBarcode(null);
   }
 
-  function handleDelete(barcode) {
-    deleteProduct(barcode); setCatalog(getAllProducts());
+  async function handleDelete(barcode) {
+    await deleteProduct(barcode);
+    const updated = await getAllProducts();
+    setCatalog(updated || {});
   }
 
-  function handleClearAll() {
+  async function handleClearAll() {
     if (!window.confirm('Delete all products? This cannot be undone.')) return;
-    clearAllProducts(); setCatalog({});
+    await clearAllProducts();
+    setCatalog({});
   }
 
-  function handleAddProduct() {
+  async function handleAddProduct() {
     setAddError('');
     if (!newName.trim()) return setAddError('Enter a product name.');
-    saveProductBarcode('manual_' + uid(), newName.trim(), 0);
+    await saveProductBarcode('manual_' + uid(), newName.trim(), 0);
     saveProductName(newName.trim());
-    setCatalog(getAllProducts());
+    const updated = await getAllProducts();
+    setCatalog(updated || {});
     setNewName(''); setShowAdd(false);
   }
 
@@ -87,7 +99,11 @@ export default function Products({ onOpenDrawer }) {
           </div>
         )}
 
-        {products.length === 0 && !showAdd ? (
+        {loadingCatalog ? (
+          <div style={s.empty}>
+            <p style={{ ...s.emptyText, color: C.textMuted }}>Loading products…</p>
+          </div>
+        ) : products.length === 0 && !showAdd ? (
           <div style={s.empty}>
             <p style={{ ...s.emptyText, color: C.textSub }}>No products yet.</p>
             <p style={{ ...s.emptySubText, color: C.textMuted }}>

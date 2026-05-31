@@ -1,5 +1,5 @@
-// v3 — dark mode, settings, invoice view page
-import { useState } from 'react';
+// v4 — Supabase auth + cloud DB, offline banner
+import { useState, useEffect } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LIGHT, DARK } from './theme';
 import NavDrawer from './components/NavDrawer';
@@ -8,7 +8,50 @@ import InvoiceView from './components/InvoiceView';
 import InvoiceHistory from './components/InvoiceHistory';
 import Products from './components/Products';
 import StoreBalance from './components/StoreBalance';
+import AppFooter from './components/AppFooter';
+import AuthGate from './components/AuthGate';
 import './App.css';
+
+// ── Offline banner ────────────────────────────────────────────────────────────
+
+function OfflineBanner({ dark }) {
+  const [offline, setOffline] = useState(() => !navigator.onLine);
+
+  useEffect(() => {
+    const goOnline  = () => setOffline(false);
+    const goOffline = () => setOffline(true);
+    window.addEventListener('online',  goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  if (!offline) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: dark ? '#1a0a00' : '#fff7ed',
+      color: dark ? '#fbbf24' : '#b45309',
+      textAlign: 'center',
+      padding: '10px 16px',
+      fontSize: 13,
+      fontWeight: 500,
+      zIndex: 8000,
+      borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
+      paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+    }}>
+      You are offline — changes won't save
+    </div>
+  );
+}
+
+// ── Main app inner ────────────────────────────────────────────────────────────
 
 function AppInner() {
   const { dark } = useTheme();
@@ -49,6 +92,8 @@ function AppInner() {
       {page === 'store-balance' && selectedStore && (
         <StoreBalance storeName={selectedStore} onBack={() => setPage('history')} />
       )}
+      <AppFooter />
+      <OfflineBanner dark={dark} />
     </div>
   );
 }
@@ -56,7 +101,9 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppInner />
+      <AuthGate>
+        <AppInner />
+      </AuthGate>
     </ThemeProvider>
   );
 }

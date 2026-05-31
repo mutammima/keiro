@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { useBackup } from '../hooks/useBackup';
+import { signOut } from '../lib/auth';
 
 const WHATS_NEW = [
   { v: '3.2', notes: ['Barcode auto-lookup from product database', 'Backup & restore your data', 'Emoji-free clean UI'] },
@@ -75,9 +76,11 @@ export default function AppFooter() {
           <FooterLink label="Backup"       onPress={() => setModal('backup')}  C={C} accent />
           <Pipe C={C} />
           <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoiceGo Bug Report', '_blank')} C={C} />
+          <Pipe C={C} />
+          <FooterLink label="Sign Out" onPress={async () => { await signOut(); window.location.reload(); }} C={C} />
         </div>
 
-        <p style={{ ...s.version, color: C.textLight }}>InvoiceGo v3.2 · On-device storage</p>
+        <p style={{ ...s.version, color: C.textLight }}>InvoiceGo v4.0 · Cloud sync</p>
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}

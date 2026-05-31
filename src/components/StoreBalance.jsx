@@ -3,7 +3,7 @@
  * last delivery date, and full invoice history for that store.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import { getInvoices, updateInvoicePaymentStatus } from '../utils/storage';
@@ -11,7 +11,12 @@ import { generateAndSharePDF } from '../utils/pdfGenerator';
 
 /** Calculates the subtotal for a single invoice. */
 function subtotalOf(inv) {
-  return inv.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+}
+
+/** Normalise payment status from either camelCase or snake_case field. */
+function getStatus(inv) {
+  return inv.paymentStatus || inv.payment_status || 'unpaid';
 }
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
@@ -20,34 +25,59 @@ export default function StoreBalance({ storeName, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  // Load only invoices for this store, newest first
-  const [invoices, setInvoices] = useState(() =>
-    [...getInvoices()].reverse().filter(inv => inv.storeName === storeName)
-  );
-  const [sharing, setSharing] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [sharing, setSharing]   = useState(null);
   const [expanded, setExpanded] = useState(null);
+
+  // Load invoices for this store async
+  useEffect(() => {
+    getInvoices().then(list => {
+      const storeInvs = (list || []).filter(inv => {
+        const sn = inv.storeName || inv.store_name;
+        return sn === storeName;
+      });
+      // Ensure newest first
+      setInvoices(storeInvs);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [storeName]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const totalOwed = invoices
-    .filter(i => (i.paymentStatus || 'unpaid') !== 'paid')
+    .filter(i => getStatus(i) !== 'paid')
     .reduce((s, i) => s + subtotalOf(i), 0);
   const totalAll = invoices.reduce((s, i) => s + subtotalOf(i), 0);
   const lastDelivery = invoices[0]?.date ?? '—';
-  const unpaidCount = invoices.filter(i => (i.paymentStatus || 'unpaid') === 'unpaid').length;
+  const unpaidCount = invoices.filter(i => getStatus(i) === 'unpaid').length;
   const allClear = totalOwed === 0 && invoices.length > 0;
 
   // ── Actions ──────────────────────────────────────────────────────────────
   function cycleStatus(number) {
-    const inv = invoices.find(i => i.number === number);
-    const cur  = inv?.paymentStatus || 'unpaid';
+    const inv = invoices.find(i => (i.number || i.invoice_number) === number);
+    const cur  = getStatus(inv);
     const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-    updateInvoicePaymentStatus(number, next);
-    setInvoices(prev => prev.map(i => i.number === number ? { ...i, paymentStatus: next } : i));
+    updateInvoicePaymentStatus(number, next).catch(e => console.error(e));
+    setInvoices(prev => prev.map(i =>
+      (i.number || i.invoice_number) === number
+        ? { ...i, paymentStatus: next, payment_status: next }
+        : i
+    ));
   }
 
   async function handleShare(inv) {
-    setSharing(inv.number);
-    try { await generateAndSharePDF(inv); } catch {}
+    const normalised = {
+      ...inv,
+      number: inv.number || inv.invoice_number,
+      storeName: inv.storeName || inv.store_name,
+      storePhone: inv.storePhone || inv.store_phone,
+      storeAddress: inv.storeAddress || inv.store_address,
+      businessName: inv.businessName || inv.business_name,
+      businessPhone: inv.businessPhone || inv.business_phone,
+      paymentStatus: getStatus(inv),
+    };
+    setSharing(normalised.number);
+    try { await generateAndSharePDF(normalised); } catch {}
     finally { setSharing(null); }
   }
 
@@ -92,22 +122,27 @@ export default function StoreBalance({ storeName, onBack }) {
           </div>
         </div>
 
-        {/* Invoice list */}
-        {invoices.length === 0 ? (
+        {/* Loading / empty / list */}
+        {loading ? (
+          <div style={s.empty}>
+            <p style={{ ...s.emptyText, color: C.textMuted }}>Loading…</p>
+          </div>
+        ) : invoices.length === 0 ? (
           <div style={s.empty}>
             <p style={{ ...s.emptyText, color: C.textMuted }}>No invoices yet for this store.</p>
           </div>
         ) : invoices.map(inv => {
+          const invNum   = inv.number || inv.invoice_number;
           const total    = subtotalOf(inv);
-          const colors   = sc(inv.paymentStatus);
-          const isOpen   = expanded === inv.number;
+          const colors   = sc(getStatus(inv));
+          const isOpen   = expanded === invNum;
 
           return (
-            <div key={inv.number} style={{ ...s.card, background: C.card }}>
+            <div key={invNum} style={{ ...s.card, background: C.card }}>
               {/* Top row */}
               <div style={s.cardTop}>
                 <div style={s.cardLeft}>
-                  <span style={{ ...s.invNum, color: C.textMuted }}>#{inv.number}</span>
+                  <span style={{ ...s.invNum, color: C.textMuted }}>#{invNum}</span>
                   <span style={{ ...s.invDate, color: C.textMuted }}>
                     {inv.date}{inv.time ? ` · ${inv.time}` : ''}
                   </span>
@@ -119,13 +154,13 @@ export default function StoreBalance({ storeName, onBack }) {
               <div style={s.cardFooter}>
                 <button
                   style={{ ...s.statusBadge, background: colors?.bg, color: colors?.text }}
-                  onClick={() => cycleStatus(inv.number)}
+                  onClick={() => cycleStatus(invNum)}
                 >
-                  {STATUS[inv.paymentStatus || 'unpaid']?.label}
+                  {STATUS[getStatus(inv)]?.label}
                 </button>
                 <button
                   style={{ ...s.expandBtn, color: C.textMuted }}
-                  onClick={() => setExpanded(isOpen ? null : inv.number)}
+                  onClick={() => setExpanded(isOpen ? null : invNum)}
                 >
                   {isOpen ? 'Collapse' : 'Details'}
                 </button>
@@ -134,7 +169,7 @@ export default function StoreBalance({ storeName, onBack }) {
               {/* Expanded detail */}
               {isOpen && (
                 <div style={{ ...s.expandedBody, borderTopColor: C.divider }}>
-                  {inv.items.map((item, idx) => (
+                  {(inv.items || []).map((item, idx) => (
                     <div key={idx} style={{ ...s.itemRow, borderBottomColor: C.divider }}>
                       <span style={{ ...s.itemName, color: C.textSub }}>{item.name}</span>
                       <span style={{ ...s.itemDetail, color: C.textMuted }}>
@@ -149,11 +184,11 @@ export default function StoreBalance({ storeName, onBack }) {
                     <p style={{ ...s.notes, color: C.textMuted }}>Note: {inv.notes}</p>
                   )}
                   <button
-                    style={{ ...s.shareBtn, opacity: sharing === inv.number ? 0.6 : 1 }}
+                    style={{ ...s.shareBtn, opacity: sharing === invNum ? 0.6 : 1 }}
                     onClick={() => handleShare(inv)}
                     disabled={!!sharing}
                   >
-                    {sharing === inv.number ? 'Sharing…' : 'Share PDF'}
+                    {sharing === invNum ? 'Sharing…' : 'Share PDF'}
                   </button>
                 </div>
               )}

@@ -1,6 +1,10 @@
 /**
  * useInvoiceHistory — manages all state and business logic for the Invoice History screen.
  * Keeps InvoiceHistory.jsx focused purely on rendering.
+ *
+ * NOTE: getInvoices, updateInvoicePaymentStatus, and deleteInvoice are now async
+ * (cloud-backed via Supabase). This hook loads invoices on mount and handles updates
+ * via state rather than re-reading from storage.
  */
 
 import { useState, useRef, useEffect } from 'react';
@@ -35,7 +39,7 @@ function todayStr() {
  * @returns {number} Sum of (qty * price) for every line item.
  */
 export function subtotalOf(inv) {
-  return inv.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -47,7 +51,8 @@ export function subtotalOf(inv) {
  */
 export function useInvoiceHistory() {
   // ── Core data state ──────────────────────────────────────────────────────
-  const [invoices, setInvoices] = useState(() => [...getInvoices()].reverse());
+  const [invoices, setInvoices]   = useState([]);
+  const [loading, setLoading]     = useState(true);
   const bizName = getBusinessName() || 'J&Y Distributions';
 
   // ── UI state ─────────────────────────────────────────────────────────────
@@ -61,6 +66,24 @@ export function useInvoiceHistory() {
   const menuRef = useRef(null);
 
   const today = todayStr();
+
+  // ── Load invoices from cloud on mount ────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getInvoices().then(list => {
+      if (!cancelled) {
+        // getInvoices() returns newest-first from cloud;
+        // if falling back to localStorage it's oldest-first — reverse it.
+        setInvoices(Array.isArray(list) ? list : []);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.error('Failed to load invoices', err);
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Side effects ──────────────────────────────────────────────────────────
 
@@ -82,11 +105,16 @@ export function useInvoiceHistory() {
 
   /** Total amount owed across all unpaid and partially paid invoices. */
   const outstanding = invoices
-    .filter(i => (i.paymentStatus || 'unpaid') !== 'paid')
+    .filter(i => (i.paymentStatus || i.payment_status || 'unpaid') !== 'paid')
     .reduce((s, i) => s + subtotalOf(i), 0);
 
-  const unpaidCount  = invoices.filter(i => (i.paymentStatus || 'unpaid') === 'unpaid').length;
-  const partialCount = invoices.filter(i => i.paymentStatus === 'partial').length;
+  // Normalise paymentStatus — DB uses snake_case column but our shape re-maps it
+  function getStatus(inv) {
+    return inv.paymentStatus || inv.payment_status || 'unpaid';
+  }
+
+  const unpaidCount  = invoices.filter(i => getStatus(i) === 'unpaid').length;
+  const partialCount = invoices.filter(i => getStatus(i) === 'partial').length;
   const todayCount   = invoices.filter(i => i.date === today).length;
 
   /** True when all invoices have been collected (outstanding === 0 and there are invoices). */
@@ -96,8 +124,9 @@ export function useInvoiceHistory() {
 
   const filtered = invoices.filter(inv => {
     const q = search.trim().toLowerCase();
-    const matchQ = !q || inv.storeName.toLowerCase().includes(q) || String(inv.number).includes(q);
-    const matchS = statusFilter === 'all' || (inv.paymentStatus || 'unpaid') === statusFilter;
+    const storeN = inv.storeName || inv.store_name || '';
+    const matchQ = !q || storeN.toLowerCase().includes(q) || String(inv.number || inv.invoice_number).includes(q);
+    const matchS = statusFilter === 'all' || getStatus(inv) === statusFilter;
     return matchQ && matchS;
   });
 
@@ -113,11 +142,13 @@ export function useInvoiceHistory() {
    * @param {number} number - Invoice number to update.
    */
   function cycleStatus(number) {
-    const inv  = invoices.find(i => i.number === number);
-    const cur  = inv?.paymentStatus || 'unpaid';
+    const inv  = invoices.find(i => (i.number || i.invoice_number) === number);
+    const cur  = getStatus(inv);
     const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-    updateInvoicePaymentStatus(number, next);
-    setInvoices(prev => prev.map(i => i.number === number ? { ...i, paymentStatus: next } : i));
+    updateInvoicePaymentStatus(number, next).catch(e => console.error(e));
+    setInvoices(prev => prev.map(i =>
+      (i.number || i.invoice_number) === number ? { ...i, paymentStatus: next, payment_status: next } : i
+    ));
     setOpenMenu(null);
   }
 
@@ -127,8 +158,10 @@ export function useInvoiceHistory() {
    * @param {string} status - One of 'unpaid' | 'paid' | 'partial'.
    */
   function setStatus(number, status) {
-    updateInvoicePaymentStatus(number, status);
-    setInvoices(prev => prev.map(i => i.number === number ? { ...i, paymentStatus: status } : i));
+    updateInvoicePaymentStatus(number, status).catch(e => console.error(e));
+    setInvoices(prev => prev.map(i =>
+      (i.number || i.invoice_number) === number ? { ...i, paymentStatus: status, payment_status: status } : i
+    ));
     setOpenMenu(null);
   }
 
@@ -138,8 +171,8 @@ export function useInvoiceHistory() {
    */
   function handleDelete(number) {
     if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
-    deleteInvoice(number);
-    setInvoices(prev => prev.filter(i => i.number !== number));
+    deleteInvoice(number).catch(e => console.error(e));
+    setInvoices(prev => prev.filter(i => (i.number || i.invoice_number) !== number));
     setOpenMenu(null);
   }
 
@@ -148,8 +181,19 @@ export function useInvoiceHistory() {
    * @param {object} inv - The invoice object to share.
    */
   async function handleShare(inv) {
-    setSharing(inv.number); setOpenMenu(null);
-    try { await generateAndSharePDF(inv); }
+    // Normalise fields for pdfGenerator which expects camelCase
+    const normalised = {
+      ...inv,
+      number: inv.number || inv.invoice_number,
+      storeName: inv.storeName || inv.store_name,
+      storePhone: inv.storePhone || inv.store_phone,
+      storeAddress: inv.storeAddress || inv.store_address,
+      businessName: inv.businessName || inv.business_name,
+      businessPhone: inv.businessPhone || inv.business_phone,
+      paymentStatus: inv.paymentStatus || inv.payment_status,
+    };
+    setSharing(normalised.number); setOpenMenu(null);
+    try { await generateAndSharePDF(normalised); }
     catch (e) { console.error(e); }
     finally { setSharing(null); }
   }
@@ -166,7 +210,7 @@ export function useInvoiceHistory() {
   // ── Return ─────────────────────────────────────────────────────────────────
   return {
     // Data
-    invoices, bizName,
+    invoices, bizName, loading,
 
     // UI state
     expanded, setExpanded,
