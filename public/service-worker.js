@@ -24,7 +24,12 @@ self.addEventListener('activate', (event) => {
       )
     )
   );
-  self.clients.claim();
+  self.clients.claim().then(() => {
+    // Tell all open tabs to reload so they get the new version immediately
+    self.clients.matchAll({ type: 'window' }).then(clients => {
+      clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
+    });
+  });
 });
 
 // Network-first strategy: try network, fall back to cache
