@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react';
+/**
+ * AppFooter — sticky footer shown on every screen with theme toggle, changelog,
+ * roadmap, and the backup/restore feature.
+ */
+
+import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
+import { useBackup } from '../hooks/useBackup';
 
 const WHATS_NEW = [
   { v: '3.2', notes: ['Barcode auto-lookup from product database', 'Backup & restore your data', 'Emoji-free clean UI'] },
@@ -19,59 +25,17 @@ const ROADMAP = [
   'CSV export for bookkeeping',
 ];
 
-const ALL_KEYS = [
-  'inv_number','inv_list','inv_catalog','inv_stores','inv_product_names',
-  'inv_business_name','inv_business_phone','inv_store_phones','inv_store_addrs',
-  'inv_pinned_stores','inv_dark_mode',
-];
-
 export default function AppFooter() {
   const { dark, toggleDark } = useTheme();
   const C = dark ? DARK : LIGHT;
+
+  // ── Modal visibility state ─────────────────────────────────────────────────
   const [modal, setModal] = useState(null); // 'news' | 'roadmap' | 'backup' | null
-  const [backupMsg, setBackupMsg] = useState('');
-  const fileInputRef = useRef(null);
 
-  // ── Backup ────────────────────────────────────────────────────────────────
-  function handleExport() {
-    const data = {};
-    ALL_KEYS.forEach(k => {
-      const v = localStorage.getItem(k);
-      if (v !== null) data[k] = v;
-    });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const date = new Date().toISOString().slice(0,10);
-    a.href = url; a.download = `invoicego-backup-${date}.json`; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    setBackupMsg('Backup downloaded.');
-    setTimeout(() => setBackupMsg(''), 3000);
-  }
+  // ── Backup logic from hook ─────────────────────────────────────────────────
+  const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
-  function handleImportClick() { fileInputRef.current?.click(); }
-
-  function handleImportFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (typeof data !== 'object' || !data['inv_list']) {
-          setBackupMsg('Invalid backup file.'); return;
-        }
-        Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
-        setBackupMsg('Restore complete — reload to see your data.');
-        setTimeout(() => window.location.reload(), 1500);
-      } catch {
-        setBackupMsg('Could not read file.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  }
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <div style={{ ...s.footer, borderTopColor: C.divider }}>

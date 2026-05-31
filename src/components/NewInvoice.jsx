@@ -1,4 +1,8 @@
-import { useState, useCallback } from 'react';
+/**
+ * NewInvoice — form screen for creating and saving a new delivery invoice.
+ * All business logic lives in useInvoiceForm; this component is pure UI.
+ */
+
 import AutofillInput from './AutofillInput';
 import BarcodeScanner from './BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
@@ -6,169 +10,36 @@ import EditItemModal from './EditItemModal';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
-import {
-  getNextInvoiceNumber,
-  saveInvoice,
-  getProductByBarcode,
-  saveProductBarcode,
-  saveStoreName,
-  saveProductName,
-  getStoreNames,
-  getProductNames,
-  getBusinessName,
-  saveBusinessName,
-  getBusinessPhone,
-  saveBusinessPhone,
-  getStorePhone,
-  saveStorePhone,
-  getStoreAddress,
-  saveStoreAddress,
-  getPinnedStores,
-} from '../utils/storage';
-import { lookupBarcode } from '../utils/barcodeApi';
-
-function todayString() {
-  const d = new Date();
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-function nowTimeString() {
-  const d = new Date();
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { useInvoiceForm } from '../hooks/useInvoiceForm';
 
 export default function NewInvoice({ onOpenDrawer, onGenerated }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [businessName, setBusinessName]       = useState(() => getBusinessName() || 'J&Y Distributions');
-  const [businessPhone, setBusinessPhone]     = useState(() => getBusinessPhone() || '');
-  const [editingBiz, setEditingBiz]           = useState(false);
-  const [editingBizPhone, setEditingBizPhone] = useState(false);
+  // ── Business logic (state + handlers) from hook ───────────────────────────
+  const {
+    businessName, setBusinessName,
+    businessPhone, setBusinessPhone,
+    editingBiz, setEditingBiz,
+    editingBizPhone, setEditingBizPhone,
+    handleBizBlur, handleBizPhoneBlur,
+    storeName, storePhone, setStorePhone,
+    storeAddress, setStoreAddress,
+    handleStoreNameChange,
+    storeNames, pinnedStores,
+    date, setDate, time, setTime, notes, setNotes,
+    productName, setProductName,
+    qty, setQty, price, setPrice,
+    lastBarcode, productNames,
+    handleScan, addItem,
+    items, removeItem,
+    editingItem, setEditingItem, handleEditSave,
+    showScanner, setShowScanner,
+    generating, error,
+    handleGenerate,
+  } = useInvoiceForm(onGenerated);
 
-  const [storeName, setStoreName]       = useState('');
-  const [storePhone, setStorePhone]     = useState('');
-  const [storeAddress, setStoreAddress] = useState('');
-  const [date, setDate]                 = useState(todayString());
-  const [time, setTime]                 = useState(nowTimeString());
-  const [notes, setNotes]               = useState('');
-  const [storeNames]    = useState(() => getStoreNames());
-  const [productNames]  = useState(() => getProductNames());
-  const [pinnedStores]  = useState(() => getPinnedStores());
-
-  const [productName, setProductName] = useState('');
-  const [qty, setQty]                 = useState('');
-  const [price, setPrice]             = useState('');
-  const [lastBarcode, setLastBarcode] = useState('');
-  const [items, setItems]             = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
-
-  const [showScanner, setShowScanner] = useState(false);
-  const [generating, setGenerating]   = useState(false);
-  const [error, setError]             = useState('');
-
-  function handleBizBlur(val) {
-    const t = (val || businessName).trim();
-    if (t) { setBusinessName(t); saveBusinessName(t); }
-    setEditingBiz(false);
-  }
-  function handleBizPhoneBlur(val) {
-    const t = (val || businessPhone).trim();
-    setBusinessPhone(t); saveBusinessPhone(t); setEditingBizPhone(false);
-  }
-
-  function handleStoreNameChange(val) {
-    setStoreName(val);
-    const p = getStorePhone(val);
-    const a = getStoreAddress(val);
-    if (p) setStorePhone(p);
-    if (a) setStoreAddress(a);
-  }
-
-  const handleScan = useCallback(async (barcode) => {
-    setLastBarcode(barcode);
-
-    // 1. Check local catalog first (instant)
-    const cached = getProductByBarcode(barcode);
-    if (cached) {
-      setProductName(cached.name);
-      setPrice(String(cached.lastPrice));
-      return;
-    }
-
-    // 2. Look up from barcode database
-    setProductName('Looking up…');
-    setPrice('');
-    const name = await lookupBarcode(barcode);
-    if (name) {
-      setProductName(name);
-    } else {
-      setProductName('');
-      setError('Product not found — enter name manually.');
-    }
-  }, []);
-
-  function addItem() {
-    setError('');
-    if (!productName.trim()) return setError('Enter a product name.');
-    const qtyNum = Number(qty), priceNum = Number(price);
-    if (!qty || isNaN(qtyNum) || qtyNum <= 0) return setError('Enter a valid quantity.');
-    if (price === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
-
-    saveProductName(productName.trim());
-    if (lastBarcode) {
-      saveProductBarcode(lastBarcode, productName.trim(), priceNum);
-    } else {
-      const key = 'manual_' + productName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      saveProductBarcode(key, productName.trim(), priceNum);
-    }
-
-    setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
-    setProductName(''); setQty(''); setPrice(''); setLastBarcode('');
-  }
-
-  function removeItem(id) { setItems(prev => prev.filter(i => i.id !== id)); }
-  function handleEditSave(updated) { setItems(prev => prev.map(i => i.id === updated.id ? updated : i)); setEditingItem(null); }
-
-  async function handleGenerate() {
-    setError('');
-    if (!storeName.trim()) return setError('Enter a store name.');
-    if (items.length === 0) return setError('Add at least one item.');
-
-    setGenerating(true);
-    try {
-      const invoiceNumber = getNextInvoiceNumber();
-      const invoice = {
-        businessName: businessName.trim(),
-        businessPhone: businessPhone.trim(),
-        number: invoiceNumber,
-        storeName: storeName.trim(),
-        storePhone: storePhone.trim(),
-        storeAddress: storeAddress.trim(),
-        date, time, items,
-        notes: notes.trim(),
-        paymentStatus: 'unpaid',
-        createdAt: new Date().toISOString(),
-      };
-
-      saveInvoice(invoice);
-      saveStoreName(storeName.trim());
-      if (storePhone.trim()) saveStorePhone(storeName.trim(), storePhone.trim());
-      if (storeAddress.trim()) saveStoreAddress(storeName.trim(), storeAddress.trim());
-
-      setItems([]); setStoreName(''); setStorePhone(''); setStoreAddress('');
-      setDate(todayString()); setTime(nowTimeString()); setNotes('');
-      onGenerated(invoice);
-    } catch (err) {
-      console.error(err);
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setGenerating(false);
-    }
-  }
-
+  // ── Derived style shorthand ────────────────────────────────────────────────
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
   return (

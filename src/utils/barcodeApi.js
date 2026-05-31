@@ -1,10 +1,25 @@
 /**
- * Look up a product name by barcode using Open Food Facts (free, no key).
- * Falls back to UPC Item DB trial if needed.
- * Returns a string name, or null if not found.
+ * barcodeApi.js — remote product-name lookup by barcode.
+ *
+ * Strategy:
+ *  1. Open Food Facts (free, no API key, global food database) — tried first.
+ *  2. UPC Item DB trial tier (100 requests/day, broader product coverage) — fallback.
+ *
+ * Both requests time out after 6 seconds. If neither source returns a name,
+ * the function resolves to null and the UI prompts the user to type manually.
+ */
+
+/**
+ * Looks up a product name by barcode, trying two remote APIs in sequence.
+ *
+ * @param {string} barcode - The scanned barcode string (UPC, EAN, etc.).
+ * @returns {Promise<string|null>} The product name if found, or null.
  */
 export async function lookupBarcode(barcode) {
-  // ── Open Food Facts ───────────────────────────────────────────────────────
+  // ── 1. Open Food Facts ────────────────────────────────────────────────────
+  // Free, no key required. Returns food/drink products globally.
+  // Response shape: { status: 1, product: { product_name, brands } }
+  // We prepend the first brand token if it isn't already part of the name.
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,brands`,
@@ -22,7 +37,9 @@ export async function lookupBarcode(barcode) {
     }
   } catch {}
 
-  // ── UPC Item DB (trial: 100/day) ──────────────────────────────────────────
+  // ── 2. UPC Item DB (trial: 100 lookups/day) ───────────────────────────────
+  // Broader product coverage beyond food. Free trial key embedded in URL.
+  // Response shape: { items: [{ title }] }
   try {
     const res = await fetch(
       `https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`,
@@ -35,5 +52,6 @@ export async function lookupBarcode(barcode) {
     }
   } catch {}
 
+  // Both sources failed — caller should prompt for manual entry.
   return null;
 }

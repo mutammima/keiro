@@ -1,113 +1,35 @@
-import { useState, useRef, useEffect } from 'react';
-import {
-  getInvoices,
-  updateInvoicePaymentStatus,
-  deleteInvoice,
-  togglePinnedStore,
-  isStorePinned,
-  getBusinessName,
-} from '../utils/storage';
-import { generateAndSharePDF } from '../utils/pdfGenerator';
+/**
+ * InvoiceHistory — displays all saved invoices grouped by date, with search,
+ * status filtering, and per-invoice actions (share, delete, status cycle).
+ * All business logic lives in useInvoiceHistory; this component is pure UI.
+ */
+
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
-
-const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
-const PAGE_SIZE = 8;
-
-function todayStr() {
-  return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-function subtotalOf(inv) {
-  return inv.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-}
+import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../hooks/useInvoiceHistory';
 
 export default function InvoiceHistory({ onOpenDrawer }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [invoices, setInvoices] = useState(() => [...getInvoices()].reverse());
-  const bizName = getBusinessName() || 'J&Y Distributions';
-  const [expanded, setExpanded]   = useState(null);
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [visibleOlder, setVisibleOlder] = useState(PAGE_SIZE);
-  const [openMenu, setOpenMenu]   = useState(null);
-  const [sharing, setSharing]     = useState(null);
-  const [, forceUpdate]           = useState(0);
-  const menuRef = useRef(null);
+  // ── Business logic (state + handlers) from hook ───────────────────────────
+  const {
+    invoices, bizName,
+    expanded, setExpanded,
+    search, setSearch,
+    statusFilter, setStatusFilter,
+    visibleOlder, setVisibleOlder,
+    openMenu, setOpenMenu,
+    sharing, menuRef,
+    outstanding, unpaidCount, partialCount, todayCount, allClear,
+    filtered, todayInvoices, visibleOlderList, remaining,
+    cycleStatus, setStatus,
+    handleDelete, handleShare, handleTogglePin,
+    isStorePinned,
+  } = useInvoiceHistory();
 
-  const today = todayStr();
-
-  // Close menu on outside click
-  useEffect(() => {
-    if (!openMenu) return;
-    function close(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null);
-    }
-    document.addEventListener('mousedown', close);
-    document.addEventListener('touchstart', close);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close); };
-  }, [openMenu]);
-
-  // ── Stats for hero card ───────────────────────────────────────────────────
-  const outstanding = invoices
-    .filter(i => (i.paymentStatus || 'unpaid') !== 'paid')
-    .reduce((s, i) => s + subtotalOf(i), 0);
-  const unpaidCount  = invoices.filter(i => (i.paymentStatus || 'unpaid') === 'unpaid').length;
-  const partialCount = invoices.filter(i => i.paymentStatus === 'partial').length;
-  const todayCount   = invoices.filter(i => i.date === today).length;
-  const allClear     = outstanding === 0 && invoices.length > 0;
-
-  // ── Filter ────────────────────────────────────────────────────────────────
-  const filtered = invoices.filter(inv => {
-    const q = search.trim().toLowerCase();
-    const matchQ = !q || inv.storeName.toLowerCase().includes(q) || String(inv.number).includes(q);
-    const matchS = statusFilter === 'all' || (inv.paymentStatus || 'unpaid') === statusFilter;
-    return matchQ && matchS;
-  });
-
-  const todayInvoices = filtered.filter(i => i.date === today);
-  const olderInvoices = filtered.filter(i => i.date !== today);
-  const visibleOlderList = olderInvoices.slice(0, visibleOlder);
-  const remaining = olderInvoices.length - visibleOlderList.length;
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-  function cycleStatus(number) {
-    const inv = invoices.find(i => i.number === number);
-    const cur  = inv?.paymentStatus || 'unpaid';
-    const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
-    updateInvoicePaymentStatus(number, next);
-    setInvoices(prev => prev.map(i => i.number === number ? { ...i, paymentStatus: next } : i));
-    setOpenMenu(null);
-  }
-
-  function setStatus(number, status) {
-    updateInvoicePaymentStatus(number, status);
-    setInvoices(prev => prev.map(i => i.number === number ? { ...i, paymentStatus: status } : i));
-    setOpenMenu(null);
-  }
-
-  function handleDelete(number) {
-    if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
-    deleteInvoice(number);
-    setInvoices(prev => prev.filter(i => i.number !== number));
-    setOpenMenu(null);
-  }
-
-  async function handleShare(inv) {
-    setSharing(inv.number); setOpenMenu(null);
-    try { await generateAndSharePDF(inv); }
-    catch (e) { console.error(e); }
-    finally { setSharing(null); }
-  }
-
-  function handleTogglePin(storeName) {
-    togglePinnedStore(storeName);
-    forceUpdate(n => n + 1);
-  }
-
+  // ── Helper: resolve STATUS color tokens for the current theme ─────────────
   function sc(status) {
     const key = status || 'unpaid';
     return dark ? STATUS[key]?.dark : STATUS[key]?.light;

@@ -1,3 +1,8 @@
+/**
+ * InvoiceView — read-only display of a single saved invoice with PDF download,
+ * native share, and plain-text copy actions.
+ */
+
 import { useState } from 'react';
 import { generatePDFBlob } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
@@ -8,16 +13,22 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [busy, setBusy] = useState('');
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [busy, setBusy] = useState('');   // 'download' | 'share' | ''
   const [copied, setCopied] = useState(false);
 
+  // ── Derived values ─────────────────────────────────────────────────────────
   const subtotal = invoice.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
   const sc = dark ? STATUS[invoice.paymentStatus || 'unpaid']?.dark : STATUS[invoice.paymentStatus || 'unpaid']?.light;
 
+  /** Generates the PDF blob + filename for this invoice. */
   async function getBlob() {
     return generatePDFBlob(invoice);
   }
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  /** Generates the PDF and triggers a browser file download. */
   async function handleDownload() {
     setBusy('download');
     try {
@@ -30,6 +41,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     finally { setBusy(''); }
   }
 
+  /** Generates the PDF and opens the native share sheet, or downloads as fallback. */
   async function handleShare() {
     setBusy('share');
     try {
@@ -47,6 +59,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     finally { setBusy(''); }
   }
 
+  /** Formats the invoice as plain text and copies it to the clipboard. */
   function handleCopy() {
     const lines = [
       `Invoice #${invoice.number}`,
@@ -72,6 +85,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     });
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
