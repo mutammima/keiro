@@ -1,4 +1,4 @@
-const CACHE_NAME = 'invoicego-v1';
+const CACHE_NAME = 'invoicego-v2';
 
 // Files to pre-cache on install
 const PRECACHE_URLS = [
