@@ -35,10 +35,10 @@ export default function BottomNav({ currentPage, onNav }) {
       {activeIdx !== -1 && (
         <div style={{
           position: 'absolute',
-          top: 3,
-          left: `calc(${activeIdx} * 33.333% + 8%)`,
-          width: '17.333%',
-          height: 22,
+          top: 4,
+          left: `calc(${activeIdx} * 33.333% + 6%)`,
+          width: '21.333%',
+          height: 28,
           background: dark ? 'rgba(74,123,247,0.13)' : 'rgba(74,123,247,0.09)',
           borderRadius: 7,
           transition: 'left 0.28s cubic-bezier(0.25,0.46,0.45,0.94)',
@@ -46,7 +46,7 @@ export default function BottomNav({ currentPage, onNav }) {
         }} />
       )}
 
-      <div style={{ display: 'flex', position: 'relative', height: 44 }}>
+      <div style={{ display: 'flex', position: 'relative', height: 36 }}>
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
           return (
@@ -55,9 +55,9 @@ export default function BottomNav({ currentPage, onNav }) {
               onClick={() => onNav(tab.id)}
               style={{
                 flex: 1,
-                display: 'flex', flexDirection: 'column',
+                display: 'flex', flexDirection: 'row',
                 alignItems: 'center', justifyContent: 'center',
-                gap: 1,
+                gap: 5,
                 padding: 0,
                 background: 'none', border: 'none',
                 cursor: 'pointer',
@@ -66,19 +66,18 @@ export default function BottomNav({ currentPage, onNav }) {
               }}
             >
               <span style={{
-                fontSize: 14,
+                fontSize: 13,
                 color: active ? ACCENT : C.textMuted,
                 lineHeight: 1,
-                transition: 'color 0.2s, transform 0.2s',
-                transform: active ? 'scale(1.1)' : 'scale(1)',
+                transition: 'color 0.2s',
               }}>
                 {tab.icon}
               </span>
               <span style={{
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: active ? 700 : 500,
                 color: active ? ACCENT : C.textMuted,
-                letterSpacing: '0.02em',
+                letterSpacing: '0.01em',
                 transition: 'color 0.2s',
               }}>
                 {tab.label}
