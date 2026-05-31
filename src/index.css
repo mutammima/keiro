@@ -1,5 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Smooth theme transitions */
+body, #root, [data-theme-transition] {
+  transition: background-color 0.28s ease, color 0.2s ease;
+}
+
 html {
   overflow-x: clip;
 }

@@ -77,15 +77,25 @@ export default function AppFooter() {
       <div style={{ ...s.footer, borderTopColor: C.divider }}>
 
         {/* Light / Dark toggle */}
-        <div style={{ ...s.modeRow, background: dark ? '#1a1a1a' : '#e4e4e7' }}>
+        <div style={{ ...s.modeRow, background: dark ? '#1a1a1a' : '#e0e0e0' }}>
           <button
-            style={{ ...s.modeBtn, ...(dark ? {} : s.modeBtnActive), color: dark ? C.textMuted : C.text }}
+            style={{
+              ...s.modeBtn,
+              background: !dark ? '#ffffff' : 'none',
+              color: !dark ? '#09090b' : C.textMuted,
+              boxShadow: !dark ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
+            }}
             onClick={() => { if (dark) toggleDark(); }}
           >
             Light
           </button>
           <button
-            style={{ ...s.modeBtn, ...(dark ? s.modeBtnActive : {}), color: dark ? C.text : C.textMuted }}
+            style={{
+              ...s.modeBtn,
+              background: dark ? '#2a2a2a' : 'none',
+              color: dark ? '#ffffff' : C.textMuted,
+              boxShadow: dark ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
+            }}
             onClick={() => { if (!dark) toggleDark(); }}
           >
             Dark
@@ -211,11 +221,6 @@ const s = {
     fontSize: 14, fontWeight: 500,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
     transition: 'background 0.15s',
-  },
-  modeBtnActive: {
-    background: '#2a2a2a',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-    color: '#ffffff',
   },
   linkRow: {
     display: 'flex', alignItems: 'center', flexWrap: 'wrap',
