@@ -58,7 +58,7 @@ export default function BottomNav({ currentPage, onNav }) {
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
                 gap: 2,
-                padding: '6px 0 5px',
+                padding: '4px 0 3px',
                 background: 'none', border: 'none',
                 cursor: 'pointer',
                 WebkitTapHighlightColor: 'transparent',
@@ -66,7 +66,7 @@ export default function BottomNav({ currentPage, onNav }) {
               }}
             >
               <span style={{
-                fontSize: 17,
+                fontSize: 15,
                 color: active ? ACCENT : C.textMuted,
                 lineHeight: 1,
                 transition: 'color 0.2s, transform 0.2s',
