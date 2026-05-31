@@ -6,7 +6,7 @@
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 
-export const APP_VERSION = '5.1';
+export const APP_VERSION = '5.2';
 
 const CHANGELOG = [
   { emoji: '🏠', text: 'New Dashboard — overview of balance, pinned stores & top products' },
@@ -14,7 +14,8 @@ const CHANGELOG = [
   { emoji: '💬', text: 'WhatsApp share — one tap sends the invoice to your customer' },
   { emoji: '⚠️', text: 'Overdue flagging — unpaid invoices older than 7 days are highlighted' },
   { emoji: '✍️', text: 'Signature capture — sign invoices and embed in the PDF' },
-  { emoji: '🔄', text: 'Faster updates — all devices now get the latest version automatically' },
+  { emoji: '🔄', text: 'Instant updates — all devices now reload automatically when a new version is available' },
+  { emoji: '📐', text: 'Slimmer bottom nav — takes much less screen space' },
 ];
 
 const SEEN_KEY = `inv_whats_new_seen_${APP_VERSION}`;

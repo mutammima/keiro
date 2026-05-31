@@ -24,6 +24,7 @@ import WhatsNew, { hasSeenWhatsNew } from './components/WhatsNew';
 import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/SectionGuide';
 import UpdateBanner from './components/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
+import useVersionCheck from './hooks/useVersionCheck';
 import './App.css';
 
 // The three draggable bottom-nav tabs
@@ -84,6 +85,7 @@ function AppInner() {
   const [guideSection,   setGuideSection]   = useState(null);
   const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
   const { updateAvailable, applyUpdate }    = useAppUpdate();
+  useVersionCheck(); // hard-reload if remote version.json differs from LOCAL_VERSION
 
   // Sections that have a contextual guide
   const GUIDED_SECTIONS = new Set(['invoice','history','products','reports','store-map','notes','home']);
