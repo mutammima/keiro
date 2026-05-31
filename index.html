@@ -12,6 +12,28 @@
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>InvoiceGo</title>
+  <!-- Version check: runs before React, unregisters SW + reloads if server has newer version -->
+  <script>
+    (function () {
+      var LOCAL = '5.4';
+      fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.version && d.version !== LOCAL) {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations()
+                .then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                })
+                .then(function () { location.reload(true); });
+            } else {
+              location.reload(true);
+            }
+          }
+        })
+        .catch(function () {});
+    })();
+  </script>
   </head>
   <body>
     <div id="root"></div>
