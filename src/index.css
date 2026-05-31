@@ -1,8 +1,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 
-/* Smooth theme transitions */
+/* Smooth theme transitions — no !important so inline transitions (e.g. drawer slide) aren't overridden */
 *, *::before, *::after {
-  transition: background-color 1s ease, border-color 1s ease, color 0.6s ease !important;
+  transition: background-color 1s ease, border-color 1s ease, color 0.6s ease;
 }
 
 html {

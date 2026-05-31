@@ -71,12 +71,14 @@ const s = {
     position: 'fixed', inset: 0,
     background: 'rgba(0,0,0,0.6)',
     zIndex: 1500,
-    transition: 'opacity 2.5s ease-in-out',
+    // opacity handles open/close fade; background-color handles theme switch
+    transition: 'opacity 2.5s ease-in-out, background-color 1s ease',
   },
   drawer: {
     position: 'fixed', top: 0, left: 0, bottom: 0,
     width: 'min(200px, 58vw)', zIndex: 1600,
-    transition: 'transform 2.5s ease-in-out',
+    // transform handles slide; background-color handles theme switch
+    transition: 'transform 2.5s ease-in-out, background-color 1s ease',
     display: 'flex', flexDirection: 'column',
   },
   drawerHeader: {
