@@ -75,3 +75,28 @@ html, body {
   from { transform: scaleX(0); opacity: 0; }
   to   { transform: scaleX(1); opacity: 1; }
 }
+
+/* ── Bottom nav size lock ────────────────────────────────────────── */
+/* These rules are in CSS (not inline JS) so they apply regardless   */
+/* of which JS bundle version the device has cached.                 */
+
+.igo-nav {
+  height: calc(40px + env(safe-area-inset-bottom)) !important;
+  max-height: calc(40px + env(safe-area-inset-bottom)) !important;
+  overflow: hidden !important;
+}
+.igo-nav-row {
+  height: 40px !important;
+  max-height: 40px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.igo-nav-btn {
+  height: 40px !important;
+  max-height: 40px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
