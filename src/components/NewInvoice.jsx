@@ -22,6 +22,7 @@ import {
   saveStorePhone,
   getStoreAddress,
   saveStoreAddress,
+  getPinnedStores,
 } from '../utils/storage';
 
 function todayString() {
@@ -51,8 +52,9 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
   const [date, setDate]                 = useState(todayString());
   const [time, setTime]                 = useState(nowTimeString());
   const [notes, setNotes]               = useState('');
-  const [storeNames]   = useState(() => getStoreNames());
-  const [productNames] = useState(() => getProductNames());
+  const [storeNames]    = useState(() => getStoreNames());
+  const [productNames]  = useState(() => getProductNames());
+  const [pinnedStores]  = useState(() => getPinnedStores());
 
   const [productName, setProductName] = useState('');
   const [qty, setQty]                 = useState('');
@@ -199,6 +201,31 @@ export default function NewInvoice({ onOpenDrawer, onGenerated }) {
           {/* Customer */}
           <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Customer</p>
+
+            {/* Pinned store chips */}
+            {pinnedStores.length > 0 && (
+              <div style={s.pinnedRow}>
+                <span style={{ ...s.pinnedLabel, color: C.textMuted }}>Pinned</span>
+                <div style={s.chips}>
+                  {pinnedStores.map(name => (
+                    <button
+                      key={name}
+                      style={{
+                        ...s.chip,
+                        background: storeName === name ? ACCENT : C.rowBg,
+                        color: storeName === name ? '#fff' : C.textSub,
+                        borderColor: storeName === name ? ACCENT : C.cardBorder,
+                      }}
+                      onClick={() => handleStoreNameChange(name)}
+                      type="button"
+                    >
+                      ★ {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <AutofillInput
               label="Store / Customer Name"
               placeholder="e.g. Sunrise Deli"
@@ -388,6 +415,18 @@ const s = {
     border: 'none', borderRadius: 8,
     fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+  },
+  pinnedRow: { marginBottom: 12 },
+  pinnedLabel: {
+    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: '0.07em', display: 'block', marginBottom: 6,
+  },
+  chips: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    height: 32, padding: '0 12px',
+    border: '1px solid', borderRadius: 20,
+    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   },
   generateBtn: {
     width: '100%', height: 52,

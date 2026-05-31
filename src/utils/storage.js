@@ -9,6 +9,7 @@ const KEYS = {
   BUSINESS_PHONE:   'inv_business_phone',
   STORE_PHONES:     'inv_store_phones',   // { storeName: phone }
   STORE_ADDRESSES:  'inv_store_addrs',    // { storeName: address }
+  PINNED_STORES:    'inv_pinned_stores',  // string[]
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -127,6 +128,32 @@ export function saveStoreAddress(storeName, address) {
   const addrs = get(KEYS.STORE_ADDRESSES, {});
   addrs[storeName.trim()] = address.trim();
   set(KEYS.STORE_ADDRESSES, addrs);
+}
+
+// ─── Delete Invoice ───────────────────────────────────────────────────────────
+export function deleteInvoice(number) {
+  const list = get(KEYS.INVOICES, []);
+  set(KEYS.INVOICES, list.filter(inv => inv.number !== number));
+}
+
+// ─── Pinned Stores ────────────────────────────────────────────────────────────
+export function getPinnedStores() {
+  return get(KEYS.PINNED_STORES, []);
+}
+
+export function togglePinnedStore(storeName) {
+  if (!storeName?.trim()) return [];
+  const pinned = get(KEYS.PINNED_STORES, []);
+  const idx = pinned.indexOf(storeName.trim());
+  if (idx >= 0) pinned.splice(idx, 1);
+  else pinned.unshift(storeName.trim());
+  set(KEYS.PINNED_STORES, pinned);
+  return [...pinned];
+}
+
+export function isStorePinned(storeName) {
+  if (!storeName?.trim()) return false;
+  return get(KEYS.PINNED_STORES, []).includes(storeName.trim());
 }
 
 // ─── Invoice Payment Status ───────────────────────────────────────────────────
