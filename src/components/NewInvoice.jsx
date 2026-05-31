@@ -3,7 +3,8 @@ import AutofillInput from './AutofillInput';
 import BarcodeScanner from './BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
 import EditItemModal from './EditItemModal';
-import { generateAndSharePDF } from '../utils/pdfGenerator';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT } from '../theme';
 import {
   getNextInvoiceNumber,
   saveInvoice,
@@ -35,11 +36,14 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export default function NewInvoice({ onOpenDrawer }) {
+export default function NewInvoice({ onOpenDrawer, onGenerated }) {
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;
+
   // Business identity
-  const [businessName, setBusinessName]   = useState(() => getBusinessName() || 'J&Y Distributions');
-  const [businessPhone, setBusinessPhone] = useState(() => getBusinessPhone() || '');
-  const [editingBiz, setEditingBiz]       = useState(false);
+  const [businessName, setBusinessName]       = useState(() => getBusinessName() || 'J&Y Distributions');
+  const [businessPhone, setBusinessPhone]     = useState(() => getBusinessPhone() || '');
+  const [editingBiz, setEditingBiz]           = useState(false);
   const [editingBizPhone, setEditingBizPhone] = useState(false);
 
   // Invoice metadata
@@ -47,7 +51,7 @@ export default function NewInvoice({ onOpenDrawer }) {
   const [storePhone, setStorePhone] = useState('');
   const [date, setDate]             = useState(todayString());
   const [time, setTime]             = useState(nowTimeString());
-  const [storeNames]  = useState(() => getStoreNames());
+  const [storeNames]   = useState(() => getStoreNames());
   const [productNames] = useState(() => getProductNames());
 
   // Current item being built
@@ -66,7 +70,6 @@ export default function NewInvoice({ onOpenDrawer }) {
   const [showScanner, setShowScanner] = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [error, setError]             = useState('');
-  const [success, setSuccess]         = useState('');
 
   // ── Business name / phone ────────────────────────────────────────────────
   function handleBizBlur(val) {
@@ -111,7 +114,13 @@ export default function NewInvoice({ onOpenDrawer }) {
     if (price  === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
 
     saveProductName(productName.trim());
-    if (lastBarcode) saveProductBarcode(lastBarcode, productName.trim(), priceNum);
+    if (lastBarcode) {
+      saveProductBarcode(lastBarcode, productName.trim(), priceNum);
+    } else {
+      // Save to catalog with stable name-based key so it appears in the Products tab
+      const stableKey = 'manual_' + productName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      saveProductBarcode(stableKey, productName.trim(), priceNum);
+    }
 
     setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
     setProductName(''); setQty(''); setPrice(''); setLastBarcode('');
@@ -126,7 +135,7 @@ export default function NewInvoice({ onOpenDrawer }) {
     setEditingItem(null);
   }
 
-  // ── Generate PDF ─────────────────────────────────────────────────────────
+  // ── Generate invoice → navigate to InvoiceView ───────────────────────────
   async function handleGenerate() {
     setError('');
     if (!storeName.trim()) return setError('Enter a store name.');
@@ -151,16 +160,14 @@ export default function NewInvoice({ onOpenDrawer }) {
       saveStoreName(storeName.trim());
       if (storePhone.trim()) saveStorePhone(storeName.trim(), storePhone.trim());
 
-      await generateAndSharePDF(invoice);
+      // Reset form
+      setItems([]); setStoreName(''); setStorePhone('');
+      setDate(todayString()); setTime(nowTimeString());
 
-      setSuccess(`Invoice #${invoiceNumber} created!`);
-      setTimeout(() => {
-        setItems([]); setStoreName(''); setStorePhone('');
-        setDate(todayString()); setTime(nowTimeString()); setSuccess('');
-      }, 2000);
+      onGenerated(invoice);
     } catch (err) {
       console.error(err);
-      setError('Failed to generate PDF. Please try again.');
+      setError('Something went wrong. Please try again.');
     } finally {
       setGenerating(false);
     }
@@ -180,35 +187,33 @@ export default function NewInvoice({ onOpenDrawer }) {
         />
       )}
 
-      <div style={styles.page}>
+      <div style={{ ...styles.page, background: C.bg }}>
         {/* ── Header ── */}
-        <div style={styles.header}>
-          <button style={styles.hamburger} onClick={onOpenDrawer} aria-label="Open menu">
+        <div style={{ ...styles.header, background: C.header, borderBottomColor: C.headerBorder }}>
+          <button style={{ ...styles.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">
             ☰
           </button>
 
           <div style={styles.headerCenter}>
-            {/* Business name */}
             {editingBiz ? (
               <input
                 autoFocus
-                style={styles.bizNameInput}
+                style={{ ...styles.bizNameInput, borderBottomColor: ACCENT, color: C.text, background: 'transparent' }}
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
                 onBlur={e => handleBizBlur(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleBizBlur(businessName)}
               />
             ) : (
-              <button style={styles.bizNameBtn} onClick={() => setEditingBiz(true)} title="Tap to edit">
+              <button style={{ ...styles.bizNameBtn, color: C.text }} onClick={() => setEditingBiz(true)}>
                 {businessName}<span style={styles.editPencil}>✎</span>
               </button>
             )}
 
-            {/* Business phone */}
             {editingBizPhone ? (
               <input
                 autoFocus
-                style={styles.bizPhoneInput}
+                style={{ ...styles.bizPhoneInput, borderBottomColor: ACCENT, color: C.textSub, background: 'transparent' }}
                 value={businessPhone}
                 placeholder="Your phone number"
                 inputMode="tel"
@@ -217,19 +222,19 @@ export default function NewInvoice({ onOpenDrawer }) {
                 onKeyDown={e => e.key === 'Enter' && handleBizPhoneBlur(businessPhone)}
               />
             ) : (
-              <button style={styles.bizPhoneBtn} onClick={() => setEditingBizPhone(true)}>
+              <button style={{ ...styles.bizPhoneBtn, color: C.textMuted }} onClick={() => setEditingBizPhone(true)}>
                 {businessPhone || '+ Add phone number'}
                 <span style={styles.editPencil}>✎</span>
               </button>
             )}
 
-            <span style={styles.headerSub}>New Invoice</span>
+            <span style={{ ...styles.headerSub, color: C.textMuted }}>New Invoice</span>
           </div>
         </div>
 
         <div style={styles.body}>
           {/* ── Invoice Meta ── */}
-          <section style={styles.card}>
+          <section style={{ ...styles.card, background: C.card }}>
             <AutofillInput
               label="Store / Customer Name"
               placeholder="e.g. Sunrise Deli"
@@ -237,11 +242,12 @@ export default function NewInvoice({ onOpenDrawer }) {
               onChange={handleStoreNameChange}
               suggestions={storeNames}
               required
+              dark={dark}
             />
             <div style={{ marginTop: 14 }}>
-              <label style={styles.label}>Store Phone (optional)</label>
+              <label style={{ ...styles.label, color: C.textSub }}>Store Phone (optional)</label>
               <input
-                style={styles.input}
+                style={{ ...styles.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
                 inputMode="tel"
                 placeholder="e.g. (718) 555-0123"
                 value={storePhone}
@@ -250,19 +256,19 @@ export default function NewInvoice({ onOpenDrawer }) {
             </div>
             <div style={styles.dateTimeRow}>
               <div style={{ flex: 2 }}>
-                <label style={styles.label}>Date</label>
-                <input style={styles.input} value={date} onChange={e => setDate(e.target.value)} />
+                <label style={{ ...styles.label, color: C.textSub }}>Date</label>
+                <input style={{ ...styles.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }} value={date} onChange={e => setDate(e.target.value)} />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={styles.label}>Time</label>
-                <input style={styles.input} value={time} onChange={e => setTime(e.target.value)} />
+                <label style={{ ...styles.label, color: C.textSub }}>Time</label>
+                <input style={{ ...styles.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }} value={time} onChange={e => setTime(e.target.value)} />
               </div>
             </div>
           </section>
 
           {/* ── Add Item ── */}
-          <section style={styles.card}>
-            <p style={styles.sectionTitle}>Add Item</p>
+          <section style={{ ...styles.card, background: C.card }}>
+            <p style={{ ...styles.sectionTitle, color: C.textSub }}>Add Item</p>
 
             <div style={styles.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -273,20 +279,30 @@ export default function NewInvoice({ onOpenDrawer }) {
                   onChange={setProductName}
                   suggestions={productNames}
                   required
+                  dark={dark}
                 />
               </div>
-              <button style={styles.scanBtn} onClick={() => setShowScanner(true)} aria-label="Scan barcode" type="button">
+              <button
+                style={{ ...styles.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
+                onClick={() => setShowScanner(true)}
+                aria-label="Scan barcode"
+                type="button"
+              >
                 <span style={{ fontSize: 22 }}>📷</span>
               </button>
             </div>
 
-            {lastBarcode && <p style={styles.barcodeTag}>Barcode: {lastBarcode}</p>}
+            {lastBarcode && (
+              <p style={{ ...styles.barcodeTag, background: C.tagBg, color: C.textMuted }}>
+                Barcode: {lastBarcode}
+              </p>
+            )}
 
             <div style={styles.qtyPriceRow}>
               <div style={{ flex: 1 }}>
-                <label style={styles.label}>Quantity</label>
+                <label style={{ ...styles.label, color: C.textSub }}>Quantity</label>
                 <input
-                  style={styles.input}
+                  style={{ ...styles.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
                   inputMode="decimal"
                   type="number"
                   min="0"
@@ -297,9 +313,9 @@ export default function NewInvoice({ onOpenDrawer }) {
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={styles.label}>Unit Price ($)</label>
+                <label style={{ ...styles.label, color: C.textSub }}>Unit Price ($)</label>
                 <input
-                  style={styles.input}
+                  style={{ ...styles.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
                   inputMode="decimal"
                   type="number"
                   min="0"
@@ -311,17 +327,21 @@ export default function NewInvoice({ onOpenDrawer }) {
               </div>
             </div>
 
-            {error && <p style={styles.error}>{error}</p>}
+            {error && <p style={{ ...styles.error, color: C.danger }}>{error}</p>}
 
-            <button style={styles.addBtn} onClick={addItem} type="button">+ Add Item</button>
+            <button
+              style={{ ...styles.addBtn, background: C.rowBg, color: C.text }}
+              onClick={addItem}
+              type="button"
+            >
+              + Add Item
+            </button>
           </section>
 
           {/* ── Invoice Preview ── */}
-          <section style={styles.card}>
-            <InvoicePreview items={items} onRemove={removeItem} onEdit={setEditingItem} />
+          <section style={{ ...styles.card, background: C.card }}>
+            <InvoicePreview items={items} onRemove={removeItem} onEdit={setEditingItem} dark={dark} />
           </section>
-
-          {success && <div style={styles.successBanner}>✓ {success}</div>}
 
           <button
             style={{ ...styles.generateBtn, opacity: generating ? 0.7 : 1 }}
@@ -329,7 +349,7 @@ export default function NewInvoice({ onOpenDrawer }) {
             disabled={generating}
             type="button"
           >
-            {generating ? 'Generating…' : '🧾 Generate Invoice'}
+            {generating ? 'Saving…' : 'Generate Invoice'}
           </button>
         </div>
       </div>
@@ -337,18 +357,14 @@ export default function NewInvoice({ onOpenDrawer }) {
   );
 }
 
-const ACCENT = '#1a73e8';
-
 const styles = {
   page: {
     minHeight: '100dvh',
-    background: '#f2f2f7',
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
-    background: '#fff',
-    borderBottom: '1px solid #e5e5e5',
+    borderBottom: '1px solid',
     padding: '14px 16px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex',
@@ -359,7 +375,6 @@ const styles = {
     background: 'none',
     border: 'none',
     fontSize: 24,
-    color: '#333',
     cursor: 'pointer',
     padding: '2px 4px',
     marginTop: 2,
@@ -383,7 +398,6 @@ const styles = {
     gap: 6,
     fontSize: 20,
     fontWeight: 800,
-    color: '#111',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     WebkitTapHighlightColor: 'transparent',
@@ -391,14 +405,12 @@ const styles = {
   bizNameInput: {
     fontSize: 20,
     fontWeight: 800,
-    color: '#111',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     border: 'none',
-    borderBottom: `2px solid ${ACCENT}`,
+    borderBottom: '2px solid',
     outline: 'none',
     textAlign: 'center',
-    background: 'transparent',
     width: '100%',
     maxWidth: 280,
     padding: '2px 4px',
@@ -412,17 +424,14 @@ const styles = {
     alignItems: 'center',
     gap: 4,
     fontSize: 13,
-    color: '#777',
     WebkitTapHighlightColor: 'transparent',
   },
   bizPhoneInput: {
     fontSize: 13,
-    color: '#555',
     border: 'none',
-    borderBottom: `1.5px solid ${ACCENT}`,
+    borderBottom: '1.5px solid',
     outline: 'none',
     textAlign: 'center',
-    background: 'transparent',
     width: '100%',
     maxWidth: 200,
     padding: '1px 4px',
@@ -430,7 +439,6 @@ const styles = {
   editPencil: { fontSize: 13, color: '#bbb', fontWeight: 400 },
   headerSub: {
     fontSize: 11,
-    color: '#bbb',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     fontWeight: 500,
@@ -446,7 +454,6 @@ const styles = {
     boxSizing: 'border-box',
   },
   card: {
-    background: '#fff',
     borderRadius: 16,
     padding: 18,
     boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
@@ -454,7 +461,6 @@ const styles = {
   sectionTitle: {
     fontSize: 15,
     fontWeight: 700,
-    color: '#444',
     margin: '0 0 12px',
     letterSpacing: 0.2,
   },
@@ -462,7 +468,6 @@ const styles = {
     display: 'block',
     fontSize: 13,
     fontWeight: 600,
-    color: '#444',
     marginBottom: 4,
     letterSpacing: 0.2,
   },
@@ -472,10 +477,8 @@ const styles = {
     height: 52,
     fontSize: 16,
     padding: '0 14px',
-    border: '1.5px solid #ddd',
+    border: '1.5px solid',
     borderRadius: 10,
-    background: '#fafafa',
-    color: '#111',
     outline: 'none',
     WebkitAppearance: 'none',
     appearance: 'none',
@@ -495,9 +498,8 @@ const styles = {
     flexShrink: 0,
     width: 52,
     height: 52,
-    border: '1.5px solid #ddd',
+    border: '1.5px solid',
     borderRadius: 10,
-    background: '#fafafa',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
@@ -506,25 +508,21 @@ const styles = {
   },
   barcodeTag: {
     fontSize: 12,
-    color: '#888',
-    background: '#f0f0f0',
     padding: '4px 10px',
     borderRadius: 6,
     margin: '-4px 0 10px',
     fontFamily: 'monospace',
   },
   qtyPriceRow: { display: 'flex', gap: 12, marginTop: 2 },
-  error: { color: '#c53030', fontSize: 14, margin: '8px 0 0', fontWeight: 600 },
+  error: { fontSize: 14, margin: '8px 0 0', fontWeight: 600 },
   addBtn: {
     width: '100%',
     marginTop: 14,
     height: 52,
-    background: '#f0f0f0',
     border: 'none',
     borderRadius: 12,
     fontSize: 16,
     fontWeight: 700,
-    color: '#333',
     cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
   },
@@ -541,14 +539,5 @@ const styles = {
     letterSpacing: 0.3,
     boxShadow: '0 4px 16px rgba(26,115,232,0.35)',
     WebkitTapHighlightColor: 'transparent',
-  },
-  successBanner: {
-    background: '#d4edda',
-    color: '#155724',
-    padding: '14px 18px',
-    borderRadius: 12,
-    fontSize: 15,
-    fontWeight: 700,
-    textAlign: 'center',
   },
 };

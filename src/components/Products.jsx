@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT } from '../theme';
 import {
   getAllProducts,
   saveProductBarcode,
@@ -13,12 +15,14 @@ function uid() {
 }
 
 export default function Products({ onOpenDrawer }) {
-  const [catalog, setCatalog] = useState(() => getAllProducts()); // { barcode: { name, lastPrice } }
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;
+
+  const [catalog, setCatalog] = useState(() => getAllProducts());
   const [editingBarcode, setEditingBarcode] = useState(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
-  // Add new product form
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
@@ -63,32 +67,33 @@ export default function Products({ onOpenDrawer }) {
   }
 
   return (
-    <div style={styles.page}>
-      {/* Header */}
-      <div style={styles.header}>
-        <button style={styles.hamburger} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
-        <span style={styles.title}>Products</span>
-        <button style={styles.addBtn} onClick={() => setShowAdd(v => !v)}>
+    <div style={{ ...s.page, background: C.bg }}>
+      <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
+        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
+        <span style={{ ...s.title, color: C.text }}>Products</span>
+        <button
+          style={{ ...s.addBtn }}
+          onClick={() => setShowAdd(v => !v)}
+        >
           {showAdd ? '✕' : '+ Add'}
         </button>
       </div>
 
-      <div style={styles.body}>
-        {/* Add product form */}
+      <div style={s.body}>
         {showAdd && (
-          <div style={styles.card}>
-            <p style={styles.sectionTitle}>New Product</p>
-            <label style={styles.label}>Product Name *</label>
+          <div style={{ ...s.card, background: C.card }}>
+            <p style={{ ...s.sectionTitle, color: C.textSub }}>New Product</p>
+            <label style={{ ...s.label, color: C.textSub }}>Product Name *</label>
             <input
-              style={styles.input}
+              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
               placeholder="e.g. Marlboro Reds"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               autoFocus
             />
-            <label style={styles.label}>Default Price ($)</label>
+            <label style={{ ...s.label, color: C.textSub }}>Default Price ($)</label>
             <input
-              style={{ ...styles.input, marginBottom: 0 }}
+              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text, marginBottom: 0 }}
               inputMode="decimal"
               type="number"
               min="0"
@@ -97,68 +102,72 @@ export default function Products({ onOpenDrawer }) {
               value={newPrice}
               onChange={e => setNewPrice(e.target.value)}
             />
-            {addError && <p style={styles.error}>{addError}</p>}
-            <button style={styles.saveNewBtn} onClick={handleAddProduct}>Save Product</button>
+            {addError && <p style={{ ...s.error, color: C.danger }}>{addError}</p>}
+            <button style={s.saveNewBtn} onClick={handleAddProduct}>Save Product</button>
           </div>
         )}
 
         {products.length === 0 && !showAdd ? (
-          <div style={styles.empty}>
+          <div style={s.empty}>
             <span style={{ fontSize: 48 }}>📦</span>
-            <p style={styles.emptyText}>No products yet.</p>
-            <p style={styles.emptySubText}>Products are saved automatically when you scan a barcode or add items to invoices. You can also add them manually above.</p>
+            <p style={{ ...s.emptyText, color: C.textSub }}>No products yet.</p>
+            <p style={{ ...s.emptySubText, color: C.textMuted }}>
+              Products are saved automatically when you add items to invoices or scan a barcode. You can also add them manually above.
+            </p>
           </div>
         ) : (
-          <div style={styles.card}>
-            <p style={styles.sectionTitle}>Saved Products ({products.length})</p>
-            <div style={styles.list}>
-              {products.map((p, idx) => (
-                <div key={p.barcode}>
-                  {idx > 0 && <div style={styles.divider} />}
-                  {editingBarcode === p.barcode ? (
-                    <div style={styles.editRow}>
-                      <input
-                        style={styles.editInput}
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        autoFocus
-                      />
-                      <input
-                        style={{ ...styles.editInput, width: 80, flexShrink: 0 }}
-                        inputMode="decimal"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={editPrice}
-                        onChange={e => setEditPrice(e.target.value)}
-                      />
-                      <button style={styles.iconBtn} onClick={saveEdit}>✓</button>
-                      <button style={{ ...styles.iconBtn, color: '#aaa' }} onClick={() => setEditingBarcode(null)}>✕</button>
-                    </div>
-                  ) : (
-                    <div style={styles.productRow}>
-                      <div style={styles.productInfo}>
-                        <span style={styles.productName}>{p.name}</span>
-                        <span style={styles.productPrice}>${Number(p.price).toFixed(2)}</span>
-                        {!p.barcode.startsWith('manual_') && (
-                          <span style={styles.barcodeTag}>📷 {p.barcode}</span>
-                        )}
+          products.length > 0 && (
+            <div style={{ ...s.card, background: C.card }}>
+              <p style={{ ...s.sectionTitle, color: C.textSub }}>Saved Products ({products.length})</p>
+              <div style={s.list}>
+                {products.map((p, idx) => (
+                  <div key={p.barcode}>
+                    {idx > 0 && <div style={{ ...s.divider, background: C.divider }} />}
+                    {editingBarcode === p.barcode ? (
+                      <div style={s.editRow}>
+                        <input
+                          style={{ ...s.editInput, borderColor: ACCENT, background: C.inputBg, color: C.text }}
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          autoFocus
+                        />
+                        <input
+                          style={{ ...s.editInput, width: 80, flexShrink: 0, borderColor: ACCENT, background: C.inputBg, color: C.text }}
+                          inputMode="decimal"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editPrice}
+                          onChange={e => setEditPrice(e.target.value)}
+                        />
+                        <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
+                        <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
                       </div>
-                      <div style={styles.productActions}>
-                        <button style={styles.iconBtn} onClick={() => startEdit(p)}>✎</button>
-                        <button style={{ ...styles.iconBtn, color: '#e53e3e' }} onClick={() => handleDelete(p.barcode)}>🗑</button>
+                    ) : (
+                      <div style={s.productRow}>
+                        <div style={s.productInfo}>
+                          <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                          <span style={{ ...s.productPrice }}>${Number(p.price).toFixed(2)}</span>
+                          {!p.barcode.startsWith('manual_') && (
+                            <span style={{ ...s.barcodeTag, color: C.textMuted }}>📷 {p.barcode}</span>
+                          )}
+                        </div>
+                        <div style={s.productActions}>
+                          <button style={{ ...s.iconBtn, color: C.textLight }} onClick={() => startEdit(p)}>✎</button>
+                          <button style={{ ...s.iconBtn, color: C.danger }} onClick={() => handleDelete(p.barcode)}>🗑</button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )
         )}
 
-        <div style={styles.infoBox}>
-          <p style={styles.infoText}>
-            💡 Products are automatically saved when you scan a barcode or add items to an invoice. Next time you type that product name, it'll autofill. Next time you scan the barcode, the name and price will pre-fill instantly.
+        <div style={{ ...s.infoBox, background: C.infoBox }}>
+          <p style={{ ...s.infoText, color: C.infoText }}>
+            Products are automatically saved when you add items to an invoice. Next time you type that product name, it will autofill with the price.
           </p>
         </div>
       </div>
@@ -166,18 +175,14 @@ export default function Products({ onOpenDrawer }) {
   );
 }
 
-const ACCENT = '#1a73e8';
-
-const styles = {
+const s = {
   page: {
     minHeight: '100dvh',
-    background: '#f2f2f7',
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
-    background: '#fff',
-    borderBottom: '1px solid #e5e5e5',
+    borderBottom: '1px solid',
     padding: '14px 16px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex',
@@ -188,7 +193,6 @@ const styles = {
     background: 'none',
     border: 'none',
     fontSize: 24,
-    color: '#333',
     cursor: 'pointer',
     padding: '2px 4px',
     WebkitTapHighlightColor: 'transparent',
@@ -198,7 +202,6 @@ const styles = {
     flex: 1,
     fontSize: 18,
     fontWeight: 800,
-    color: '#111',
     textAlign: 'center',
   },
   addBtn: {
@@ -223,7 +226,6 @@ const styles = {
     boxSizing: 'border-box',
   },
   card: {
-    background: '#fff',
     borderRadius: 16,
     padding: 18,
     boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
@@ -231,14 +233,12 @@ const styles = {
   sectionTitle: {
     fontSize: 15,
     fontWeight: 700,
-    color: '#444',
     margin: '0 0 14px',
   },
   label: {
     display: 'block',
     fontSize: 13,
     fontWeight: 600,
-    color: '#444',
     marginBottom: 4,
     marginTop: 12,
   },
@@ -248,15 +248,13 @@ const styles = {
     height: 52,
     fontSize: 16,
     padding: '0 14px',
-    border: '1.5px solid #ddd',
+    border: '1.5px solid',
     borderRadius: 10,
-    background: '#fafafa',
-    color: '#111',
     outline: 'none',
     WebkitAppearance: 'none',
     marginBottom: 4,
   },
-  error: { color: '#c53030', fontSize: 13, margin: '6px 0 0', fontWeight: 600 },
+  error: { fontSize: 13, margin: '6px 0 0', fontWeight: 600 },
   saveNewBtn: {
     width: '100%',
     marginTop: 14,
@@ -270,7 +268,7 @@ const styles = {
     cursor: 'pointer',
   },
   list: { display: 'flex', flexDirection: 'column' },
-  divider: { height: 1, background: '#f5f5f5', margin: '4px 0' },
+  divider: { height: 1, margin: '4px 0' },
   productRow: {
     display: 'flex',
     alignItems: 'center',
@@ -288,15 +286,13 @@ const styles = {
   productName: {
     fontSize: 15,
     fontWeight: 600,
-    color: '#111',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  productPrice: { fontSize: 14, color: '#1a73e8', fontWeight: 700 },
+  productPrice: { fontSize: 14, color: ACCENT, fontWeight: 700 },
   barcodeTag: {
     fontSize: 11,
-    color: '#aaa',
     fontFamily: 'monospace',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
@@ -308,7 +304,6 @@ const styles = {
     border: 'none',
     fontSize: 18,
     cursor: 'pointer',
-    color: '#888',
     width: 36,
     height: 36,
     display: 'flex',
@@ -329,10 +324,8 @@ const styles = {
     height: 44,
     fontSize: 15,
     padding: '0 10px',
-    border: '1.5px solid #1a73e8',
+    border: '1.5px solid',
     borderRadius: 8,
-    background: '#f0f7ff',
-    color: '#111',
     outline: 'none',
     minWidth: 0,
   },
@@ -344,16 +337,14 @@ const styles = {
     gap: 8,
     textAlign: 'center',
   },
-  emptyText: { fontSize: 18, fontWeight: 700, color: '#555', margin: 0 },
-  emptySubText: { fontSize: 13, color: '#aaa', margin: 0, maxWidth: 300, lineHeight: 1.5 },
+  emptyText: { fontSize: 18, fontWeight: 700, margin: 0 },
+  emptySubText: { fontSize: 13, margin: 0, maxWidth: 300, lineHeight: 1.5 },
   infoBox: {
-    background: '#e8f0fe',
     borderRadius: 12,
     padding: '14px 16px',
   },
   infoText: {
     fontSize: 13,
-    color: '#1a56c4',
     margin: 0,
     lineHeight: 1.6,
   },

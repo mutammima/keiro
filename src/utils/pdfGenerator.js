@@ -14,7 +14,7 @@ import autoTable from 'jspdf-autotable';
  * @param {string} invoice.time
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
-export async function generateAndSharePDF(invoice) {
+async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, storePhone, date, time, items } = invoice;
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
@@ -164,14 +164,28 @@ export async function generateAndSharePDF(invoice) {
   doc.text('Thank you for your business.', pageW / 2, pageH - 36, { align: 'center' });
   doc.text(businessName || '', pageW / 2, pageH - 22, { align: 'center' });
 
-  // ── Share / Download ──────────────────────────────────────────────────────
   const filename = `Invoice_${number}_${storeName.replace(/\s+/g, '_')}.pdf`;
   const blob = doc.output('blob');
+  return { blob, filename, doc };
+}
+
+/**
+ * Generates the PDF and returns { blob, filename }.
+ */
+export async function generatePDFBlob(invoice) {
+  return buildPDF(invoice);
+}
+
+/**
+ * Generates the PDF and triggers native share sheet (or download fallback).
+ */
+export async function generateAndSharePDF(invoice) {
+  const { blob, filename } = await buildPDF(invoice);
 
   if (navigator.share && navigator.canShare) {
     const file = new File([blob], filename, { type: 'application/pdf' });
     if (navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: `Invoice #${number}` });
+      await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
       return;
     }
   }

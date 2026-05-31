@@ -1,46 +1,41 @@
-/**
- * Shows the list of items added so far + running subtotal.
- *
- * Props:
- *   items: [{ id, name, qty, price }]
- *   onRemove(id)
- *   onEdit(item)
- */
-export default function InvoicePreview({ items, onRemove, onEdit }) {
+import { LIGHT, DARK } from '../theme';
+
+export default function InvoicePreview({ items, onRemove, onEdit, dark = false }) {
+  const C = dark ? DARK : LIGHT;
+
   const subtotal = items.reduce(
-    (sum, item) => sum + Number(item.qty) * Number(item.price),
-    0
+    (sum, item) => sum + Number(item.qty) * Number(item.price), 0
   );
 
   if (items.length === 0) {
     return (
-      <div style={styles.empty}>
-        <span style={styles.emptyIcon}>📦</span>
-        <p style={styles.emptyText}>No items yet. Add one above.</p>
+      <div style={s.empty}>
+        <span style={s.emptyIcon}>📦</span>
+        <p style={{ ...s.emptyText, color: C.textMuted }}>No items yet. Add one above.</p>
       </div>
     );
   }
 
   return (
-    <div style={styles.wrap}>
-      <h3 style={styles.heading}>Items ({items.length})</h3>
+    <div style={s.wrap}>
+      <h3 style={{ ...s.heading, color: C.textSub }}>Items ({items.length})</h3>
 
-      <div style={styles.list}>
-        {items.map((item) => (
-          <div key={item.id} style={styles.row}>
-            <div style={styles.rowMain}>
-              <span style={styles.itemName}>{item.name}</span>
-              <span style={styles.itemMeta}>
+      <div style={s.list}>
+        {items.map(item => (
+          <div key={item.id} style={{ ...s.row, background: C.rowBg }}>
+            <div style={s.rowMain}>
+              <span style={{ ...s.itemName, color: C.text }}>{item.name}</span>
+              <span style={{ ...s.itemMeta, color: C.textMuted }}>
                 {item.qty} × ${Number(item.price).toFixed(2)}
               </span>
             </div>
-            <div style={styles.rowRight}>
-              <span style={styles.itemTotal}>
+            <div style={s.rowRight}>
+              <span style={{ ...s.itemTotal, color: C.text }}>
                 ${(Number(item.qty) * Number(item.price)).toFixed(2)}
               </span>
               {onEdit && (
                 <button
-                  style={styles.editBtn}
+                  style={{ ...s.iconBtn, color: C.textLight }}
                   onClick={() => onEdit(item)}
                   aria-label={`Edit ${item.name}`}
                 >
@@ -48,7 +43,7 @@ export default function InvoicePreview({ items, onRemove, onEdit }) {
                 </button>
               )}
               <button
-                style={styles.removeBtn}
+                style={{ ...s.iconBtn, color: C.textMuted }}
                 onClick={() => onRemove(item.id)}
                 aria-label={`Remove ${item.name}`}
               >
@@ -59,20 +54,19 @@ export default function InvoicePreview({ items, onRemove, onEdit }) {
         ))}
       </div>
 
-      <div style={styles.subtotalBar}>
-        <span style={styles.subtotalLabel}>Subtotal</span>
-        <span style={styles.subtotalAmount}>${subtotal.toFixed(2)}</span>
+      <div style={{ ...s.subtotalBar, background: C.subtotalBar }}>
+        <span style={{ ...s.subtotalLabel, color: C.subtotalText }}>Subtotal</span>
+        <span style={{ ...s.subtotalAmount, color: C.subtotalText }}>${subtotal.toFixed(2)}</span>
       </div>
     </div>
   );
 }
 
-const styles = {
+const s = {
   wrap: { marginTop: 8 },
   heading: {
     fontSize: 15,
     fontWeight: 700,
-    color: '#444',
     margin: '0 0 8px',
     letterSpacing: 0.2,
   },
@@ -84,7 +78,6 @@ const styles = {
   row: {
     display: 'flex',
     alignItems: 'center',
-    background: '#f7f7f7',
     borderRadius: 10,
     padding: '12px 12px 12px 14px',
     gap: 8,
@@ -99,12 +92,11 @@ const styles = {
   itemName: {
     fontSize: 15,
     fontWeight: 600,
-    color: '#111',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  itemMeta: { fontSize: 13, color: '#777' },
+  itemMeta: { fontSize: 13 },
   rowRight: {
     display: 'flex',
     alignItems: 'center',
@@ -114,30 +106,13 @@ const styles = {
   itemTotal: {
     fontSize: 15,
     fontWeight: 700,
-    color: '#222',
     minWidth: 56,
     textAlign: 'right',
   },
-  editBtn: {
+  iconBtn: {
     background: 'none',
     border: 'none',
-    color: '#888',
     fontSize: 18,
-    cursor: 'pointer',
-    width: 32,
-    height: 32,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    padding: 0,
-    WebkitTapHighlightColor: 'transparent',
-  },
-  removeBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#aaa',
-    fontSize: 16,
     cursor: 'pointer',
     width: 32,
     height: 32,
@@ -154,9 +129,7 @@ const styles = {
     alignItems: 'center',
     marginTop: 12,
     padding: '14px 16px',
-    background: '#111',
     borderRadius: 12,
-    color: '#fff',
   },
   subtotalLabel: {
     fontSize: 15,
@@ -173,5 +146,5 @@ const styles = {
     gap: 8,
   },
   emptyIcon: { fontSize: 36 },
-  emptyText: { color: '#aaa', fontSize: 15, margin: 0 },
+  emptyText: { fontSize: 15, margin: 0 },
 };

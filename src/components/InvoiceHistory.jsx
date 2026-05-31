@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { getInvoices } from '../utils/storage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT } from '../theme';
 
 export default function InvoiceHistory({ onOpenDrawer }) {
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;
+
   const [invoices] = useState(() => [...getInvoices()].reverse());
   const [expanded, setExpanded] = useState(null);
   const [regenerating, setRegenerating] = useState(null);
@@ -23,72 +28,67 @@ export default function InvoiceHistory({ onOpenDrawer }) {
   }
 
   return (
-    <div style={styles.page}>
-      {/* Header */}
-      <div style={styles.header}>
-        <button style={styles.hamburger} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
-        <span style={styles.title}>Invoice History</span>
+    <div style={{ ...s.page, background: C.bg }}>
+      <div style={{ ...s.header, background: C.header, borderBottomColor: C.headerBorder }}>
+        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
+        <span style={{ ...s.title, color: C.text }}>Invoice History</span>
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={styles.body}>
+      <div style={s.body}>
         {invoices.length === 0 ? (
-          <div style={styles.empty}>
+          <div style={s.empty}>
             <span style={{ fontSize: 48 }}>📋</span>
-            <p style={styles.emptyText}>No invoices yet.</p>
-            <p style={styles.emptySubText}>Generated invoices will appear here.</p>
+            <p style={{ ...s.emptyText, color: C.textSub }}>No invoices yet.</p>
+            <p style={{ ...s.emptySubText, color: C.textMuted }}>Generated invoices will appear here.</p>
           </div>
         ) : (
           invoices.map(inv => {
-            const subtotal = inv.items.reduce(
-              (s, i) => s + Number(i.qty) * Number(i.price), 0
-            );
+            const subtotal = inv.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
             const isOpen = expanded === inv.number;
             return (
-              <div key={inv.number} style={styles.card}>
-                {/* Summary row */}
-                <button style={styles.summaryRow} onClick={() => toggle(inv.number)}>
-                  <div style={styles.summaryLeft}>
-                    <span style={styles.invoiceNum}>Invoice #{inv.number}</span>
-                    <span style={styles.storeName}>{inv.storeName}</span>
-                    <span style={styles.meta}>
+              <div key={inv.number} style={{ ...s.card, background: C.card }}>
+                <button style={{ ...s.summaryRow }} onClick={() => toggle(inv.number)}>
+                  <div style={s.summaryLeft}>
+                    <span style={{ ...s.invoiceNum, color: C.text }}>Invoice #{inv.number}</span>
+                    <span style={{ ...s.storeName, color: C.textSub }}>{inv.storeName}</span>
+                    <span style={{ ...s.meta, color: C.textMuted }}>
                       {inv.date}{inv.time ? `  ·  ${inv.time}` : ''}
                     </span>
                   </div>
-                  <div style={styles.summaryRight}>
-                    <span style={styles.total}>${subtotal.toFixed(2)}</span>
-                    <span style={styles.chevron}>{isOpen ? '▲' : '▼'}</span>
+                  <div style={s.summaryRight}>
+                    <span style={{ ...s.total, color: C.text }}>${subtotal.toFixed(2)}</span>
+                    <span style={{ ...s.chevron, color: C.textMuted }}>{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
 
-                {/* Expanded detail */}
                 {isOpen && (
-                  <div style={styles.detail}>
-                    <div style={styles.divider} />
+                  <div style={s.detail}>
+                    <div style={{ ...s.divider, background: C.divider }} />
                     {inv.businessPhone && (
-                      <p style={styles.detailMeta}>📞 {inv.businessPhone}</p>
+                      <p style={{ ...s.detailMeta, color: C.textMuted }}>📞 {inv.businessPhone}</p>
                     )}
                     {inv.storePhone && (
-                      <p style={styles.detailMeta}>🏪 {inv.storePhone}</p>
+                      <p style={{ ...s.detailMeta, color: C.textMuted }}>🏪 {inv.storePhone}</p>
                     )}
                     {inv.items.map((item, idx) => (
-                      <div key={idx} style={styles.itemRow}>
-                        <span style={styles.itemName}>{item.name}</span>
-                        <span style={styles.itemDetail}>
+                      <div key={idx} style={s.itemRow}>
+                        <span style={{ ...s.itemName, color: C.textSub }}>{item.name}</span>
+                        <span style={{ ...s.itemDetail, color: C.textMuted }}>
                           {item.qty} × ${Number(item.price).toFixed(2)} = ${(item.qty * item.price).toFixed(2)}
                         </span>
                       </div>
                     ))}
-                    <div style={styles.totalRow}>
-                      <span>Total</span>
-                      <span style={styles.totalAmt}>${subtotal.toFixed(2)}</span>
+                    <div style={{ ...s.totalRow, borderTopColor: C.divider }}>
+                      <span style={{ color: C.text }}>Total</span>
+                      <span style={{ ...s.totalAmt, color: C.text }}>${subtotal.toFixed(2)}</span>
                     </div>
                     <button
-                      style={{ ...styles.regenBtn, opacity: regenerating === inv.number ? 0.6 : 1 }}
+                      style={{ ...s.regenBtn, opacity: regenerating === inv.number ? 0.6 : 1 }}
                       onClick={() => handleRegenerate(inv)}
                       disabled={regenerating === inv.number}
                     >
-                      {regenerating === inv.number ? 'Sharing…' : '📤 Share PDF'}
+                      {regenerating === inv.number ? 'Sharing…' : 'Share PDF'}
                     </button>
                   </div>
                 )}
@@ -101,16 +101,14 @@ export default function InvoiceHistory({ onOpenDrawer }) {
   );
 }
 
-const styles = {
+const s = {
   page: {
     minHeight: '100dvh',
-    background: '#f2f2f7',
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
-    background: '#fff',
-    borderBottom: '1px solid #e5e5e5',
+    borderBottom: '1px solid',
     padding: '14px 16px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex',
@@ -121,7 +119,6 @@ const styles = {
     background: 'none',
     border: 'none',
     fontSize: 24,
-    color: '#333',
     cursor: 'pointer',
     padding: '2px 4px',
     WebkitTapHighlightColor: 'transparent',
@@ -131,7 +128,6 @@ const styles = {
     flex: 1,
     fontSize: 18,
     fontWeight: 800,
-    color: '#111',
     textAlign: 'center',
   },
   body: {
@@ -151,10 +147,9 @@ const styles = {
     paddingTop: 80,
     gap: 8,
   },
-  emptyText: { fontSize: 18, fontWeight: 700, color: '#555', margin: 0 },
-  emptySubText: { fontSize: 14, color: '#aaa', margin: 0 },
+  emptyText: { fontSize: 18, fontWeight: 700, margin: 0 },
+  emptySubText: { fontSize: 14, margin: 0 },
   card: {
-    background: '#fff',
     borderRadius: 16,
     boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
     overflow: 'hidden',
@@ -179,9 +174,9 @@ const styles = {
     gap: 2,
     minWidth: 0,
   },
-  invoiceNum: { fontSize: 15, fontWeight: 800, color: '#111' },
-  storeName: { fontSize: 14, fontWeight: 600, color: '#444' },
-  meta: { fontSize: 12, color: '#999' },
+  invoiceNum: { fontSize: 15, fontWeight: 800 },
+  storeName: { fontSize: 14, fontWeight: 600 },
+  meta: { fontSize: 12 },
   summaryRight: {
     display: 'flex',
     flexDirection: 'column',
@@ -189,11 +184,11 @@ const styles = {
     gap: 4,
     flexShrink: 0,
   },
-  total: { fontSize: 18, fontWeight: 800, color: '#111' },
-  chevron: { fontSize: 11, color: '#bbb' },
+  total: { fontSize: 18, fontWeight: 800 },
+  chevron: { fontSize: 11 },
   detail: { padding: '0 18px 18px' },
-  divider: { height: 1, background: '#f0f0f0', margin: '0 0 12px' },
-  detailMeta: { fontSize: 13, color: '#777', margin: '0 0 6px' },
+  divider: { height: 1, margin: '0 0 12px' },
+  detailMeta: { fontSize: 13, margin: '0 0 6px' },
   itemRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -201,24 +196,23 @@ const styles = {
     paddingBottom: 6,
     gap: 8,
   },
-  itemName: { fontSize: 14, color: '#333', fontWeight: 500 },
-  itemDetail: { fontSize: 13, color: '#777', flexShrink: 0 },
+  itemName: { fontSize: 14, fontWeight: 500 },
+  itemDetail: { fontSize: 13, flexShrink: 0 },
   totalRow: {
     display: 'flex',
     justifyContent: 'space-between',
     paddingTop: 10,
     marginTop: 4,
-    borderTop: '1px solid #f0f0f0',
+    borderTop: '1px solid',
     fontSize: 15,
     fontWeight: 700,
-    color: '#111',
   },
   totalAmt: { fontSize: 16, fontWeight: 800 },
   regenBtn: {
     width: '100%',
     marginTop: 14,
     height: 48,
-    background: '#1a73e8',
+    background: ACCENT,
     border: 'none',
     borderRadius: 12,
     fontSize: 15,

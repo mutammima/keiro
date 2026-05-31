@@ -1,14 +1,11 @@
 import { useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT } from '../theme';
 
-/**
- * Bottom-sheet modal for editing an existing invoice item.
- *
- * Props:
- *   item: { id, name, qty, price }
- *   onSave(updatedItem)
- *   onClose()
- */
 export default function EditItemModal({ item, onSave, onClose }) {
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;
+
   const [name,  setName]  = useState(item.name);
   const [qty,   setQty]   = useState(String(item.qty));
   const [price, setPrice] = useState(String(item.price));
@@ -25,24 +22,24 @@ export default function EditItemModal({ item, onSave, onClose }) {
   }
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.sheet} onClick={e => e.stopPropagation()}>
-        <div style={styles.handle} />
-        <p style={styles.title}>Edit Item</p>
+    <div style={s.overlay} onClick={onClose}>
+      <div style={{ ...s.sheet, background: C.card }} onClick={e => e.stopPropagation()}>
+        <div style={{ ...s.handle, background: C.inputBorder }} />
+        <p style={{ ...s.title, color: C.text }}>Edit Item</p>
 
-        <label style={styles.label}>Product Name</label>
+        <label style={{ ...s.label, color: C.textSub }}>Product Name</label>
         <input
-          style={styles.input}
+          style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
           value={name}
           onChange={e => setName(e.target.value)}
           autoFocus
         />
 
-        <div style={styles.row}>
+        <div style={s.row}>
           <div style={{ flex: 1 }}>
-            <label style={styles.label}>Quantity</label>
+            <label style={{ ...s.label, color: C.textSub }}>Quantity</label>
             <input
-              style={styles.input}
+              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
               inputMode="decimal"
               type="number"
               min="0"
@@ -51,9 +48,9 @@ export default function EditItemModal({ item, onSave, onClose }) {
             />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={styles.label}>Unit Price ($)</label>
+            <label style={{ ...s.label, color: C.textSub }}>Unit Price ($)</label>
             <input
-              style={styles.input}
+              style={{ ...s.input, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
               inputMode="decimal"
               type="number"
               min="0"
@@ -64,28 +61,31 @@ export default function EditItemModal({ item, onSave, onClose }) {
           </div>
         </div>
 
-        {error && <p style={styles.error}>{error}</p>}
+        {error && <p style={{ ...s.error, color: C.danger }}>{error}</p>}
 
-        <div style={styles.btnRow}>
-          <button style={styles.cancelBtn} onClick={onClose}>Cancel</button>
-          <button style={styles.saveBtn} onClick={handleSave}>Save Changes</button>
+        <div style={s.btnRow}>
+          <button style={{ ...s.cancelBtn, background: C.rowBg, color: C.textSub }} onClick={onClose}>
+            Cancel
+          </button>
+          <button style={s.saveBtn} onClick={handleSave}>
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-const styles = {
+const s = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.45)',
+    background: 'rgba(0,0,0,0.5)',
     zIndex: 3000,
     display: 'flex',
     alignItems: 'flex-end',
   },
   sheet: {
-    background: '#fff',
     borderRadius: '20px 20px 0 0',
     padding: '12px 20px 40px',
     paddingBottom: 'max(40px, env(safe-area-inset-bottom))',
@@ -96,13 +96,11 @@ const styles = {
     width: 40,
     height: 4,
     borderRadius: 2,
-    background: '#ddd',
     margin: '0 auto 16px',
   },
   title: {
     fontSize: 18,
     fontWeight: 800,
-    color: '#111',
     margin: '0 0 16px',
     textAlign: 'center',
   },
@@ -110,7 +108,6 @@ const styles = {
     display: 'block',
     fontSize: 13,
     fontWeight: 600,
-    color: '#444',
     marginBottom: 4,
     letterSpacing: 0.2,
   },
@@ -120,44 +117,28 @@ const styles = {
     height: 52,
     fontSize: 16,
     padding: '0 14px',
-    border: '1.5px solid #ddd',
+    border: '1.5px solid',
     borderRadius: 10,
-    background: '#fafafa',
-    color: '#111',
     outline: 'none',
     marginBottom: 12,
     WebkitAppearance: 'none',
   },
-  row: {
-    display: 'flex',
-    gap: 12,
-  },
-  error: {
-    color: '#c53030',
-    fontSize: 14,
-    margin: '0 0 8px',
-    fontWeight: 600,
-  },
-  btnRow: {
-    display: 'flex',
-    gap: 12,
-    marginTop: 8,
-  },
+  row: { display: 'flex', gap: 12 },
+  error: { fontSize: 14, margin: '0 0 8px', fontWeight: 600 },
+  btnRow: { display: 'flex', gap: 12, marginTop: 8 },
   cancelBtn: {
     flex: 1,
     height: 52,
-    background: '#f0f0f0',
     border: 'none',
     borderRadius: 12,
     fontSize: 16,
     fontWeight: 700,
-    color: '#555',
     cursor: 'pointer',
   },
   saveBtn: {
     flex: 2,
     height: 52,
-    background: '#1a73e8',
+    background: ACCENT,
     border: 'none',
     borderRadius: 12,
     fontSize: 16,

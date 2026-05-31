@@ -1,58 +1,68 @@
-const ACCENT = '#1a73e8';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT } from '../theme';
 
 const NAV_ITEMS = [
-  { id: 'invoice',  label: 'New Invoice',      icon: '🧾' },
-  { id: 'history',  label: 'Invoice History',  icon: '📋' },
-  { id: 'products', label: 'Products',          icon: '📦' },
+  { id: 'invoice',  label: 'New Invoice',     icon: '🧾' },
+  { id: 'history',  label: 'Invoice History', icon: '📋' },
+  { id: 'products', label: 'Products',         icon: '📦' },
+  { id: 'settings', label: 'Settings',         icon: '⚙️' },
 ];
 
 export default function NavDrawer({ open, onClose, onNav, currentPage }) {
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;
+
   return (
     <>
-      {/* Backdrop */}
       {open && (
         <div
-          style={styles.backdrop}
+          style={{ ...s.backdrop, background: C.drawerBg === DARK.drawerBg ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)' }}
           onClick={onClose}
           aria-hidden="true"
         />
       )}
 
-      {/* Drawer panel */}
       <div style={{
-        ...styles.drawer,
+        ...s.drawer,
+        background: C.drawerBg,
         transform: open ? 'translateX(0)' : 'translateX(-100%)',
       }}>
-        <div style={styles.drawerHeader}>
-          <span style={styles.drawerTitle}>Menu</span>
-          <button style={styles.closeBtn} onClick={onClose} aria-label="Close menu">✕</button>
+        <div style={{ ...s.drawerHeader, borderBottomColor: C.drawerBorder }}>
+          <span style={{ ...s.drawerTitle, color: C.text }}>Menu</span>
+          <button style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose} aria-label="Close menu">
+            ✕
+          </button>
         </div>
 
-        <nav style={styles.nav}>
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              style={{
-                ...styles.navItem,
-                ...(currentPage === item.id ? styles.navItemActive : {}),
-              }}
-              onClick={() => onNav(item.id)}
-            >
-              <span style={styles.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <nav style={s.nav}>
+          {NAV_ITEMS.map(item => {
+            const active = currentPage === item.id ||
+              (item.id === 'invoice' && currentPage === 'invoice-view');
+            return (
+              <button
+                key={item.id}
+                style={{
+                  ...s.navItem,
+                  color: active ? C.navActiveText : C.navText,
+                  background: active ? C.navActive : 'none',
+                }}
+                onClick={() => onNav(item.id)}
+              >
+                <span style={s.navIcon}>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
     </>
   );
 }
 
-const styles = {
+const s = {
   backdrop: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.4)',
     zIndex: 1500,
   },
   drawer: {
@@ -61,9 +71,8 @@ const styles = {
     left: 0,
     bottom: 0,
     width: 260,
-    background: '#fff',
     zIndex: 1600,
-    boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+    boxShadow: '4px 0 24px rgba(0,0,0,0.18)',
     transition: 'transform 0.25s ease',
     display: 'flex',
     flexDirection: 'column',
@@ -74,19 +83,17 @@ const styles = {
     justifyContent: 'space-between',
     padding: '20px 20px 16px',
     paddingTop: 'max(20px, env(safe-area-inset-top))',
-    borderBottom: '1px solid #f0f0f0',
+    borderBottom: '1px solid',
   },
   drawerTitle: {
     fontSize: 18,
     fontWeight: 800,
-    color: '#111',
     letterSpacing: 0.5,
   },
   closeBtn: {
     background: 'none',
     border: 'none',
     fontSize: 18,
-    color: '#aaa',
     cursor: 'pointer',
     padding: 4,
     lineHeight: 1,
@@ -102,19 +109,13 @@ const styles = {
     alignItems: 'center',
     gap: 14,
     padding: '16px 24px',
-    background: 'none',
     border: 'none',
     fontSize: 16,
     fontWeight: 600,
-    color: '#333',
     cursor: 'pointer',
     textAlign: 'left',
     borderRadius: 0,
     WebkitTapHighlightColor: 'transparent',
-  },
-  navItemActive: {
-    color: ACCENT,
-    background: '#e8f0fe',
   },
   navIcon: {
     fontSize: 20,
