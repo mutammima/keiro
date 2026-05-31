@@ -6,7 +6,7 @@
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 
-export const APP_VERSION = '5.2';
+export const APP_VERSION = '5.3';
 
 const CHANGELOG = [
   { emoji: '🏠', text: 'New Dashboard — overview of balance, pinned stores & top products' },
