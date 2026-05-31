@@ -63,7 +63,7 @@ const s = {
   drawer: {
     position: 'fixed', top: 0, left: 0, bottom: 0,
     width: 'min(200px, 58vw)', zIndex: 1600,
-    transition: 'transform 0.75s cubic-bezier(0.32,0.72,0,1)',
+    transition: 'transform 1.5s cubic-bezier(0.32,0.72,0,1)',
     display: 'flex', flexDirection: 'column',
   },
   drawerHeader: {
