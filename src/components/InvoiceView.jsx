@@ -203,22 +203,22 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 const s = {
   page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
-    padding: '12px 16px 10px',
-    paddingTop: 'max(12px, env(safe-area-inset-top))',
+    padding: '14px 20px 12px',
+    paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
   backBtn: {
     background: 'none', border: 'none', fontSize: 15, fontWeight: 600,
     cursor: 'pointer', padding: '4px 0', WebkitTapHighlightColor: 'transparent',
   },
-  title: { fontSize: 16, fontWeight: 700 },
+  title: { fontSize: 17, fontWeight: 700 },
   body: {
     padding: '14px 16px 48px',
-    display: 'flex', flexDirection: 'column', gap: 10,
+    display: 'flex', flexDirection: 'column', gap: 12,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   card: {
-    borderRadius: 12, border: '1px solid', overflow: 'hidden',
+    borderRadius: 18, border: '1px solid', overflow: 'hidden',
   },
   bizBlock: { padding: '16px 16px 12px', textAlign: 'center' },
   bizName: { fontSize: 16, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', margin: 0 },
@@ -262,21 +262,21 @@ const s = {
   notesBox: { padding: '12px 16px', borderTop: '1px solid' },
   notesText: { fontSize: 13, margin: '4px 0 0', lineHeight: 1.5 },
   primaryBtn: {
-    width: '100%', height: 52,
-    background: ACCENT, border: 'none', borderRadius: 10,
+    width: '100%', height: 54,
+    background: ACCENT, border: 'none', borderRadius: 16,
     fontSize: 16, fontWeight: 700, color: '#fff',
-    cursor: 'pointer', boxShadow: '0 2px 12px rgba(26,115,232,0.3)',
+    cursor: 'pointer', boxShadow: '0 4px 20px rgba(74,123,247,0.35)',
     WebkitTapHighlightColor: 'transparent',
   },
   secondaryRow: { display: 'flex', gap: 10 },
   secondaryBtn: {
-    flex: 1, height: 44, border: '1px solid',
-    borderRadius: 10, fontSize: 14, fontWeight: 600,
+    flex: 1, height: 46, border: '1px solid',
+    borderRadius: 14, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
   ghostBtn: {
-    width: '100%', height: 44, border: '1px solid',
-    borderRadius: 10, fontSize: 14, fontWeight: 600,
+    width: '100%', height: 46, border: '1px solid',
+    borderRadius: 14, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
 };

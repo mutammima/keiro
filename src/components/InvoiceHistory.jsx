@@ -9,7 +9,7 @@ import {
 } from '../utils/storage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../theme';
+import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
@@ -274,8 +274,8 @@ export default function InvoiceHistory({ onOpenDrawer }) {
           <div style={{
             ...s.heroCard,
             background: allClear
-              ? 'linear-gradient(135deg, #064e3b 0%, #059669 100%)'
-              : 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+              ? 'linear-gradient(135deg, #0D2B20 0%, #1a5c3a 100%)'
+              : GRADIENT,
           }}>
             <div style={s.heroTop}>
               <span style={s.heroLabel}>
@@ -367,72 +367,73 @@ export default function InvoiceHistory({ onOpenDrawer }) {
 const s = {
   page: { minHeight: '100dvh', display: 'flex', flexDirection: 'column' },
   header: {
-    padding: '12px 16px 10px',
-    paddingTop: 'max(12px, env(safe-area-inset-top))',
-    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '14px 20px 12px',
+    paddingTop: 'max(14px, env(safe-area-inset-top))',
+    display: 'flex', alignItems: 'center', gap: 14,
   },
   hamburger: {
     background: 'none', border: 'none', fontSize: 22,
     cursor: 'pointer', padding: '3px 4px',
     WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   },
-  title: { flex: 1, fontSize: 17, fontWeight: 700, textAlign: 'center' },
+  title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
   body: {
-    padding: '14px 14px 56px',
+    padding: '12px 16px 56px',
     display: 'flex', flexDirection: 'column', gap: 10,
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
 
   // Hero card
   heroCard: {
-    borderRadius: 16, padding: '18px 20px',
+    borderRadius: 20, padding: '20px 22px',
     color: '#fff',
   },
   heroTop: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
   },
   heroLabel: {
-    fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
-    textTransform: 'uppercase', opacity: 0.75, paddingTop: 3,
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+    textTransform: 'uppercase', opacity: 0.65, paddingTop: 4,
   },
-  heroAmt: { fontSize: 32, fontWeight: 800, letterSpacing: -0.5 },
-  heroPills: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 },
+  heroAmt: { fontSize: 36, fontWeight: 800, letterSpacing: -1 },
+  heroPills: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 },
   heroPill: {
-    fontSize: 11, fontWeight: 600, padding: '3px 10px',
-    borderRadius: 20, background: 'rgba(255,255,255,0.18)',
+    fontSize: 11, fontWeight: 600, padding: '4px 11px',
+    borderRadius: 20, background: 'rgba(255,255,255,0.15)',
   },
 
   // Search/filter
   filterCard: {
-    borderRadius: 12, border: '1px solid', overflow: 'hidden',
+    borderRadius: 16, overflow: 'hidden',
   },
   searchInput: {
-    width: '100%', boxSizing: 'border-box', height: 42,
-    fontSize: 15, padding: '0 14px', border: 'none',
+    width: '100%', boxSizing: 'border-box', height: 44,
+    fontSize: 15, padding: '0 16px', border: 'none',
     outline: 'none',
   },
   filterDivider: { height: 1 },
-  filterRow: { display: 'flex', padding: '7px 7px', gap: 5 },
+  filterRow: { display: 'flex', padding: '8px 8px', gap: 6 },
   filterBtn: {
-    flex: 1, height: 30, border: 'none', borderRadius: 6,
+    flex: 1, height: 32, border: 'none', borderRadius: 8,
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
   },
 
   // Group labels
   groupLabel: {
-    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-    letterSpacing: '0.07em', margin: '2px 2px 0',
+    fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+    letterSpacing: '0.08em', margin: '4px 4px 0',
   },
 
   // Invoice card
   card: {
-    borderRadius: 16, border: '1px solid', overflow: 'visible',
+    borderRadius: 18, overflow: 'visible',
+    border: '1px solid',
     position: 'relative',
   },
   cardTop: {
     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-    padding: '14px 14px 10px', gap: 8,
+    padding: '16px 16px 10px', gap: 8,
   },
   cardTopLeft: { display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 },
   storeName: { fontSize: 16, fontWeight: 700 },
@@ -440,25 +441,25 @@ const s = {
   cardActions: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 },
   iconActionBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 18, width: 34, height: 34,
+    fontSize: 18, width: 36, height: 36,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 17, padding: 0, WebkitTapHighlightColor: 'transparent',
+    borderRadius: 18, padding: 0, WebkitTapHighlightColor: 'transparent',
   },
 
   // Dropdown menu
   dropdown: {
     position: 'absolute', top: 36, right: 0,
-    borderRadius: 12, border: '1px solid',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
-    zIndex: 100, minWidth: 180, overflow: 'hidden',
+    borderRadius: 14,
+    boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+    zIndex: 100, minWidth: 190, overflow: 'hidden',
   },
   dropdownLabel: {
     fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-    letterSpacing: '0.07em', padding: '10px 14px 4px', margin: 0,
+    letterSpacing: '0.07em', padding: '11px 16px 4px', margin: 0,
   },
   dropdownItem: {
     display: 'flex', alignItems: 'center', gap: 10,
-    width: '100%', padding: '11px 14px',
+    width: '100%', padding: '12px 16px',
     background: 'none', border: 'none',
     fontSize: 14, fontWeight: 500, cursor: 'pointer', textAlign: 'left',
     WebkitTapHighlightColor: 'transparent',
@@ -468,20 +469,20 @@ const s = {
 
   // Nested card
   nestedCard: {
-    margin: '0 10px 10px',
-    borderRadius: 12, border: '1px solid',
+    margin: '0 12px 12px',
+    borderRadius: 14,
     cursor: 'pointer', overflow: 'hidden',
   },
   nestedTop: {
     display: 'flex', justifyContent: 'space-between',
-    alignItems: 'flex-start', padding: '12px 14px 0',
+    alignItems: 'flex-start', padding: '14px 16px 0',
   },
   nestedLabel: {
     fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
     margin: 0,
   },
   nestedRight: { textAlign: 'right' },
-  nestedTotal: { fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: -0.5 },
+  nestedTotal: { fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.5 },
   nestedCount: { fontSize: 11, margin: '1px 0 0' },
   nestedItem: {
     display: 'flex', alignItems: 'center', gap: 6,
@@ -499,42 +500,42 @@ const s = {
   // Footer
   cardFooter: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '2px 14px 12px', gap: 8,
+    padding: '2px 16px 14px', gap: 8,
   },
   statusBadge: {
-    fontSize: 11, fontWeight: 700, padding: '3px 10px',
+    fontSize: 11, fontWeight: 700, padding: '4px 12px',
     borderRadius: 20, border: 'none', cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent', letterSpacing: '0.03em',
   },
 
   // Expanded sections
   notesBox: {
-    padding: '10px 14px', borderTop: '1px solid',
+    padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.06)',
   },
   notesLabel: { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' },
   notesText: { fontSize: 13, margin: '3px 0 0', lineHeight: 1.5 },
   expandedActions: {
-    padding: '10px 14px 14px', borderTop: '1px solid',
+    padding: '10px 16px 16px', borderTop: '1px solid rgba(255,255,255,0.06)',
   },
   shareBtn: {
-    width: '100%', height: 42,
-    background: ACCENT, border: 'none', borderRadius: 8,
+    width: '100%', height: 44,
+    background: ACCENT, border: 'none', borderRadius: 12,
     fontSize: 14, fontWeight: 700, color: '#fff',
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
 
   // Load more
   loadMoreBtn: {
-    width: '100%', height: 46, border: '1px solid',
-    borderRadius: 12, fontSize: 14, fontWeight: 600,
+    width: '100%', height: 48, border: 'none',
+    borderRadius: 16, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
 
   // Empty
   empty: {
-    paddingTop: 60, textAlign: 'center',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    paddingTop: 72, textAlign: 'center',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
   },
-  emptyText: { fontSize: 17, fontWeight: 700, margin: 0 },
+  emptyText: { fontSize: 18, fontWeight: 700, margin: 0 },
   emptySubText: { fontSize: 14, margin: 0 },
 };

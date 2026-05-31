@@ -5,7 +5,8 @@ const ThemeContext = createContext({ dark: false, toggleDark: () => {} });
 function applyThemeColor(dark) {
   const color = dark ? '#000000' : '#f4f4f5';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
-  document.body.style.background = dark ? '#000000' : '#f4f4f5';
+  document.documentElement.style.background = color;
+  document.body.style.background = color;
 }
 
 export function ThemeProvider({ children }) {

@@ -121,8 +121,9 @@ const s = {
     transition: 'background 0.15s',
   },
   modeBtnActive: {
-    background: '#3a3a3a',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+    background: '#2a2a2a',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+    color: '#ffffff',
   },
   linkGrid: {
     display: 'grid', gridTemplateColumns: '1fr 1fr',

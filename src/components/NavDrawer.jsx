@@ -40,7 +40,6 @@ export default function NavDrawer({ open, onClose, onNav, currentPage }) {
                   ...s.navItem,
                   color: active ? C.navActiveText : C.navText,
                   background: active ? C.navActive : 'none',
-                  borderLeftColor: active ? ACCENT : 'transparent',
                 }}
                 onClick={() => onNav(item.id)}
               >
@@ -58,39 +57,40 @@ export default function NavDrawer({ open, onClose, onNav, currentPage }) {
 const s = {
   backdrop: {
     position: 'fixed', inset: 0,
-    background: 'rgba(0,0,0,0.45)',
+    background: 'rgba(0,0,0,0.6)',
     zIndex: 1500,
   },
   drawer: {
     position: 'fixed', top: 0, left: 0, bottom: 0,
-    width: 256, zIndex: 1600,
-    borderRight: '1px solid',
-    boxShadow: '8px 0 32px rgba(0,0,0,0.12)',
-    transition: 'transform 0.22s ease',
+    width: 260, zIndex: 1600,
+    boxShadow: '20px 0 60px rgba(0,0,0,0.6)',
+    transition: 'transform 0.24s cubic-bezier(0.32,0.72,0,1)',
     display: 'flex', flexDirection: 'column',
   },
   drawerHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '18px 18px 14px',
-    paddingTop: 'max(18px, env(safe-area-inset-top))',
-    borderBottom: '1px solid',
+    padding: '20px 20px 16px',
+    paddingTop: 'max(20px, env(safe-area-inset-top))',
   },
-  drawerTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 0.3 },
+  drawerTitle: { fontSize: 17, fontWeight: 700, letterSpacing: 0.2 },
   closeBtn: {
-    background: 'none', border: 'none', fontSize: 16,
-    cursor: 'pointer', padding: 4, lineHeight: 1,
+    background: 'rgba(255,255,255,0.08)', border: 'none', fontSize: 15,
+    cursor: 'pointer', padding: 0, lineHeight: 1,
+    width: 32, height: 32, borderRadius: 16,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   nav: {
     display: 'flex', flexDirection: 'column',
-    padding: '10px 0', gap: 1,
+    padding: '8px 12px', gap: 2,
   },
   navItem: {
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '13px 18px',
-    border: 'none', borderLeft: '3px solid',
+    display: 'flex', alignItems: 'center', gap: 14,
+    padding: '13px 16px',
+    border: 'none', borderRadius: 14,
     fontSize: 15, fontWeight: 500,
     cursor: 'pointer', textAlign: 'left',
     WebkitTapHighlightColor: 'transparent',
+    transition: 'background 0.15s',
   },
   navIcon: { fontSize: 18, width: 24, textAlign: 'center' },
 };
