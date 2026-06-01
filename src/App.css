@@ -13,7 +13,12 @@ html, body {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
-/* Every element inherits touch-action */
+/* Prevent the browser from doing its own horizontal pan anywhere in the app.
+ * pan-y = vertical scroll is still native and smooth; horizontal is blocked.
+ * This stops the login screen, overlay pages, and everything else from
+ * sliding sideways. The swipe zone overrides this with touch-action:pan-y
+ * (same value) and our non-passive JS handler handles horizontal swipes. */
+html, body, #root { touch-action: pan-y; }
 * { touch-action: inherit; }
 
 /* ── #root — full bleed on every device ──────────────────────────────

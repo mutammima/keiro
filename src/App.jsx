@@ -171,60 +171,101 @@ function AppInner() {
     setPage(TABS[tabIdx]);
   }
 
-  // ── Swipe gesture state ───────────────────────────────────────────────────────
-  const swipeStart  = useRef(null);  // { x, y } on touchstart
-  const swipeDelta  = useRef(0);     // live px offset during drag
-  const swipeLocked = useRef(null);  // 'h' | 'v' | null — axis lock
-  const [dragOffset, setDragOffset] = useState(0);   // live px for transform
-  const [swiping,    setSwiping]    = useState(false); // disables CSS transition during drag
+  // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
+  //
+  // React's synthetic onTouchMove is passive (e.preventDefault() silently
+  // ignored), which lets the browser do its own horizontal pan on top of our
+  // JS transform. That caused the whole page to slide instead of just the strip.
+  //
+  // Fix: attach the touchmove listener directly via addEventListener with
+  // { passive: false } on a stable wrapper ref. tabIdx / overlayPage are
+  // mirrored into refs so the handlers always see the latest values without
+  // needing to be re-registered on every render.
 
-  const SWIPE_THRESHOLD = 50; // px to commit a tab change
+  const swipeWrapperRef = useRef(null);
+  const swipeStart      = useRef(null);
+  const swipeDelta      = useRef(0);
+  const swipeLocked     = useRef(null);
+  const tabIdxRef       = useRef(tabIdx);
+  const overlayPageRef  = useRef(overlayPage);
+  const navigateRef     = useRef(navigate);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [swiping,    setSwiping]    = useState(false);
 
-  function onSwipeStart(e) {
-    if (overlayPage !== null) return;
-    const t = e.touches[0];
-    swipeStart.current  = { x: t.clientX, y: t.clientY };
-    swipeDelta.current  = 0;
-    swipeLocked.current = null;
-  }
+  // Keep refs in sync with latest state/callbacks
+  useEffect(() => { tabIdxRef.current    = tabIdx;    }, [tabIdx]);
+  useEffect(() => { overlayPageRef.current = overlayPage; }, [overlayPage]);
+  useEffect(() => { navigateRef.current  = navigate;  }, [navigate]);
 
-  function onSwipeMove(e) {
-    if (!swipeStart.current || overlayPage !== null) return;
-    const dx = e.touches[0].clientX - swipeStart.current.x;
-    const dy = e.touches[0].clientY - swipeStart.current.y;
+  const SWIPE_THRESHOLD = 52; // px needed to commit a tab change
 
-    // Lock axis on first significant movement
-    if (swipeLocked.current === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
-      swipeLocked.current = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v';
+  useEffect(() => {
+    const el = swipeWrapperRef.current;
+    if (!el) return;
+
+    function handleStart(e) {
+      if (overlayPageRef.current !== null) return;
+      const t = e.touches[0];
+      swipeStart.current  = { x: t.clientX, y: t.clientY };
+      swipeDelta.current  = 0;
+      swipeLocked.current = null;
     }
-    if (swipeLocked.current !== 'h') return;
 
-    // Clamp: can't swipe left on first tab or right on last tab
-    const clamped = Math.max(
-      tabIdx >= TABS.length - 1 ? -60 : -window.innerWidth,
-      Math.min(tabIdx <= 0 ? 60 : window.innerWidth, dx)
-    );
-    swipeDelta.current = clamped;
-    setSwiping(true);
-    setDragOffset(clamped);
-    e.preventDefault(); // stop page scroll while swiping horizontally
-  }
+    function handleMove(e) {
+      if (!swipeStart.current || overlayPageRef.current !== null) return;
+      const dx = e.touches[0].clientX - swipeStart.current.x;
+      const dy = e.touches[0].clientY - swipeStart.current.y;
 
-  function onSwipeEnd() {
-    if (!swipeStart.current) return;
-    swipeStart.current = null;
-    const d = swipeDelta.current;
-    swipeDelta.current = 0;
-    setSwiping(false);
-    setDragOffset(0);
+      // Axis lock: wait for 8px movement, require 1.5× more horizontal than vertical
+      if (swipeLocked.current === null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // not enough movement yet
+        swipeLocked.current = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'h' : 'v';
+      }
+      if (swipeLocked.current !== 'h') return;
 
-    if (d < -SWIPE_THRESHOLD && tabIdx < TABS.length - 1) {
-      navigate(TABS[tabIdx + 1]);
-    } else if (d > SWIPE_THRESHOLD && tabIdx > 0) {
-      navigate(TABS[tabIdx - 1]);
+      // Confirmed horizontal swipe — stop browser from also panning the page
+      e.preventDefault();
+
+      const idx = tabIdxRef.current;
+      const W   = el.offsetWidth; // actual container px width (not vw)
+      const clamped = Math.max(
+        idx >= TABS.length - 1 ? -60 : -W,
+        Math.min(idx <= 0      ?  60 :  W, dx)
+      );
+      swipeDelta.current = clamped;
+      setSwiping(true);
+      setDragOffset(clamped);
     }
-    // Otherwise snap back (setDragOffset(0) already done above)
-  }
+
+    function handleEnd() {
+      if (!swipeStart.current) return;
+      swipeStart.current = null;
+      const d   = swipeDelta.current;
+      const idx = tabIdxRef.current;
+      swipeDelta.current = 0;
+      setSwiping(false);
+      setDragOffset(0);
+
+      if (d < -SWIPE_THRESHOLD && idx < TABS.length - 1) {
+        navigateRef.current(TABS[idx + 1]);
+      } else if (d > SWIPE_THRESHOLD && idx > 0) {
+        navigateRef.current(TABS[idx - 1]);
+      }
+    }
+
+    // passive:false on touchmove so e.preventDefault() is respected
+    el.addEventListener('touchstart',  handleStart, { passive: true  });
+    el.addEventListener('touchmove',   handleMove,  { passive: false });
+    el.addEventListener('touchend',    handleEnd,   { passive: true  });
+    el.addEventListener('touchcancel', handleEnd,   { passive: true  });
+
+    return () => {
+      el.removeEventListener('touchstart',  handleStart);
+      el.removeEventListener('touchmove',   handleMove);
+      el.removeEventListener('touchend',    handleEnd);
+      el.removeEventListener('touchcancel', handleEnd);
+    };
+  }, []); // only run once — handlers read live values via refs
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const isTabPage = overlayPage === null;
@@ -262,42 +303,55 @@ function AppInner() {
         onTutorial={() => setShowTutorial(true)}
       />
 
-      {/* ── Tab strip — swipeable ─────────────────────────────────── */}
+      {/* ── Tab strip — swipeable ─────────────────────────────────────────── */}
+      {/* swipeWrapperRef is the viewport-width clip container that holds the   */}
+      {/* 300%-wide strip. Non-passive touch listeners are attached to it via   */}
+      {/* useEffect above so e.preventDefault() actually blocks native scroll.  */}
       {isTabPage && (
         <div
-          onTouchStart={onSwipeStart}
-          onTouchMove={onSwipeMove}
-          onTouchEnd={onSwipeEnd}
-          onTouchCancel={onSwipeEnd}
+          ref={swipeWrapperRef}
           style={{
-            display: 'flex',
-            width: `${TABS.length * 100}vw`,
-            height: '100%',
-            paddingTop: 'calc(40px + env(safe-area-inset-top))',
-            // During drag: no transition so it tracks the finger exactly.
-            // On release: spring to the snapped position.
-            transform: `translateX(calc(-${tabIdx * 100}vw + ${dragOffset}px))`,
-            transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
-            willChange: 'transform',
-            boxSizing: 'border-box',
+            position: 'absolute', inset: 0,
+            overflow: 'hidden',
+            // pan-y tells the browser this area only supports vertical panning
+            // natively; horizontal is handled entirely by our JS swipe code.
+            touchAction: 'pan-y',
           }}
         >
-          {[
-            <NewInvoice key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
-            <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
-            <Products key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-          ].map((child, i) => (
-            <div
-              key={i}
-              style={{
-                width: '100vw', height: '100%',
-                overflowY: 'auto', overflowX: 'hidden',
-                flexShrink: 0,
-              }}
-            >
-              {child}
-            </div>
-          ))}
+          {/* 3× wide strip — slides via transform, never via browser scroll */}
+          <div
+            style={{
+              display: 'flex',
+              width: `${TABS.length * 100}%`,
+              height: '100%',
+              paddingTop: 'calc(40px + env(safe-area-inset-top))',
+              transform: `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
+              transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
+              willChange: 'transform',
+              boxSizing: 'border-box',
+            }}
+          >
+            {[
+              <NewInvoice key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
+              <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
+              <Products key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+            ].map((child, i) => (
+              <div
+                key={i}
+                style={{
+                  width: `${100 / TABS.length}%`,
+                  height: '100%',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  flexShrink: 0,
+                  // Allow vertical scroll within each tab without triggering swipe
+                  touchAction: 'pan-y',
+                }}
+              >
+                {child}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
