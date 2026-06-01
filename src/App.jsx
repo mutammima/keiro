@@ -260,7 +260,10 @@ function AppInner() {
         </div>
       )}
 
-      <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
+      {/* Hide top nav on overlay pages — they have their own headers */}
+      {overlayPage === null && (
+        <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
+      )}
       <OfflineBanner dark={dark} />
     </div>
   );

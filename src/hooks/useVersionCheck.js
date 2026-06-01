@@ -9,7 +9,7 @@
 
 import { useEffect } from 'react';
 
-export const LOCAL_VERSION = '5.7';
+export const LOCAL_VERSION = '5.8';
 
 export default function useVersionCheck() {
   useEffect(() => {

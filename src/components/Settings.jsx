@@ -214,6 +214,25 @@ export default function Settings({ onOpenDrawer, onNav }) {
 
       <div style={s.body}>
 
+        {/* ── 0. Easy Mode ───────────────────────────────────────────────── */}
+        <Section title="Easy Mode" C={C} defaultOpen>
+          <div style={{ paddingTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 3 }}>Simplified view</div>
+                <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.45 }}>
+                  Shows only New Invoice, Invoices, and Products. Hides Reports, Notes, Store Info, and other advanced features.
+                </div>
+              </div>
+              <Toggle
+                on={lsGet('inv_easy_mode', false)}
+                onChange={v => { lsSet('inv_easy_mode', v); window.location.reload(); }}
+                C={C} dark={dark}
+              />
+            </div>
+          </div>
+        </Section>
+
         {/* ── 1. Appearance ──────────────────────────────────────────────── */}
         <Section title="Appearance" C={C} defaultOpen>
           <div style={{ paddingTop: 4 }}>

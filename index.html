@@ -15,7 +15,7 @@
   <!-- Version check: runs before React, unregisters SW + reloads if server has newer version -->
   <script>
     (function () {
-      var LOCAL = '5.7';
+      var LOCAL = '5.8';
       fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
