@@ -126,7 +126,7 @@ const STEPS = [
     autoFill: () => {
       document.querySelector('[data-tutorial="tab-history"]')?.click();
     },
-    autoAdvanceOn: 'history',
+    autoAdvanceOn: null,
   },
   {
     title: 'Step 8 — Products Catalog',
@@ -136,7 +136,7 @@ const STEPS = [
     autoFill: () => {
       document.querySelector('[data-tutorial="tab-products"]')?.click();
     },
-    autoAdvanceOn: 'products',
+    autoAdvanceOn: null,
   },
   {
     title: 'Step 9 — Sidebar & Settings',
