@@ -5,7 +5,7 @@
  * • Edit sheet lets you update address + phone; saved in localStorage
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getInvoices, getPinnedStores, togglePinnedStore } from '../../utils/storage';
@@ -177,10 +177,44 @@ const inputStyle = {
 };
 
 // ── Map preview ───────────────────────────────────────────────────────────────
+/**
+ * Uses Nominatim (OpenStreetMap's free geocoder, no API key) to resolve the
+ * address to lat/lon, then renders an OSM embed iframe centered on that point.
+ * Falls back to a "could not find" message if geocoding fails.
+ */
 function MapPreview({ address, name, dark }) {
-  const [show, setShow] = useState(false);
-  const query = encodeURIComponent(`${name} ${address}`);
-  const src   = `https://maps.google.com/maps?q=${query}&output=embed&z=15`;
+  const [show,   setShow]   = useState(false);
+  const [coords, setCoords] = useState(null);   // { lat, lon } | null
+  const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'ok' | 'error'
+
+  // Geocode with Nominatim the first time the map is expanded
+  useEffect(() => {
+    if (!show || status !== 'idle') return;
+    if (!address) { setStatus('error'); return; }
+    setStatus('loading');
+    const query = encodeURIComponent(address);
+    fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'InvoiceGo/1.0' },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data[0]) {
+          setCoords({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) });
+          setStatus('ok');
+        } else {
+          setStatus('error');
+        }
+      })
+      .catch(() => setStatus('error'));
+  }, [show, address, status]);
+
+  // Build the OSM embed URL from coordinates
+  const osmSrc = useMemo(() => {
+    if (!coords) return null;
+    const { lat, lon } = coords;
+    const delta = 0.008; // ~800m bounding box
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}&layer=mapnik&marker=${lat},${lon}`;
+  }, [coords]);
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -196,29 +230,42 @@ function MapPreview({ address, name, dark }) {
         <span style={{ fontSize: 14 }}>⌖</span>
         {show ? 'Hide map' : 'Show map'}
       </button>
+
       {show && (
         <div style={{
           marginTop: 8, borderRadius: 12, overflow: 'hidden',
           border: `1px solid ${dark ? '#2a2a2a' : '#e4e4e7'}`,
           height: 160, position: 'relative',
+          background: dark ? '#1a1a1a' : '#f4f4f5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <iframe
-            title={`Map for ${name}`}
-            src={src}
-            width="100%"
-            height="100%"
-            style={{ border: 0, display: 'block' }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            /* Prevent the iframe from stealing touch events */
-            onTouchStart={e => e.stopPropagation()}
-          />
-          {/* Tap-to-open overlay — avoids touch-steal, lets user open maps instead */}
-          <div
-            style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}
-            onClick={() => openMaps(address, name)}
-            title="Open in Maps"
-          />
+          {status === 'loading' && (
+            <span style={{ color: dark ? '#666' : '#aaa', fontSize: 13 }}>Finding address…</span>
+          )}
+          {status === 'error' && (
+            <span style={{ color: dark ? '#666' : '#aaa', fontSize: 13, textAlign: 'center', padding: '0 16px' }}>
+              Could not locate "{address}"
+            </span>
+          )}
+          {status === 'ok' && osmSrc && (
+            <>
+              <iframe
+                title={`Map for ${name}`}
+                src={osmSrc}
+                width="100%"
+                height="100%"
+                style={{ border: 0, display: 'block', position: 'absolute', inset: 0 }}
+                loading="lazy"
+                onTouchStart={e => e.stopPropagation()}
+              />
+              {/* Tap-to-open overlay — tapping opens in the native maps app */}
+              <div
+                style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}
+                onClick={() => openMaps(address, name)}
+                title="Tap to open in Maps"
+              />
+            </>
+          )}
         </div>
       )}
     </div>

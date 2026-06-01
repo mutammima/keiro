@@ -25,7 +25,7 @@ import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/ui/SectionGuide';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
-import useVersionCheck from './hooks/useVersionCheck';
+import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
 import './App.css';
 
 // The three draggable bottom-nav tabs
@@ -93,7 +93,15 @@ function AppInner() {
   const [guideSection,   setGuideSection]   = useState(null);
   const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
   const { updateAvailable, applyUpdate }    = useAppUpdate();
-  useVersionCheck(); // hard-reload if remote version.json differs from LOCAL_VERSION
+  const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
+  useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
+
+  // Listen for version-check update signal and surface it to the user
+  useEffect(() => {
+    const handler = () => setVersionUpdateAvailable(true);
+    window.addEventListener('inv-version-update', handler);
+    return () => window.removeEventListener('inv-version-update', handler);
+  }, []);
 
   // Sections that have a contextual guide
   const GUIDED_SECTIONS = new Set(['invoice','history','products','reports','store-map','notes','home']);
@@ -193,9 +201,9 @@ function AppInner() {
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {showTutorial && <InteractiveTutorial currentPage={page} onClose={() => setShowTutorial(false)} />}
       {guideSection  && <SectionGuide section={guideSection} onDismiss={() => setGuideSection(null)} />}
-      {updateAvailable && (
+      {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
-          onUpdate={applyUpdate}
+          onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
           isMidInvoice={page === 'invoice'}
         />
       )}

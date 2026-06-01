@@ -185,7 +185,12 @@ export default function Settings({ onOpenDrawer, onNav }) {
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Settings</span>
-        <div style={{ width: 36 }} />
+        {/* Close / back — returns to the invoice tab (critical in easy mode where there's no bottom nav) */}
+        <button
+          onClick={() => onNav('invoice')}
+          style={{ width: 36, height: 36, background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent', borderRadius: 10 }}
+          aria-label="Close settings"
+        >✕</button>
       </div>
 
       <div style={s.body}>
