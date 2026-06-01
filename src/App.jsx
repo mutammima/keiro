@@ -260,7 +260,7 @@ function AppInner() {
         </div>
       )}
 
-      <BottomNav currentPage={page} onNav={navigate} />
+      <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
       <OfflineBanner dark={dark} />
     </div>
   );
