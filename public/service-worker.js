@@ -1,23 +1,28 @@
 // ── InvoiceGo Service Worker ──────────────────────────────────────────────────
-// Aggressive update strategy:
-//   • skipWaiting() on install — new SW takes over immediately on all clients
+// User-friendly update strategy:
+//   • On install: waits (does NOT skipWaiting) so the new SW sits in "waiting"
+//     state where useAppUpdate.js can detect it and show the banner
+//   • On "Update Now" tap: the banner posts SKIP_WAITING here, triggering
+//     controllerchange in the page which reloads cleanly
 //   • clients.claim() on activate — existing tabs get the new SW right away
-//   • Cache-busted on every deploy via CACHE_NAME version bump
 //   • index.html is always fetched network-first (never served stale from cache)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'invoicego-v5';
+const CACHE_NAME = 'invoicego-v6';
 
 const PRECACHE_URLS = [
   '/manifest.json',
 ];
 
-// ── Install: skip waiting immediately so all tabs get new SW without delay ────
+// ── Install: precache but DO NOT skipWaiting ──────────────────────────────────
+// Staying in "waiting" is what allows useAppUpdate to detect the pending update
+// and show the "Update now / Later" banner. If we skipWaiting here the new SW
+// takes over silently and the user never gets a choice.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  self.skipWaiting(); // aggressive: take over immediately
+  // intentionally NOT calling self.skipWaiting() here
 });
 
 // ── Activate: wipe old caches, claim all open tabs instantly ──────────────────
