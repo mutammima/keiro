@@ -86,6 +86,7 @@ export default function Home({ onOpenDrawer, onNav }) {
         <button style={{ ...s.menuBtn, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ fontSize: 17, fontWeight: 700, color: C.text }}>{bizName}</span>
         <button
+          data-tutorial="tab-new"
           style={{ ...s.actionChip, background: ACCENT, color: '#fff' }}
           onClick={() => onNav('invoice')}
         >+ New</button>
