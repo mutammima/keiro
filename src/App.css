@@ -90,5 +90,9 @@ html, body, #root { touch-action: pan-y; }
  * The .app-shell is taller than 100% to compensate: 100% / 0.9 ≈ 111%.
  * This prevents a gap at the bottom after zooming.
  */
-body.density-compact  .app-shell { zoom: 0.9; height: 111.12%; }
-body:not(.density-compact) .app-shell { zoom: 1;   height: 100%;   }
+/* Compact density: shrink text/spacing without affecting layout dimensions.
+ * We do NOT use zoom because it alters computed heights and causes a black bar
+ * at the bottom on iOS. Instead we just reduce the base font size — components
+ * that use em/rem units will tighten up automatically. */
+body.density-compact  .app-shell { font-size: 13px; }
+body:not(.density-compact) .app-shell { font-size: 14px; }
