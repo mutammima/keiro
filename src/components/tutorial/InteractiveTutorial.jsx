@@ -48,9 +48,9 @@ const STEPS = [
   },
   {
     title: 'Step 1 — Open New Invoice',
-    instruction: 'Tap the "New" tab at the top to open the invoice form.',
+    instruction: 'Tap the "New" button to open the invoice form.',
     selector: '[data-tutorial="tab-new"]',
-    navPage: 'invoice',
+    navPage: null,
     autoFill: () => {
       document.querySelector('[data-tutorial="tab-new"]')?.click();
     },
@@ -215,6 +215,8 @@ export default function InteractiveTutorial({ currentPage, navigate, onClose }) 
   // ── Click blocker ────────────────────────────────────────────────────────
   useEffect(() => {
     function block(e) {
+      // Allow programmatic clicks from autoFill (e.g. element.click())
+      if (!e.isTrusted) return;
       if (e.target.closest?.('[data-itut-ui]')) return;
       const r = currentRectRef.current;
       if (r) {
