@@ -21,7 +21,7 @@ const KEYS = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function lsGet(key, fallback) {
+export function lsGet(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
@@ -30,7 +30,7 @@ function lsGet(key, fallback) {
   }
 }
 
-function lsSet(key, value) {
+export function lsSet(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
