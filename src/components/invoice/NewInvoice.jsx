@@ -52,7 +52,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
       {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
       {editingItem && <EditItemModal item={editingItem} onSave={handleEditSave} onClose={() => setEditingItem(null)} />}
 
-      <div style={{ ...s.page, background: C.bg }}>
+      <div data-tutorial="invoice-form" style={{ ...s.page, background: C.bg }}>
         {/* Header */}
         <div style={{ ...s.header, ...glassStyle(dark) }}>
           <div style={{ width: 36 }} />

@@ -14,6 +14,8 @@ import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import InteractiveTutorial from './components/tutorial/InteractiveTutorial';
+import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
+import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
 import BottomNav from './components/navigation/BottomNav';
 import StoreMap from './pages/StoreMap';
@@ -93,6 +95,7 @@ function AppInner() {
   const [guideSection,   setGuideSection]   = useState(null);
   const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
   const { updateAvailable, applyUpdate }    = useAppUpdate();
+  const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
 
@@ -386,6 +389,13 @@ function AppInner() {
         <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
       )}
       <OfflineBanner dark={dark} />
+      {shouldShowOnboarding && (
+        <OnboardingTutorial
+          navigate={navigate}
+          onComplete={markOnboardingComplete}
+          onSkip={skipOnboarding}
+        />
+      )}
     </div>
   );
 }

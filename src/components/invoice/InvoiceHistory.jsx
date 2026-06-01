@@ -38,7 +38,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   }
 
   // ── Invoice Card ──────────────────────────────────────────────────────────
-  function InvoiceCard({ inv }) {
+  function InvoiceCard({ inv, isFirst }) {
     const total   = subtotalOf(inv);
     const isOpen  = expanded === inv.number;
     const pinned  = isStorePinned(inv.storeName);
@@ -148,14 +148,18 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
 
     // ── COMFORTABLE card: full layout with nested sub-card ───────────────────
     return (
-      <div style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder, borderRadius: D.cardRadius }}>
+      <div
+        {...(isFirst ? { 'data-tutorial': 'invoice-latest' } : {})}
+        style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder, borderRadius: D.cardRadius }}
+      >
         {/* Top row: store + actions */}
         <div style={{ ...s.cardTop, padding: D.cardTopPad }}>
           <div style={s.cardTopLeft}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
               <button
+                {...(isFirst ? { 'data-tutorial': 'store-name-link' } : {})}
                 style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => onSelectStore?.(inv.storeName)}
+                onClick={() => { onSelectStore?.(inv.storeName); if (isFirst) window.dispatchEvent(new CustomEvent('inv-onboarding-store-viewed')); }}
               >
                 {inv.storeName}
               </button>
@@ -376,7 +380,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
             {todayInvoices.length > 0 && (
               <>
                 <p style={{ ...s.groupLabel, color: C.textMuted }}>Today</p>
-                {todayInvoices.map(inv => <InvoiceCard key={inv.number} inv={inv} />)}
+                {todayInvoices.map((inv, i) => <InvoiceCard key={inv.number} inv={inv} isFirst={i === 0} />)}
               </>
             )}
 
@@ -386,7 +390,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                 {todayInvoices.length > 0 && (
                   <p style={{ ...s.groupLabel, color: C.textMuted, marginTop: 6 }}>Earlier</p>
                 )}
-                {visibleOlderList.map(inv => <InvoiceCard key={inv.number} inv={inv} />)}
+                {visibleOlderList.map((inv, i) => <InvoiceCard key={inv.number} inv={inv} isFirst={todayInvoices.length === 0 && i === 0} />)}
               </>
             )}
 

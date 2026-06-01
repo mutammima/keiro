@@ -252,6 +252,7 @@ export function useInvoiceForm(onGenerated) {
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');
       setDate(todayString()); setTime(nowTimeString()); setNotes(''); setPaymentMethod('cash');
       onGenerated(invoice);
+      window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-created'));
     } catch (err) {
       console.error(err);
       setError('Something went wrong. Please try again.');

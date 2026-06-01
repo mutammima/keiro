@@ -126,7 +126,7 @@ export default function Products({ onOpenDrawer, onNav }) {
             </p>
           </div>
         ) : groups.length > 0 && (
-          <div>
+          <div data-tutorial="products-list">
             {/* Count + Clear All header */}
             <div style={s.listHeader}>
               <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>
