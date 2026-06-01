@@ -96,7 +96,7 @@ const STEPS = [
       setTimeout(() => {
         Array.from(document.querySelectorAll('button'))
           .find(b => b.textContent.trim() === '+ Add Item')?.click();
-      }, 80);
+      }, 250);
     },
     autoAdvanceOn: null,
   },
