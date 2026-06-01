@@ -7,6 +7,12 @@
  *   • Add Item card     → when store name is filled
  *   • Generate button   → when at least one item has been added
  *
+ * Screen lock: while the tutorial is active, taps/clicks outside the
+ * spotlighted area and outside the tooltip are blocked.
+ *
+ * Auto-fill: every step has a "Next →" button that fills the current
+ * field(s) with sample data and performs the required action automatically.
+ *
  * All other steps target a single element.
  * Tooltip is always clamped to the visible viewport — never scrolls off screen.
  */
@@ -34,7 +40,7 @@ const STEPS = [
     page: 'history',
     selector: '[data-tutorial="invoice-latest"]',
     title: 'Mark it as paid',
-    instruction: 'This is your invoice. Tap the status badge and mark it as Paid.',
+    instruction: 'Tap the status badge and mark this invoice as Paid.',
     advanceEvent: 'inv-onboarding-invoice-paid',
     manualAdvance: false,
   },
@@ -43,7 +49,7 @@ const STEPS = [
     page: 'history',
     selector: '[data-tutorial="store-name-link"]',
     title: 'See the store balance',
-    instruction: 'Tap the store name to see the running balance view for this store.',
+    instruction: 'Tap the store name to see the running balance for this store.',
     advanceEvent: 'inv-onboarding-store-viewed',
     manualAdvance: false,
   },
@@ -61,21 +67,20 @@ const STEPS = [
     page: 'settings',
     selector: '[data-tutorial="settings-biz-name"]',
     title: 'Set your business name',
-    instruction: 'Enter your business name and phone number — they appear on every invoice.',
+    instruction: 'Enter your business name — it appears on every invoice.',
     advanceEvent: 'inv-onboarding-settings-saved',
     manualAdvance: false,
   },
 ];
 
-const TOTAL = STEPS.length;
+const TOTAL     = STEPS.length;
 const DIM_COLOR = 'rgba(0,0,0,0.72)';
 const OVERLAY_Z = 9100;
-const TOOLTIP_Z  = 9200;
-const PAD = 10; // spotlight padding around element
+const TOOLTIP_Z = 9200;
+const PAD       = 10; // spotlight padding around element
 
 // ── Dynamic selector for Step 1 ───────────────────────────────────────────────
-// Returns the selector for whichever sub-section the user is currently on,
-// and the matching instruction text.
+// Returns the selector + instruction for whichever sub-phase the user is on.
 
 function getStep1State() {
   // ── Phase 0: invoice form is not on-screen yet ─────────────────────────────
@@ -104,9 +109,8 @@ function getStep1State() {
   }
 
   // ── Phase 2: store name filled — guide to add an item ─────────────────────
-  // Check if at least one item has been added by looking at the preview card
   const previewCard = document.querySelector('.card-enter-4');
-  const hasItems = previewCard && previewCard.textContent.includes('$') && previewCard.textContent.length > 20;
+  const hasItems    = previewCard && previewCard.textContent.includes('$') && previewCard.textContent.length > 20;
 
   if (hasItems) {
     // ── Phase 3: item added — guide to generate ──────────────────────────────
@@ -122,18 +126,33 @@ function getStep1State() {
   };
 }
 
+// ── Auto-fill helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Programmatically set a React-controlled input's value.
+ * Uses the native HTMLInputElement setter so React's onChange fires.
+ */
+function setNativeValue(el, value) {
+  if (!el) return;
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 // ── Spotlight (4-div hole approach) ──────────────────────────────────────────
+// Overlay divs use pointerEvents:'all' to block clicks outside the spotlight.
+// The spotlight hole itself has no div — taps pass through naturally.
 
 function Spotlight({ rect }) {
+  const base = {
+    position: 'fixed',
+    background: DIM_COLOR,
+    zIndex: OVERLAY_Z,
+    pointerEvents: 'all', // block taps on the dimmed area
+  };
+
   if (!rect) {
-    return (
-      <div style={{
-        position: 'fixed', inset: 0,
-        background: DIM_COLOR,
-        zIndex: OVERLAY_Z,
-        pointerEvents: 'none',
-      }} />
-    );
+    return <div style={{ ...base, inset: 0 }} />;
   }
 
   const top    = Math.max(0, rect.top    - PAD);
@@ -141,50 +160,31 @@ function Spotlight({ rect }) {
   const right  = Math.min(window.innerWidth,  rect.right  + PAD);
   const bottom = Math.min(window.innerHeight, rect.bottom + PAD);
 
-  // If element is fully off-screen, show full dim
   if (bottom <= 0 || top >= window.innerHeight) {
-    return (
-      <div style={{
-        position: 'fixed', inset: 0,
-        background: DIM_COLOR,
-        zIndex: OVERLAY_Z,
-        pointerEvents: 'none',
-      }} />
-    );
+    return <div style={{ ...base, inset: 0 }} />;
   }
 
   return (
     <>
-      {/* Top strip */}
-      <div style={{ position:'fixed', top:0, left:0, right:0, height: top,
-        background: DIM_COLOR, zIndex: OVERLAY_Z, pointerEvents:'none' }} />
-      {/* Bottom strip */}
-      <div style={{ position:'fixed', top: bottom, left:0, right:0, bottom:0,
-        background: DIM_COLOR, zIndex: OVERLAY_Z, pointerEvents:'none' }} />
-      {/* Left strip */}
-      <div style={{ position:'fixed', top, left:0, width: left, height: bottom - top,
-        background: DIM_COLOR, zIndex: OVERLAY_Z, pointerEvents:'none' }} />
-      {/* Right strip */}
-      <div style={{ position:'fixed', top, left: right, right:0, height: bottom - top,
-        background: DIM_COLOR, zIndex: OVERLAY_Z, pointerEvents:'none' }} />
+      <div style={{ ...base, top: 0, left: 0, right: 0, height: top }} />
+      <div style={{ ...base, top: bottom, left: 0, right: 0, bottom: 0 }} />
+      <div style={{ ...base, top, left: 0, width: left, height: bottom - top }} />
+      <div style={{ ...base, top, left: right, right: 0, height: bottom - top }} />
     </>
   );
 }
 
 // ── Tooltip card ──────────────────────────────────────────────────────────────
 
-function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onNext }) {
-  const C = dark ? DARK : LIGHT;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onNext, onAutoFill }) {
+  const vw       = window.innerWidth;
+  const vh       = window.innerHeight;
   const tooltipW = Math.min(340, vw - 32);
-  const TOOLTIP_H = 200; // approximate height
+  const TOOLTIP_H = 210;
 
-  // Clamp rect to visible viewport for positioning
   const visTop    = rect ? Math.max(0,  rect.top)    : vh / 2;
   const visBottom = rect ? Math.min(vh, rect.bottom) : vh / 2;
 
-  // Place tooltip below visible portion if room, else above, else at bottom
   let tooltipTop;
   const spaceBelow = vh - visBottom - PAD;
   const spaceAbove = visTop - PAD;
@@ -194,52 +194,51 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onNext }) {
   } else if (spaceAbove >= TOOLTIP_H + 12) {
     tooltipTop = visTop - PAD - TOOLTIP_H - 8;
   } else {
-    // Not enough room either side — anchor to bottom of screen
     tooltipTop = vh - TOOLTIP_H - 20;
   }
-
-  // Clamp to viewport bounds
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
-
   const tooltipLeft = Math.max(16, (vw - tooltipW) / 2);
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: tooltipTop,
-      left: tooltipLeft,
-      width: tooltipW,
-      zIndex: TOOLTIP_Z,
-      background: dark ? '#1a1a1e' : '#ffffff',
-      borderRadius: 20,
-      padding: '18px 20px 16px',
-      boxShadow: '0 16px 56px rgba(0,0,0,0.5)',
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
-    }}>
+    <div
+      data-tutorial-ui="tooltip"
+      style={{
+        position: 'fixed',
+        top: tooltipTop,
+        left: tooltipLeft,
+        width: tooltipW,
+        zIndex: TOOLTIP_Z,
+        background: dark ? '#1a1a1e' : '#ffffff',
+        borderRadius: 20,
+        padding: '18px 20px 16px',
+        boxShadow: '0 16px 56px rgba(0,0,0,0.5)',
+        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
+      }}
+    >
       {/* Step label + skip */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize:11, fontWeight:700, color: ACCENT, letterSpacing:'0.06em', textTransform:'uppercase' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           Step {step.id} of {TOTAL}
         </span>
         <button
           onClick={onSkip}
           style={{
-            background:'none', border:'none', cursor:'pointer',
-            fontSize:12, fontWeight:600,
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, fontWeight: 600,
             color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
-            padding:'2px 6px', borderRadius:6,
-            WebkitTapHighlightColor:'transparent',
+            padding: '2px 6px', borderRadius: 6,
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
-          Skip
+          Exit
         </button>
       </div>
 
       {/* Progress bar */}
-      <div style={{ display:'flex', gap:4, marginBottom:14 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
         {STEPS.map((_, i) => (
           <div key={i} style={{
-            flex:1, height:3, borderRadius:2,
+            flex: 1, height: 3, borderRadius: 2,
             background: i <= stepIndex
               ? ACCENT
               : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'),
@@ -250,45 +249,37 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onNext }) {
       </div>
 
       {/* Title */}
-      <div style={{ fontSize:15, fontWeight:700, color: dark ? '#fff' : '#111', marginBottom:6 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 6 }}>
         {step.title}
       </div>
 
-      {/* Instruction — dynamic for step 1 */}
-      <div style={{
-        fontSize:13,
-        color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
-        lineHeight:1.55,
-        marginBottom: step.manualAdvance ? 14 : 0,
-      }}>
+      {/* Instruction */}
+      <div style={{ fontSize: 13, color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)', lineHeight: 1.55, marginBottom: 14 }}>
         {instruction || step.instruction}
       </div>
 
-      {/* Manual advance */}
-      {step.manualAdvance && (
-        <button
-          onClick={onNext}
-          style={{
-            width:'100%', height:42, border:'none', borderRadius:12,
-            background: ACCENT, color:'#fff',
-            fontSize:14, fontWeight:700, cursor:'pointer',
-            WebkitTapHighlightColor:'transparent',
-            marginTop: 14,
-          }}
-        >
-          {stepIndex === TOTAL - 1 ? 'Finish 🎉' : 'Got it →'}
-        </button>
-      )}
+      {/* Next / auto-fill button — shown for every step */}
+      <button
+        onClick={onAutoFill}
+        style={{
+          width: '100%', height: 42, border: 'none', borderRadius: 12,
+          background: ACCENT, color: '#fff',
+          fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        {stepIndex === TOTAL - 1 ? 'Finish 🎉' : 'Next →'}
+      </button>
 
-      {/* Waiting indicator */}
+      {/* Hint: user can also do the action themselves */}
       {!step.manualAdvance && (
         <div style={{
-          marginTop: 10,
+          marginTop: 8,
           fontSize: 11,
-          color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+          color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)',
           textAlign: 'center',
         }}>
-          Complete the action above to continue ↑
+          or do it yourself above ↑
         </div>
       )}
     </div>
@@ -299,15 +290,17 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onNext }) {
 
 export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   const { dark } = useTheme();
-  const [stepIndex, setStepIndex]         = useState(0);
-  const [rect, setRect]                   = useState(null);
-  const [dynamicInstruction, setDynamic]  = useState(null);
-  const rafRef                            = useRef(null);
-  const stepIndexRef                      = useRef(stepIndex);
-  const hasFocusedRef                     = useRef(false); // tracks if we've focused the target this step
-  const step                              = STEPS[stepIndex];
+  const [stepIndex, setStepIndex]        = useState(0);
+  const [rect, setRect]                  = useState(null);
+  const [dynamicInstruction, setDynamic] = useState(null);
+  const rafRef                           = useRef(null);
+  const stepIndexRef                     = useRef(stepIndex);
+  const hasFocusedRef                    = useRef(false);
+  const currentRectRef                   = useRef(null); // live rect for screen lock
+  const step                             = STEPS[stepIndex];
 
   useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
+  useEffect(() => { currentRectRef.current = rect; }, [rect]);
 
   // Navigate to the correct page when step changes, reset focus flag
   useEffect(() => {
@@ -315,7 +308,38 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     hasFocusedRef.current = false;
   }, [stepIndex]); // eslint-disable-line
 
-  // rAF loop — tracks the element rect AND (for step 1) the dynamic sub-target
+  // ── Screen lock ─────────────────────────────────────────────────────────────
+  // Capture-phase listener blocks any click/touch outside the spotlight + tooltip.
+  // Scrolling (touchmove) is intentionally NOT blocked so the user can scroll.
+  useEffect(() => {
+    function block(e) {
+      // Always allow anything inside the tooltip (data-tutorial-ui attribute)
+      if (e.target.closest?.('[data-tutorial-ui]')) return;
+
+      // Allow interactions inside the padded spotlight rect
+      const r = currentRectRef.current;
+      if (r) {
+        const pad = PAD + 8;
+        if (
+          e.clientX >= r.left  - pad && e.clientX <= r.right  + pad &&
+          e.clientY >= r.top   - pad && e.clientY <= r.bottom + pad
+        ) return;
+      }
+
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    document.addEventListener('click',      block, true);
+    document.addEventListener('touchstart', block, { capture: true, passive: false });
+
+    return () => {
+      document.removeEventListener('click',      block, true);
+      document.removeEventListener('touchstart', block, { capture: true, passive: false });
+    };
+  }, []); // once — accesses rect via ref
+
+  // ── rAF loop — tracks rect + step 1 dynamic sub-target ───────────────────
   useEffect(() => {
     let running = true;
 
@@ -323,35 +347,29 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       if (!running) return;
 
       const currentStep = STEPS[stepIndexRef.current];
-      let selector = currentStep.selector;
+      let selector   = currentStep.selector;
       let instruction = null;
 
-      // Step 1: dynamically follow the user through the form
       if (currentStep.dynamic) {
         const state = getStep1State();
-        // If the sub-target selector changed, reset focus so we re-focus the new element
+        // Selector changed → new sub-target, reset focus
         if (selector !== state.selector) hasFocusedRef.current = false;
-        selector = state.selector;
+        selector    = state.selector;
         instruction = state.instruction;
         setDynamic(instruction);
       }
 
       const el = document.querySelector(selector);
       if (el) {
-        // First time we see this element on the current step:
-        // scroll it into view and focus it if it's a text input.
+        // First time this element appears on the current step: scroll + focus
         if (!hasFocusedRef.current) {
           hasFocusedRef.current = true;
-          // Slight delay lets the page/navigation animation settle before we scroll
           setTimeout(() => {
             const fresh = document.querySelector(selector);
             if (!fresh) return;
             fresh.scrollIntoView({ behavior: 'smooth', block: 'center' });
             const tag = fresh.tagName;
-            // Focus inputs/textareas so the mobile keyboard pops up
-            if (tag === 'INPUT' || tag === 'TEXTAREA') {
-              fresh.focus();
-            }
+            if (tag === 'INPUT' || tag === 'TEXTAREA') fresh.focus();
           }, 350);
         }
 
@@ -382,7 +400,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, [stepIndex]);
 
-  // Advance to next step (or complete)
+  // ── Advance to next step (or complete) ────────────────────────────────────
   const advance = useCallback(() => {
     const next = stepIndexRef.current + 1;
     if (next < TOTAL) {
@@ -393,13 +411,80 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     }
   }, [onComplete]);
 
-  // Listen for completion event
+  // ── Listen for step completion events ────────────────────────────────────
   useEffect(() => {
     if (!step.advanceEvent) return;
     const handler = () => advance();
     window.addEventListener(step.advanceEvent, handler);
     return () => window.removeEventListener(step.advanceEvent, handler);
   }, [step.advanceEvent, advance]);
+
+  // ── Auto-fill: perform the current step's action with sample data ─────────
+  const autoFillStep = useCallback(() => {
+    const currentStep = STEPS[stepIndexRef.current];
+
+    // ── Step 1: dynamic sub-targets ──────────────────────────────────────────
+    if (currentStep.dynamic) {
+      const { selector: sel } = getStep1State();
+
+      if (sel === '[data-tutorial="tab-new"]') {
+        document.querySelector('[data-tutorial="tab-new"]')?.click();
+        return; // spotlight switches to store-name when tab becomes visible
+      }
+
+      if (sel === '[data-tutorial="invoice-store-name"]') {
+        setNativeValue(document.querySelector('input[placeholder="Sunrise Deli"]'), 'Corner Store');
+        setNativeValue(document.querySelector('input[placeholder="John Smith"]'), 'Mike Johnson');
+        return; // hasFocusedRef resets when selector switches to add-item
+      }
+
+      if (sel === '[data-tutorial="invoice-add-item"]') {
+        setNativeValue(document.querySelector('input[placeholder="Marlboro Reds"]'), 'Marlboro Reds');
+        setNativeValue(document.querySelector('input[placeholder="1"]'), '2');
+        setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
+        setTimeout(() => {
+          Array.from(document.querySelectorAll('button'))
+            .find(b => b.textContent.trim() === '+ Add Item')?.click();
+        }, 60);
+        return;
+      }
+
+      if (sel === '[data-tutorial="invoice-generate"]') {
+        document.querySelector('[data-tutorial="invoice-generate"]')?.click();
+        return; // advance fires via inv-onboarding-invoice-created event
+      }
+    }
+
+    // ── Static steps ──────────────────────────────────────────────────────────
+    const sel = currentStep.selector;
+
+    if (sel === '[data-tutorial="invoice-latest"]') {
+      // Click the status badge — cycles status to Paid, which fires the advance event
+      document.querySelector('[data-tutorial="status-badge-latest"]')?.click();
+      return;
+    }
+
+    if (sel === '[data-tutorial="store-name-link"]') {
+      document.querySelector('[data-tutorial="store-name-link"]')?.click();
+      return;
+    }
+
+    if (sel === '[data-tutorial="products-list"]') {
+      advance(); // manual step — just advance
+      return;
+    }
+
+    if (sel === '[data-tutorial="settings-biz-name"]') {
+      setNativeValue(
+        document.querySelector('[data-tutorial="settings-biz-name"]'),
+        'J&Y Distributions'
+      );
+      setTimeout(() => {
+        document.querySelector('[data-tutorial="settings-save-btn"]')?.click();
+      }, 60);
+      return;
+    }
+  }, [advance]);
 
   return (
     <>
@@ -411,7 +496,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         rect={rect}
         dark={dark}
         onSkip={onSkip}
-        onNext={advance}
+        onAutoFill={autoFillStep}
       />
     </>
   );

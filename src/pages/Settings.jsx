@@ -315,6 +315,7 @@ export default function Settings({ onOpenDrawer, onNav }) {
               <div style={{ color: C.textLight, fontSize: 11, marginTop: 4 }}>PNG or JPG, recommended 400×100 px or wider</div>
             </div>
             <button
+              data-tutorial="settings-save-btn"
               style={{ ...s.primaryBtn, background: bizSaved ? '#166534' : ACCENT, transition: 'background 0.3s' }}
               onClick={saveBiz}
             >
