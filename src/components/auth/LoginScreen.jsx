@@ -158,7 +158,8 @@ export default function LoginScreen({ onLogin }) {
 
 const s = {
   root: {
-    minHeight: '100dvh',
+    height: '100dvh',
+    overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
