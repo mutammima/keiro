@@ -7,10 +7,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getInvoices, getStorePhone, getStoreAddress } from '../../utils/storage';
-import AppFooter from '../navigation/AppFooter';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import { getInvoices, getStorePhone, getStoreAddress } from '../utils/storage';
+import AppFooter from '../components/navigation/AppFooter';
 
 function subtotal(inv) {
   return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);

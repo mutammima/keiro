@@ -4,10 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../../theme';
-import { getInvoices, updateInvoicePaymentStatus } from '../../utils/storage';
-import { generateAndSharePDF } from '../../utils/pdfGenerator';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
+import { getInvoices, updateInvoicePaymentStatus } from '../utils/storage';
+import { generateAndSharePDF } from '../utils/pdfGenerator';
 
 /** Calculates the subtotal for a single invoice. */
 function subtotalOf(inv) {

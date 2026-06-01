@@ -12,21 +12,21 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import {
   getBusinessName, saveBusinessName,
   getBusinessPhone, saveBusinessPhone,
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
-} from '../../utils/storage';
-import { useBackup } from '../../hooks/useBackup';
-import ThemeToggle from './ThemeToggle';
-import { supabase } from '../../lib/supabase';
-import { signOut } from '../../lib/auth';
-import AppFooter from '../navigation/AppFooter';
-import PinLock, { isPinEnabled, setPin, clearPin } from './PinLock';
-import { Toggle, Row, Divider, Section } from '../ui/SettingsUI';
+} from '../utils/storage';
+import { useBackup } from '../hooks/useBackup';
+import ThemeToggle from '../components/settings/ThemeToggle';
+import { supabase } from '../services/supabase';
+import { signOut } from '../services/auth';
+import AppFooter from '../components/navigation/AppFooter';
+import PinLock, { isPinEnabled, setPin, clearPin } from '../components/settings/PinLock';
+import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 const ACCENT_PRESETS = [
@@ -56,6 +56,9 @@ export default function Settings({ onOpenDrawer, onNav }) {
     saveBusinessPhone(bizPhone.trim());
     setBizSaved(true);
     setTimeout(() => setBizSaved(false), 2000);
+    if (bizName.trim() && bizPhone.trim()) {
+      window.dispatchEvent(new CustomEvent('inv-onboarding-settings-saved'));
+    }
   }
 
   // ── Notifications ──────────────────────────────────────────────────────────
@@ -287,7 +290,7 @@ export default function Settings({ onOpenDrawer, onNav }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Name</label>
-              <input style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder="J&Y Distributions" />
+              <input data-tutorial="settings-biz-name" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder="J&Y Distributions" />
             </div>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Phone</label>

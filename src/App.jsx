@@ -6,20 +6,22 @@ import NavDrawer from './components/navigation/NavDrawer';
 import NewInvoice from './components/invoice/NewInvoice';
 import InvoiceView from './components/invoice/InvoiceView';
 import InvoiceHistory from './components/invoice/InvoiceHistory';
-import Products from './components/pages/Products';
-import StoreBalance from './components/reports/StoreBalance';
+import Products from './pages/Products';
+import StoreBalance from './pages/StoreBalance';
 import AuthGate from './components/auth/AuthGate';
-import About from './components/pages/About';
-import Profile from './components/auth/Profile';
-import Reports from './components/reports/Reports';
-import Settings from './components/settings/Settings';
+import About from './pages/About';
+import Profile from './pages/Profile';
+import Reports from './pages/Reports';
+import Settings from './pages/Settings';
 import InteractiveTutorial from './components/tutorial/InteractiveTutorial';
+import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
+import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
 import BottomNav from './components/navigation/BottomNav';
-import StoreMap from './components/pages/StoreMap';
-import Notes from './components/pages/Notes';
-import Home from './components/pages/Home';
-import EndOfDay from './components/reports/EndOfDay';
+import StoreMap from './pages/StoreMap';
+import Notes from './pages/Notes';
+import Home from './pages/Home';
+import EndOfDay from './pages/EndOfDay';
 import WhatsNew, { hasSeenWhatsNew } from './components/ui/WhatsNew';
 import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/ui/SectionGuide';
@@ -93,6 +95,7 @@ function AppInner() {
   const [guideSection,   setGuideSection]   = useState(null);
   const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
   const { updateAvailable, applyUpdate }    = useAppUpdate();
+  const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
 
@@ -386,6 +389,13 @@ function AppInner() {
         <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
       )}
       <OfflineBanner dark={dark} />
+      {shouldShowOnboarding && (
+        <OnboardingTutorial
+          navigate={navigate}
+          onComplete={markOnboardingComplete}
+          onSkip={skipOnboarding}
+        />
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { signInWithEmail, signUpWithEmail, signInWithPasskey, isPasskeySupported } from '../../lib/auth';
+import { signInWithEmail, signUpWithEmail, signInWithPasskey, isPasskeySupported } from '../../services/auth';
 
 /**
  * @param {{ onLogin: function }} props

@@ -3,11 +3,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { supabase } from '../../lib/supabase';
-import { signOut } from '../../lib/auth';
-import AppFooter from '../navigation/AppFooter';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import { supabase } from '../services/supabase';
+import { signOut } from '../services/auth';
+import AppFooter from '../components/navigation/AppFooter';
 
 export default function Profile({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();

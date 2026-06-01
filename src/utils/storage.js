@@ -9,7 +9,7 @@
  * Callers that previously called these synchronously must be updated to await them.
  */
 
-import * as db from '../lib/db';
+import * as db from '../services/db';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {

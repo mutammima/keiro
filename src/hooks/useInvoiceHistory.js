@@ -150,6 +150,7 @@ export function useInvoiceHistory() {
       (i.number || i.invoice_number) === number ? { ...i, paymentStatus: next, payment_status: next } : i
     ));
     setOpenMenu(null);
+    if (next === 'paid') window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-paid'));
   }
 
   /**
@@ -163,6 +164,7 @@ export function useInvoiceHistory() {
       (i.number || i.invoice_number) === number ? { ...i, paymentStatus: status, payment_status: status } : i
     ));
     setOpenMenu(null);
+    if (status === 'paid') window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-paid'));
   }
 
   /**

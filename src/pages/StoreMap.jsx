@@ -6,9 +6,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getInvoices, getPinnedStores, togglePinnedStore } from '../../utils/storage';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import { getInvoices, getPinnedStores, togglePinnedStore } from '../utils/storage';
 
 // ── Local overrides storage ────────────────────────────────────────────────────
 const OVERRIDES_KEY = 'inv_store_overrides';

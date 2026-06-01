@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import AppFooter from '../navigation/AppFooter';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import AppFooter from '../components/navigation/AppFooter';
 import {
   getAllProducts,
   saveProductBarcode,
@@ -10,7 +10,7 @@ import {
   clearAllProducts,
   saveProductName,
   getBusinessName,
-} from '../../utils/storage';
+} from '../utils/storage';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
 
@@ -126,7 +126,7 @@ export default function Products({ onOpenDrawer, onNav }) {
             </p>
           </div>
         ) : groups.length > 0 && (
-          <div>
+          <div data-tutorial="products-list">
             {/* Count + Clear All header */}
             <div style={s.listHeader}>
               <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>
