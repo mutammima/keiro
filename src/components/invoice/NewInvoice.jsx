@@ -93,7 +93,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
 
         <div style={s.body}>
           {/* Customer */}
-          <div className="card-enter-1" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div data-tutorial="invoice-store-name" className="card-enter-1" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Customer</p>
 
             {/* Pinned store chips */}
@@ -163,7 +163,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
           </div>
 
           {/* Add item */}
-          <div className="card-enter-3" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+          <div data-tutorial="invoice-add-item" className="card-enter-3" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -249,6 +249,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
           </div>
 
           <button
+            data-tutorial="invoice-generate"
             style={{ ...s.generateBtn, opacity: generating ? 0.7 : 1 }}
             onClick={handleGenerate}
             disabled={generating}
