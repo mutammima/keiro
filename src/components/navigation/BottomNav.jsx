@@ -27,7 +27,7 @@ export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
     <div style={{
       position: 'fixed',
       top: 0, left: 0, right: 0,
-      paddingTop: 'env(safe-area-inset-top)',
+      paddingTop: 0,
       background: dark ? 'rgba(10,10,10,0.96)' : 'rgba(248,248,248,0.96)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',

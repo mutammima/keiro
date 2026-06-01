@@ -278,9 +278,7 @@ function AppInner() {
       data-theme-transition
       className="app-shell"
       style={{
-        // height: 100% fills #root which is position:fixed covering the full
-        // physical screen. Never use 100dvh here — dvh can be shorter than the
-        // fixed root on iOS, leaving a gap at the bottom.
+        // height: 100% fills #root which uses 100dvh. No fixed positioning needed.
         height: '100%',
         width: '100%',
         overflow: 'hidden',
@@ -327,7 +325,7 @@ function AppInner() {
               display: 'flex',
               width: `${TABS.length * 100}%`,
               height: '100%',
-              paddingTop: 'calc(40px + env(safe-area-inset-top))',
+              paddingTop: '40px',
               transform: `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
               transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
               willChange: 'transform',
@@ -349,8 +347,6 @@ function AppInner() {
                   flexShrink: 0,
                   // Allow vertical scroll within each tab without triggering swipe
                   touchAction: 'pan-y',
-                  // Ensure content scrolls above the home indicator on iPhone
-                  paddingBottom: 'env(safe-area-inset-bottom)',
                   boxSizing: 'border-box',
                 }}
               >

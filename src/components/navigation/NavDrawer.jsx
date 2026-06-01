@@ -114,7 +114,7 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
         )}
 
         {/* Bottom: Settings · Profile · How it Works · Sign Out */}
-        <div style={{ ...s.nav, marginTop: 'auto', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+        <div style={{ ...s.nav, marginTop: 'auto', paddingBottom: '16px' }}>
           <div style={{ ...s.dividerLine, background: C.divider }} />
           {/* Settings — always pinned at the bottom */}
           <button
@@ -172,7 +172,7 @@ const s = {
   drawerHeader: {
     display: 'flex', alignItems: 'center',
     padding: '16px 16px 12px',
-    paddingTop: 'max(16px, env(safe-area-inset-top))',
+    paddingTop: 16,
     flexShrink: 0,
   },
   closeBtn: {
