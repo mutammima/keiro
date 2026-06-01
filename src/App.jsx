@@ -1,5 +1,5 @@
 // v4 — Supabase auth + cloud DB, offline banner, page transitions + arrow nav tabs
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LIGHT, DARK } from './theme';
 import NavDrawer from './components/navigation/NavDrawer';
@@ -162,28 +162,63 @@ function AppInner() {
     setPage(TABS[tabIdx]);
   }
 
+  // ── Swipe gesture state ───────────────────────────────────────────────────────
+  const swipeStart  = useRef(null);  // { x, y } on touchstart
+  const swipeDelta  = useRef(0);     // live px offset during drag
+  const swipeLocked = useRef(null);  // 'h' | 'v' | null — axis lock
+  const [dragOffset, setDragOffset] = useState(0);   // live px for transform
+  const [swiping,    setSwiping]    = useState(false); // disables CSS transition during drag
+
+  const SWIPE_THRESHOLD = 50; // px to commit a tab change
+
+  function onSwipeStart(e) {
+    if (overlayPage !== null) return;
+    const t = e.touches[0];
+    swipeStart.current  = { x: t.clientX, y: t.clientY };
+    swipeDelta.current  = 0;
+    swipeLocked.current = null;
+  }
+
+  function onSwipeMove(e) {
+    if (!swipeStart.current || overlayPage !== null) return;
+    const dx = e.touches[0].clientX - swipeStart.current.x;
+    const dy = e.touches[0].clientY - swipeStart.current.y;
+
+    // Lock axis on first significant movement
+    if (swipeLocked.current === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      swipeLocked.current = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v';
+    }
+    if (swipeLocked.current !== 'h') return;
+
+    // Clamp: can't swipe left on first tab or right on last tab
+    const clamped = Math.max(
+      tabIdx >= TABS.length - 1 ? -60 : -window.innerWidth,
+      Math.min(tabIdx <= 0 ? 60 : window.innerWidth, dx)
+    );
+    swipeDelta.current = clamped;
+    setSwiping(true);
+    setDragOffset(clamped);
+    e.preventDefault(); // stop page scroll while swiping horizontally
+  }
+
+  function onSwipeEnd() {
+    if (!swipeStart.current) return;
+    swipeStart.current = null;
+    const d = swipeDelta.current;
+    swipeDelta.current = 0;
+    setSwiping(false);
+    setDragOffset(0);
+
+    if (d < -SWIPE_THRESHOLD && tabIdx < TABS.length - 1) {
+      navigate(TABS[tabIdx + 1]);
+    } else if (d > SWIPE_THRESHOLD && tabIdx > 0) {
+      navigate(TABS[tabIdx - 1]);
+    }
+    // Otherwise snap back (setDragOffset(0) already done above)
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
   const isTabPage = overlayPage === null;
-
-  // Arrow button — bare, no bubble
-  const arrowBase = {
-    position: 'fixed',
-    top: '50%',
-    width: 28,
-    height: 48,
-    fontSize: 26,
-    fontWeight: 300,
-    border: 'none',
-    background: 'none',
-    color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)',
-    zIndex: 300,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-  };
 
   return (
     <div
@@ -215,18 +250,26 @@ function AppInner() {
         onTutorial={() => setShowTutorial(true)}
       />
 
-      {/* ── Tab strip ─────────────────────────────────────────────── */}
+      {/* ── Tab strip — swipeable ─────────────────────────────────── */}
       {isTabPage && (
-        <div style={{
-          display: 'flex',
-          width: `${TABS.length * 100}vw`,
-          height: '100dvh',
-          paddingTop: 'calc(40px + env(safe-area-inset-top))',
-          transform: `translateX(-${tabIdx * 100}vw)`,
-          transition: 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
-          willChange: 'transform',
-          boxSizing: 'border-box',
-        }}>
+        <div
+          onTouchStart={onSwipeStart}
+          onTouchMove={onSwipeMove}
+          onTouchEnd={onSwipeEnd}
+          onTouchCancel={onSwipeEnd}
+          style={{
+            display: 'flex',
+            width: `${TABS.length * 100}vw`,
+            height: '100%',
+            paddingTop: 'calc(40px + env(safe-area-inset-top))',
+            // During drag: no transition so it tracks the finger exactly.
+            // On release: spring to the snapped position.
+            transform: `translateX(calc(-${tabIdx * 100}vw + ${dragOffset}px))`,
+            transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
+            willChange: 'transform',
+            boxSizing: 'border-box',
+          }}
+        >
           {[
             <NewInvoice key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
             <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
@@ -235,7 +278,7 @@ function AppInner() {
             <div
               key={i}
               style={{
-                width: '100vw', height: '100dvh',
+                width: '100vw', height: '100%',
                 overflowY: 'auto', overflowX: 'hidden',
                 flexShrink: 0,
               }}
@@ -244,20 +287,6 @@ function AppInner() {
             </div>
           ))}
         </div>
-      )}
-
-      {/* ── Floating arrow nav buttons ──────────────────────────────────────── */}
-      {tabIdx > 0 && overlayPage === null && (
-        <button
-          onClick={() => navigate(TABS[tabIdx - 1])}
-          style={{ ...arrowBase, left: 2, transform: 'translateY(-50%)' }}
-        >‹</button>
-      )}
-      {tabIdx < 2 && overlayPage === null && (
-        <button
-          onClick={() => navigate(TABS[tabIdx + 1])}
-          style={{ ...arrowBase, right: 2, transform: 'translateY(-50%)' }}
-        >›</button>
       )}
 
       {/* ── Overlay pages (slide up from bottom) ───────────────────────────── */}
