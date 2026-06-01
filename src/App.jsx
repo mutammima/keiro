@@ -21,6 +21,7 @@ import Notes from './components/Notes';
 import Home from './components/Home';
 import EndOfDay from './components/EndOfDay';
 import WhatsNew, { hasSeenWhatsNew } from './components/WhatsNew';
+import PinLock, { isPinEnabled } from './components/PinLock';
 import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/SectionGuide';
 import UpdateBanner from './components/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
@@ -81,6 +82,7 @@ function AppInner() {
   const easyMode = isEasyMode();
 
   // In easy mode skip the dashboard and land straight on New Invoice tab
+  const [pinUnlocked,    setPinUnlocked]    = useState(() => !isPinEnabled());
   const [page,           setPage]           = useState(easyMode ? 'invoice' : 'home');
   const [overlayPage,    setOverlayPage]    = useState(easyMode ? null : 'home');
   const [overlayClass,   setOverlayClass]   = useState('page-fade');
@@ -127,6 +129,14 @@ function AppInner() {
     setDrawerOpen(false);
     maybeShowGuide(p);
   }, []); // eslint-disable-line
+
+  // Apply density class on mount
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem('inv_density')) || 'comfortable';
+      document.body.classList.toggle('density-compact', d === 'compact');
+    } catch {}
+  }, []);
 
   // Show guide for the home/dashboard on first ever launch
   useEffect(() => { maybeShowGuide('home'); }, []); // eslint-disable-line
@@ -275,13 +285,21 @@ function AppInner() {
   );
 }
 
+function AppInnerWithPin() {
+  const [unlocked, setUnlocked] = useState(() => !isPinEnabled());
+  if (!unlocked) {
+    return <PinLock onSuccess={() => setUnlocked(true)} />;
+  }
+  return <AppInner />;
+}
+
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
   return (
     <ThemeProvider>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
       <AuthGate>
-        <AppInner />
+        <AppInnerWithPin />
       </AuthGate>
     </ThemeProvider>
   );

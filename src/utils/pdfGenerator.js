@@ -27,21 +27,39 @@ async function buildPDF(invoice) {
   doc.setLineWidth(0.75);
   doc.line(margin, 36, pageW - margin, 36);
 
-  // ── Business Name (centered, bold, large, letter-spaced) ─────────────────
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(30, 30, 30);
-  const bizName = (businessName || 'My Business').toUpperCase();
-  doc.text(bizName, pageW / 2, 72, { align: 'center', charSpace: 3 });
-
-  // ── Business Phone ────────────────────────────────────────────────────────
+  // ── Logo or Business Name ────────────────────────────────────────────────
   let headerBottomY = 82;
-  if (businessPhone) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(businessPhone, pageW / 2, 86, { align: 'center' });
-    headerBottomY = 94;
+  const logob64 = (() => { try { return localStorage.getItem('inv_logo_b64'); } catch { return null; } })();
+
+  if (logob64) {
+    // Draw logo centered; max 160×48 pts
+    const logoW = 160, logoH = 48;
+    const logoX = (pageW - logoW) / 2;
+    try {
+      const fmt = logob64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(logob64, fmt, logoX, 42, logoW, logoH);
+    } catch {}
+    headerBottomY = 42 + logoH + 8;
+    // Business phone under logo
+    if (businessPhone) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 100, 100);
+      doc.text(businessPhone, pageW / 2, headerBottomY + 10, { align: 'center' });
+      headerBottomY += 18;
+    }
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(30, 30, 30);
+    const bizName = (businessName || 'My Business').toUpperCase();
+    doc.text(bizName, pageW / 2, 72, { align: 'center', charSpace: 3 });
+
+    if (businessPhone) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(businessPhone, pageW / 2, 86, { align: 'center' });
+      headerBottomY = 94;
+    }
   }
 
   // ── Thin rule under business name ────────────────────────────────────────

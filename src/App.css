@@ -100,3 +100,14 @@ html, body {
   -webkit-appearance: none !important;
   appearance: none !important;
 }
+
+/* ── Density: compact mode ─────────────────────────────────────────── */
+body.density-compact {
+  /* Tighten card padding and row heights app-wide */
+  --row-padding-v: 8px;
+  --card-padding: 12px 14px;
+}
+body:not(.density-compact) {
+  --row-padding-v: 14px;
+  --card-padding: 16px 18px;
+}

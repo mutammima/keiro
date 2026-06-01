@@ -135,6 +135,23 @@ export default function Reports({ onOpenDrawer, onNav }) {
     .slice(0, 5);
   const maxProductUnits = topProducts[0]?.[1].units || 1;
 
+  // ── Month-over-month ──────────────────────────────────────────────────────────
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+  const thisMonthRev = invoices.filter(inv => {
+    const d = parseInvDate(inv.date); return d && d >= thisMonthStart;
+  }).reduce((s, inv) => s + invTotal(inv), 0);
+
+  const lastMonthRev = invoices.filter(inv => {
+    const d = parseInvDate(inv.date); return d && d >= lastMonthStart && d <= lastMonthEnd;
+  }).reduce((s, inv) => s + invTotal(inv), 0);
+
+  const momDiff = thisMonthRev - lastMonthRev;
+  const momPct  = lastMonthRev > 0 ? (momDiff / lastMonthRev) * 100 : null;
+
   // ── 7-day chart ─────────────────────────────────────────────────────────────
   const dayLabels = last7DayLabels();
   const dayTotals = dayLabels.map((_, i) => {
@@ -255,6 +272,41 @@ export default function Reports({ onOpenDrawer, onNav }) {
               <StatCard label="Collected" value={`$${collected.toFixed(2)}`} sub={totalRev > 0 ? `${Math.round(collected / totalRev * 100)}%` : '—'} color="#2ECC8A" C={C} />
               <StatCard label="Pending"   value={`$${pending.toFixed(2)}`}   sub={pending > 0 ? 'owed' : 'all clear'} color={pending > 0 ? '#f59e0b' : C.textMuted} C={C} />
             </div>
+
+            {/* Month-over-month comparison */}
+            {(thisMonthRev > 0 || lastMonthRev > 0) && (
+              <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+                <p style={{ ...s.sectionLabel, color: C.textMuted }}>Month vs Last Month</p>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <div style={{ flex: 1, background: dark ? '#1a1a1a' : '#f4f4f5', borderRadius: 12, padding: '10px 14px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+                      {now.toLocaleDateString('en-US', { month: 'short' })}
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>${thisMonthRev.toFixed(0)}</div>
+                  </div>
+                  <div style={{ flex: 1, background: dark ? '#1a1a1a' : '#f4f4f5', borderRadius: 12, padding: '10px 14px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+                      {new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('en-US', { month: 'short' })}
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.textMuted }}>${lastMonthRev.toFixed(0)}</div>
+                  </div>
+                </div>
+                {momPct !== null && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10,
+                    background: momDiff >= 0 ? (dark ? '#0D2B20' : '#f0fdf4') : (dark ? '#2d0a0a' : '#fef2f2'),
+                  }}>
+                    <span style={{ fontSize: 18 }}>{momDiff >= 0 ? '▲' : '▼'}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: momDiff >= 0 ? (dark ? '#2ECC8A' : '#16a34a') : (dark ? '#f87171' : '#dc2626') }}>
+                      {momDiff >= 0 ? '+' : ''}{momPct.toFixed(1)}% vs last month
+                    </span>
+                    <span style={{ fontSize: 12, color: C.textMuted, marginLeft: 'auto' }}>
+                      {momDiff >= 0 ? '+' : ''}${Math.abs(momDiff).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 7-day bar chart */}
             <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>

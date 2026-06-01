@@ -76,6 +76,7 @@ export function useInvoiceForm(onGenerated) {
   const [date, setDate]   = useState(todayString);
   const [time, setTime]   = useState(nowTimeString);
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card'
 
   // ── Autocomplete lists (async loaded) ────────────────────────────────────
   const [storeNames, setStoreNames]     = useState(() => []);
@@ -237,6 +238,7 @@ export function useInvoiceForm(onGenerated) {
         storeAddress: storeAddress.trim(),
         date, time, items,
         notes: notes.trim(),
+        paymentMethod,
         paymentStatus: 'unpaid',
         createdAt: new Date().toISOString(),
       };
@@ -248,7 +250,7 @@ export function useInvoiceForm(onGenerated) {
 
       // Reset form fields
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');
-      setDate(todayString()); setTime(nowTimeString()); setNotes('');
+      setDate(todayString()); setTime(nowTimeString()); setNotes(''); setPaymentMethod('cash');
       onGenerated(invoice);
     } catch (err) {
       console.error(err);
@@ -276,6 +278,7 @@ export function useInvoiceForm(onGenerated) {
 
     // Invoice details
     date, setDate, time, setTime, notes, setNotes,
+    paymentMethod, setPaymentMethod,
 
     // Add-item form
     productName,
