@@ -141,24 +141,24 @@ function AppInner() {
   // ── Render ───────────────────────────────────────────────────────────────────
   const isTabPage = overlayPage === null;
 
-  // Arrow button shared styles
+  // Arrow button — bare, no bubble
   const arrowBase = {
     position: 'fixed',
     top: '50%',
-    width: 32,
-    height: 32,
-    fontSize: 16,
+    width: 28,
+    height: 48,
+    fontSize: 26,
+    fontWeight: 300,
     border: 'none',
-    borderRadius: '50%',
-    color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)',
+    background: 'none',
+    color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.2)',
     zIndex: 300,
     cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+    padding: 0,
   };
 
   return (
@@ -197,9 +197,11 @@ function AppInner() {
           display: 'flex',
           width: `${TABS.length * 100}vw`,
           height: '100dvh',
+          paddingTop: 'calc(40px + env(safe-area-inset-top))',
           transform: `translateX(-${tabIdx * 100}vw)`,
           transition: 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
           willChange: 'transform',
+          boxSizing: 'border-box',
         }}>
           {[
             <NewInvoice key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
@@ -224,21 +226,13 @@ function AppInner() {
       {tabIdx > 0 && overlayPage === null && (
         <button
           onClick={() => navigate(TABS[tabIdx - 1])}
-          style={{
-            ...arrowBase,
-            left: 8,
-            transform: 'translateY(-50%)',
-          }}
+          style={{ ...arrowBase, left: 2, transform: 'translateY(-50%)' }}
         >‹</button>
       )}
       {tabIdx < 2 && overlayPage === null && (
         <button
           onClick={() => navigate(TABS[tabIdx + 1])}
-          style={{
-            ...arrowBase,
-            right: 8,
-            transform: 'translateY(-50%)',
-          }}
+          style={{ ...arrowBase, right: 2, transform: 'translateY(-50%)' }}
         >›</button>
       )}
 
