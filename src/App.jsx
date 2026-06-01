@@ -138,13 +138,22 @@ function AppInner() {
     maybeShowGuide(p);
   }, []); // eslint-disable-line
 
-  // Apply density class on mount
+  // Apply density class on mount + sync body background so any sub-pixel
+  // gap between #root and the physical screen edges matches the app theme.
   useEffect(() => {
     try {
       const d = JSON.parse(localStorage.getItem('inv_density')) || 'comfortable';
       document.body.classList.toggle('density-compact', d === 'compact');
     } catch {}
   }, []);
+
+  // Keep document.body and html background in sync with the app theme.
+  // This ensures the area outside #root (safe-area zones, any sub-pixel gap)
+  // always matches the app color instead of showing raw OS black.
+  useEffect(() => {
+    document.body.style.background = C.bg;
+    document.documentElement.style.background = C.bg;
+  }, [C.bg]);
 
   // Show guide for the home/dashboard on first ever launch
   useEffect(() => { maybeShowGuide('home'); }, []); // eslint-disable-line
@@ -223,10 +232,13 @@ function AppInner() {
   return (
     <div
       data-theme-transition
+      className="app-shell"
       style={{
-        height: '100dvh',
+        // height: 100% fills #root which is position:fixed covering the full
+        // physical screen. Never use 100dvh here — dvh can be shorter than the
+        // fixed root on iOS, leaving a gap at the bottom.
+        height: '100%',
         width: '100%',
-        maxWidth: '100vw',
         overflow: 'hidden',
         background: C.bg,
         transition: 'background-color 0.4s ease',
