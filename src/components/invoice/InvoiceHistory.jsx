@@ -115,11 +115,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           {/* Meta row: number + date + status label */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px 8px', gap: 8 }}>
             <span style={{ fontSize: 11, color: C.textMuted }}>#{inv.number} · {inv.date}{inv.time ? ` · ${inv.time}` : ''}</span>
-            <span style={{
-              fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 6,
-              background: colors?.bg, color: colors?.text,
-              marginLeft: 'auto', flexShrink: 0,
-            }}
+            <span
+              {...(isFirst ? { 'data-tutorial': 'status-badge-latest' } : {})}
+              style={{
+                fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 6,
+                background: colors?.bg, color: colors?.text,
+                marginLeft: 'auto', flexShrink: 0,
+              }}
               onClick={() => cycleStatus(inv.number)}
             >{STATUS[inv.paymentStatus || 'unpaid']?.label}</span>
           </div>
@@ -270,6 +272,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
         {/* Status badge row */}
         <div style={{ ...s.cardFooter, padding: D.cardFootPad }}>
           <button
+            {...(isFirst ? { 'data-tutorial': 'status-badge-latest' } : {})}
             style={{ ...s.statusBadge, background: colors?.bg, color: colors?.text }}
             onClick={() => cycleStatus(inv.number)}
             title="Tap to change"
