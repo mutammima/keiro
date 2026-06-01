@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { useBackup } from '../hooks/useBackup';
-import ThemeToggle from './ThemeToggle';
 
 const WHATS_NEW = [
   { v: '3.2', notes: ['Barcode auto-lookup from product database', 'Backup & restore your data', 'Emoji-free clean UI'] },
@@ -27,7 +26,7 @@ const ROADMAP = [
 ];
 
 export default function AppFooter({ onNav }) {
-  const { dark, toggleDark } = useTheme();
+  const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   // ── Modal visibility state ─────────────────────────────────────────────────
@@ -41,10 +40,7 @@ export default function AppFooter({ onNav }) {
     <>
       <div style={{ ...s.footer, borderTopColor: C.divider }}>
 
-        {/* Light / Dark toggle */}
-        <ThemeToggle />
-
-        {/* Links — pipe-separated like Daimun */}
+        {/* Links — pipe-separated */}
         <div style={s.linkRow}>
           <FooterLink label="What's New"   onPress={() => setModal('news')}    C={C} />
           <Pipe C={C} />
