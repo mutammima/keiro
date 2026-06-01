@@ -146,20 +146,19 @@ export default function Home({ onOpenDrawer, onNav }) {
         </div>
         <div style={s.quickGrid}>
           {[
-            { icon: '📄', label: 'New Invoice', action: () => onNav('invoice') },
-            { icon: '📋', label: 'History',     action: () => onNav('history') },
-            { icon: '📦', label: 'Products',    action: () => onNav('products') },
-            { icon: '📊', label: 'Reports',     action: () => onNav('reports') },
-            { icon: '🌙', label: 'End of Day',  action: () => onNav('end-of-day') },
-            { icon: '⌖',  label: 'Store Info',  action: () => onNav('store-map') },
+            { label: 'New Invoice', action: () => onNav('invoice') },
+            { label: 'History',     action: () => onNav('history') },
+            { label: 'Products',    action: () => onNav('products') },
+            { label: 'Reports',     action: () => onNav('reports') },
+            { label: 'End of Day',  action: () => onNav('end-of-day') },
+            { label: 'Store Info',  action: () => onNav('store-map') },
           ].map(q => (
             <button
               key={q.label}
               style={{ ...s.quickBtn, background: C.card, borderColor: C.cardBorder, color: C.text }}
               onClick={q.action}
             >
-              <span style={{ fontSize: 22 }}>{q.icon}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, marginTop: 4 }}>{q.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{q.label}</span>
             </button>
           ))}
         </div>
