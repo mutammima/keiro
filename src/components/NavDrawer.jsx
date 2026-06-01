@@ -9,7 +9,7 @@ import { LIGHT, DARK, ACCENT } from '../theme';
 import { signOut } from '../lib/auth';
 import { getPinnedStores } from '../utils/storage';
 
-const NAV_ITEMS = [
+const NAV_ITEMS_FULL = [
   { id: 'home',       label: 'Dashboard',  icon: '⌂' },
   { id: 'reports',    label: 'Reports',    icon: '◈' },
   { id: 'end-of-day', label: 'End of Day', icon: '☽' },
@@ -18,10 +18,19 @@ const NAV_ITEMS = [
   { id: 'settings',   label: 'Settings',   icon: '⚙' },
 ];
 
+const NAV_ITEMS_EASY = [
+  { id: 'settings', label: 'Settings', icon: '⚙' },
+];
+
+function isEasyMode() {
+  try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
+}
+
 export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const [pinned, setPinned] = useState([]);
+  const NAV_ITEMS = isEasyMode() ? NAV_ITEMS_EASY : NAV_ITEMS_FULL;
 
   // Refresh pinned list whenever drawer opens
   useEffect(() => {
