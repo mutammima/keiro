@@ -43,6 +43,13 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
     .reduce((s, inv) => s + subtotalOf(inv), 0);
   const outstanding = total - collected;
 
+  const cashTotal = todayInvoices
+    .filter(inv => !inv.paymentMethod || inv.paymentMethod === 'cash')
+    .reduce((s, inv) => s + subtotalOf(inv), 0);
+  const cardTotal = todayInvoices
+    .filter(inv => inv.paymentMethod === 'card')
+    .reduce((s, inv) => s + subtotalOf(inv), 0);
+
   const paidCount    = todayInvoices.filter(i => i.paymentStatus === 'paid').length;
   const unpaidCount  = todayInvoices.filter(i => !i.paymentStatus || i.paymentStatus === 'unpaid').length;
   const partialCount = todayInvoices.filter(i => i.paymentStatus === 'partial').length;
@@ -100,6 +107,27 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
                 );
               })}
             </div>
+
+            {/* Cash / Card breakdown */}
+            {(cashTotal > 0 || cardTotal > 0) && (
+              <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment Method</div>
+                {cashTotal > 0 && (
+                  <div style={s.breakdownRow}>
+                    <span style={{ fontSize: 18 }}>💵</span>
+                    <span style={{ flex: 1, fontSize: 14, color: C.text }}>Cash</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>${cashTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                {cardTotal > 0 && (
+                  <div style={s.breakdownRow}>
+                    <span style={{ fontSize: 18 }}>💳</span>
+                    <span style={{ flex: 1, fontSize: 14, color: C.text }}>Card</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>${cardTotal.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Invoice list */}
             <div style={{ padding: '4px 16px 0', fontSize: 13, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>

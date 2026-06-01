@@ -1,4 +1,4 @@
-export const ACCENT = '#4A7BF7';  // royal blue — primary buttons
+export const ACCENT = 'var(--accent)';  // dynamic — set via ThemeContext.setAccent()
 export const GRADIENT = 'linear-gradient(135deg, #5B4FE8 0%, #7B3FE4 100%)'; // hero gradient
 
 export const LIGHT = {

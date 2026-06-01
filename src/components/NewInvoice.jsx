@@ -32,6 +32,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
     handleStoreNameChange,
     storeNames, pinnedStores,
     date, setDate, time, setTime, notes, setNotes,
+    paymentMethod, setPaymentMethod,
     productName, setProductName,
     qty, setQty, price, setPrice,
     lastBarcode, productNames,
@@ -213,12 +214,34 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             <InvoicePreview items={items} onRemove={removeItem} onEdit={setEditingItem} dark={dark} />
           </div>
 
-          {/* Notes */}
+          {/* Notes + Payment Method */}
           <div className="card-enter-5" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
+            {/* Cash / Card toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>Payment Method</p>
+              <div style={{ display: 'flex', background: C.rowBg, borderRadius: 10, padding: 3, gap: 3 }}>
+                {['cash', 'card'].map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setPaymentMethod(m)}
+                    style={{
+                      height: 30, padding: '0 16px', borderRadius: 8, border: 'none',
+                      background: paymentMethod === m ? ACCENT : 'transparent',
+                      color: paymentMethod === m ? '#fff' : C.textMuted,
+                      fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {m === 'cash' ? '💵 Cash' : '💳 Card'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Notes</p>
             <textarea
               style={{ ...s.textarea, background: C.inputBg, borderColor: C.inputBorder, color: C.text }}
-              placeholder="Cash on delivery, leave with manager…"
+              placeholder="Leave with manager, fragile items…"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}

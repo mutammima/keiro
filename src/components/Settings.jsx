@@ -11,7 +11,7 @@
  *  7. Terms & Privacy — alpha disclaimer
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import {
@@ -24,6 +24,7 @@ import ThemeToggle from './ThemeToggle';
 import { supabase } from '../lib/supabase';
 import { signOut } from '../lib/auth';
 import AppFooter from './AppFooter';
+import PinLock, { isPinEnabled, setPin, clearPin } from './PinLock';
 
 // ── Tiny helpers ──────────────────────────────────────────────────────────────
 
@@ -98,8 +99,22 @@ function Section({ title, C, children, defaultOpen = true }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ── Accent presets ────────────────────────────────────────────────────────────
+const ACCENT_PRESETS = [
+  '#4A7BF7', // blue (default)
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#EF4444', // red
+  '#F97316', // orange
+  '#EAB308', // yellow
+  '#22C55E', // green
+  '#14B8A6', // teal
+  '#06B6D4', // cyan
+  '#64748B', // slate
+];
+
 export default function Settings({ onOpenDrawer, onNav }) {
-  const { dark, toggleDark } = useTheme();
+  const { dark, toggleDark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   // ── Business info ──────────────────────────────────────────────────────────
@@ -190,6 +205,38 @@ export default function Settings({ onOpenDrawer, onNav }) {
   // ── Backup ─────────────────────────────────────────────────────────────────
   const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
+  // ── PIN lock ───────────────────────────────────────────────────────────────
+  const [pinEnabled, setPinEnabled] = useState(() => isPinEnabled());
+  const [pinModal, setPinModal] = useState(null); // 'setup' | 'disable' | null
+
+  // ── Density ────────────────────────────────────────────────────────────────
+  const [density, setDensity] = useState(() => lsGet('inv_density', 'comfortable'));
+
+  // ── Auto-flag / auto-mark ──────────────────────────────────────────────────
+  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', 3));
+  const [autoMarkDays, setAutoMarkDays] = useState(() => lsGet('inv_auto_mark_days', 0)); // 0 = off
+
+  // ── Logo upload ────────────────────────────────────────────────────────────
+  const [logo, setLogo] = useState(() => { try { return localStorage.getItem('inv_logo_b64') || null; } catch { return null; } });
+  const logoInputRef = useRef(null);
+
+  function handleLogoFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const b64 = ev.target.result;
+      localStorage.setItem('inv_logo_b64', b64);
+      setLogo(b64);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeLogo() {
+    localStorage.removeItem('inv_logo_b64');
+    setLogo(null);
+  }
+
   // ── Terms expanded ─────────────────────────────────────────────────────────
   const [termsOpen, setTermsOpen] = useState(false);
 
@@ -235,8 +282,64 @@ export default function Settings({ onOpenDrawer, onNav }) {
 
         {/* ── 1. Appearance ──────────────────────────────────────────────── */}
         <Section title="Appearance" C={C} defaultOpen>
-          <div style={{ paddingTop: 4 }}>
+          <div style={{ paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {/* Dark / Light */}
             <ThemeToggle />
+            <Divider C={C} />
+            {/* Accent color */}
+            <div style={{ padding: '12px 0' }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: C.text, marginBottom: 10 }}>Accent Color</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {ACCENT_PRESETS.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setAccent(color)}
+                    style={{
+                      width: 34, height: 34, borderRadius: '50%',
+                      background: color, border: accent === color ? `3px solid ${C.text}` : '3px solid transparent',
+                      cursor: 'pointer', boxSizing: 'border-box',
+                      boxShadow: accent === color ? `0 0 0 2px ${color}` : 'none',
+                      outline: 'none',
+                      WebkitTapHighlightColor: 'transparent',
+                      transition: 'border 0.15s',
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+                {/* Custom color input */}
+                <label style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.rowBg, border: `1px solid ${C.divider}` }}>
+                  <span style={{ fontSize: 16, color: C.textMuted, userSelect: 'none' }}>+</span>
+                  <input
+                    type="color"
+                    defaultValue={accent}
+                    onChange={e => setAccent(e.target.value)}
+                    style={{ position: 'absolute', width: '200%', height: '200%', opacity: 0, cursor: 'pointer', left: '-50%', top: '-50%' }}
+                  />
+                </label>
+              </div>
+            </div>
+            <Divider C={C} />
+            {/* Density */}
+            <Row label="Display Density" sub="Comfortable for easy reading, Compact for more data" C={C}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['comfortable', 'compact'].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => { setDensity(d); lsSet('inv_density', d); }}
+                    style={{
+                      height: 30, padding: '0 12px', borderRadius: 8,
+                      background: density === d ? ACCENT : C.rowBg,
+                      color: density === d ? '#fff' : C.textMuted,
+                      border: `1px solid ${density === d ? 'transparent' : C.divider}`,
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    {d.charAt(0).toUpperCase() + d.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </Row>
           </div>
         </Section>
 
@@ -250,6 +353,23 @@ export default function Settings({ onOpenDrawer, onNav }) {
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Phone</label>
               <input style={inp} value={bizPhone} onChange={e => setBizPhone(e.target.value)} inputMode="tel" placeholder="(718) 555-0000" />
+            </div>
+            {/* Invoice logo */}
+            <div>
+              <label style={{ ...s.fieldLabel, color: C.textSub }}>Invoice Logo (PDF header)</label>
+              {logo ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <img src={logo} alt="Logo" style={{ height: 48, maxWidth: 120, objectFit: 'contain', borderRadius: 8, border: `1px solid ${C.divider}`, background: C.rowBg, padding: 4 }} />
+                  <button style={{ ...s.smallBtn, background: C.rowBg, color: C.danger, border: `1px solid ${C.divider}` }} onClick={removeLogo}>Remove</button>
+                  <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => logoInputRef.current?.click()}>Change</button>
+                </div>
+              ) : (
+                <button style={{ ...s.outlineBtn, height: 42, color: ACCENT, borderColor: C.divider }} onClick={() => logoInputRef.current?.click()}>
+                  Upload Logo
+                </button>
+              )}
+              <input ref={logoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoFile} />
+              <div style={{ color: C.textLight, fontSize: 11, marginTop: 4 }}>PNG or JPG, recommended 400×100 px or wider</div>
             </div>
             <button
               style={{ ...s.primaryBtn, background: bizSaved ? '#166534' : ACCENT, transition: 'background 0.3s' }}
@@ -364,9 +484,86 @@ export default function Settings({ onOpenDrawer, onNav }) {
               Go →
             </button>
           </Row>
+          <Divider C={C} />
+          <Row label="App PIN Lock" sub={pinEnabled ? 'PIN required on app open' : 'Lock app with a 4-digit PIN'} C={C}>
+            <Toggle on={pinEnabled} onChange={v => {
+              if (v) { setPinModal('setup'); }
+              else   { clearPin(); setPinEnabled(false); }
+            }} C={C} dark={dark} />
+          </Row>
+          {pinEnabled && (
+            <>
+              <Divider C={C} />
+              <Row label="Change PIN" sub="Set a new 4-digit PIN" C={C}>
+                <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => setPinModal('setup')}>Change</button>
+              </Row>
+            </>
+          )}
         </Section>
 
-        {/* ── 5. Pinned Stores ───────────────────────────────────────────── */}
+        {/* PIN setup overlay */}
+        {pinModal === 'setup' && (
+          <PinLock
+            setupMode
+            onSuccess={() => { setPinEnabled(true); setPinModal(null); }}
+            onCancel={() => { setPinModal(null); if (!isPinEnabled()) setPinEnabled(false); }}
+          />
+        )}
+
+        {/* ── 5. Automation ──────────────────────────────────────────────── */}
+        <Section title="Automation" C={C} defaultOpen={false}>
+          <Row
+            label="Auto-flag overdue after"
+            sub="Unpaid invoices older than this many days are flagged"
+            C={C}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {[1,3,7,14,30].map(d => (
+                <button
+                  key={d}
+                  onClick={() => { setAutoFlagDays(d); lsSet('inv_auto_flag_days', d); }}
+                  style={{
+                    height: 30, minWidth: 32, padding: '0 8px', borderRadius: 8,
+                    background: autoFlagDays === d ? ACCENT : C.rowBg,
+                    color: autoFlagDays === d ? '#fff' : C.textMuted,
+                    border: `1px solid ${autoFlagDays === d ? 'transparent' : C.divider}`,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+          </Row>
+          <Divider C={C} />
+          <Row
+            label="Auto-mark paid after"
+            sub={autoMarkDays === 0 ? 'Disabled — never auto-mark as paid' : `Mark as Paid after ${autoMarkDays} days automatically`}
+            C={C}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {[0,7,14,30].map(d => (
+                <button
+                  key={d}
+                  onClick={() => { setAutoMarkDays(d); lsSet('inv_auto_mark_days', d); }}
+                  style={{
+                    height: 30, minWidth: d === 0 ? 40 : 32, padding: '0 8px', borderRadius: 8,
+                    background: autoMarkDays === d ? ACCENT : C.rowBg,
+                    color: autoMarkDays === d ? '#fff' : C.textMuted,
+                    border: `1px solid ${autoMarkDays === d ? 'transparent' : C.divider}`,
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  {d === 0 ? 'Off' : `${d}d`}
+                </button>
+              ))}
+            </div>
+          </Row>
+        </Section>
+
+        {/* ── 6. Pinned Stores ───────────────────────────────────────────── */}
         <Section title="Pinned Stores" C={C} defaultOpen={false}>
           {pinned.length === 0 ? (
             <p style={{ color: C.textMuted, fontSize: 13, margin: '8px 0', lineHeight: 1.5 }}>

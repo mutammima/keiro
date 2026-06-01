@@ -12,10 +12,12 @@
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>InvoiceGo</title>
+  <style>:root { --accent: #4A7BF7; }</style>
+  <script>try { var _a=localStorage.getItem('inv_accent_color'); if(_a) document.documentElement.style.setProperty('--accent',_a); } catch(e){}</script>
   <!-- Version check: runs before React, unregisters SW + reloads if server has newer version -->
   <script>
     (function () {
-      var LOCAL = '5.8';
+      var LOCAL = '5.9';
       fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.json(); })
         .then(function (d) {
