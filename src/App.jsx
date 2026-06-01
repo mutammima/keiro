@@ -291,7 +291,7 @@ function AppInner() {
       }}
     >
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
-      {showTutorial && <InteractiveTutorial currentPage={page} onClose={() => setShowTutorial(false)} />}
+      {showTutorial && <InteractiveTutorial currentPage={page} navigate={navigate} onClose={() => setShowTutorial(false)} />}
       {guideSection  && <SectionGuide section={guideSection} onDismiss={() => setGuideSection(null)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner

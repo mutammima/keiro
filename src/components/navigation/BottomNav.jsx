@@ -8,9 +8,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 
 const TABS = [
-  { id: 'invoice',  label: 'New'      },
-  { id: 'history',  label: 'Invoices' },
-  { id: 'products', label: 'Products' },
+  { id: 'invoice',  label: 'New',      tutorial: 'tab-new'      },
+  { id: 'history',  label: 'Invoices', tutorial: 'tab-history'  },
+  { id: 'products', label: 'Products', tutorial: 'tab-products' },
 ];
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
@@ -67,7 +67,7 @@ export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
           return (
             <button
               key={tab.id}
-              {...(tab.id === 'invoice' ? { 'data-tutorial': 'tab-new' } : {})}
+              data-tutorial={tab.tutorial}
               onClick={() => onNav(tab.id)}
               style={{
                 flex: 1,
