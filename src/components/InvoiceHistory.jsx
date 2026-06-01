@@ -8,10 +8,12 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import AppFooter from './AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../hooks/useInvoiceHistory';
+import { useDensity } from '../hooks/useDensity';
 
 export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
+  const D = useDensity();
 
   // ── Business logic (state + handlers) from hook ───────────────────────────
   const {
@@ -50,13 +52,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
       !isNaN(invDate) && invDate.getTime() < sevenDaysAgo;
 
     return (
-      <div style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder }}>
+      <div style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder, borderRadius: D.cardRadius }}>
         {/* Top row: store + actions */}
-        <div style={s.cardTop}>
+        <div style={{ ...s.cardTop, padding: D.cardTopPad }}>
           <div style={s.cardTopLeft}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
               <button
-                style={{ ...s.storeName, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+                style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
                 onClick={() => onSelectStore?.(inv.storeName)}
               >
                 {inv.storeName}
@@ -72,7 +74,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                 }}>Overdue</span>
               )}
             </div>
-            <span style={{ ...s.cardMeta, color: C.textMuted }}>
+            <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>
               #{inv.number}  ·  {inv.date}{inv.time ? `  ·  ${inv.time}` : ''}
             </span>
           </div>
@@ -132,13 +134,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           style={{ ...s.nestedCard, background: C.nestedCard, borderColor: C.nestedCardBorder }}
           onClick={() => setExpanded(isOpen ? null : inv.number)}
         >
-          <div style={s.nestedTop}>
+          <div style={{ ...s.nestedTop, padding: D.nestedTopPad }}>
             <div>
               <p style={{ ...s.nestedLabel, color: C.textMuted }}>TOTAL</p>
               {isOpen && (
                 <div style={{ marginTop: 8 }}>
                   {inv.items.map((item, idx) => (
-                    <div key={idx} style={{ ...s.nestedItem, borderBottomColor: C.divider, borderBottom: idx < inv.items.length - 1 ? `1px solid ${C.divider}` : 'none' }}>
+                    <div key={idx} style={{ ...s.nestedItem, paddingTop: D.compact ? 4 : 8, paddingBottom: D.compact ? 4 : 8, borderBottomColor: C.divider, borderBottom: idx < inv.items.length - 1 ? `1px solid ${C.divider}` : 'none' }}>
                       <span style={{ ...s.nestedItemName, color: C.textSub }}>{item.name}</span>
                       <span style={{ ...s.nestedItemDetail, color: C.textMuted }}>
                         {item.qty} × ${Number(item.price).toFixed(2)}
@@ -166,7 +168,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
         </div>
 
         {/* Status badge row */}
-        <div style={s.cardFooter}>
+        <div style={{ ...s.cardFooter, padding: D.cardFootPad }}>
           <button
             style={{ ...s.statusBadge, background: colors?.bg, color: colors?.text }}
             onClick={() => cycleStatus(inv.number)}
@@ -175,7 +177,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
             {STATUS[inv.paymentStatus || 'unpaid']?.label}
           </button>
           {sharing === inv.number && (
-            <span style={{ ...s.cardMeta, color: C.textMuted }}>Sharing…</span>
+            <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>Sharing…</span>
           )}
         </div>
 
@@ -213,7 +215,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={s.body}>
+      <div style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
         {/* Hero card */}
         {invoices.length > 0 && (
           <div style={{

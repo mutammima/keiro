@@ -325,7 +325,12 @@ export default function Settings({ onOpenDrawer, onNav }) {
                 {['comfortable', 'compact'].map(d => (
                   <button
                     key={d}
-                    onClick={() => { setDensity(d); lsSet('inv_density', d); }}
+                    onClick={() => {
+                      setDensity(d);
+                      lsSet('inv_density', d);
+                      document.body.classList.toggle('density-compact', d === 'compact');
+                      window.dispatchEvent(new Event('inv-density-change'));
+                    }}
                     style={{
                       height: 30, padding: '0 12px', borderRadius: 8,
                       background: density === d ? ACCENT : C.rowBg,
