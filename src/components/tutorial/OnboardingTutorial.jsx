@@ -299,13 +299,15 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   const [dynamicInstruction, setDynamic]  = useState(null);
   const rafRef                            = useRef(null);
   const stepIndexRef                      = useRef(stepIndex);
+  const hasFocusedRef                     = useRef(false); // tracks if we've focused the target this step
   const step                              = STEPS[stepIndex];
 
   useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
 
-  // Navigate to the correct page when step changes
+  // Navigate to the correct page when step changes, reset focus flag
   useEffect(() => {
     navigate(step.page);
+    hasFocusedRef.current = false;
   }, [stepIndex]); // eslint-disable-line
 
   // rAF loop — tracks the element rect AND (for step 1) the dynamic sub-target
@@ -322,6 +324,8 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       // Step 1: dynamically follow the user through the form
       if (currentStep.dynamic) {
         const state = getStep1State();
+        // If the sub-target selector changed, reset focus so we re-focus the new element
+        if (selector !== state.selector) hasFocusedRef.current = false;
         selector = state.selector;
         instruction = state.instruction;
         setDynamic(instruction);
@@ -329,6 +333,23 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       const el = document.querySelector(selector);
       if (el) {
+        // First time we see this element on the current step:
+        // scroll it into view and focus it if it's a text input.
+        if (!hasFocusedRef.current) {
+          hasFocusedRef.current = true;
+          // Slight delay lets the page/navigation animation settle before we scroll
+          setTimeout(() => {
+            const fresh = document.querySelector(selector);
+            if (!fresh) return;
+            fresh.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const tag = fresh.tagName;
+            // Focus inputs/textareas so the mobile keyboard pops up
+            if (tag === 'INPUT' || tag === 'TEXTAREA') {
+              fresh.focus();
+            }
+          }, 350);
+        }
+
         const r = el.getBoundingClientRect();
         setRect(prev => {
           if (

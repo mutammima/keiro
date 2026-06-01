@@ -56,7 +56,8 @@ export default function Settings({ onOpenDrawer, onNav }) {
     saveBusinessPhone(bizPhone.trim());
     setBizSaved(true);
     setTimeout(() => setBizSaved(false), 2000);
-    if (bizName.trim() && bizPhone.trim()) {
+    // Advance onboarding as soon as a business name is saved (phone is optional)
+    if (bizName.trim()) {
       window.dispatchEvent(new CustomEvent('inv-onboarding-settings-saved'));
     }
   }
