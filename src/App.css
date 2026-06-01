@@ -5,10 +5,9 @@
 html, body {
   overflow: hidden;
   overscroll-behavior: none;
-  /* dvh not supported on older Safari/desktop — fall back to vh */
-  height: 100vh;
-  height: 100dvh;
-  max-width: 100vw;
+  /* Fill the full screen including safe-area zones */
+  width: 100%;
+  height: 100%;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
@@ -16,14 +15,23 @@ html, body {
 * { touch-action: inherit; }
 
 /* ── Desktop centering — app never exceeds phone width on big screens ── */
+/*
+ * Use position:fixed + inset:0 instead of height:100dvh so the root
+ * stretches into the safe-area zones on iOS (below the home indicator,
+ * above the notch) — the same technique used by full-bleed PWAs like Dāimūn.
+ * Content that shouldn't overlap the safe areas uses env(safe-area-inset-*)
+ * padding inside the component headers / bottom nav.
+ */
 #root {
+  position: fixed;
+  inset: 0;
   max-width: 480px;
-  margin: 0 auto;
-  position: relative;
+  /* Center horizontally on desktop */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   /* thin side shadow so it looks framed on desktop */
   box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
-  height: 100vh;
-  height: 100dvh;
   overflow: hidden;
 }
 
@@ -113,13 +121,9 @@ html, body {
  * is to fit more content on screen at once.
  */
 body.density-compact #root {
-  transform: scale(0.92);
+  transform: translateX(-50%) scale(0.92);
   transform-origin: top center;
-  height: calc(100dvh / 0.92);
-  max-height: calc(100dvh / 0.92);
 }
 body:not(.density-compact) #root {
-  transform: none;
-  height: 100dvh;
-  max-height: 100dvh;
+  transform: translateX(-50%) scale(1);
 }
