@@ -47,6 +47,25 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
   // ── Derived style shorthand ────────────────────────────────────────────────
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
+  // ── Enter key → focus next field ──────────────────────────────────────────
+  // Finds all visible inputs inside the form and advances focus to the next one.
+  // Also used as onKeyDown for AutofillInput children.
+  function focusNext(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const form = document.querySelector('[data-tutorial="invoice-form"]');
+    if (!form) return;
+    const all = Array.from(
+      form.querySelectorAll('input:not([disabled]):not([type="hidden"]), textarea:not([disabled])')
+    );
+    const idx = all.indexOf(e.target);
+    if (idx >= 0 && idx < all.length - 1) {
+      const next = all[idx + 1];
+      next.focus();
+      next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
   return (
     <>
       {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
@@ -127,22 +146,27 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
               onChange={handleStoreNameChange}
               suggestions={storeNames}
               required dark={dark}
+              enterKeyHint="next"
+              onKeyDown={focusNext}
             />
             <div style={{ marginTop: 12 }}>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <Req /></label>
               <input style={{ ...s.input, ...inp }} placeholder="John Smith"
+                enterKeyHint="next" onKeyDown={focusNext}
                 value={customerName} onChange={e => setCustomerName(e.target.value)} />
             </div>
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Phone</label>
                 <input style={{ ...s.input, ...inp }} inputMode="tel" placeholder="(718) 555-0123"
+                  enterKeyHint="next" onKeyDown={focusNext}
                   value={storePhone} onChange={e => setStorePhone(e.target.value)} />
               </div>
             </div>
             <div style={{ marginTop: 12 }}>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Address</label>
               <input style={{ ...s.input, ...inp }} placeholder="123 Main St, Brooklyn, NY"
+                enterKeyHint="next" onKeyDown={focusNext}
                 value={storeAddress} onChange={e => setStoreAddress(e.target.value)} />
             </div>
           </div>
@@ -153,11 +177,13 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             <div style={s.twoCol}>
               <div style={{ flex: 2 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Date <Req /></label>
-                <input style={{ ...s.input, ...inp }} value={date} onChange={e => setDate(e.target.value)} />
+                <input style={{ ...s.input, ...inp }} value={date} onChange={e => setDate(e.target.value)}
+                  enterKeyHint="next" onKeyDown={focusNext} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Time</label>
-                <input style={{ ...s.input, ...inp }} value={time} onChange={e => setTime(e.target.value)} />
+                <input style={{ ...s.input, ...inp }} value={time} onChange={e => setTime(e.target.value)}
+                  enterKeyHint="next" onKeyDown={focusNext} />
               </div>
             </div>
           </div>
@@ -168,7 +194,8 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="Marlboro Reds"
-                  value={productName} onChange={setProductName} suggestions={productNames} required dark={dark} />
+                  value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
+                  enterKeyHint="next" onKeyDown={focusNext} />
               </div>
               <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
                 onClick={() => setShowScanner(true)} type="button">
@@ -184,12 +211,14 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Qty <Req /></label>
                 <input style={{ ...s.input, ...inp }} inputMode="numeric" type="number" min="1" step="1"
-                  placeholder="1" value={qty} onChange={e => setQty(e.target.value.replace(/[^0-9]/g, ''))} />
+                  placeholder="1" value={qty} onChange={e => setQty(e.target.value.replace(/[^0-9]/g, ''))}
+                  enterKeyHint="next" onKeyDown={focusNext} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ ...s.fieldLabel, color: C.textSub }}>Unit Price ($) <Req /></label>
                 <input style={{ ...s.input, ...inp }} inputMode="decimal" type="number" min="0" step="0.01"
-                  placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)} />
+                  placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)}
+                  enterKeyHint="done" onKeyDown={focusNext} />
               </div>
             </div>
             {/* Live line total */}
