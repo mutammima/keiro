@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { signOut } from '../../lib/auth';
+import { signOut } from '../../services/auth';
 import { getPinnedStores } from '../../utils/storage';
 
 const NAV_ITEMS_FULL = [

@@ -4,10 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, STATUS } from '../../theme';
-import { getInvoices } from '../../utils/storage';
-import AppFooter from '../navigation/AppFooter';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, STATUS } from '../theme';
+import { getInvoices } from '../utils/storage';
+import AppFooter from '../components/navigation/AppFooter';
 
 function subtotalOf(inv) {
   return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);

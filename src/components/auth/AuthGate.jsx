@@ -12,8 +12,8 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK } from '../../theme';
-import { getSession, onAuthStateChange } from '../../lib/auth';
-import { runMigrationIfNeeded } from '../../lib/migration';
+import { getSession, onAuthStateChange } from '../../services/auth';
+import { runMigrationIfNeeded } from '../../services/migration';
 import LoginScreen from './LoginScreen';
 
 /**

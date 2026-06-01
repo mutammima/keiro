@@ -12,21 +12,21 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import {
   getBusinessName, saveBusinessName,
   getBusinessPhone, saveBusinessPhone,
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
-} from '../../utils/storage';
-import { useBackup } from '../../hooks/useBackup';
-import ThemeToggle from './ThemeToggle';
-import { supabase } from '../../lib/supabase';
-import { signOut } from '../../lib/auth';
-import AppFooter from '../navigation/AppFooter';
-import PinLock, { isPinEnabled, setPin, clearPin } from './PinLock';
-import { Toggle, Row, Divider, Section } from '../ui/SettingsUI';
+} from '../utils/storage';
+import { useBackup } from '../hooks/useBackup';
+import ThemeToggle from '../components/settings/ThemeToggle';
+import { supabase } from '../services/supabase';
+import { signOut } from '../services/auth';
+import AppFooter from '../components/navigation/AppFooter';
+import PinLock, { isPinEnabled, setPin, clearPin } from '../components/settings/PinLock';
+import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 const ACCENT_PRESETS = [

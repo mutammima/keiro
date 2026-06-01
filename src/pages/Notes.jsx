@@ -3,8 +3,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 
 const STORAGE_KEY = 'inv_notes';
 

@@ -2,9 +2,9 @@
  * About — overview of InvoiceGo's features and how to use them.
  */
 
-import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import AppFooter from '../navigation/AppFooter';
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+import AppFooter from '../components/navigation/AppFooter';
 
 const SECTIONS = [
   {
