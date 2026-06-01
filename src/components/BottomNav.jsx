@@ -15,7 +15,7 @@ const TABS = [
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
 
-export default function BottomNav({ currentPage, onNav }) {
+export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -34,10 +34,34 @@ export default function BottomNav({ currentPage, onNav }) {
       borderBottom: `1px solid ${dark ? '#2a2a2a' : '#e0ddd8'}`,
       zIndex: 1000,
     }}>
-      <div style={{
-        display: 'flex',
-        height: TOP_NAV_HEIGHT,
-      }}>
+      <div style={{ display: 'flex', height: TOP_NAV_HEIGHT, alignItems: 'stretch' }}>
+
+        {/* Hamburger */}
+        <button
+          onClick={onOpenDrawer}
+          style={{
+            width: 48,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'none',
+            border: 'none',
+            borderBottom: '2.5px solid transparent',
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+            fontSize: 18,
+            color: C.textMuted,
+            padding: 0,
+          }}
+        >
+          ☰
+        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, background: dark ? '#2a2a2a' : '#e0ddd8', flexShrink: 0, margin: '8px 0' }} />
+
+        {/* Tabs */}
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
           return (
