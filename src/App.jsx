@@ -71,12 +71,18 @@ function OfflineBanner({ dark }) {
 
 // ── Main app ──────────────────────────────────────────────────────────────────
 
+function isEasyMode() {
+  try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
+}
+
 function AppInner() {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
+  const easyMode = isEasyMode();
 
-  const [page,           setPage]           = useState('home');
-  const [overlayPage,    setOverlayPage]    = useState('home');
+  // In easy mode skip the dashboard and land straight on New Invoice tab
+  const [page,           setPage]           = useState(easyMode ? 'invoice' : 'home');
+  const [overlayPage,    setOverlayPage]    = useState(easyMode ? null : 'home');
   const [overlayClass,   setOverlayClass]   = useState('page-fade');
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
