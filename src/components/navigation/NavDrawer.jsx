@@ -15,12 +15,11 @@ const NAV_ITEMS_FULL = [
   { id: 'end-of-day', label: 'End of Day', icon: '☽' },
   { id: 'store-map',  label: 'Store Info', icon: '⌖' },
   { id: 'notes',      label: 'Notes',      icon: '✎' },
-  { id: 'settings',   label: 'Settings',   icon: '⚙' },
 ];
 
-const NAV_ITEMS_EASY = [
-  { id: 'settings', label: 'Settings', icon: '⚙' },
-];
+const NAV_ITEMS_EASY = [];
+
+const SETTINGS_ITEM = { id: 'settings', label: 'Settings', icon: '⚙' };
 
 function isEasyMode() {
   try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
@@ -114,9 +113,21 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
           </div>
         )}
 
-        {/* Bottom: Profile · How it Works · Sign Out */}
+        {/* Bottom: Settings · Profile · How it Works · Sign Out */}
         <div style={{ ...s.nav, marginTop: 'auto', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
           <div style={{ ...s.dividerLine, background: C.divider }} />
+          {/* Settings — always pinned at the bottom */}
+          <button
+            style={{
+              ...s.navItem,
+              color: currentPage === 'settings' ? C.navActiveText : C.navText,
+              background: currentPage === 'settings' ? C.navActive : 'none',
+            }}
+            onClick={() => onNav('settings')}
+          >
+            <span style={s.navIcon}>{SETTINGS_ITEM.icon}</span>
+            <span>{SETTINGS_ITEM.label}</span>
+          </button>
           <button
             style={{ ...s.navItem, color: C.navText, background: currentPage === 'profile' ? C.navActive : 'none' }}
             onClick={() => onNav('profile')}
