@@ -1,10 +1,11 @@
 /**
  * OnboardingTutorial — 5-step first-time user onboarding with spotlight overlay.
  *
- * Step 1 uses dynamic sub-targets that follow the user through the invoice form:
- *   • Store name card  → when store name is empty
- *   • Add Item card    → when store name is filled
- *   • Generate button  → when at least one item has been added
+ * Step 1 uses dynamic sub-targets that follow the user through the invoice flow:
+ *   • "New" tab button  → when the invoice form is not on-screen yet
+ *   • Store name card   → when on the invoice tab and store name is empty
+ *   • Add Item card     → when store name is filled
+ *   • Generate button   → when at least one item has been added
  *
  * All other steps target a single element.
  * Tooltip is always clamped to the visible viewport — never scrolls off screen.
@@ -19,11 +20,11 @@ import { LIGHT, DARK, ACCENT } from '../../theme';
 const STEPS = [
   {
     id: 1,
-    page: 'invoice',
-    // selector is computed dynamically for step 1 — see getStep1Selector()
-    selector: '[data-tutorial="invoice-store-name"]',
+    page: 'history',           // navigate to history first so user isn't already on the form
+    // selector is computed dynamically for step 1 — see getStep1State()
+    selector: '[data-tutorial="tab-new"]',
     title: 'Create your first invoice',
-    instruction: 'Type the store name and customer name here.',
+    instruction: 'Tap "New" to start creating your first invoice.',
     advanceEvent: 'inv-onboarding-invoice-created',
     manualAdvance: false,
     dynamic: true, // triggers sub-target logic
@@ -77,10 +78,23 @@ const PAD = 10; // spotlight padding around element
 // and the matching instruction text.
 
 function getStep1State() {
-  // Check if store name has been filled
+  // ── Phase 0: invoice form is not on-screen yet ─────────────────────────────
+  // All tabs stay mounted in the DOM, so we check the element's bounding rect.
+  // When the invoice tab is not active its card is off-screen to the left (~-vw).
   const storeCard = document.querySelector('[data-tutorial="invoice-store-name"]');
-  const storeInput = storeCard?.querySelector('input');
-  const hasStore = storeInput?.value?.trim().length > 0;
+  const cardRect  = storeCard?.getBoundingClientRect();
+  const invoiceTabVisible = cardRect && cardRect.left > -(window.innerWidth * 0.5);
+
+  if (!invoiceTabVisible) {
+    return {
+      selector: '[data-tutorial="tab-new"]',
+      instruction: 'Tap "New" to start creating your first invoice.',
+    };
+  }
+
+  // ── Phase 1: on invoice tab, store name not yet filled ────────────────────
+  const storeInput = storeCard.querySelector('input');
+  const hasStore   = storeInput?.value?.trim().length > 0;
 
   if (!hasStore) {
     return {
@@ -89,22 +103,13 @@ function getStep1State() {
     };
   }
 
-  // Check if at least one item has been added (InvoicePreview shows item rows)
-  // Items added show up in the preview card below the add-item card
-  const previewRows = document.querySelectorAll('[data-tutorial="invoice-add-item"] ~ * [data-item-row], .invoice-item-row');
-  // Fallback: look for a non-empty items list by checking if the generate button is accessible
-  // We check by reading the items preview text content for any price/qty
-  const addItemCard = document.querySelector('[data-tutorial="invoice-add-item"]');
-  // Check for a filled product name input
-  const productInput = addItemCard?.querySelector('input[placeholder="Marlboro Reds"]');
-  const hasProductFilled = productInput?.value?.trim().length > 0;
-
-  // Check if the invoice preview has any items (look for the preview card's content)
-  // The InvoicePreview is inside card-enter-4; if it has items it'll have more than placeholder text
+  // ── Phase 2: store name filled — guide to add an item ─────────────────────
+  // Check if at least one item has been added by looking at the preview card
   const previewCard = document.querySelector('.card-enter-4');
   const hasItems = previewCard && previewCard.textContent.includes('$') && previewCard.textContent.length > 20;
 
   if (hasItems) {
+    // ── Phase 3: item added — guide to generate ──────────────────────────────
     return {
       selector: '[data-tutorial="invoice-generate"]',
       instruction: "Great! You've added an item. Now tap Generate Invoice.",

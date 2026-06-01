@@ -5,6 +5,7 @@ export default function AutofillInput({
   value, onChange, suggestions = [], placeholder = '',
   label, inputMode = 'text', type = 'text',
   required = false, onBlurCommit, className = '', dark = false,
+  onKeyDown, enterKeyHint,
 }) {
   const C = dark ? DARK : LIGHT;
   const [open, setOpen] = useState(false);
@@ -38,6 +39,8 @@ export default function AutofillInput({
           border: `1px solid ${C.inputBorder}`, borderRadius: 8,
           background: C.inputBg, color: C.text, outline: 'none', WebkitAppearance: 'none',
         }}
+        enterKeyHint={enterKeyHint}
+        onKeyDown={onKeyDown}
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => { setTimeout(() => setOpen(false), 150); onBlurCommit?.(value); }}

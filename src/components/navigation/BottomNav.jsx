@@ -67,6 +67,7 @@ export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
           return (
             <button
               key={tab.id}
+              {...(tab.id === 'invoice' ? { 'data-tutorial': 'tab-new' } : {})}
               onClick={() => onNav(tab.id)}
               style={{
                 flex: 1,
