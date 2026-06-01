@@ -102,12 +102,24 @@ html, body {
 }
 
 /* ── Density: compact mode ─────────────────────────────────────────── */
-body.density-compact {
-  /* Tighten card padding and row heights app-wide */
-  --row-padding-v: 8px;
-  --card-padding: 12px 14px;
+/*
+ * In compact mode we scale down the entire #root by 92% so every page
+ * looks visibly denser without touching individual component styles.
+ * `transform-origin: top center` keeps it anchored to the top edge.
+ * The 8% we "save" in height is compensated with a matching scale on
+ * the height so nothing gets clipped.
+ *
+ * This is intentionally aggressive — the whole point of compact mode
+ * is to fit more content on screen at once.
+ */
+body.density-compact #root {
+  transform: scale(0.92);
+  transform-origin: top center;
+  height: calc(100dvh / 0.92);
+  max-height: calc(100dvh / 0.92);
 }
-body:not(.density-compact) {
-  --row-padding-v: 14px;
-  --card-padding: 16px 18px;
+body:not(.density-compact) #root {
+  transform: none;
+  height: 100dvh;
+  max-height: 100dvh;
 }
