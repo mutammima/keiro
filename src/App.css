@@ -1,60 +1,56 @@
 /* ── Global reset ──────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
-/* ── Cross-platform viewport lock ──────────────────────────────────── */
+/* ── html / body ────────────────────────────────────────────────────── */
+/* Fill the screen; overflow hidden so nothing scrolls underneath the app */
 html, body {
-  overflow: hidden;
-  overscroll-behavior: none;
-  /* Fill the full screen including safe-area zones */
+  margin: 0;
+  padding: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 /* Every element inherits touch-action */
 * { touch-action: inherit; }
 
-/* ── Desktop centering — app never exceeds phone width on big screens ── */
-/*
- * Use position:fixed + inset:0 instead of height:100dvh so the root
- * stretches into the safe-area zones on iOS (below the home indicator,
- * above the notch) — the same technique used by full-bleed PWAs like Dāimūn.
- * Content that shouldn't overlap the safe areas uses env(safe-area-inset-*)
- * padding inside the component headers / bottom nav.
+/* ── #root — full bleed on every device ──────────────────────────────
+ *
+ * Mobile-first: stretch wall-to-wall using position:fixed + inset.
+ * This reaches into the safe-area zones (under home indicator, notch)
+ * so there is NO black bar at the bottom.
+ *
+ * Desktop: centered at 480 px max via a media query. We only apply
+ * left + transform there — on mobile we leave left: 0 / right: 0 so
+ * there's no arithmetic ambiguity.
  */
 #root {
   position: fixed;
-  inset: 0;
-  max-width: 480px;
-  /* Center horizontally on desktop */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  /* thin side shadow so it looks framed on desktop */
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
 }
 
-/* ── Page slide / fade transitions ───────────────────────────────── */
-/* Used by AppInner when navigating between pages.                     */
-/* The wrapper gets `key={page}` so React remounts it on every nav.   */
+/* Desktop centering — only kicks in when the screen is wider than a phone */
+@media (min-width: 481px) {
+  #root {
+    left: 50%;
+    right: auto;
+    width: 480px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+  }
+}
 
-@keyframes page-from-right {
-  from { transform: translateX(40px);  opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
-@keyframes page-from-left {
-  from { transform: translateX(-40px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
-@keyframes page-from-bottom {
-  from { transform: translateY(22px);  opacity: 0; }
-  to   { transform: translateY(0);     opacity: 1; }
-}
-@keyframes page-fade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+/* ── Page slide / fade transitions ───────────────────────────────── */
+@keyframes page-from-right  { from { transform: translateX(40px);  opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes page-from-left   { from { transform: translateX(-40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes page-from-bottom { from { transform: translateY(22px);  opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes page-fade        { from { opacity: 0; }                               to { opacity: 1; }                          }
 
 .page-from-right  { animation: page-from-right  0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .page-from-left   { animation: page-from-left   0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
@@ -62,12 +58,7 @@ html, body {
 .page-fade        { animation: page-fade        0.22s ease both; }
 
 /* ── New Invoice card stagger ────────────────────────────────────── */
-/* Each section card on the new-invoice screen enters sequentially.  */
-
-@keyframes card-enter {
-  from { transform: translateY(14px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
+@keyframes card-enter { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 .card-enter-1 { animation: card-enter 0.32s 0.04s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .card-enter-2 { animation: card-enter 0.32s 0.10s cubic-bezier(0.25,0.46,0.45,0.94) both; }
@@ -76,54 +67,23 @@ html, body {
 .card-enter-5 { animation: card-enter 0.32s 0.27s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .card-enter-6 { animation: card-enter 0.32s 0.31s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 
-/* ── Bottom-nav active dot slide ────────────────────────────────── */
-/* The sliding pill under the active tab.                            */
+/* ── Bottom-nav size lock ────────────────────────────────────────── */
+@keyframes dot-slide-in { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
 
-@keyframes dot-slide-in {
-  from { transform: scaleX(0); opacity: 0; }
-  to   { transform: scaleX(1); opacity: 1; }
-}
+.igo-nav     { height: calc(40px + env(safe-area-inset-bottom)) !important; max-height: calc(40px + env(safe-area-inset-bottom)) !important; overflow: hidden !important; }
+.igo-nav-row { height: 40px !important; max-height: 40px !important; min-height: 0 !important; overflow: hidden !important; }
+.igo-nav-btn { height: 40px !important; max-height: 40px !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; -webkit-appearance: none !important; appearance: none !important; }
 
-/* ── Bottom nav size lock ────────────────────────────────────────── */
-/* These rules are in CSS (not inline JS) so they apply regardless   */
-/* of which JS bundle version the device has cached.                 */
-
-.igo-nav {
-  height: calc(40px + env(safe-area-inset-bottom)) !important;
-  max-height: calc(40px + env(safe-area-inset-bottom)) !important;
-  overflow: hidden !important;
-}
-.igo-nav-row {
-  height: 40px !important;
-  max-height: 40px !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-.igo-nav-btn {
-  height: 40px !important;
-  max-height: 40px !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
-}
-
-/* ── Density: compact mode ─────────────────────────────────────────── */
-/*
- * In compact mode we scale down the entire #root by 92% so every page
- * looks visibly denser without touching individual component styles.
- * `transform-origin: top center` keeps it anchored to the top edge.
- * The 8% we "save" in height is compensated with a matching scale on
- * the height so nothing gets clipped.
+/* ── Density: compact mode ─────────────────────────────────────────
  *
- * This is intentionally aggressive — the whole point of compact mode
- * is to fit more content on screen at once.
+ * We apply zoom: 0.9 to the .app-shell div (NOT #root) so the layout
+ * shrinks visually but #root still covers the full screen.
+ * zoom affects layout (unlike transform: scale) so inner content
+ * reflows at the smaller size. Fixed-positioned children (top nav)
+ * are outside .app-shell so they stay full-size and correctly anchored.
+ *
+ * The .app-shell is taller than 100% to compensate: 100% / 0.9 ≈ 111%.
+ * This prevents a gap at the bottom after zooming.
  */
-body.density-compact #root {
-  transform: translateX(-50%) scale(0.92);
-  transform-origin: top center;
-}
-body:not(.density-compact) #root {
-  transform: translateX(-50%) scale(1);
-}
+body.density-compact  .app-shell { zoom: 0.9; height: 111.12%; }
+body:not(.density-compact) .app-shell { zoom: 1;   height: 100%;   }
