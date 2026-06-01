@@ -342,6 +342,7 @@ function AppInner() {
             ].map((child, i) => (
               <div
                 key={i}
+                data-scroll-container="tab"
                 style={{
                   width: `${100 / TABS.length}%`,
                   height: '100%',
@@ -362,7 +363,7 @@ function AppInner() {
 
       {/* ── Overlay pages (slide up from bottom) ───────────────────────────── */}
       {overlayPage && (
-        <div key={overlayPage} className={overlayClass} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', zIndex: 50, background: 'inherit' }}>
+        <div key={overlayPage} data-scroll-container="overlay" className={overlayClass} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', zIndex: 50, background: 'inherit' }}>
           {overlayPage === 'invoice-view' && currentInvoice && (
             <InvoiceView
               invoice={currentInvoice}
@@ -392,8 +393,8 @@ function AppInner() {
       {shouldShowOnboarding && (
         <OnboardingTutorial
           navigate={navigate}
-          onComplete={markOnboardingComplete}
-          onSkip={skipOnboarding}
+          onComplete={() => { markOnboardingComplete(); navigate('history'); }}
+          onSkip={() => { skipOnboarding(); navigate('history'); }}
         />
       )}
     </div>
