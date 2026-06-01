@@ -3,6 +3,11 @@
  * When a newer version is detected it dispatches 'inv-version-update' so the UI
  * can show a prompt. The user decides when to reload — nothing happens automatically.
  *
+ * LOCAL_VERSION is injected at build time by vite.config.js as __APP_VERSION__
+ * (a git short-hash). public/version.json is also written with that same hash
+ * during the build, so every deploy automatically produces a mismatch for users
+ * still running the old bundle — no manual version bumping needed.
+ *
  * To apply the update the listener should:
  *   1. Unregister all service workers
  *   2. Call window.location.reload()
@@ -10,7 +15,9 @@
 
 import { useEffect } from 'react';
 
-export const LOCAL_VERSION = '5.9';
+// Injected by vite.config.js at build time — unique git hash per deploy
+// eslint-disable-next-line no-undef
+export const LOCAL_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 /** Unregisters all service workers then hard-reloads. */
 export async function applyVersionUpdate() {
@@ -24,14 +31,6 @@ export async function applyVersionUpdate() {
 export default function useVersionCheck() {
   useEffect(() => {
     let notified = false; // only fire the event once per session
-
-    // The inline index.html script may have already detected a mismatch before React
-    // mounted — pick that up immediately without waiting for the next poll.
-    if (window.__inv_version_update_pending) {
-      notified = true;
-      window.__inv_version_update_pending = false;
-      window.dispatchEvent(new CustomEvent('inv-version-update'));
-    }
 
     async function check() {
       if (notified) return; // already told the user — don't keep re-firing

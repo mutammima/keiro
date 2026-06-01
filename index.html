@@ -14,22 +14,9 @@
     <title>InvoiceGo</title>
   <style>:root { --accent: #4A7BF7; }</style>
   <script>try { var _a=localStorage.getItem('inv_accent_color'); if(_a) document.documentElement.style.setProperty('--accent',_a); } catch(e){}</script>
-  <!-- Version check: runs before React. On mismatch, fires 'inv-version-update' event
-       so React can show a user-friendly prompt instead of force-reloading. -->
-  <script>
-    (function () {
-      var LOCAL = '5.9';
-      fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (d.version && d.version !== LOCAL) {
-            // React hasn't mounted yet — store the flag so useVersionCheck picks it up
-            window.__inv_version_update_pending = true;
-          }
-        })
-        .catch(function () {});
-    })();
-  </script>
+  <!-- Version check handled entirely by useVersionCheck.js (React) which uses
+       the build-time __APP_VERSION__ injected by vite.config.js. No inline
+       version string needed here — it would go stale on every deploy anyway. -->
   </head>
   <body>
     <div id="root"></div>
