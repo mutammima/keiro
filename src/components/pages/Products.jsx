@@ -89,7 +89,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+        <div style={{ width: 36 }} />
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? 'Cancel' : '+ Add'}

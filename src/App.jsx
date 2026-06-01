@@ -147,12 +147,15 @@ function AppInner() {
     } catch {}
   }, []);
 
-  // Keep document.body and html background in sync with the app theme.
-  // This ensures the area outside #root (safe-area zones, any sub-pixel gap)
-  // always matches the app color instead of showing raw OS black.
+  // Keep document.body, html, and theme-color meta in sync with the app theme.
+  // This ensures safe-area zones and any sub-pixel gaps outside #root match the
+  // app color instead of showing a black bar.
   useEffect(() => {
     document.body.style.background = C.bg;
     document.documentElement.style.background = C.bg;
+    // Update theme-color meta so the iOS status bar area matches the app bg
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', C.bg);
   }, [C.bg]);
 
   // Show guide for the home/dashboard on first ever launch
@@ -346,6 +349,9 @@ function AppInner() {
                   flexShrink: 0,
                   // Allow vertical scroll within each tab without triggering swipe
                   touchAction: 'pan-y',
+                  // Ensure content scrolls above the home indicator on iPhone
+                  paddingBottom: 'env(safe-area-inset-bottom)',
+                  boxSizing: 'border-box',
                 }}
               >
                 {child}

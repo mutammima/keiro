@@ -55,7 +55,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
       <div style={{ ...s.page, background: C.bg }}>
         {/* Header */}
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+          <div style={{ width: 36 }} />
           <div style={s.headerCenter}>
             {editingBiz ? (
               <input
