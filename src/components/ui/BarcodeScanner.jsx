@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 
 const SCANNER_ID = 'qr-reader';
@@ -51,7 +52,9 @@ export default function BarcodeScanner({ onScan, onClose }) {
     onClose();
   }
 
-  return (
+  // Render into document.body via a portal so that position:fixed is always
+  // relative to the viewport — not to the transformed tab-strip ancestor.
+  return createPortal(
     <div style={s.overlay}>
       {/* Top bar */}
       <div style={s.topBar}>
@@ -96,7 +99,8 @@ export default function BarcodeScanner({ onScan, onClose }) {
           100% { top: 88%; opacity: 0; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
 
