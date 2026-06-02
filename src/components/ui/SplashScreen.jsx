@@ -87,7 +87,7 @@ export default function SplashScreen({ onDone }) {
         letterSpacing: 0.2,
         animation: 'splash-rise 0.5s 0.35s ease both',
       }}>
-        Developed by Mutamim using Claude
+        Developed by Mutammim
       </div>
 
       <style>{`
