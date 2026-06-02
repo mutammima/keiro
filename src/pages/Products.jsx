@@ -38,6 +38,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null); // { barcode, name }
 
   useEffect(() => {
     getAllProducts().then(c => { setCatalog(c || {}); setLoadingCatalog(false); }).catch(() => setLoadingCatalog(false));
@@ -60,11 +61,13 @@ export default function Products({ onOpenDrawer, onNav }) {
     setEditingBarcode(null);
   }
 
-  async function handleDelete(barcode, name) {
-    if (!window.confirm(`Remove "${name}"?`)) return;
-    await deleteProduct(barcode);
+  async function confirmDeleteNow() {
+    if (!confirmDelete) return;
+    await deleteProduct(confirmDelete.barcode);
     const updated = await getAllProducts();
     setCatalog(updated || {});
+    setConfirmDelete(null);
+    setEditingBarcode(null);
   }
 
   async function handleAddProduct() {
@@ -146,8 +149,13 @@ export default function Products({ onOpenDrawer, onNav }) {
                             onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingBarcode(null); }}
                             autoFocus
                           />
-                          <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit}>✓</button>
-                          <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
+                          <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit} title="Save">✓</button>
+                          <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)} title="Cancel">✕</button>
+                          <button
+                            style={{ ...s.iconBtn, color: C.danger, fontSize: 18 }}
+                            onClick={() => setConfirmDelete({ barcode: p.barcode, name: p.name })}
+                            title="Delete product"
+                          >🗑</button>
                         </div>
                       ) : (
                         <div style={s.productRow}>
@@ -161,11 +169,6 @@ export default function Products({ onOpenDrawer, onNav }) {
                               onClick={() => startEdit(p)}
                               title="Edit name"
                             >✎</button>
-                            <button
-                              style={{ ...s.iconBtn, color: C.danger, fontSize: 18, fontWeight: 400 }}
-                              onClick={() => handleDelete(p.barcode, p.name)}
-                              title="Remove"
-                            >×</button>
                           </div>
                         </div>
                       )}
@@ -178,6 +181,30 @@ export default function Products({ onOpenDrawer, onNav }) {
         )}
         <AppFooter onNav={onNav} />
       </div>
+
+      {confirmDelete && (
+        <div style={s.modalOverlay} onClick={() => setConfirmDelete(null)}>
+          <div
+            style={{ ...s.modalCard, background: C.card, borderColor: C.cardBorder }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p style={{ ...s.modalTitle, color: C.text }}>Remove product?</p>
+            <p style={{ ...s.modalText, color: C.textSub }}>
+              Are you sure you want to remove “{confirmDelete.name}”? This can’t be undone.
+            </p>
+            <div style={s.modalActions}>
+              <button
+                style={{ ...s.modalBtn, background: C.inputBg, color: C.text, borderColor: C.inputBorder }}
+                onClick={() => setConfirmDelete(null)}
+              >Cancel</button>
+              <button
+                style={{ ...s.modalBtn, background: C.danger, color: '#fff', borderColor: C.danger }}
+                onClick={confirmDeleteNow}
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -253,4 +280,23 @@ const s = {
   },
   emptyText: { fontSize: 17, fontWeight: 700, margin: 0 },
   emptySubText: { fontSize: 13, margin: 0, maxWidth: 280, lineHeight: 1.5 },
+  modalOverlay: {
+    position: 'fixed', inset: 0, zIndex: 200,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%', maxWidth: 340, borderRadius: 18,
+    border: '1px solid', padding: '22px 20px 18px',
+    boxShadow: '0 16px 48px rgba(0,0,0,0.35)',
+  },
+  modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 8px' },
+  modalText: { fontSize: 14, lineHeight: 1.5, margin: '0 0 20px' },
+  modalActions: { display: 'flex', gap: 10 },
+  modalBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    border: '1px solid', fontSize: 15, fontWeight: 700,
+    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+  },
 };
