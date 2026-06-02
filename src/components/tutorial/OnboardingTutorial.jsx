@@ -454,26 +454,14 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         return;
       }
 
-      // Phase: store name — fill everything + chain through item + generate
+      // Phase: store name — fill store + customer only, then stop
       if (sel === '[data-tutorial="invoice-store-name"]') {
         setNativeValue(document.querySelector('input[placeholder="Sunrise Deli"]'), 'Corner Store');
         setNativeValue(document.querySelector('input[placeholder="John Smith"]'),   'Mike Johnson');
-        setTimeout(() => {
-          setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
-          setNativeValue(document.querySelector('input[placeholder="1"]'),    '2');
-          setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
-          setTimeout(() => {
-            Array.from(document.querySelectorAll('button'))
-              .find(b => b.textContent.trim() === '+ Add Item')?.click();
-            setTimeout(() => {
-              document.querySelector('[data-tutorial="invoice-generate"]')?.click();
-            }, 400);
-          }, 150);
-        }, 400);
         return;
       }
 
-      // Phase: add item (store already filled) — fill item + generate
+      // Phase: add item — fill item fields + click "+ Add Item", then stop
       if (sel === '[data-tutorial="invoice-add-item"]') {
         setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
         setNativeValue(document.querySelector('input[placeholder="1"]'),    '2');
@@ -481,14 +469,11 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         setTimeout(() => {
           Array.from(document.querySelectorAll('button'))
             .find(b => b.textContent.trim() === '+ Add Item')?.click();
-          setTimeout(() => {
-            document.querySelector('[data-tutorial="invoice-generate"]')?.click();
-          }, 400);
         }, 150);
         return;
       }
 
-      // Phase: generate — just click it
+      // Phase: generate — click Generate Invoice
       if (sel === '[data-tutorial="invoice-generate"]') {
         document.querySelector('[data-tutorial="invoice-generate"]')?.click();
         return;

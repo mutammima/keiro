@@ -311,12 +311,6 @@ export default function InteractiveTutorial({ currentPage, navigate, onClose }) 
 
   return (
     <>
-      {/* Semi-transparent backdrop */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: DIM_Z,
-        background: 'rgba(0,0,0,0.40)',
-        pointerEvents: 'none',
-      }} />
 
       {/* Beacon — follows DOM element */}
       {beaconPos && (
