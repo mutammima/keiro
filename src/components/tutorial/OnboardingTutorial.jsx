@@ -106,11 +106,15 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
   const TOOLTIP_H = 270;                     // taller to fit bigger text + buttons
   const PAD       = 20;
 
-  // Always place the dialog in the OPPOSITE half of the screen from the element
-  // so it never blocks what it's describing.
+  // Step 0 (business name & phone): keep dialog close to those fields so the
+  // user can see what's being filled in — place it just below the element.
+  // All other steps: opposite-half rule (element top → dialog bottom, vice versa).
   let tooltipTop;
   if (!rect) {
-    tooltipTop = vh - TOOLTIP_H - PAD;
+    tooltipTop = stepIdx === 0 ? PAD + 48 : vh - TOOLTIP_H - PAD;
+  } else if (stepIdx === 0) {
+    // Adjacent-below: right under the active element, clamped so it fits
+    tooltipTop = rect.bottom + 14;
   } else {
     const elementMidY = (rect.top + rect.bottom) / 2;
     tooltipTop = elementMidY <= vh / 2

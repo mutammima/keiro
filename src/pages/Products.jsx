@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
@@ -7,150 +7,11 @@ import {
   saveProductBarcode,
   updateProduct,
   deleteProduct,
-  clearAllProducts,
   saveProductName,
   getBusinessName,
 } from '../utils/storage';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
-
-/**
- * SwipeableRow — swipe left to reveal a red Remove strip; release to delete.
- *
- * iOS quirk: the parent tab content div has touchAction:'pan-y', which causes
- * the browser to fire touchcancel for horizontal gestures before JS can commit
- * to the swipe. Fix: axis-lock state machine (same pattern as App.jsx's tab
- * swipe). We only call e.preventDefault() *after* confirming the gesture is
- * a left-swipe, and we treat touchcancel as "abort → snap back" so it never
- * accidentally triggers a delete.
- *
- * data-swipe-item on the outer div tells App.jsx's handleStart to skip
- * tab-switching for touches that originate inside a swipeable row.
- */
-function SwipeableRow({ onDelete, cardBg, children }) {
-  const rowRef    = useRef(null);
-  const startRef  = useRef(null);   // { x, y } — set on touchstart, cleared on end
-  const dirRef    = useRef(null);   // null | 'h' (left) | 'v' — axis lock
-  const offsetRef = useRef(0);      // live translateX in px
-
-  const [offsetX,  setOffsetX]  = useState(0);
-  const [snapping, setSnapping] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    const el = rowRef.current;
-    if (!el) return;
-
-    function reset(snapBack) {
-      const committed = dirRef.current === 'h';
-      startRef.current = null;
-      dirRef.current   = null;
-      setSnapping(true);
-      if (committed && snapBack) setOffsetX(0);
-      offsetRef.current = 0;
-    }
-
-    function onStart(e) {
-      startRef.current  = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      offsetRef.current = 0;
-      dirRef.current    = null;
-      setSnapping(false);
-      setDeleting(false);
-    }
-
-    function onMove(e) {
-      if (!startRef.current) return;
-
-      const dx = e.touches[0].clientX - startRef.current.x;
-      const dy = e.touches[0].clientY - startRef.current.y;
-
-      // ── Axis-lock: wait for 6 px of movement before committing ──────────
-      if (dirRef.current === null) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too early to decide
-        // Require dx to be both leftward AND horizontally dominant
-        dirRef.current = (dx < 0 && Math.abs(dx) > Math.abs(dy)) ? 'h' : 'v';
-      }
-
-      if (dirRef.current !== 'h') return; // vertical scroll — browser handles it
-
-      // ── Confirmed left-swipe: take over this gesture ─────────────────────
-      // preventDefault stops the browser from also vertical-scrolling while
-      // we animate the row sideways (listener is passive:false so this works).
-      e.preventDefault();
-
-      const clamped = Math.max(-110, dx);
-      offsetRef.current = clamped;
-      setOffsetX(clamped);
-    }
-
-    function onEnd() {
-      if (!startRef.current) return;
-      const wasH    = dirRef.current === 'h';
-      const offset  = offsetRef.current;
-      reset(false);
-
-      if (wasH && offset < -55) {
-        // Swiped past the threshold — animate off-screen then delete
-        setOffsetX(-480);
-        setDeleting(true);
-        setTimeout(onDelete, 260);
-      } else {
-        setOffsetX(0); // snap back
-      }
-    }
-
-    // touchcancel = iOS aborted the gesture (e.g. pan-y took over, system UI,
-    // incoming call).  Always snap back — never delete on a cancelled gesture.
-    function onCancel() {
-      if (!startRef.current) return;
-      reset(true);
-    }
-
-    el.addEventListener('touchstart',  onStart,  { passive: true  });
-    el.addEventListener('touchmove',   onMove,   { passive: false });
-    el.addEventListener('touchend',    onEnd,    { passive: true  });
-    el.addEventListener('touchcancel', onCancel, { passive: true  });
-
-    return () => {
-      el.removeEventListener('touchstart',  onStart);
-      el.removeEventListener('touchmove',   onMove);
-      el.removeEventListener('touchend',    onEnd);
-      el.removeEventListener('touchcancel', onCancel);
-    };
-  }, [onDelete]);
-
-  return (
-    <div
-      ref={rowRef}
-      data-swipe-item
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        opacity: deleting ? 0 : 1,
-        transition: deleting ? 'opacity 0.26s ease' : 'none',
-      }}
-    >
-      {/* Red strip revealed behind the row when swiping left */}
-      <div style={{
-        position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
-        background: '#ef4444',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.3,
-        userSelect: 'none', pointerEvents: 'none',
-      }}>Remove</div>
-
-      {/* Sliding foreground — same bg as the card to cover the strip at rest */}
-      <div style={{
-        transform: `translateX(${offsetX}px)`,
-        transition: snapping ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
-        background: cardBg,
-        position: 'relative', zIndex: 1,
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 /** Group a sorted array of products by first letter */
 function groupByLetter(products) {
@@ -160,7 +21,6 @@ function groupByLetter(products) {
     if (!map[letter]) map[letter] = [];
     map[letter].push(p);
   }
-  // Return as sorted array of { letter, items }
   return Object.entries(map)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([letter, items]) => ({ letter, items }));
@@ -200,16 +60,11 @@ export default function Products({ onOpenDrawer, onNav }) {
     setEditingBarcode(null);
   }
 
-  async function handleDelete(barcode) {
+  async function handleDelete(barcode, name) {
+    if (!window.confirm(`Remove "${name}"?`)) return;
     await deleteProduct(barcode);
     const updated = await getAllProducts();
     setCatalog(updated || {});
-  }
-
-  async function handleClearAll() {
-    if (!window.confirm('Delete all products? This cannot be undone.')) return;
-    await clearAllProducts();
-    setCatalog({});
   }
 
   async function handleAddProduct() {
@@ -265,20 +120,16 @@ export default function Products({ onOpenDrawer, onNav }) {
           </div>
         ) : groups.length > 0 && (
           <div data-tutorial="products-list">
-            {/* Count + Clear All header */}
+            {/* Product count */}
             <div style={s.listHeader}>
               <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>
                 {products.length} Product{products.length !== 1 ? 's' : ''}
               </p>
-              <button style={{ ...s.clearBtn, color: C.danger }} onClick={handleClearAll}>
-                Clear All
-              </button>
             </div>
 
             {/* Alphabetical sections */}
             {groups.map(({ letter, items }) => (
               <div key={letter} style={{ marginBottom: 4 }}>
-                {/* Letter index header */}
                 <div style={{ ...s.letterHeader, color: C.textMuted, borderBottomColor: C.divider }}>
                   {letter}
                 </div>
@@ -299,17 +150,24 @@ export default function Products({ onOpenDrawer, onNav }) {
                           <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
                         </div>
                       ) : (
-                        <SwipeableRow onDelete={() => handleDelete(p.barcode)} cardBg={C.card}>
-                          <div style={s.productRow}>
-                            <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
-                            {!p.barcode.startsWith('manual_') && (
-                              <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
-                            )}
-                            <div style={s.actions}>
-                              <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
-                            </div>
+                        <div style={s.productRow}>
+                          <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                          {!p.barcode.startsWith('manual_') && (
+                            <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
+                          )}
+                          <div style={s.actions}>
+                            <button
+                              style={{ ...s.iconBtn, color: C.textMuted }}
+                              onClick={() => startEdit(p)}
+                              title="Edit name"
+                            >✎</button>
+                            <button
+                              style={{ ...s.iconBtn, color: C.danger, fontSize: 18, fontWeight: 400 }}
+                              onClick={() => handleDelete(p.barcode, p.name)}
+                              title="Remove"
+                            >×</button>
                           </div>
-                        </SwipeableRow>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -331,11 +189,6 @@ const s = {
     padding: '14px 20px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', gap: 14,
-  },
-  hamburger: {
-    background: 'none', border: 'none', fontSize: 22,
-    cursor: 'pointer', padding: '3px 4px',
-    WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   },
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
   addBtn: {
@@ -361,7 +214,7 @@ const s = {
   fieldLabel: { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: '#888888' },
   input: {
     width: '100%', boxSizing: 'border-box', height: 46,
-    fontSize: 15, padding: '0 14px',
+    fontSize: 16, padding: '0 14px',
     border: '1px solid', borderRadius: 12,
     outline: 'none', WebkitAppearance: 'none', marginBottom: 4,
   },
@@ -375,10 +228,6 @@ const s = {
   listHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },
-  clearBtn: {
-    background: 'none', border: 'none', fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', padding: '2px 0', WebkitTapHighlightColor: 'transparent',
-  },
   divider: { height: 1, margin: '0' },
   productRow: {
     display: 'flex', alignItems: 'center',
@@ -391,9 +240,9 @@ const s = {
   actions: { display: 'flex', gap: 2, flexShrink: 0 },
   iconBtn: {
     background: 'none', border: 'none', fontSize: 17,
-    cursor: 'pointer', width: 34, height: 34,
+    cursor: 'pointer', width: 36, height: 36,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 17, padding: 0, WebkitTapHighlightColor: 'transparent',
+    borderRadius: 18, padding: 0, WebkitTapHighlightColor: 'transparent',
   },
   editRow: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0',
