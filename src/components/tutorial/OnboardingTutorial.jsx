@@ -72,7 +72,7 @@ const STEPS = [
 ];
 
 const TOTAL     = STEPS.length;
-const DIM_COLOR = 'rgba(0,0,0,0.72)';
+const DIM_COLOR = 'transparent';
 const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
 const PAD       = 12;
