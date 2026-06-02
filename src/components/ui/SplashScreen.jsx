@@ -74,6 +74,22 @@ export default function SplashScreen({ onDone }) {
         </div>
       </div>
 
+      {/* ── Developer credit ── */}
+      <div style={{
+        position: 'absolute',
+        bottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+        left: 0, right: 0,
+        textAlign: 'center',
+        color: C.textMuted,
+        fontSize: 11,
+        fontWeight: 400,
+        opacity: 0.45,
+        letterSpacing: 0.2,
+        animation: 'splash-rise 0.5s 0.35s ease both',
+      }}>
+        Developed by Mutamim using Claude
+      </div>
+
       <style>{`
         @keyframes splash-pop {
           from { transform: scale(0.6); opacity: 0; }

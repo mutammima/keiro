@@ -210,9 +210,6 @@ function AppInner() {
 
     function handleStart(e) {
       if (overlayPageRef.current !== null) return;
-      // If the touch starts on a swipeable row (e.g. product delete swipe),
-      // let that row handle the gesture — don't start a tab swipe.
-      if (e.target.closest('[data-swipe-item]')) return;
       const t = e.touches[0];
       swipeStart.current  = { x: t.clientX, y: t.clientY };
       swipeDelta.current  = 0;
