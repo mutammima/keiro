@@ -1,5 +1,5 @@
 {
-  "name": "delivery-invoice",
+  "name": "invogo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -31,6 +31,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "prettier": "^3.8.3",
+    "sharp": "^0.34.5",
     "vite": "^8.0.12"
   }
 }
