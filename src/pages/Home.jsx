@@ -42,10 +42,14 @@ export default function Home({ onOpenDrawer, onNav }) {
     .filter(inv => inv.paymentStatus === 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
 
-  const outstanding = invoices
-    .filter(inv => inv.paymentStatus === 'unpaid' || inv.paymentStatus === 'partial')
+  const totalPaid = invoices
+    .filter(inv => inv.paymentStatus === 'paid')
+    .reduce((s, inv) => s + subtotalOf(inv), 0);
+  const totalOwed = invoices
+    .filter(inv => !inv.paymentStatus || inv.paymentStatus === 'unpaid' || inv.paymentStatus === 'partial')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
   const unpaidCount = invoices.filter(inv => !inv.paymentStatus || inv.paymentStatus === 'unpaid').length;
+  const paidCount   = invoices.filter(inv => inv.paymentStatus === 'paid').length;
 
   // Overdue: unpaid invoices older than 7 days
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -112,27 +116,38 @@ export default function Home({ onOpenDrawer, onNav }) {
           </div>
         </div>
 
-        {/* Outstanding balance card */}
-        <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder }}>
-          <div style={s.cardRow}>
-            <div>
-              <div style={{ fontSize: 12, color: C.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Outstanding Balance</div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: outstanding > 0 ? '#ef4444' : '#22c55e' }}>
-                ${outstanding.toFixed(2)}
-              </div>
-              {unpaidCount > 0 && (
-                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>{unpaidCount} unpaid invoice{unpaidCount !== 1 ? 's' : ''}</div>
-              )}
+        {/* Paid / Owed summary card */}
+        <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex' }}>
+            {/* Paid */}
+            <div style={{ flex: 1, padding: '14px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 4 }}>Collected</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#22c55e', lineHeight: 1 }}>${totalPaid.toFixed(2)}</div>
+              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>{paidCount} paid invoice{paidCount !== 1 ? 's' : ''}</div>
             </div>
-            <button
-              style={{ ...s.viewBtn, borderColor: C.divider, color: ACCENT }}
-              onClick={() => onNav('history')}
-            >View all →</button>
+
+            {/* Divider */}
+            <div style={{ width: 1, background: C.cardBorder, alignSelf: 'stretch' }} />
+
+            {/* Owed */}
+            <div style={{ flex: 1, padding: '14px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 4 }}>Owed to You</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: totalOwed > 0 ? '#ef4444' : C.textMuted, lineHeight: 1 }}>${totalOwed.toFixed(2)}</div>
+              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>{unpaidCount} unpaid invoice{unpaidCount !== 1 ? 's' : ''}</div>
+            </div>
+
+            {/* View all button */}
+            <div style={{ display: 'flex', alignItems: 'center', paddingRight: 14 }}>
+              <button
+                style={{ ...s.viewBtn, borderColor: C.divider, color: ACCENT }}
+                onClick={() => onNav('history')}
+              >All →</button>
+            </div>
           </div>
 
           {/* Overdue alert */}
           {overdueInvoices.length > 0 && (
-            <div style={{ ...s.overdueAlert, background: dark ? 'rgba(239,68,68,0.12)' : '#fef2f2', borderColor: dark ? 'rgba(239,68,68,0.25)' : '#fecaca' }}>
+            <div style={{ ...s.overdueAlert, background: dark ? 'rgba(239,68,68,0.12)' : '#fef2f2', borderColor: dark ? 'rgba(239,68,68,0.25)' : '#fecaca', margin: '0 12px 12px', borderRadius: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>!</span>
               <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 600 }}>
                 {overdueInvoices.length} overdue invoice{overdueInvoices.length !== 1 ? 's' : ''} — follow up needed

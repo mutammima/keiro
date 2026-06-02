@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
@@ -13,6 +13,106 @@ import {
 } from '../utils/storage';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
+
+/**
+ * SwipeableRow — swipe left to reveal & confirm a delete action.
+ * Uses native touch listeners so stopPropagation actually blocks App.jsx's
+ * horizontal tab-swipe handler (which is also a native listener).
+ *
+ * data-swipe-item tells App.jsx's handleStart to skip tab-swipe for this touch.
+ */
+function SwipeableRow({ onDelete, cardBg, children }) {
+  const rowRef   = useRef(null);
+  const startRef = useRef(null);   // { x, y }
+  const offsetRef = useRef(0);     // current translateX (px)
+  const [offsetX,  setOffsetX]  = useState(0);
+  const [snapping, setSnapping] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = useCallback(() => {
+    setSnapping(true);
+    setDeleting(true);
+    setOffsetX(-480);
+    setTimeout(onDelete, 280);
+  }, [onDelete]);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+
+    function onStart(e) {
+      startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      offsetRef.current = 0;
+      setSnapping(false);
+      setDeleting(false);
+    }
+
+    function onMove(e) {
+      if (!startRef.current) return;
+      const dx = e.touches[0].clientX - startRef.current.x;
+      const dy = e.touches[0].clientY - startRef.current.y;
+      // Only handle left swipes with clear horizontal intent
+      if (dx >= 0 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      e.preventDefault();  // stop scroll
+      const clamped = Math.max(-100, dx);
+      offsetRef.current = clamped;
+      setOffsetX(clamped);
+    }
+
+    function onEnd() {
+      if (!startRef.current) return;
+      startRef.current = null;
+      setSnapping(true);
+      if (offsetRef.current < -60) {
+        // Swiped far enough — delete
+        setOffsetX(-480);
+        setDeleting(true);
+        setTimeout(onDelete, 280);
+      } else {
+        setOffsetX(0);
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true  });
+    el.addEventListener('touchmove',  onMove,  { passive: false });
+    el.addEventListener('touchend',   onEnd,   { passive: true  });
+    el.addEventListener('touchcancel',onEnd,   { passive: true  });
+
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove',  onMove);
+      el.removeEventListener('touchend',   onEnd);
+      el.removeEventListener('touchcancel',onEnd);
+    };
+  }, [onDelete]);
+
+  return (
+    <div
+      ref={rowRef}
+      data-swipe-item
+      style={{ position: 'relative', overflow: 'hidden', opacity: deleting ? 0 : 1, transition: deleting ? 'opacity 0.28s ease' : 'none' }}
+    >
+      {/* Red delete label revealed behind the row */}
+      <div style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 80,
+        background: '#ef4444',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.3,
+        userSelect: 'none',
+      }}>Remove</div>
+
+      {/* Sliding content */}
+      <div style={{
+        transform: `translateX(${offsetX}px)`,
+        transition: snapping ? 'transform 0.25s cubic-bezier(0.4,0,0.2,1)' : 'none',
+        background: cardBg,
+        position: 'relative', zIndex: 1,
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /** Group a sorted array of products by first letter */
 function groupByLetter(products) {
@@ -161,16 +261,17 @@ export default function Products({ onOpenDrawer, onNav }) {
                           <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)}>✕</button>
                         </div>
                       ) : (
-                        <div style={s.productRow}>
-                          <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
-                          {!p.barcode.startsWith('manual_') && (
-                            <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
-                          )}
-                          <div style={s.actions}>
-                            <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
-                            <button style={{ ...s.iconBtn, color: C.danger, fontSize: 12, fontWeight: 600 }} onClick={() => handleDelete(p.barcode)}>Remove</button>
+                        <SwipeableRow onDelete={() => handleDelete(p.barcode)} cardBg={C.card}>
+                          <div style={s.productRow}>
+                            <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
+                            {!p.barcode.startsWith('manual_') && (
+                              <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
+                            )}
+                            <div style={s.actions}>
+                              <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => startEdit(p)}>✎</button>
+                            </div>
                           </div>
-                        </div>
+                        </SwipeableRow>
                       )}
                     </div>
                   ))}
