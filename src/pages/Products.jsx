@@ -103,7 +103,7 @@ export default function Products({ onOpenDrawer, onNav }) {
             <label style={{ ...s.fieldLabel, color: C.textSub }}>Product Name</label>
             <input
               style={{ ...s.input, ...inp }}
-              placeholder="e.g. Marlboro Reds"
+              placeholder="e.g. GMan V Cut T-Shirt 6ct"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddProduct()}
