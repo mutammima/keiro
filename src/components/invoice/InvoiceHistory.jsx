@@ -24,7 +24,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     visibleOlder, setVisibleOlder,
     openMenu, setOpenMenu,
     sharing, menuRef,
-    outstanding, unpaidCount, partialCount, todayCount, allClear,
+    outstanding, unpaidCount, partialCount, todayCount, overdueCount, allClear,
     filtered, todayInvoices, visibleOlderList, remaining,
     cycleStatus, setStatus,
     handleDelete, handleShare, handleTogglePin,
@@ -336,6 +336,11 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
             <div style={s.heroPills}>
               <span style={s.heroPill}>{unpaidCount} Unpaid</span>
               {partialCount > 0 && <span style={s.heroPill}>{partialCount} Partial</span>}
+              {overdueCount > 0 && (
+                <span style={{ ...s.heroPill, background: 'rgba(239,68,68,0.35)', fontWeight: 800 }}>
+                  ⚠ {overdueCount} Overdue
+                </span>
+              )}
               <span style={s.heroPill}>{todayCount} Today</span>
               <span style={s.heroPill}>{invoices.length} Total</span>
             </div>
@@ -352,19 +357,30 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           />
           <div style={{ ...s.filterDivider, background: C.divider }} />
           <div style={s.filterRow}>
-            {['all', 'unpaid', 'paid', 'partial'].map(f => (
-              <button
-                key={f}
-                style={{
-                  ...s.filterBtn,
-                  background: statusFilter === f ? ACCENT : 'none',
-                  color: statusFilter === f ? '#fff' : C.textMuted,
-                }}
-                onClick={() => { setStatusFilter(f); setVisibleOlder(PAGE_SIZE); }}
-              >
-                {f === 'all' ? 'All' : STATUS[f]?.label}
-              </button>
-            ))}
+            {[
+              { key: 'all',     label: 'All' },
+              { key: 'unpaid',  label: 'Unpaid' },
+              { key: 'partial', label: 'Partial' },
+              { key: 'paid',    label: 'Paid' },
+              { key: 'overdue', label: '⚠ Overdue', danger: true },
+            ].map(({ key, label, danger }) => {
+              const active = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  style={{
+                    ...s.filterBtn,
+                    background: active ? (danger ? '#ef4444' : ACCENT) : 'none',
+                    color: active ? '#fff' : (danger ? '#ef4444' : C.textMuted),
+                    fontWeight: active ? 700 : 600,
+                    border: active ? 'none' : `1px solid ${danger ? 'rgba(239,68,68,0.3)' : 'transparent'}`,
+                  }}
+                  onClick={() => { setStatusFilter(key); setVisibleOlder(PAGE_SIZE); }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -462,11 +478,16 @@ const s = {
     outline: 'none',
   },
   filterDivider: { height: 1 },
-  filterRow: { display: 'flex', padding: '8px 8px', gap: 6 },
+  filterRow: {
+    display: 'flex', padding: '8px 8px', gap: 6,
+    overflowX: 'auto', scrollbarWidth: 'none',
+    WebkitOverflowScrolling: 'touch',
+  },
   filterBtn: {
-    flex: 1, height: 32, border: 'none', borderRadius: 8,
-    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    flex: '0 0 auto', height: 32, borderRadius: 8,
+    fontSize: 11, fontWeight: 600, cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
+    paddingLeft: 10, paddingRight: 10, whiteSpace: 'nowrap',
   },
 
   // Group labels
