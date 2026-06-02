@@ -152,10 +152,10 @@ export default function Products({ onOpenDrawer, onNav }) {
                           <button style={{ ...s.iconBtn, color: ACCENT }} onClick={saveEdit} title="Save">✓</button>
                           <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => setEditingBarcode(null)} title="Cancel">✕</button>
                           <button
-                            style={{ ...s.iconBtn, color: C.danger, fontSize: 18 }}
+                            style={{ ...s.delBtn, color: C.danger }}
                             onClick={() => setConfirmDelete({ barcode: p.barcode, name: p.name })}
                             title="Delete product"
-                          >🗑</button>
+                          >Del</button>
                         </div>
                       ) : (
                         <div style={s.productRow}>
@@ -210,7 +210,9 @@ export default function Products({ onOpenDrawer, onNav }) {
 }
 
 const s = {
-  page: { display: 'flex', flexDirection: 'column', overflowX: 'hidden' },
+  // overflowX: 'clip' (not 'hidden') so position:fixed children (e.g. the
+  // delete confirm modal) are not trapped by a new containing block on iOS Safari.
+  page: { display: 'flex', flexDirection: 'column', overflowX: 'clip' },
   header: {
     position: 'sticky', top: 0, zIndex: 100,
     padding: '14px 20px 12px',
@@ -273,6 +275,13 @@ const s = {
   },
   editRow: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0',
+  },
+  delBtn: {
+    background: 'none', border: 'none',
+    fontSize: 13, fontWeight: 700,
+    cursor: 'pointer', padding: '0 6px', height: 36,
+    borderRadius: 8, WebkitTapHighlightColor: 'transparent',
+    letterSpacing: 0.2,
   },
   empty: {
     paddingTop: 60, textAlign: 'center', display: 'flex',
