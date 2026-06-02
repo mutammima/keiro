@@ -19,7 +19,7 @@ import { ACCENT } from '../../theme';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TOTAL     = 5;
+const TOTAL     = 4;
 const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
@@ -311,28 +311,16 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
     async function run() {
 
-      // ══ STEP 1 — Business name ══════════════════════════════════════════════
-      show(1, 'Welcome to InvoGo!', "First, let's set your business name — it appears on every invoice.");
-      navigate('settings');
-      await sleep(1100);
-
-      await moveTo('[data-tutorial="settings-biz-name"]');
-      show(1, 'Your business name', 'This prints at the top of every invoice you generate.');
-      await sleep(350);
-      await type('[data-tutorial="settings-biz-name"]', 'J&Y Distributions');
-      await tap('[data-tutorial="settings-save-btn"]');
-      await sleep(600);
-
-      // ══ STEP 2 — Create an invoice ══════════════════════════════════════════
+      // ══ STEP 1 — Create an invoice ══════════════════════════════════════════
       navigate('invoice');
       await sleep(900);
       setRect(null);
-      show(2, 'This is the New Invoice page', 'Fill in the store details, add the products you delivered, then generate.');
+      show(1, 'Welcome to InvoGo!', 'This is the New Invoice page — fill in the store details, add the products you delivered, then generate.');
       await sleep(1700);
 
       // Store name + customer
       await moveTo('[data-tutorial="invoice-store-name"]');
-      show(2, 'Enter store details', 'Type the store name and contact person.');
+      show(1, 'Enter store details', 'Type the store name and contact person.');
       await sleep(350);
       await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
       await type('input[placeholder="John Smith"]',   'Mike Johnson');
@@ -340,7 +328,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       // Add item section
       await moveTo('[data-tutorial="invoice-add-item"]');
-      show(2, 'Add a product', 'Enter the item name, quantity and price, then tap + Add Item.');
+      show(1, 'Add a product', 'Enter the item name, quantity and price, then tap + Add Item.');
       await sleep(550);
       await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
 
@@ -367,26 +355,26 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       // Generate
       await moveTo('[data-tutorial="invoice-generate"]');
-      show(2, 'Generate the invoice', 'Tap Generate to save and record this invoice.');
+      show(1, 'Generate the invoice', 'Tap Generate to save and record this invoice.');
       await sleep(550);
       await tap('[data-tutorial="invoice-generate"]');
       await sleep(1300);
 
-      // ══ STEP 3 — Mark as paid ═══════════════════════════════════════════════
+      // ══ STEP 2 — Mark as paid ═══════════════════════════════════════════════
       navigate('history');
       await sleep(900);
       setRect(null);
-      show(3, 'This is your Invoices page', 'Every invoice you create appears here, sorted by date.');
+      show(2, 'This is your Invoices page', 'Every invoice you create appears here, sorted by date.');
       await sleep(1700);
 
       await moveTo('[data-tutorial="status-badge-latest"]');
-      show(3, 'Mark as paid', 'One tap on the status badge cycles it from Unpaid → Paid. Tap it when you collect payment.');
+      show(2, 'Mark as paid', 'One tap on the status badge cycles it from Unpaid → Paid. Tap it when you collect payment.');
       await sleep(550);
       await tap('[data-tutorial="status-badge-latest"]');
       await sleep(1000);
 
-      // ══ STEP 4 — Store balance ═══════════════════════════════════════════════
-      show(4, 'Track store balances', 'Tap any store name to see its full payment history and running balance.');
+      // ══ STEP 3 — Store balance ═══════════════════════════════════════════════
+      show(3, 'Track store balances', 'Tap any store name to see its full payment history and running balance.');
       await moveTo('[data-tutorial="store-name-link"]');
       await sleep(550);
       await tap('[data-tutorial="store-name-link"]');
@@ -402,11 +390,11 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       }
       await sleep(700);
 
-      // ══ STEP 5 — Products ═══════════════════════════════════════════════════
+      // ══ STEP 4 — Products ═══════════════════════════════════════════════════
       navigate('products');
       await sleep(900);
       setRect(null);
-      show(5, 'Products auto-save', 'Every item you sell is saved here automatically. Next time, InvoGo autofills it for you.');
+      show(4, 'Products auto-save', 'Every item you sell is saved here automatically. Next time, InvoGo autofills it for you.');
       await moveTo('[data-tutorial="products-list"]');
       await sleep(2400);
 
