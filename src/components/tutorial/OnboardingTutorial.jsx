@@ -1,23 +1,19 @@
 /**
  * OnboardingTutorial — 5-step first-time user onboarding with spotlight overlay.
  *
- * Step 1 uses dynamic sub-targets that follow the user through the invoice flow:
- *   • "New" tab button  → when the invoice form is not on-screen yet
- *   • Store name card   → when on the invoice tab and store name is empty
- *   • Add Item card     → when store name is filled
- *   • Generate button   → when at least one item has been added
+ * Bugs fixed vs previous version:
+ *   1. Programmatic .click() calls from autoFillStep were blocked by the click
+ *      blocker because synthetic events have clientX/Y=0 and isTrusted=false.
+ *      Fix: block() now skips non-trusted events (only blocks real user taps).
+ *   2. Page could still be scrolled during tutorial via touchmove.
+ *      Fix: body overflow+touchAction locked; touchmove blocked in capture phase.
+ *   3. Tooltip and spotlight panels could drift on scroll.
+ *      Fix: body/html scroll position locked to 0 throughout.
  *
- * Screen lock
- *   – Scroll containers are frozen (overflowY: hidden) during the tutorial;
- *     the tutorial uses scrollIntoView to position the spotlight element.
- *     This prevents the spotlight hole from drifting off-screen.
- *   – A capture-phase click listener blocks navigation taps outside the
- *     spotlight + tooltip. Only `click` is blocked — touch events are NOT
- *     intercepted so the device's scroll/touch stack is never disturbed.
- *
- * Auto-fill
- *   – Every step shows a "Next →" button that fills sample data and performs
- *     the required action, so the user can tap through hands-free.
+ * Step 1 dynamic sub-targets:
+ *   tab-new → invoice-store-name → invoice-add-item → invoice-generate
+ *   Pressing Next at any sub-target auto-completes it AND all remaining
+ *   sub-targets in a single chained sequence.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -76,15 +72,14 @@ const STEPS = [
 ];
 
 const TOTAL     = STEPS.length;
-const DIM_COLOR = 'rgba(0,0,0,0.65)';
+const DIM_COLOR = 'rgba(0,0,0,0.72)';
 const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
-const PAD       = 12; // spotlight padding around element
+const PAD       = 12;
 
 // ── Dynamic selector for Step 1 ───────────────────────────────────────────────
 
 function getStep1State() {
-  // Phase 0: invoice tab not visible yet (all tabs always mounted; check rect)
   const storeCard = document.querySelector('[data-tutorial="invoice-store-name"]');
   const cardRect  = storeCard?.getBoundingClientRect();
   const invoiceTabVisible = cardRect && cardRect.left > -(window.innerWidth * 0.5);
@@ -96,7 +91,6 @@ function getStep1State() {
     };
   }
 
-  // Phase 1: store name empty
   const storeInput = storeCard.querySelector('input');
   const hasStore   = storeInput?.value?.trim().length > 0;
   if (!hasStore) {
@@ -106,9 +100,7 @@ function getStep1State() {
     };
   }
 
-  // Phase 2: check for items
-  const previewCard = document.querySelector('.card-enter-4');
-  const hasItems    = previewCard && previewCard.textContent.includes('$') && previewCard.textContent.length > 20;
+  const hasItems = !!document.querySelector('[data-tutorial="invoice-generate"]');
   if (hasItems) {
     return {
       selector: '[data-tutorial="invoice-generate"]',
@@ -122,7 +114,7 @@ function getStep1State() {
   };
 }
 
-// ── Auto-fill helper ──────────────────────────────────────────────────────────
+// ── React-friendly input setter ───────────────────────────────────────────────
 
 function setNativeValue(el, value) {
   if (!el) return;
@@ -132,21 +124,22 @@ function setNativeValue(el, value) {
 }
 
 // ── Spotlight ─────────────────────────────────────────────────────────────────
-// 4 fixed panels leave a transparent "hole" over the target element.
-// Panels block pointer events so taps outside the hole do nothing.
-// A glowing ring is drawn using box-shadow on a transparent overlay div
-// so the cutout is visually obvious.
 
 function Spotlight({ rect }) {
+  const stopTouch = e => e.preventDefault();
+
   const panelStyle = {
     position: 'fixed',
     background: DIM_COLOR,
     zIndex: OVERLAY_Z,
     pointerEvents: 'all',
+    touchAction: 'none',   // prevent scroll-through on iOS
+    WebkitUserSelect: 'none',
+    userSelect: 'none',
   };
 
   if (!rect) {
-    return <div style={{ ...panelStyle, inset: 0, pointerEvents: 'all' }} />;
+    return <div style={{ ...panelStyle, inset: 0 }} onTouchMove={stopTouch} />;
   }
 
   const top    = Math.max(0, rect.top    - PAD);
@@ -158,25 +151,26 @@ function Spotlight({ rect }) {
 
   const isOffScreen = bottom <= 0 || top >= window.innerHeight || w <= 0 || h <= 0;
   if (isOffScreen) {
-    return <div style={{ ...panelStyle, inset: 0 }} />;
+    return <div style={{ ...panelStyle, inset: 0 }} onTouchMove={stopTouch} />;
   }
+
+  const panelProps = { onTouchMove: stopTouch };
 
   return (
     <>
-      {/* Dim panels */}
-      <div style={{ ...panelStyle, top: 0, left: 0, right: 0, height: top }} />
-      <div style={{ ...panelStyle, top: bottom, left: 0, right: 0, bottom: 0 }} />
-      <div style={{ ...panelStyle, top, left: 0, width: left, height: h }} />
-      <div style={{ ...panelStyle, top, left: right, right: 0, height: h }} />
+      <div style={{ ...panelStyle, top: 0,      left: 0,     right: 0,    height: top    }} {...panelProps} />
+      <div style={{ ...panelStyle, top: bottom, left: 0,     right: 0,    bottom: 0      }} {...panelProps} />
+      <div style={{ ...panelStyle, top,         left: 0,     width: left, height: h      }} {...panelProps} />
+      <div style={{ ...panelStyle, top,         left: right, right: 0,    height: h      }} {...panelProps} />
 
-      {/* Glowing ring around the hole — makes the cutout unmistakably obvious */}
+      {/* Glowing accent ring */}
       <div style={{
         position: 'fixed',
         top, left, width: w, height: h,
         zIndex: OVERLAY_Z + 1,
         pointerEvents: 'none',
         borderRadius: 14,
-        boxShadow: `0 0 0 3px ${ACCENT}, 0 0 0 6px rgba(74,123,247,0.35), 0 0 24px 8px rgba(74,123,247,0.25)`,
+        boxShadow: `0 0 0 3px ${ACCENT}, 0 0 0 6px rgba(74,123,247,0.35), 0 0 24px 8px rgba(74,123,247,0.2)`,
       }} />
     </>
   );
@@ -188,23 +182,15 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
   const vw       = window.innerWidth;
   const vh       = window.innerHeight;
   const tooltipW = Math.min(320, vw - 32);
-  const TOOLTIP_H = 200;
+  const TOOLTIP_H = 210;
 
-  // Position tooltip on whichever side of the spotlight has more room.
-  // If element is in the bottom half → show tooltip above; else below.
   const visTop    = rect ? Math.max(0,  Math.min(vh, rect.top))    : vh / 2;
   const visBottom = rect ? Math.max(0,  Math.min(vh, rect.bottom)) : vh / 2;
   const elementCenter = (visTop + visBottom) / 2;
 
-  let tooltipTop;
-  if (elementCenter > vh / 2) {
-    // Element in lower half → put tooltip above
-    tooltipTop = visTop - PAD - TOOLTIP_H - 12;
-  } else {
-    // Element in upper half → put tooltip below
-    tooltipTop = visBottom + PAD + 12;
-  }
-  // Hard-clamp inside viewport
+  let tooltipTop = elementCenter > vh / 2
+    ? visTop  - PAD - TOOLTIP_H - 12
+    : visBottom + PAD + 12;
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
 
   const tooltipLeft = Math.max(16, (vw - tooltipW) / 2);
@@ -212,6 +198,7 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
   return (
     <div
       data-tutorial-ui="tooltip"
+      onTouchMove={e => e.stopPropagation()} // don't let touches bleed through
       style={{
         position: 'fixed',
         top: tooltipTop,
@@ -223,6 +210,9 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
         padding: '16px 18px 14px',
         boxShadow: '0 16px 56px rgba(0,0,0,0.55)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)'}`,
+        touchAction: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
       }}
     >
       {/* Row: step label + exit */}
@@ -244,7 +234,7 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
         </button>
       </div>
 
-      {/* Progress dots */}
+      {/* Progress bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
         {STEPS.map((_, i) => (
           <div key={i} style={{
@@ -266,7 +256,7 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
         {instruction || step.instruction}
       </div>
 
-      {/* Next / auto-fill button */}
+      {/* Next / Finish button */}
       <button
         onClick={onAutoFill}
         style={{
@@ -308,15 +298,38 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
   useEffect(() => { currentRectRef.current = rect; },   [rect]);
 
-  // ── Freeze scroll containers during tutorial ─────────────────────────────
-  // overflowY: hidden blocks user scroll; scrollIntoView still works
-  // programmatically (it sets scrollTop, ignoring overflow:hidden).
+  // ── Full page lock: no scrolling anywhere during tutorial ────────────────
   useEffect(() => {
+    // 1. Lock overflow on known scroll containers
     const containers = Array.from(document.querySelectorAll('[data-scroll-container]'));
-    const saved = containers.map(c => c.style.overflowY);
+    const savedOverflows = containers.map(c => c.style.overflowY);
     containers.forEach(c => { c.style.overflowY = 'hidden'; });
+
+    // 2. Lock body/html so the page itself cannot scroll
+    const savedBodyOverflow   = document.body.style.overflow;
+    const savedBodyPosition   = document.body.style.position;
+    const savedHtmlOverflow   = document.documentElement.style.overflow;
+    const savedScrollY        = window.scrollY;
+
+    document.body.style.overflow         = 'hidden';
+    document.body.style.position         = 'fixed';
+    document.body.style.top              = `-${savedScrollY}px`;
+    document.body.style.width            = '100%';
+    document.documentElement.style.overflow = 'hidden';
+
+    // 3. Block touchmove on document to prevent iOS rubber-band scroll
+    const stopScroll = e => e.preventDefault();
+    document.addEventListener('touchmove', stopScroll, { passive: false });
+
     return () => {
-      containers.forEach((c, i) => { c.style.overflowY = saved[i]; });
+      containers.forEach((c, i) => { c.style.overflowY = savedOverflows[i]; });
+      document.body.style.overflow   = savedBodyOverflow;
+      document.body.style.position   = savedBodyPosition;
+      document.body.style.top        = '';
+      document.body.style.width      = '';
+      document.documentElement.style.overflow = savedHtmlOverflow;
+      window.scrollTo(0, savedScrollY);
+      document.removeEventListener('touchmove', stopScroll);
     };
   }, []);
 
@@ -339,7 +352,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       if (currentStep.dynamic) {
         const state = getStep1State();
-        if (selector !== state.selector) hasFocusedRef.current = false; // new sub-target
+        if (selector !== state.selector) hasFocusedRef.current = false;
         selector    = state.selector;
         instruction = state.instruction;
         setDynamic(instruction);
@@ -347,7 +360,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       const el = document.querySelector(selector);
       if (el) {
-        // First time this element is found on this step: scroll it into view + focus
         if (!hasFocusedRef.current) {
           hasFocusedRef.current = true;
           setTimeout(() => {
@@ -383,14 +395,18 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, [stepIndex]);
 
-  // ── Screen lock: block click events outside spotlight + tooltip ──────────
-  // Only `click` is blocked (NOT touchstart/touchmove) so native scroll and
-  // the device's touch stack are never disturbed.
+  // ── Screen lock: block REAL user clicks outside spotlight + tooltip ──────
+  // KEY FIX: only block isTrusted events (real taps). Programmatic .click()
+  // calls from autoFillStep have isTrusted=false and must pass through.
   useEffect(() => {
     function block(e) {
-      if (e.target.closest?.('[data-tutorial-ui]')) return; // allow tooltip
+      // Always allow programmatic clicks (from autoFillStep)
+      if (!e.isTrusted) return;
 
-      // Allow inside spotlight rect (use clientX/Y — works for both mouse & click)
+      // Always allow taps on tutorial UI (tooltip buttons)
+      if (e.target.closest?.('[data-tutorial-ui]')) return;
+
+      // Allow taps inside the spotlight rect
       const r = currentRectRef.current;
       if (r) {
         const pad = PAD + 8;
@@ -425,27 +441,26 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     return () => window.removeEventListener(step.advanceEvent, handler);
   }, [step.advanceEvent, advance]);
 
-  // ── Auto-fill: perform the current step's action with sample data ────────
+  // ── Auto-fill: perform the current step's action ─────────────────────────
   const autoFillStep = useCallback(() => {
-    // Guard: don't auto-fill if the spotlight element isn't on screen
-    if (!currentRectRef.current) return;
-
     const currentStep = STEPS[stepIndexRef.current];
 
     if (currentStep.dynamic) {
       const { selector: sel } = getStep1State();
 
+      // Phase: New tab — just click it (click blocker allows isTrusted=false now)
       if (sel === '[data-tutorial="tab-new"]') {
         document.querySelector('[data-tutorial="tab-new"]')?.click();
         return;
       }
+
+      // Phase: store name — fill everything + chain through item + generate
       if (sel === '[data-tutorial="invoice-store-name"]') {
-        // Fill store + customer name, then chain through item + generate automatically
         setNativeValue(document.querySelector('input[placeholder="Sunrise Deli"]'), 'Corner Store');
         setNativeValue(document.querySelector('input[placeholder="John Smith"]'),   'Mike Johnson');
         setTimeout(() => {
           setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
-          setNativeValue(document.querySelector('input[placeholder="1"]'),   '2');
+          setNativeValue(document.querySelector('input[placeholder="1"]'),    '2');
           setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
           setTimeout(() => {
             Array.from(document.querySelectorAll('button'))
@@ -457,10 +472,11 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         }, 400);
         return;
       }
+
+      // Phase: add item (store already filled) — fill item + generate
       if (sel === '[data-tutorial="invoice-add-item"]') {
-        // Already have store name — fill item + generate
         setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
-        setNativeValue(document.querySelector('input[placeholder="1"]'),   '2');
+        setNativeValue(document.querySelector('input[placeholder="1"]'),    '2');
         setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
         setTimeout(() => {
           Array.from(document.querySelectorAll('button'))
@@ -471,26 +487,34 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         }, 150);
         return;
       }
+
+      // Phase: generate — just click it
       if (sel === '[data-tutorial="invoice-generate"]') {
         document.querySelector('[data-tutorial="invoice-generate"]')?.click();
         return;
       }
     }
 
-    const sel = currentStep.selector;
-    if (sel === '[data-tutorial="invoice-latest"]') {
+    // Step 2: cycle status badge to paid
+    if (currentStep.selector === '[data-tutorial="invoice-latest"]') {
       document.querySelector('[data-tutorial="status-badge-latest"]')?.click();
       return;
     }
-    if (sel === '[data-tutorial="store-name-link"]') {
+
+    // Step 3: view store balance
+    if (currentStep.selector === '[data-tutorial="store-name-link"]') {
       document.querySelector('[data-tutorial="store-name-link"]')?.click();
       return;
     }
-    if (sel === '[data-tutorial="products-list"]') {
+
+    // Step 4: products page — manual advance
+    if (currentStep.selector === '[data-tutorial="products-list"]') {
       advance();
       return;
     }
-    if (sel === '[data-tutorial="settings-biz-name"]') {
+
+    // Step 5: fill business name + save
+    if (currentStep.selector === '[data-tutorial="settings-biz-name"]') {
       setNativeValue(document.querySelector('[data-tutorial="settings-biz-name"]'), 'J&Y Distributions');
       setTimeout(() => {
         document.querySelector('[data-tutorial="settings-save-btn"]')?.click();
