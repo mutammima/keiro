@@ -160,12 +160,15 @@ export default function LoginScreen({ onLogin }) {
 
 const s = {
   root: {
-    height: '100dvh',
+    width: '100%',
+    minHeight: '100dvh',
     overflow: 'hidden',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px 16px',
+    boxSizing: 'border-box',
   },
   card: {
     width: '100%',

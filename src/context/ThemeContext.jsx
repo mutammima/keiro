@@ -23,7 +23,10 @@ export function applyAccent(color) {
 
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(() => {
-    try { return localStorage.getItem('inv_dark_mode') === 'true'; } catch { return false; }
+    try {
+      const saved = localStorage.getItem('inv_dark_mode');
+      return saved === null ? true : saved === 'true'; // default dark
+    } catch { return true; }
   });
 
   const [accent, setAccentState] = useState(() => {
