@@ -445,7 +445,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         return;
       }
       if (sel === '[data-tutorial="invoice-add-item"]') {
-        setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt 6ct"]'), 'GMan V Cut T-Shirt 6ct');
+        setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
         setNativeValue(document.querySelector('input[placeholder="1"]'),             '2');
         setNativeValue(document.querySelector('input[placeholder="0.00"]'),          '9.99');
         setTimeout(() => {

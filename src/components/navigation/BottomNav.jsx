@@ -38,6 +38,7 @@ export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
 
         {/* Hamburger */}
         <button
+          data-tutorial="hamburger"
           onClick={onOpenDrawer}
           style={{
             width: 48,
