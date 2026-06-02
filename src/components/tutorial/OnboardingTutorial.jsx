@@ -1,19 +1,11 @@
 /**
  * OnboardingTutorial — 5-step first-time user onboarding with spotlight overlay.
  *
- * Bugs fixed vs previous version:
- *   1. Programmatic .click() calls from autoFillStep were blocked by the click
- *      blocker because synthetic events have clientX/Y=0 and isTrusted=false.
- *      Fix: block() now skips non-trusted events (only blocks real user taps).
- *   2. Page could still be scrolled during tutorial via touchmove.
- *      Fix: body overflow+touchAction locked; touchmove blocked in capture phase.
- *   3. Tooltip and spotlight panels could drift on scroll.
- *      Fix: body/html scroll position locked to 0 throughout.
+ * Step 1 dynamic sub-targets (tracked via explicit subStepRef — NOT DOM inspection):
+ *   0: tab-new  →  1: invoice-store-name  →  2: invoice-add-item  →  3: invoice-generate
  *
- * Step 1 dynamic sub-targets:
- *   tab-new → invoice-store-name → invoice-add-item → invoice-generate
- *   Pressing Next at any sub-target auto-completes it AND all remaining
- *   sub-targets in a single chained sequence.
+ * Each sub-step requires an explicit Next tap. The rAF loop only auto-advances
+ * subStep 0→1 when the invoice form becomes visible (user tapped New themselves).
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -77,42 +69,15 @@ const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
 const PAD       = 12;
 
-// ── Dynamic selector for Step 1 ───────────────────────────────────────────────
+// ── Step-1 sub-step config ────────────────────────────────────────────────────
+// Indexed 0..3. State is tracked in subStepRef (never derived from DOM).
 
-function getStep1State() {
-  const storeCard = document.querySelector('[data-tutorial="invoice-store-name"]');
-  const cardRect  = storeCard?.getBoundingClientRect();
-  const invoiceTabVisible = cardRect && cardRect.left > -(window.innerWidth * 0.5);
-
-  if (!invoiceTabVisible) {
-    return {
-      selector: '[data-tutorial="tab-new"]',
-      instruction: 'Tap "New" to start creating your first invoice.',
-    };
-  }
-
-  const storeInput = storeCard.querySelector('input');
-  const hasStore   = storeInput?.value?.trim().length > 0;
-  if (!hasStore) {
-    return {
-      selector: '[data-tutorial="invoice-store-name"]',
-      instruction: 'Type the store name and customer name, then scroll down.',
-    };
-  }
-
-  const hasItems = !!document.querySelector('[data-tutorial="invoice-generate"]');
-  if (hasItems) {
-    return {
-      selector: '[data-tutorial="invoice-generate"]',
-      instruction: "Great! You've added an item. Now tap Generate Invoice.",
-    };
-  }
-
-  return {
-    selector: '[data-tutorial="invoice-add-item"]',
-    instruction: 'Add a product — enter name, qty and price, then tap + Add Item.',
-  };
-}
+const SUB_STEPS = [
+  { selector: '[data-tutorial="tab-new"]',         instruction: 'Tap "New" to start creating your first invoice.' },
+  { selector: '[data-tutorial="invoice-store-name"]', instruction: 'Enter the store name and customer name, then tap Next →' },
+  { selector: '[data-tutorial="invoice-add-item"]',   instruction: 'Add a product — enter name, qty and price, then tap + Add Item.' },
+  { selector: '[data-tutorial="invoice-generate"]',   instruction: "Great! You've added an item. Now tap Generate Invoice." },
+];
 
 // ── React-friendly input setter ───────────────────────────────────────────────
 
@@ -133,7 +98,7 @@ function Spotlight({ rect }) {
     background: DIM_COLOR,
     zIndex: OVERLAY_Z,
     pointerEvents: 'all',
-    touchAction: 'none',   // prevent scroll-through on iOS
+    touchAction: 'none',
     WebkitUserSelect: 'none',
     userSelect: 'none',
   };
@@ -178,19 +143,26 @@ function Spotlight({ rect }) {
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
-function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill }) {
-  const vw       = window.innerWidth;
-  const vh       = window.innerHeight;
-  const tooltipW = Math.min(320, vw - 32);
-  const TOOLTIP_H = 210;
+function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill, cooldown }) {
+  const vw        = window.innerWidth;
+  const vh        = window.innerHeight;
+  const tooltipW  = Math.min(320, vw - 32);
+  const TOOLTIP_H = 240; // generous estimate to avoid cut-off
 
+  // Position tooltip above the element if it's in the lower half, else below
   const visTop    = rect ? Math.max(0,  Math.min(vh, rect.top))    : vh / 2;
   const visBottom = rect ? Math.max(0,  Math.min(vh, rect.bottom)) : vh / 2;
   const elementCenter = (visTop + visBottom) / 2;
 
-  let tooltipTop = elementCenter > vh / 2
-    ? visTop  - PAD - TOOLTIP_H - 12
-    : visBottom + PAD + 12;
+  let tooltipTop;
+  if (elementCenter > vh / 2) {
+    // Element in lower half → tooltip goes above
+    tooltipTop = visTop - PAD - TOOLTIP_H - 16;
+  } else {
+    // Element in upper half → tooltip goes below
+    tooltipTop = visBottom + PAD + 16;
+  }
+  // Hard-clamp so tooltip is never off-screen
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
 
   const tooltipLeft = Math.max(16, (vw - tooltipW) / 2);
@@ -198,7 +170,7 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
   return (
     <div
       data-tutorial-ui="tooltip"
-      onTouchMove={e => e.stopPropagation()} // don't let touches bleed through
+      onTouchMove={e => e.stopPropagation()}
       style={{
         position: 'fixed',
         top: tooltipTop,
@@ -258,12 +230,16 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
 
       {/* Next / Finish button */}
       <button
+        data-tutorial-ui="next-btn"
         onClick={onAutoFill}
+        disabled={cooldown}
         style={{
           width: '100%', height: 40, border: 'none', borderRadius: 11,
-          background: ACCENT, color: '#fff',
-          fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          background: cooldown ? (dark ? '#333' : '#ccc') : ACCENT,
+          color: cooldown ? (dark ? '#666' : '#999') : '#fff',
+          fontSize: 14, fontWeight: 700, cursor: cooldown ? 'default' : 'pointer',
           WebkitTapHighlightColor: 'transparent',
+          transition: 'background 0.2s, color 0.2s',
         }}
       >
         {stepIndex === TOTAL - 1 ? 'Finish' : 'Next →'}
@@ -289,8 +265,10 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   const [stepIndex, setStepIndex]        = useState(0);
   const [rect, setRect]                  = useState(null);
   const [dynamicInstruction, setDynamic] = useState(null);
+  const [cooldown, setCooldown]          = useState(false);
   const rafRef                           = useRef(null);
   const stepIndexRef                     = useRef(stepIndex);
+  const subStepRef                       = useRef(0); // step-1 sub-phase 0..3
   const hasFocusedRef                    = useRef(false);
   const currentRectRef                   = useRef(null);
   const step                             = STEPS[stepIndex];
@@ -298,26 +276,23 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
   useEffect(() => { currentRectRef.current = rect; },   [rect]);
 
-  // ── Full page lock: no scrolling anywhere during tutorial ────────────────
+  // ── Full page lock ────────────────────────────────────────────────────────
   useEffect(() => {
-    // 1. Lock overflow on known scroll containers
     const containers = Array.from(document.querySelectorAll('[data-scroll-container]'));
     const savedOverflows = containers.map(c => c.style.overflowY);
     containers.forEach(c => { c.style.overflowY = 'hidden'; });
 
-    // 2. Lock body/html so the page itself cannot scroll
-    const savedBodyOverflow   = document.body.style.overflow;
-    const savedBodyPosition   = document.body.style.position;
-    const savedHtmlOverflow   = document.documentElement.style.overflow;
-    const savedScrollY        = window.scrollY;
+    const savedBodyOverflow = document.body.style.overflow;
+    const savedBodyPosition = document.body.style.position;
+    const savedHtmlOverflow = document.documentElement.style.overflow;
+    const savedScrollY      = window.scrollY;
 
-    document.body.style.overflow         = 'hidden';
-    document.body.style.position         = 'fixed';
-    document.body.style.top              = `-${savedScrollY}px`;
-    document.body.style.width            = '100%';
-    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow              = 'hidden';
+    document.body.style.position              = 'fixed';
+    document.body.style.top                   = `-${savedScrollY}px`;
+    document.body.style.width                 = '100%';
+    document.documentElement.style.overflow   = 'hidden';
 
-    // 3. Block touchmove on document to prevent iOS rubber-band scroll
     const stopScroll = e => e.preventDefault();
     document.addEventListener('touchmove', stopScroll, { passive: false });
 
@@ -333,13 +308,14 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, []);
 
-  // ── Navigate to the correct page + reset focus state ────────────────────
+  // ── Navigate to correct page on step change ───────────────────────────────
   useEffect(() => {
     navigate(step.page);
     hasFocusedRef.current = false;
+    if (stepIndex === 0) subStepRef.current = 0; // reset sub-step on re-entry
   }, [stepIndex]); // eslint-disable-line
 
-  // ── rAF loop: track element rect + step-1 dynamic sub-target ────────────
+  // ── rAF loop: track element rect ─────────────────────────────────────────
   useEffect(() => {
     let running = true;
 
@@ -351,10 +327,22 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       let instruction = null;
 
       if (currentStep.dynamic) {
-        const state = getStep1State();
-        if (selector !== state.selector) hasFocusedRef.current = false;
-        selector    = state.selector;
-        instruction = state.instruction;
+        const sub = subStepRef.current;
+        const subDef = SUB_STEPS[sub] || SUB_STEPS[0];
+        selector    = subDef.selector;
+        instruction = subDef.instruction;
+
+        // Auto-advance subStep 0→1 when invoice form becomes visible
+        if (sub === 0) {
+          const storeCard = document.querySelector('[data-tutorial="invoice-store-name"]');
+          const cardRect  = storeCard?.getBoundingClientRect();
+          const formVisible = cardRect && cardRect.left > -(window.innerWidth * 0.5);
+          if (formVisible) {
+            subStepRef.current = 1;
+            hasFocusedRef.current = false;
+          }
+        }
+
         setDynamic(instruction);
       }
 
@@ -395,18 +383,12 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, [stepIndex]);
 
-  // ── Screen lock: block REAL user clicks outside spotlight + tooltip ──────
-  // KEY FIX: only block isTrusted events (real taps). Programmatic .click()
-  // calls from autoFillStep have isTrusted=false and must pass through.
+  // ── Screen lock: block real user taps outside spotlight ───────────────────
   useEffect(() => {
     function block(e) {
-      // Always allow programmatic clicks (from autoFillStep)
-      if (!e.isTrusted) return;
+      if (!e.isTrusted) return; // allow programmatic clicks
+      if (e.target.closest?.('[data-tutorial-ui]')) return; // allow tooltip
 
-      // Always allow taps on tutorial UI (tooltip buttons)
-      if (e.target.closest?.('[data-tutorial-ui]')) return;
-
-      // Allow taps inside the spotlight rect
       const r = currentRectRef.current;
       if (r) {
         const pad = PAD + 8;
@@ -422,7 +404,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     return () => document.removeEventListener('click', block, true);
   }, []);
 
-  // ── Advance step ─────────────────────────────────────────────────────────
+  // ── Advance overall step ──────────────────────────────────────────────────
   const advance = useCallback(() => {
     const next = stepIndexRef.current + 1;
     if (next < TOTAL) {
@@ -441,40 +423,58 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     return () => window.removeEventListener(step.advanceEvent, handler);
   }, [step.advanceEvent, advance]);
 
-  // ── Auto-fill: perform the current step's action ─────────────────────────
+  // ── Trigger brief cooldown after any Next tap ─────────────────────────────
+  const triggerCooldown = useCallback(() => {
+    setCooldown(true);
+    setTimeout(() => setCooldown(false), 700);
+  }, []);
+
+  // ── Auto-fill: perform the current step's action ──────────────────────────
   const autoFillStep = useCallback(() => {
+    if (cooldown) return;
+    triggerCooldown();
+
     const currentStep = STEPS[stepIndexRef.current];
 
     if (currentStep.dynamic) {
-      const { selector: sel } = getStep1State();
+      const sub = subStepRef.current;
 
-      // Phase: New tab — just click it (click blocker allows isTrusted=false now)
-      if (sel === '[data-tutorial="tab-new"]') {
+      // Sub-step 0: click "New" tab
+      if (sub === 0) {
         document.querySelector('[data-tutorial="tab-new"]')?.click();
+        // subStep auto-advances to 1 in rAF when form becomes visible
         return;
       }
 
-      // Phase: store name — fill store + customer only, then stop
-      if (sel === '[data-tutorial="invoice-store-name"]') {
+      // Sub-step 1: fill store + customer, advance to sub-step 2
+      if (sub === 1) {
         setNativeValue(document.querySelector('input[placeholder="Sunrise Deli"]'), 'Corner Store');
         setNativeValue(document.querySelector('input[placeholder="John Smith"]'),   'Mike Johnson');
+        setTimeout(() => {
+          subStepRef.current = 2;
+          hasFocusedRef.current = false;
+        }, 300);
         return;
       }
 
-      // Phase: add item — fill item fields + click "+ Add Item", then stop
-      if (sel === '[data-tutorial="invoice-add-item"]') {
+      // Sub-step 2: fill item fields + click + Add Item, advance to sub-step 3
+      if (sub === 2) {
         setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
         setNativeValue(document.querySelector('input[placeholder="1"]'),    '2');
         setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
         setTimeout(() => {
           Array.from(document.querySelectorAll('button'))
             .find(b => b.textContent.trim() === '+ Add Item')?.click();
-        }, 150);
+          setTimeout(() => {
+            subStepRef.current = 3;
+            hasFocusedRef.current = false;
+          }, 300);
+        }, 200);
         return;
       }
 
-      // Phase: generate — click Generate Invoice
-      if (sel === '[data-tutorial="invoice-generate"]') {
+      // Sub-step 3: click Generate Invoice
+      if (sub === 3) {
         document.querySelector('[data-tutorial="invoice-generate"]')?.click();
         return;
       }
@@ -505,7 +505,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         document.querySelector('[data-tutorial="settings-save-btn"]')?.click();
       }, 60);
     }
-  }, [advance]);
+  }, [advance, cooldown, triggerCooldown]);
 
   return (
     <>
@@ -518,6 +518,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         dark={dark}
         onSkip={onSkip}
         onAutoFill={autoFillStep}
+        cooldown={cooldown}
       />
     </>
   );
