@@ -27,12 +27,30 @@ export default function LoginScreen({ onLogin }) {
 
   const passkeyAvailable = isPasskeySupported();
 
+  /** Clears all app data but preserves theme preferences — used by test account. */
+  function clearTestUserData() {
+    const dark  = localStorage.getItem('inv_dark_mode');
+    const color = localStorage.getItem('inv_accent_color');
+    localStorage.clear();
+    if (dark  !== null) localStorage.setItem('inv_dark_mode',  dark);
+    if (color !== null) localStorage.setItem('inv_accent_color', color);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(''); setInfo('');
     if (!username.trim() || !password) {
       setError('Please enter your username and password.'); return;
     }
+
+    // ── Test account: username=test / password=test ──────────────────────────
+    // Wipes all app data (keeps theme), logs in as a fresh first-time user.
+    if (username.trim().toLowerCase() === 'test' && password === 'test') {
+      clearTestUserData();
+      onLogin({ id: 'test', email: 'test@invoicego.app' });
+      return;
+    }
+
     setLoading(true);
     try {
       let result;
