@@ -6,6 +6,7 @@
 import AutofillInput from '../ui/AutofillInput';
 import BarcodeScanner from '../ui/BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
+import LiveInvoicePreview from './LiveInvoicePreview';
 import EditItemModal from './EditItemModal';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
@@ -285,6 +286,25 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
           >
             {generating ? 'Saving…' : 'Generate Invoice'}
           </button>
+
+          {/* ── Live preview ─────────────────────────────────────────────── */}
+          <div style={{ margin: '8px -16px 0' }}>
+            <div style={{ height: 1, background: C.divider, margin: '0 16px 16px' }} />
+            <LiveInvoicePreview
+              businessName={businessName}
+              businessPhone={businessPhone}
+              storeName={storeName}
+              storePhone={storePhone}
+              storeAddress={storeAddress}
+              customerName={customerName}
+              date={date}
+              time={time}
+              items={items}
+              notes={notes}
+              paymentMethod={paymentMethod}
+            />
+          </div>
+
           <AppFooter onNav={onNav} />
         </div>
       </div>
