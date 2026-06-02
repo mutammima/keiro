@@ -120,6 +120,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             {editingBiz ? (
               <input
                 autoFocus
+                data-tutorial="invoice-biz-name-input"
                 style={{ ...s.bizNameInput, color: C.text, borderBottomColor: ACCENT }}
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
@@ -127,7 +128,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
                 onKeyDown={e => e.key === 'Enter' && handleBizBlur(businessName)}
               />
             ) : (
-              <button style={{ ...s.bizNameBtn, color: C.text }} onClick={() => setEditingBiz(true)}>
+              <button data-tutorial="invoice-biz-name-btn" style={{ ...s.bizNameBtn, color: C.text }} onClick={() => setEditingBiz(true)}>
                 {businessName} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>✎</span>
               </button>
             )}

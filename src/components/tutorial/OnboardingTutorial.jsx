@@ -1,16 +1,15 @@
 /**
- * OnboardingTutorial — Fully automated demo / autoplay.
+ * OnboardingTutorial — Step-based autoplay demo.
  *
- * Plays through 5 steps on its own with a visual cursor and character-by-character
- * typing. The user cannot interact with the app during playback — only the "Skip"
- * button is reachable. No "Next" button, no "do it yourself" hint.
+ * Each step plays its animation automatically, then PAUSES and waits for the
+ * user to press "Next →" or "↩ See it again" (which replays the same step).
  *
- * Step order (business name first):
- *   1. Set business name  (Settings overlay)
- *   2. Create an invoice  (New tab — store, item, generate)
- *   3. Mark invoice paid  (Invoices tab — status badge)
- *   4. Store balance      (tap store name → StoreBalance overlay → back)
- *   5. Products auto-save (Products tab)
+ * Steps:
+ *   1. Set business name   (New Invoice page — tap the name at top, type)
+ *   2. Create an invoice   (New tab — store, item, generate)
+ *   3. Invoices page       (expand invoice + cycle status badge)
+ *   4. Store balance       (tap store name → back)
+ *   5. Products            (auto-saved products + mention removal)
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,11 +18,11 @@ import { ACCENT } from '../../theme';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TOTAL     = 4;
+const TOTAL     = 5;
 const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
-const PAD       = 5;   // tight spotlight — hugs the element
+const PAD       = 5;
 
 // ── React-friendly input value setter ────────────────────────────────────────
 
@@ -102,13 +101,10 @@ function Spotlight({ rect }) {
 
   return (
     <>
-      {/* Four blocking panels */}
       <div style={{ ...base, top: 0,      left: 0,     right: 0,    height: top    }} {...pp} />
       <div style={{ ...base, top: bottom, left: 0,     right: 0,    bottom: 0      }} {...pp} />
       <div style={{ ...base, top,         left: 0,     width: left, height: h      }} {...pp} />
       <div style={{ ...base, top,         left: right, right: 0,    height: h      }} {...pp} />
-
-      {/* Glow ring */}
       <div style={{
         position: 'fixed', top, left, width: w, height: h,
         zIndex:   OVERLAY_Z + 1,
@@ -120,13 +116,13 @@ function Spotlight({ rect }) {
   );
 }
 
-// ── Tooltip card (no Next button) ─────────────────────────────────────────────
+// ── Tooltip card ──────────────────────────────────────────────────────────────
 
-function Tooltip({ stepId, title, desc, rect, dark, onSkip }) {
+function Tooltip({ stepId, title, desc, rect, dark, phase, isLast, onSkip, onNext, onSeeAgain }) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const tooltipW  = Math.min(320, vw - 32);
-  const TOOLTIP_H = 155;
+  const TOOLTIP_H = phase === 'waiting' ? 210 : 170;
 
   const visTop    = rect ? Math.max(0, Math.min(vh, rect.top))    : vh * 0.6;
   const visBottom = rect ? Math.max(0, Math.min(vh, rect.bottom)) : vh * 0.6;
@@ -199,8 +195,72 @@ function Tooltip({ stepId, title, desc, rect, dark, onSkip }) {
       <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.56)' : 'rgba(0,0,0,0.5)', lineHeight: 1.55 }}>
         {desc}
       </div>
+
+      {/* Action buttons — shown only when step animation is done */}
+      {phase === 'waiting' && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button
+            data-tutorial-ui="see-again-btn"
+            onClick={onSeeAgain}
+            style={{
+              flex: 1,
+              height: 38, borderRadius: 12, border: 'none',
+              background: dark ? '#2a2a30' : '#f0f0f3',
+              color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            ↩ Again
+          </button>
+          <button
+            data-tutorial-ui="next-btn"
+            onClick={onNext}
+            style={{
+              flex: 2,
+              height: 38, borderRadius: 12, border: 'none',
+              background: ACCENT,
+              color: '#fff',
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+              boxShadow: '0 4px 14px rgba(74,123,247,0.4)',
+            }}
+          >
+            {isLast ? 'Start using the app ✓' : 'Next →'}
+          </button>
+        </div>
+      )}
+
+      {/* Playing indicator */}
+      {phase === 'playing' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+          <div style={{
+            width: 6, height: 6, borderRadius: 3,
+            background: ACCENT,
+            animation: 'tut-blink 1.1s ease-in-out infinite',
+          }} />
+          <span style={{ fontSize: 11, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)', fontWeight: 500 }}>
+            Watch the demo…
+          </span>
+        </div>
+      )}
     </div>
   );
+}
+
+// ── Blink keyframe (injected once) ────────────────────────────────────────────
+
+function ensureKeyframes() {
+  if (document.getElementById('tut-kf')) return;
+  const el = document.createElement('style');
+  el.id = 'tut-kf';
+  el.textContent = `
+    @keyframes tut-blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.2; }
+    }
+  `;
+  document.head.appendChild(el);
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -211,31 +271,31 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   const [cursorPos,   setCursorPos]   = useState({ x: -100, y: -100 });
   const [cursorPulse, setCursorPulse] = useState(false);
   const [rect,        setRect]        = useState(null);
-  const [tooltip,     setTooltip]     = useState({
-    stepId: 1,
-    title:  'Welcome to InvoGo!',
-    desc:   "Let's take a quick tour of the app.",
-  });
+  const [tooltip,     setTooltip]     = useState({ stepId: 1, title: 'Welcome to InvoGo!', desc: '' });
+  const [stepIdx,     setStepIdx]     = useState(0);   // 0-based
+  const [replayKey,   setReplayKey]   = useState(0);   // increment to replay current step
+  const [phase,       setPhase]       = useState('playing'); // 'playing' | 'waiting'
 
   const abortRef = useRef(false);
 
-  // ── Touch + click lock (user cannot interact during autoplay) ─────────────
+  useEffect(() => { ensureKeyframes(); }, []);
+
+  // ── Touch + click lock ────────────────────────────────────────────────────
   useEffect(() => {
     const savedBodyOverflow = document.body.style.overflow;
     const savedBodyPosition = document.body.style.position;
     const savedHtmlOverflow = document.documentElement.style.overflow;
     const savedScrollY      = window.scrollY;
 
-    document.body.style.overflow             = 'hidden';
-    document.body.style.position             = 'fixed';
-    document.body.style.top                  = `-${savedScrollY}px`;
-    document.body.style.width                = '100%';
-    document.documentElement.style.overflow  = 'hidden';
+    document.body.style.overflow            = 'hidden';
+    document.body.style.position            = 'fixed';
+    document.body.style.top                 = `-${savedScrollY}px`;
+    document.body.style.width               = '100%';
+    document.documentElement.style.overflow = 'hidden';
 
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
 
-    // Block all real (trusted) user clicks — only Skip is exempted via data-tutorial-ui
     function blockClicks(e) {
       if (!e.isTrusted) return;
       if (e.target.closest?.('[data-tutorial-ui]')) return;
@@ -256,16 +316,16 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, []);
 
-  // ── Autoplay sequence ─────────────────────────────────────────────────────
+  // ── Run step sequence when stepIdx or replayKey changes ──────────────────
   useEffect(() => {
     abortRef.current = false;
+    setPhase('playing');
+    setRect(null);
+    setCursorPos({ x: -100, y: -100 });
 
-    // Helpers — defined inline so they close over state setters directly
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const show  = (stepId, title, desc) => setTooltip({ stepId, title, desc });
 
-    const show = (stepId, title, desc) => setTooltip({ stepId, title, desc });
-
-    /** Move cursor to element, scroll it into view, update spotlight rect */
     async function moveTo(elOrSelector) {
       if (abortRef.current) return null;
       const el = typeof elOrSelector === 'string'
@@ -274,6 +334,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       if (!el) return null;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       await sleep(420);
+      if (abortRef.current) return null;
       const r = el.getBoundingClientRect();
       setCursorPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
       setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
@@ -281,7 +342,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       return el;
     }
 
-    /** Move cursor to element then programmatically click it */
     async function tap(elOrSelector) {
       if (abortRef.current) return;
       const el = await moveTo(elOrSelector);
@@ -294,7 +354,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       await sleep(320);
     }
 
-    /** Move cursor to input then type text character-by-character */
     async function type(elOrSelector, text) {
       if (abortRef.current) return;
       const el = await moveTo(elOrSelector);
@@ -309,30 +368,61 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       await sleep(260);
     }
 
-    async function run() {
+    // ── Step sequences ────────────────────────────────────────────────────
 
-      // ══ STEP 1 — Create an invoice ══════════════════════════════════════════
+    async function step1_businessName() {
+      navigate('invoice');
+      await sleep(1000);
+      setRect(null);
+      show(1, 'Set your business name', 'Tap your business name at the top of the invoice — it prints on every invoice you generate.');
+      await sleep(1600);
+
+      // Tap the business name button to enter edit mode
+      await tap('[data-tutorial="invoice-biz-name-btn"]');
+      await sleep(400);
+
+      // Type new name into the input
+      show(1, 'Type your business name', 'This appears at the top of every PDF invoice.');
+      const inputEl = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
+      if (inputEl) {
+        await moveTo(inputEl);
+        setNativeValue(inputEl, '');
+        await sleep(90);
+        const name = 'J&Y Distributions';
+        for (let i = 1; i <= name.length; i++) {
+          if (abortRef.current) break;
+          setNativeValue(inputEl, name.slice(0, i));
+          await sleep(55);
+        }
+        await sleep(400);
+        // Blur to save
+        inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+        await sleep(500);
+      }
+
+      show(1, 'Business name saved!', 'Every invoice you create will now show your business name.');
+      await sleep(1200);
+    }
+
+    async function step2_createInvoice() {
       navigate('invoice');
       await sleep(900);
       setRect(null);
-      show(1, 'Welcome to InvoGo!', 'This is the New Invoice page — fill in the store details, add the products you delivered, then generate.');
+      show(2, 'Create an invoice', 'Fill in the store details, add the products you delivered, then generate the invoice.');
       await sleep(1700);
 
-      // Store name + customer
       await moveTo('[data-tutorial="invoice-store-name"]');
-      show(1, 'Enter store details', 'Type the store name and contact person.');
+      show(2, 'Enter store details', 'Type the store name and contact person.');
       await sleep(350);
       await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
       await type('input[placeholder="John Smith"]',   'Mike Johnson');
       await sleep(300);
 
-      // Add item section
       await moveTo('[data-tutorial="invoice-add-item"]');
-      show(1, 'Add a product', 'Enter the item name, quantity and price, then tap + Add Item.');
+      show(2, 'Add a product', 'Enter the item name, quantity and price, then tap + Add Item.');
       await sleep(550);
       await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
 
-      // Qty — default may be "1"; clear then type
       const qtyEl = document.querySelector('input[placeholder="1"]');
       if (qtyEl) {
         await moveTo(qtyEl);
@@ -345,7 +435,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
       await type('input[placeholder="0.00"]', '9.99');
 
-      // + Add Item button
       const addBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.trim() === '+ Add Item');
       if (addBtn) {
@@ -353,34 +442,46 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         await sleep(500);
       }
 
-      // Generate
       await moveTo('[data-tutorial="invoice-generate"]');
-      show(1, 'Generate the invoice', 'Tap Generate to save and record this invoice.');
+      show(2, 'Generate the invoice', 'Tap Generate to save and record this invoice.');
       await sleep(550);
       await tap('[data-tutorial="invoice-generate"]');
       await sleep(1300);
+    }
 
-      // ══ STEP 2 — Mark as paid ═══════════════════════════════════════════════
+    async function step3_invoicesPage() {
       navigate('history');
       await sleep(900);
       setRect(null);
-      show(2, 'This is your Invoices page', 'Every invoice you create appears here, sorted by date.');
-      await sleep(1700);
+      show(3, 'Your Invoices page', 'Every invoice you create appears here. Tap an invoice to expand it and see all the details.');
+      await sleep(1800);
 
+      // Expand the latest invoice
+      await moveTo('[data-tutorial="invoice-expand-latest"]');
+      show(3, 'Tap to expand', 'Tap an invoice row to see the itemised breakdown.');
+      await sleep(500);
+      await tap('[data-tutorial="invoice-expand-latest"]');
+      await sleep(900);
+
+      // Cycle the status badge
       await moveTo('[data-tutorial="status-badge-latest"]');
-      show(2, 'Mark as paid', 'One tap on the status badge cycles it from Unpaid → Paid. Tap it when you collect payment.');
-      await sleep(550);
-      await tap('[data-tutorial="status-badge-latest"]');
-      await sleep(1000);
+      show(3, 'Mark as Paid, Unpaid or Partial', 'Tap the status badge to cycle through payment states. Tap again to change it.');
+      await sleep(600);
+      await tap('[data-tutorial="status-badge-latest"]');  // Unpaid → Paid
+      await sleep(700);
+      await tap('[data-tutorial="status-badge-latest"]');  // Paid → Partial
+      await sleep(700);
+      await tap('[data-tutorial="status-badge-latest"]');  // Partial → Unpaid
+      await sleep(800);
+    }
 
-      // ══ STEP 3 — Store balance ═══════════════════════════════════════════════
-      show(3, 'Track store balances', 'Tap any store name to see its full payment history and running balance.');
+    async function step4_storeBalance() {
+      show(4, 'Track store balances', 'Tap a store name to see the full payment history and running balance for that store.');
       await moveTo('[data-tutorial="store-name-link"]');
       await sleep(550);
       await tap('[data-tutorial="store-name-link"]');
       await sleep(1800);
 
-      // Tap the ← Back button on StoreBalance page
       const backBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
       if (backBtn) {
@@ -389,21 +490,51 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         navigate('history');
       }
       await sleep(700);
+      setRect(null);
+      show(4, 'Running balance', 'You can always come back here to see how much a store owes you.');
+      await sleep(1200);
+    }
 
-      // ══ STEP 4 — Products ═══════════════════════════════════════════════════
+    async function step5_products() {
       navigate('products');
       await sleep(900);
       setRect(null);
-      show(4, 'Products auto-save', 'Every item you sell is saved here automatically. Next time, InvoGo autofills it for you.');
+      show(5, 'Products auto-save', 'Every item you sell is saved here automatically — no manual entry needed. Next time, InvoGo auto-fills product details for you.');
       await moveTo('[data-tutorial="products-list"]');
-      await sleep(2400);
-
-      if (!abortRef.current) onComplete();
+      await sleep(1200);
+      show(5, 'Remove products anytime', 'You can swipe or long-press any product to remove it from the list whenever you need to.');
+      await sleep(2000);
     }
 
-    run();
+    const steps = [
+      step1_businessName,
+      step2_createInvoice,
+      step3_invoicesPage,
+      step4_storeBalance,
+      step5_products,
+    ];
+
+    async function runStep() {
+      const fn = steps[stepIdx];
+      if (fn) await fn();
+      if (!abortRef.current) setPhase('waiting');
+    }
+
+    runStep();
     return () => { abortRef.current = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stepIdx, replayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleNext() {
+    if (stepIdx >= TOTAL - 1) {
+      onComplete();
+    } else {
+      setStepIdx(s => s + 1);
+    }
+  }
+
+  function handleSeeAgain() {
+    setReplayKey(k => k + 1);
+  }
 
   return (
     <>
@@ -415,7 +546,11 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         desc={tooltip.desc}
         rect={rect}
         dark={dark}
+        phase={phase}
+        isLast={stepIdx === TOTAL - 1}
         onSkip={onSkip}
+        onNext={handleNext}
+        onSeeAgain={handleSeeAgain}
       />
     </>
   );
