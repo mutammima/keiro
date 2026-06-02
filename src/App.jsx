@@ -93,11 +93,26 @@ function AppInner() {
   const [selectedStore,  setSelectedStore]  = useState(null);
   const [showTutorial,   setShowTutorial]   = useState(false);
   const [guideSection,   setGuideSection]   = useState(null);
-  const [showWhatsNew,   setShowWhatsNew]   = useState(() => !hasSeenWhatsNew());
+  // WhatsNew starts hidden — only shown after onboarding is complete so the
+  // two overlays never fight each other and block all interaction.
+  const [showWhatsNew,   setShowWhatsNew]   = useState(false);
   const { updateAvailable, applyUpdate }    = useAppUpdate();
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
+
+  // Show WhatsNew only once onboarding is done (or already done on a returning user).
+  useEffect(() => {
+    if (!shouldShowOnboarding && !hasSeenWhatsNew()) {
+      setShowWhatsNew(true);
+    }
+  }, [shouldShowOnboarding]);
+
+  // Sync the <meta name="theme-color"> with dark mode so iPhone status bar matches
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#0C0C0C' : '#ffffff');
+  }, [dark]);
 
   // Listen for version-check update signal and surface it to the user
   useEffect(() => {
