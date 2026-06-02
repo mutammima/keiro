@@ -208,12 +208,16 @@ export async function updateProduct(barcode, name, price) {
  * @returns {Promise<void>}
  */
 export async function deleteProduct(barcode) {
+  // Always remove from localStorage first (local source of truth).
+  // Supabase delete may silently no-op when unauthenticated (RLS) so we
+  // cannot rely on an error to trigger the local delete.
+  const catalog = lsGet('inv_catalog', {});
+  delete catalog[barcode];
+  lsSet('inv_catalog', catalog);
+
+  // Best-effort cloud delete; log but don't re-throw.
   const { error } = await db.deleteProduct(barcode);
-  if (error) {
-    const catalog = lsGet('inv_catalog', {});
-    delete catalog[barcode];
-    lsSet('inv_catalog', catalog);
-  }
+  if (error) console.error('deleteProduct remote error', error);
 }
 
 /**

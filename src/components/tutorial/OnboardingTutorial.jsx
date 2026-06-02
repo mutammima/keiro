@@ -66,10 +66,10 @@ function VisualCursor({ pos, pulse, accent }) {
       background: pulse ? accent : 'rgba(255,255,255,0.95)',
       border: `3px solid ${accent}`,
       zIndex: CURSOR_Z, pointerEvents: 'none',
-      // Natural mouse-movement feel: 0.55s with slight ease-in-out
+      // Snappy cursor movement — still eased but quick
       transition: [
-        'left 0.55s cubic-bezier(0.45,0.05,0.55,0.95)',
-        'top  0.55s cubic-bezier(0.45,0.05,0.55,0.95)',
+        'left 0.28s cubic-bezier(0.45,0.05,0.55,0.95)',
+        'top  0.28s cubic-bezier(0.45,0.05,0.55,0.95)',
         'background 0.15s ease',
         'transform  0.15s ease',
         'box-shadow 0.15s ease',
@@ -367,18 +367,18 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       if (!el) return null;
 
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await sleep(350);                          // let scroll settle
+      await sleep(180);                          // let scroll settle
       if (cancelled) return null;
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width  / 2;
       const cy = r.top  + r.height / 2;
 
+      // Only move the cursor — tooltip position is anchored separately via
+      // setRect() calls in each step, so it doesn't jump on every moveTo.
       setCursorPos({ x: cx, y: cy });
-      setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
 
-      // Wait for the 0.55s cursor transition to finish, plus a small settle
-      await sleep(600);
+      await sleep(300);                          // wait for 0.28s transition + settle
       return cancelled ? null : el;
     }
 
@@ -389,13 +389,13 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       if (cancelled) return;
       const el = await moveTo(elOrSelector);
       if (!el) return;
-      await sleep(120);           // brief hover pause before click
+      await sleep(50);            // brief hover pause before click
       setCursorPulse(true);
-      await sleep(180);
+      await sleep(80);
       el.click();
-      await sleep(200);
+      await sleep(80);
       setCursorPulse(false);
-      await sleep(280);
+      await sleep(120);
     }
 
     /**
@@ -406,13 +406,13 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       const el = await moveTo(elOrSelector);
       if (!el) return;
       setNativeValue(el, '');
-      await sleep(60);
+      await sleep(30);
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) break;
         setNativeValue(el, text.slice(0, i));
-        await sleep(46);
+        await sleep(18);          // fast typing — user already clicked Next
       }
-      await sleep(180);
+      await sleep(80);
     }
 
     // ══ STEP 1 — Business name & phone ═══════════════════════════════════════
@@ -420,46 +420,35 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       show(1, 'Business name & phone', 'These show at the top of every invoice. Tap to edit.');
       navigate('invoice');
       clearCursor();
-      await sleep(700);
+      await sleep(400);
       await waitForUser(false);
       if (cancelled) return;
 
+      // Anchor tooltip near the biz-name section for this whole step
+      const bizNameBtn = document.querySelector('[data-tutorial="invoice-biz-name-btn"]');
+      if (bizNameBtn) {
+        const r = bizNameBtn.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+      }
+
       await tap('[data-tutorial="invoice-biz-name-btn"]');
-      await sleep(220);
+      await sleep(100);
       const nameInput = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
       if (nameInput) {
-        show(1, 'Type your business name', 'Prints on every invoice PDF.');
-        await moveTo(nameInput);
-        setNativeValue(nameInput, '');
-        await sleep(55);
-        const name = 'J&Y Distributions';
-        for (let i = 1; i <= name.length; i++) {
-          if (cancelled) break;
-          setNativeValue(nameInput, name.slice(0, i));
-          await sleep(46);
-        }
-        await sleep(320);
+        await type(nameInput, 'J&Y Distributions');
+        await sleep(150);
         nameInput.dispatchEvent(new Event('blur', { bubbles: true }));
-        await sleep(380);
+        await sleep(150);
       }
 
       await tap('[data-tutorial="invoice-biz-phone-btn"]');
-      await sleep(220);
+      await sleep(100);
       const phoneInput = document.querySelector('[data-tutorial="invoice-biz-phone-input"]');
       if (phoneInput) {
-        show(1, 'Add a phone number', 'Optional — also appears on the invoice.');
-        await moveTo(phoneInput);
-        setNativeValue(phoneInput, '');
-        await sleep(55);
-        const phone = '(555) 123-4567';
-        for (let i = 1; i <= phone.length; i++) {
-          if (cancelled) break;
-          setNativeValue(phoneInput, phone.slice(0, i));
-          await sleep(50);
-        }
-        await sleep(320);
+        await type(phoneInput, '(555) 123-4567');
+        await sleep(150);
         phoneInput.dispatchEvent(new Event('blur', { bubbles: true }));
-        await sleep(380);
+        await sleep(150);
       }
 
       clearCursor();
@@ -469,46 +458,42 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
     // ══ STEP 2 — Create an invoice ════════════════════════════════════════════
     async function step2() {
-      show(2, 'Create an invoice', 'Enter the store, add your items, then generate.');
+      show(2, 'Create an invoice', 'Watch: store → items → generate. Hit Next when ready.');
       navigate('invoice');
       clearCursor();
-      await sleep(700);
-      await waitForUser(false);
+      await sleep(400);
+      await waitForUser(false);          // ONE pause — then auto-animate everything
       if (cancelled) return;
 
-      await moveTo('[data-tutorial="invoice-store-name"]');
-      show(2, 'Who are you delivering to?', 'Store name and contact person.');
-      await waitForUser(false);
-      if (cancelled) return;
+      // Anchor tooltip to middle of screen for this step — it won't jump
+      setRect(null);
+
+      // Fill store + customer (no pause between them)
       await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
       await type('input[placeholder="John Smith"]',   'Mike Johnson');
-      await sleep(160);
+      await sleep(80);
 
-      await moveTo('[data-tutorial="invoice-add-item"]');
-      show(2, 'Add items', 'Name, qty, price — then tap + Add Item.');
-      await waitForUser(false);
-      if (cancelled) return;
+      // Fill item
       await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
       const qtyEl = document.querySelector('input[placeholder="1"]');
       if (qtyEl) {
         await moveTo(qtyEl);
-        setNativeValue(qtyEl, '');
-        await sleep(50);
         setNativeValue(qtyEl, '2');
         qtyEl.dispatchEvent(new Event('input', { bubbles: true }));
-        await sleep(180);
+        await sleep(120);
       }
       await type('input[placeholder="0.00"]', '9.99');
       const addBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.trim() === '+ Add Item');
-      if (addBtn) { await tap(addBtn); await sleep(360); }
+      if (addBtn) { await tap(addBtn); await sleep(180); }
 
+      // Move cursor to Generate and pause so user can see what's next
       await moveTo('[data-tutorial="invoice-generate"]');
-      show(2, 'Generate', 'Saves the invoice and creates the PDF.');
+      show(2, 'Tap Generate', 'Saves the invoice and opens the PDF.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-generate"]');
-      await sleep(1000);
+      await sleep(500);
 
       clearCursor();
       show(2, 'Invoice created!', 'Download, share via WhatsApp, or start a new one.');
@@ -517,49 +502,36 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
     // ══ STEP 3 — Invoices page ════════════════════════════════════════════════
     async function step3() {
-      show(3, 'Invoices', 'All your invoices are here. Tap one to expand it.');
+      show(3, 'Invoice history', 'Tap an invoice to expand it and update payment status.');
       navigate('history');
       clearCursor();
-      await sleep(700);
-      await waitForUser(false);
+      await sleep(400);
+      await waitForUser(false);          // ONE pause — then auto-animate
       if (cancelled) return;
 
-      await moveTo('[data-tutorial="invoice-expand-latest"]');
-      show(3, 'Tap to expand', 'See all items inside the invoice.');
-      await waitForUser(false);
-      if (cancelled) return;
+      // Expand latest invoice (no pause — just show it happening)
       await tap('[data-tutorial="invoice-expand-latest"]');
-      await sleep(680);
+      await sleep(300);
 
-      await moveTo('[data-tutorial="status-badge-latest"]');
-      show(3, 'Payment status', 'Tap to switch: Unpaid → Paid → Partial.');
-      await waitForUser(false);
-      if (cancelled) return;
+      // Cycle status badge: Unpaid → Paid → Partial → back
       await tap('[data-tutorial="status-badge-latest"]');
-      await sleep(420);
+      await sleep(200);
       await tap('[data-tutorial="status-badge-latest"]');
-      await sleep(420);
+      await sleep(200);
       await tap('[data-tutorial="status-badge-latest"]');
-      await sleep(480);
+      await sleep(200);
 
       clearCursor();
-      show(3, 'Collapse it', 'Tap Next to close the invoice back up.');
-      await waitForUser(false);
-      if (cancelled) return;
-      await tap('[data-tutorial="invoice-expand-latest"]');
-      await sleep(520);
-      clearCursor();
-
-      show(3, 'Got it!', 'Open any invoice to review or update its status.');
+      show(3, 'Got it!', 'Track Unpaid · Paid · Partial for every invoice.');
       await waitForUser(true);
     }
 
     // ══ STEP 4 — Store balance ════════════════════════════════════════════════
     async function step4() {
-      show(4, 'Store balances', 'Tap a store name to see what they owe you.');
+      show(4, 'Store balances', 'Tap a store name to see everything they owe you.');
       navigate('history');
       clearCursor();
-      await sleep(700);
+      await sleep(400);
       await waitForUser(false);
       if (cancelled) return;
 
@@ -570,7 +542,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
       clearCursor();
       await tap('[data-tutorial="store-name-link"]');
-      await sleep(1300);
+      await sleep(600);
 
       show(4, 'Balance view', 'See what this store owes. Tap Next to go back.');
       await waitForUser(false);
@@ -579,7 +551,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       const backBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
       if (backBtn) { await tap(backBtn); } else { navigate('history'); }
-      await sleep(520);
+      await sleep(250);
       clearCursor();
 
       show(4, 'Done!', 'Access store balances anytime from Invoices.');
@@ -591,15 +563,15 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       show(5, 'Products auto-save', 'Items you sell are saved here automatically.');
       navigate('products');
       clearCursor();
-      await sleep(700);
+      await sleep(400);
       await waitForUser(false);
       if (cancelled) return;
 
       await moveTo('[data-tutorial="products-list"]');
-      show(5, 'Your catalogue', 'Grows as you invoice. Swipe to remove a product.');
+      show(5, 'Your catalogue', 'Grows as you invoice. Tap ✎ to rename or delete a product.');
       await waitForUser(false);
       if (cancelled) return;
-      await sleep(650);
+      await sleep(300);
 
       clearCursor();
       show(5, "You're ready!", 'Tap below to start using InvoGo.');
