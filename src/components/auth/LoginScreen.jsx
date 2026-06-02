@@ -1,5 +1,5 @@
 /**
- * LoginScreen — clean, minimal auth screen for InvoiceGo.
+ * LoginScreen — clean, minimal auth screen for InvoGo.
  * Matches the dark/light theme from theme.js.
  */
 

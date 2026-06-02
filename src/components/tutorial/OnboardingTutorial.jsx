@@ -60,7 +60,7 @@ const STEPS = [
     page: 'products',
     selector: '[data-tutorial="products-list"]',
     title: 'Products auto-save',
-    instruction: 'Your product was saved automatically. Next time you invoice this store, InvoiceGo will autofill it.',
+    instruction: 'Your product was saved automatically. Next time you invoice this store, InvoGo will autofill it.',
     advanceEvent: null,
     manualAdvance: true,
   },

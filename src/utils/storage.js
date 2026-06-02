@@ -1,5 +1,5 @@
 /**
- * storage.js — centralised data helpers for InvoiceGo.
+ * storage.js — centralised data helpers for InvoGo.
  *
  * Functions that touch cloud data delegate to src/lib/db.js.
  * Functions that touch device-only preferences (business name, pinned stores,
