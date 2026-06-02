@@ -3,6 +3,7 @@
  * All business logic lives in useInvoiceForm; this component is pure UI.
  */
 
+import { useState } from 'react';
 import AutofillInput from '../ui/AutofillInput';
 import BarcodeScanner from '../ui/BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
@@ -12,6 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceForm } from '../../hooks/useInvoiceForm';
+import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 
 /** Small red asterisk for required fields. */
 const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
@@ -44,6 +46,34 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
     generating, error,
     handleGenerate,
   } = useInvoiceForm(onGenerated);
+
+  // ── Contact import ────────────────────────────────────────────────────────
+  const contactsSupported = isContactsSupported();
+  const [importing, setImporting] = useState(false);
+  const [importFlash, setImportFlash] = useState(''); // '' | 'success' | 'empty'
+
+  async function handleImportContact() {
+    setImporting(true);
+    setImportFlash('');
+    const contact = await pickContact();
+    setImporting(false);
+
+    if (!contact) return; // user cancelled
+
+    const hasData = contact.name || contact.phone || contact.address;
+    if (!hasData) { setImportFlash('empty'); setTimeout(() => setImportFlash(''), 3000); return; }
+
+    // Fill fields — name → storeName (store in contacts) + customerName if empty
+    if (contact.name) {
+      handleStoreNameChange(contact.name);
+      if (!customerName.trim()) setCustomerName(contact.name);
+    }
+    if (contact.phone)   setStorePhone(contact.phone);
+    if (contact.address) setStoreAddress(contact.address);
+
+    setImportFlash('success');
+    setTimeout(() => setImportFlash(''), 3000);
+  }
 
   // ── Derived style shorthand ────────────────────────────────────────────────
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
@@ -114,7 +144,51 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
         <div style={s.body}>
           {/* Customer */}
           <div data-tutorial="invoice-store-name" className="card-enter-1" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
-            <p style={{ ...s.sectionLabel, color: C.textMuted }}>Customer</p>
+            {/* Customer header row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <p style={{ ...s.sectionLabel, color: C.textMuted, margin: 0 }}>Customer</p>
+              {contactsSupported && (
+                <button
+                  type="button"
+                  onClick={handleImportContact}
+                  disabled={importing}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: importFlash === 'success'
+                      ? (dark ? 'rgba(22,163,74,0.18)' : '#f0fdf4')
+                      : importFlash === 'empty'
+                        ? (dark ? 'rgba(239,68,68,0.15)' : '#fef2f2')
+                        : C.rowBg,
+                    color: importFlash === 'success'
+                      ? '#16a34a'
+                      : importFlash === 'empty'
+                        ? '#ef4444'
+                        : ACCENT,
+                    border: `1.5px solid ${
+                      importFlash === 'success' ? '#16a34a'
+                      : importFlash === 'empty' ? '#ef4444'
+                      : ACCENT
+                    }`,
+                    borderRadius: 10,
+                    fontSize: 13, fontWeight: 700,
+                    padding: '7px 13px',
+                    cursor: importing ? 'default' : 'pointer',
+                    opacity: importing ? 0.6 : 1,
+                    transition: 'all 0.2s',
+                    WebkitTapHighlightColor: 'transparent',
+                    flexShrink: 0,
+                  }}
+                >
+                  {importing
+                    ? '…'
+                    : importFlash === 'success'
+                      ? '✓ Imported'
+                      : importFlash === 'empty'
+                        ? 'No data'
+                        : '👤 Import Contact'}
+                </button>
+              )}
+            </div>
 
             {/* Pinned store chips */}
             {pinnedStores.length > 0 && (
