@@ -1,12 +1,22 @@
 /**
- * OnboardingTutorial — Welcome screen → Step-based autoplay with pauses.
+ * OnboardingTutorial — Welcome → autoplay demo with step-based pauses.
  *
- * UX improvements in this version:
- *  • Tooltip card slides smoothly to new positions (CSS transition on top)
- *  • Spotlight panels animate between elements (transition on all sides)
- *  • Text content fades in cleanly on every show() call (keyed fade-in)
- *  • Shorter, plain-English copy throughout
- *  • "Again" bug fixed: closure-local `cancelled` flag, not a shared ref
+ * Props:
+ *   navigate(page)  — app navigation
+ *   onComplete()    — called when user finishes
+ *   onSkip()        — called when user skips
+ *   skipWelcome     — skip the welcome card (used by "How it Works" in sidebar)
+ *
+ * UX notes:
+ *   • Tooltip stays at the bottom of the screen by default; only shifts to
+ *     the top when the spotlit element is in the lower 50% of the viewport.
+ *     This keeps the card stable — it only repositions when it would actually
+ *     cover the content being shown.
+ *   • Back button on all steps after step 1 (mid-pause + end-pause only).
+ *   • "Again" replays the whole step from the very beginning.
+ *   • Spotlight clears immediately on page navigate to avoid highlighting
+ *     unrelated elements during the page transition.
+ *   • All copy is short (≤ 10 words per line).
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,9 +29,7 @@ const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
 const PAD       = 6;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function setNativeValue(el, value) {
   if (!el) return;
@@ -32,9 +40,7 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Visual cursor
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Visual cursor ─────────────────────────────────────────────────────────────
 
 function VisualCursor({ pos, pulse }) {
   return (
@@ -53,19 +59,17 @@ function VisualCursor({ pos, pulse }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Spotlight — 4 panels that slide smoothly between positions
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Spotlight ─────────────────────────────────────────────────────────────────
 
-const PANEL_T = 'top 0.36s cubic-bezier(0.4,0,0.2,1), left 0.36s cubic-bezier(0.4,0,0.2,1), right 0.36s cubic-bezier(0.4,0,0.2,1), bottom 0.36s cubic-bezier(0.4,0,0.2,1), width 0.36s cubic-bezier(0.4,0,0.2,1), height 0.36s cubic-bezier(0.4,0,0.2,1)';
+const SLIDE = 'top 0.36s cubic-bezier(0.4,0,0.2,1), left 0.36s cubic-bezier(0.4,0,0.2,1), right 0.36s cubic-bezier(0.4,0,0.2,1), bottom 0.36s cubic-bezier(0.4,0,0.2,1), width 0.36s cubic-bezier(0.4,0,0.2,1), height 0.36s cubic-bezier(0.4,0,0.2,1)';
 
-function Spotlight({ rect, transitioning }) {
+function Spotlight({ rect, animate }) {
   const stopTouch = e => e.preventDefault();
   const base = {
     position: 'fixed', background: 'transparent',
     zIndex: OVERLAY_Z, pointerEvents: 'all',
     touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none',
-    transition: transitioning ? PANEL_T : 'none',
+    transition: animate ? SLIDE : 'none',
   };
 
   if (!rect) return <div style={{ ...base, inset: 0 }} onTouchMove={stopTouch} />;
@@ -86,44 +90,53 @@ function Spotlight({ rect, transitioning }) {
       <div style={{ ...base, top: bottom, left: 0,     right: 0,    bottom: 0      }} {...pp} />
       <div style={{ ...base, top,         left: 0,     width: left, height: h      }} {...pp} />
       <div style={{ ...base, top,         left: right, right: 0,    height: h      }} {...pp} />
-      {/* Glow ring — also transitions */}
       <div style={{
         position: 'fixed', top, left, width: w, height: h,
         zIndex: OVERLAY_Z + 1, pointerEvents: 'none', borderRadius: 10,
         boxShadow: `0 0 0 2.5px ${ACCENT}, 0 0 0 5px rgba(74,123,247,0.32), 0 0 22px 7px rgba(74,123,247,0.14)`,
-        transition: transitioning ? PANEL_T : 'none',
+        transition: animate ? SLIDE : 'none',
       }} />
     </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tooltip card  — slides vertically + fades text on content change
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Tooltip ───────────────────────────────────────────────────────────────────
+//
+// Positioning strategy:
+//   • Anchored to the BOTTOM of the screen by default (bottom: 16px).
+//   • Only flips to TOP when the spotlit element's bottom exceeds 52% of the
+//     viewport height — so the card doesn't cover the highlighted content.
+//   • This keeps the card in one place most of the time.
 
-function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, isLast, onSkip, onNext, onSeeAgain }) {
+function Tooltip({
+  stepId, title, desc, contentKey,
+  rect, dark, phase, stepIdx, totalSteps,
+  onSkip, onNext, onBack, onSeeAgain,
+}) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const tooltipW  = Math.min(320, vw - 32);
-  const TOOLTIP_H = phase !== 'playing' ? 210 : 170;
+  const tooltipW = Math.min(320, vw - 32);
 
-  const visTop    = rect ? Math.max(0, Math.min(vh, rect.top))    : vh * 0.55;
-  const visBottom = rect ? Math.max(0, Math.min(vh, rect.bottom)) : vh * 0.55;
-  const elementCenter = (visTop + visBottom) / 2;
+  // Flip to top only if element is in the lower half of the screen
+  const elementBottom = rect ? Math.min(vh, rect.bottom) : 0;
+  const flipToTop     = rect && elementBottom > vh * 0.52;
+  const TOOLTIP_H     = 215;
 
-  let tooltipTop = elementCenter > vh / 2
-    ? visTop  - PAD - TOOLTIP_H - 14
-    : visBottom + PAD + 14;
-  tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
+  const posStyle = flipToTop
+    ? { top:    Math.max(8, (rect.top - PAD) - TOOLTIP_H - 12) }
+    : { bottom: 16 };
+
+  const showBack = stepIdx > 0 && phase !== 'playing';
+  const isLast   = stepIdx === TOTAL - 1;
 
   return (
     <div
       data-tutorial-ui="tooltip"
       style={{
         position: 'fixed',
-        top: tooltipTop,
         left: Math.max(16, (vw - tooltipW) / 2),
         width: tooltipW,
+        ...posStyle,
         zIndex: TOOLTIP_Z,
         background: dark ? '#1c1c20' : '#ffffff',
         borderRadius: 18,
@@ -131,8 +144,8 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, isLast, o
         boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none',
-        // Smooth vertical slide when spotlight moves
-        transition: 'top 0.36s cubic-bezier(0.4,0,0.2,1)',
+        // Only transition when flipping between top/bottom (not on every rect change)
+        transition: 'bottom 0.3s cubic-bezier(0.4,0,0.2,1), top 0.3s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
       {/* Step label + Skip */}
@@ -147,42 +160,49 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, isLast, o
         }}>Skip</button>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 9 }}>
         {Array.from({ length: TOTAL }).map((_, i) => (
           <div key={i} style={{
             flex: 1, height: 3, borderRadius: 2,
             background: i < stepId ? ACCENT : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'),
-            opacity: i < stepId - 1 ? 0.42 : 1,
-            transition: 'background 0.3s',
+            opacity: i < stepId - 1 ? 0.42 : 1, transition: 'background 0.3s',
           }} />
         ))}
       </div>
 
-      {/* Text content — keyed so it fades in on every change */}
-      <div key={contentKey} style={{ animation: 'tut-fadein 0.22s ease both' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 3 }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.54)' : 'rgba(0,0,0,0.48)', lineHeight: 1.52 }}>
-          {desc}
-        </div>
+      {/* Text — keyed for fade-in on each change */}
+      <div key={contentKey} style={{ animation: 'tut-fadein 0.2s ease both' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 3 }}>{title}</div>
+        <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.54)' : 'rgba(0,0,0,0.48)', lineHeight: 1.52 }}>{desc}</div>
       </div>
 
-      {/* Action buttons */}
+      {/* Buttons (only during pauses) */}
       {phase !== 'playing' && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
+        <div style={{ display: 'flex', gap: 7, marginTop: 11 }}>
+          {/* Back */}
+          {showBack && (
+            <button data-tutorial-ui="back-btn" onClick={onBack} style={{
+              flex: 1, height: 37, borderRadius: 11, border: 'none',
+              background: dark ? '#2a2a30' : '#f0f0f3',
+              color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}>← Back</button>
+          )}
+
+          {/* Again (end-pause only) */}
           {phase === 'end-pause' && (
             <button data-tutorial-ui="see-again-btn" onClick={onSeeAgain} style={{
               flex: 1, height: 37, borderRadius: 11, border: 'none',
               background: dark ? '#2a2a30' : '#f0f0f3',
-              color: dark ? 'rgba(255,255,255,0.68)' : 'rgba(0,0,0,0.58)',
+              color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}>Again</button>
           )}
+
+          {/* Next / Finish */}
           <button data-tutorial-ui="next-btn" onClick={onNext} style={{
-            flex: phase === 'end-pause' ? 2 : 1,
-            height: 37, borderRadius: 11, border: 'none',
+            flex: 2, height: 37, borderRadius: 11, border: 'none',
             background: ACCENT, color: '#fff',
             fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             boxShadow: '0 4px 14px rgba(74,123,247,0.38)',
@@ -196,18 +216,14 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, isLast, o
       {phase === 'playing' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9 }}>
           <div style={{ width: 6, height: 6, borderRadius: 3, background: ACCENT, animation: 'tut-blink 1.1s ease-in-out infinite' }} />
-          <span style={{ fontSize: 11, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.33)' : 'rgba(0,0,0,0.28)' }}>
-            Watch…
-          </span>
+          <span style={{ fontSize: 11, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.33)' : 'rgba(0,0,0,0.28)' }}>Watch…</span>
         </div>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Welcome screen
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Welcome screen ────────────────────────────────────────────────────────────
 
 function WelcomeScreen({ dark, onStart, onSkip }) {
   return (
@@ -222,8 +238,7 @@ function WelcomeScreen({ dark, onStart, onSkip }) {
         borderRadius: 24, padding: '30px 22px 22px',
         boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
-        textAlign: 'center',
-        animation: 'tut-fadein 0.3s ease both',
+        textAlign: 'center', animation: 'tut-fadein 0.3s ease both',
       }}>
         <div style={{
           width: 60, height: 60, borderRadius: 16, background: ACCENT,
@@ -241,21 +256,18 @@ function WelcomeScreen({ dark, onStart, onSkip }) {
             <polyline points="28.5,34 31,36.5 35.5,31.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
         </div>
-
         <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.4px', color: dark ? '#fff' : '#111', marginBottom: 8 }}>
           Welcome to <span style={{ color: ACCENT }}>InvoGo!</span>
         </div>
         <div style={{ fontSize: 13, color: dark ? 'rgba(255,255,255,0.52)' : 'rgba(0,0,0,0.48)', lineHeight: 1.6, marginBottom: 24 }}>
           Want a quick tour? We'll show you how everything works in about a minute.
         </div>
-
         <button data-tutorial-ui="welcome-start" onClick={onStart} style={{
           width: '100%', height: 46, borderRadius: 13, border: 'none',
           background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700,
           cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
           boxShadow: '0 6px 20px rgba(74,123,247,0.42)', marginBottom: 9,
         }}>Show me around</button>
-
         <button data-tutorial-ui="welcome-skip" onClick={onSkip} style={{
           width: '100%', height: 38, borderRadius: 11, border: 'none',
           background: 'none', color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.32)',
@@ -266,38 +278,34 @@ function WelcomeScreen({ dark, onStart, onSkip }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Keyframes (injected once)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Keyframes ─────────────────────────────────────────────────────────────────
 
 function ensureKeyframes() {
   if (document.getElementById('tut-kf')) return;
-  const el = document.createElement('style');
-  el.id = 'tut-kf';
-  el.textContent = `
-    @keyframes tut-blink   { 0%,100%{opacity:1} 50%{opacity:0.18} }
-    @keyframes tut-fadein  { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+  const s = document.createElement('style');
+  s.id = 'tut-kf';
+  s.textContent = `
+    @keyframes tut-blink  { 0%,100%{opacity:1} 50%{opacity:0.18} }
+    @keyframes tut-fadein { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:translateY(0)} }
   `;
-  document.head.appendChild(el);
+  document.head.appendChild(s);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Main component ────────────────────────────────────────────────────────────
 
-export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
+export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipWelcome = false }) {
   const { dark } = useTheme();
 
-  const [welcomed,     setWelcomed]     = useState(false);
-  const [cursorPos,    setCursorPos]    = useState({ x: -100, y: -100 });
-  const [cursorPulse,  setCursorPulse]  = useState(false);
-  const [rect,         setRect]         = useState(null);
-  const [spotlightOn,  setSpotlightOn]  = useState(false); // delay transitions until after first rect set
-  const [tooltip,      setTooltip]      = useState({ stepId: 1, title: '', desc: '' });
-  const [contentKey,   setContentKey]   = useState(0);     // increments on every show() → triggers fade-in
-  const [stepIdx,      setStepIdx]      = useState(0);
-  const [replayKey,    setReplayKey]    = useState(0);
-  const [phase,        setPhase]        = useState('playing');
+  const [welcomed,    setWelcomed]    = useState(skipWelcome);
+  const [cursorPos,   setCursorPos]   = useState({ x: -100, y: -100 });
+  const [cursorPulse, setCursorPulse] = useState(false);
+  const [rect,        setRect]        = useState(null);
+  const [animateSpot, setAnimateSpot] = useState(false);
+  const [tooltip,     setTooltip]     = useState({ stepId: 1, title: '', desc: '' });
+  const [contentKey,  setContentKey]  = useState(0);
+  const [stepIdx,     setStepIdx]     = useState(0);
+  const [replayKey,   setReplayKey]   = useState(0);
+  const [phase,       setPhase]       = useState('playing');
 
   const nextResolverRef = useRef(null);
 
@@ -309,24 +317,19 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     const sp = document.body.style.position;
     const ho = document.documentElement.style.overflow;
     const sy = window.scrollY;
-
     document.body.style.overflow            = 'hidden';
     document.body.style.position            = 'fixed';
     document.body.style.top                 = `-${sy}px`;
     document.body.style.width               = '100%';
     document.documentElement.style.overflow = 'hidden';
-
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
-
     function blockClicks(e) {
       if (!e.isTrusted) return;
       if (e.target.closest?.('[data-tutorial-ui]')) return;
-      e.stopPropagation();
-      e.preventDefault();
+      e.stopPropagation(); e.preventDefault();
     }
     document.addEventListener('click', blockClicks, true);
-
     return () => {
       document.body.style.overflow  = so;
       document.body.style.position  = sp;
@@ -343,24 +346,29 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   useEffect(() => {
     if (!welcomed) return;
 
-    // Closure-local cancel flag — immune to React ref reset timing
-    let cancelled = false;
+    let cancelled = false;   // closure-local; immune to ref-reset race
 
     setPhase('playing');
     setRect(null);
-    setSpotlightOn(false);
+    setAnimateSpot(false);
     setCursorPos({ x: -100, y: -100 });
     setCursorPulse(false);
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    let ckSeq = 0; // local counter so each show() gets a unique key
+    let ckSeq = 0;
     function show(id, title, desc) {
       if (cancelled) return;
       ckSeq++;
-      const k = ckSeq;
       setTooltip({ stepId: id, title, desc });
-      setContentKey(k);
+      setContentKey(ckSeq);
+    }
+
+    // Clears spotlight immediately (call before navigating to a new page)
+    function clearSpot() {
+      setRect(null);
+      setAnimateSpot(false);
+      setCursorPos({ x: -100, y: -100 });
     }
 
     async function waitForUser(isEnd = false) {
@@ -382,8 +390,8 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       const r = el.getBoundingClientRect();
       setCursorPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
       setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
-      setSpotlightOn(true);
-      await sleep(450);
+      setAnimateSpot(true);
+      await sleep(440);
       return cancelled ? null : el;
     }
 
@@ -396,7 +404,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       el.click();
       await sleep(195);
       setCursorPulse(false);
-      await sleep(290);
+      await sleep(280);
     }
 
     async function type(elOrSelector, text) {
@@ -404,47 +412,67 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       const el = await moveTo(elOrSelector);
       if (!el) return;
       setNativeValue(el, '');
-      await sleep(75);
+      await sleep(70);
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) break;
         setNativeValue(el, text.slice(0, i));
         await sleep(48);
       }
-      await sleep(220);
+      await sleep(200);
     }
 
-    // ══ STEP 1 — Business name ══════════════════════════════════════════════
+    // ══ STEP 1 — Business name & phone ══════════════════════════════════════
     async function step1() {
       navigate('invoice');
       await sleep(900);
-      setRect(null);
+      clearSpot();
 
-      show(1, 'Your business name', 'It shows on every invoice. Tap it to change it.');
+      show(1, 'Business name & phone', 'These show at the top of every invoice. Tap to edit.');
       await waitForUser(false);
       if (cancelled) return;
 
+      // Business name
       await tap('[data-tutorial="invoice-biz-name-btn"]');
-      await sleep(300);
-
-      const inputEl = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
-      if (inputEl) {
-        show(1, 'Type your name', 'This prints at the top of every PDF.');
-        await moveTo(inputEl);
-        setNativeValue(inputEl, '');
-        await sleep(70);
+      await sleep(280);
+      const nameInput = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
+      if (nameInput) {
+        show(1, 'Type your business name', 'This prints on every invoice PDF.');
+        await moveTo(nameInput);
+        setNativeValue(nameInput, '');
+        await sleep(65);
         const name = 'J&Y Distributions';
         for (let i = 1; i <= name.length; i++) {
           if (cancelled) break;
-          setNativeValue(inputEl, name.slice(0, i));
+          setNativeValue(nameInput, name.slice(0, i));
           await sleep(50);
         }
-        await sleep(420);
-        inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        await sleep(500);
+        await sleep(380);
+        nameInput.dispatchEvent(new Event('blur', { bubbles: true }));
+        await sleep(480);
       }
 
-      setRect(null);
-      show(1, 'Saved!', 'Your name will appear on all your invoices.');
+      // Phone number
+      await tap('[data-tutorial="invoice-biz-phone-btn"]');
+      await sleep(280);
+      const phoneInput = document.querySelector('[data-tutorial="invoice-biz-phone-input"]');
+      if (phoneInput) {
+        show(1, 'Add a phone number', 'Optional — also appears on the invoice.');
+        await moveTo(phoneInput);
+        setNativeValue(phoneInput, '');
+        await sleep(65);
+        const phone = '(555) 123-4567';
+        for (let i = 1; i <= phone.length; i++) {
+          if (cancelled) break;
+          setNativeValue(phoneInput, phone.slice(0, i));
+          await sleep(55);
+        }
+        await sleep(380);
+        phoneInput.dispatchEvent(new Event('blur', { bubbles: true }));
+        await sleep(480);
+      }
+
+      clearSpot();
+      show(1, 'Saved!', 'Both will appear at the top of every invoice.');
       await waitForUser(true);
     }
 
@@ -452,24 +480,22 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     async function step2() {
       navigate('invoice');
       await sleep(900);
-      setRect(null);
+      clearSpot();
 
       show(2, 'Create an invoice', 'Enter the store, add your items, then generate.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Store details
       await moveTo('[data-tutorial="invoice-store-name"]');
-      show(2, 'Who are you delivering to?', 'Enter the store name and contact person.');
+      show(2, 'Who are you delivering to?', 'Store name and contact person.');
       await waitForUser(false);
       if (cancelled) return;
       await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
       await type('input[placeholder="John Smith"]',   'Mike Johnson');
-      await sleep(220);
+      await sleep(200);
 
-      // Add item
       await moveTo('[data-tutorial="invoice-add-item"]');
-      show(2, 'Add items', 'Name, quantity, price — then tap + Add Item.');
+      show(2, 'Add items', 'Name, qty, price — then tap + Add Item.');
       await waitForUser(false);
       if (cancelled) return;
       await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
@@ -477,25 +503,24 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       if (qtyEl) {
         await moveTo(qtyEl);
         setNativeValue(qtyEl, '');
-        await sleep(65);
+        await sleep(60);
         setNativeValue(qtyEl, '2');
         qtyEl.dispatchEvent(new Event('input', { bubbles: true }));
-        await sleep(220);
+        await sleep(200);
       }
       await type('input[placeholder="0.00"]', '9.99');
       const addBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.trim() === '+ Add Item');
-      if (addBtn) { await tap(addBtn); await sleep(420); }
+      if (addBtn) { await tap(addBtn); await sleep(400); }
 
-      // Generate
       await moveTo('[data-tutorial="invoice-generate"]');
-      show(2, 'Generate', 'Tap Generate to save the invoice and create the PDF.');
+      show(2, 'Generate', 'Saves the invoice and creates the PDF.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-generate"]');
       await sleep(1200);
 
-      setRect(null);
+      clearSpot();
       show(2, 'Invoice created!', 'Download, share via WhatsApp, or start a new one.');
       await waitForUser(true);
     }
@@ -504,40 +529,37 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     async function step3() {
       navigate('history');
       await sleep(900);
-      setRect(null);
+      clearSpot();
 
       show(3, 'Invoices', 'All your invoices are here. Tap one to expand it.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Expand
       await moveTo('[data-tutorial="invoice-expand-latest"]');
-      show(3, 'Tap to expand', 'See all the items inside the invoice.');
+      show(3, 'Tap to expand', 'See all items inside the invoice.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-expand-latest"]');
       await sleep(750);
 
-      // Status badge
       await moveTo('[data-tutorial="status-badge-latest"]');
-      show(3, 'Payment status', 'Tap to switch between Unpaid, Paid, and Partial.');
+      show(3, 'Payment status', 'Tap to switch: Unpaid → Paid → Partial.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="status-badge-latest"]'); // → Paid
-      await sleep(500);
+      await sleep(480);
       await tap('[data-tutorial="status-badge-latest"]'); // → Partial
-      await sleep(500);
+      await sleep(480);
       await tap('[data-tutorial="status-badge-latest"]'); // → Unpaid
-      await sleep(600);
+      await sleep(560);
 
-      // Mid-pause before collapse
-      setRect(null);
-      show(3, 'Collapse it', 'Tap Next to close the invoice.');
+      clearSpot();
+      show(3, 'Collapse it', 'Tap Next to close the invoice back up.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-expand-latest"]');
-      await sleep(600);
-      setRect(null);
+      await sleep(580);
+      clearSpot();
 
       show(3, 'Got it!', 'Open any invoice to review or update its status.');
       await waitForUser(true);
@@ -547,7 +569,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     async function step4() {
       navigate('history');
       await sleep(700);
-      setRect(null);
+      clearSpot();
 
       show(4, 'Store balances', 'Tap a store name to see what they owe you.');
       await waitForUser(false);
@@ -557,10 +579,13 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       show(4, 'Tap the store', 'Opens a full invoice history for that store.');
       await waitForUser(false);
       if (cancelled) return;
-      await tap('[data-tutorial="store-name-link"]');
-      await sleep(1600);
 
-      show(4, 'Balance view', 'See the running total of what this store owes. Tap Next to go back.');
+      // Clear spotlight BEFORE navigating so it doesn't highlight random elements
+      clearSpot();
+      await tap('[data-tutorial="store-name-link"]');
+      await sleep(1500);
+
+      show(4, 'Balance view', 'See what this store owes. Tap Next to go back.');
       await waitForUser(false);
       if (cancelled) return;
 
@@ -568,9 +593,9 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
       if (backBtn) { await tap(backBtn); } else { navigate('history'); }
       await sleep(600);
-      setRect(null);
+      clearSpot();
 
-      show(4, 'Done!', 'Access store balances anytime from the Invoices page.');
+      show(4, 'Done!', 'Access store balances anytime from Invoices.');
       await waitForUser(true);
     }
 
@@ -578,19 +603,19 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     async function step5() {
       navigate('products');
       await sleep(900);
-      setRect(null);
+      clearSpot();
 
-      show(5, 'Products auto-save', 'Items you sell are saved here automatically. InvoGo fills them in next time.');
+      show(5, 'Products auto-save', 'Items you sell are saved here automatically.');
       await waitForUser(false);
       if (cancelled) return;
 
       await moveTo('[data-tutorial="products-list"]');
-      show(5, 'Your catalogue', 'Grows as you invoice. Swipe or long-press to remove a product.');
+      show(5, 'Your catalogue', 'Grows as you invoice. Swipe to remove a product.');
       await waitForUser(false);
       if (cancelled) return;
-      await sleep(900);
+      await sleep(800);
 
-      setRect(null);
+      clearSpot();
       show(5, "You're ready!", 'Tap below to start using InvoGo.');
       await waitForUser(true);
     }
@@ -617,6 +642,8 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, [stepIdx, replayKey, welcomed]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   function handleNext() {
     if (nextResolverRef.current) {
       const r = nextResolverRef.current;
@@ -625,14 +652,19 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     }
   }
 
+  function handleBack() {
+    if (stepIdx > 0) setStepIdx(s => s - 1);
+  }
+
   function handleSeeAgain() {
     setReplayKey(k => k + 1);
   }
 
+  // ── Welcome screen ────────────────────────────────────────────────────────
   if (!welcomed) {
     return (
       <>
-        <Spotlight rect={null} transitioning={false} />
+        <Spotlight rect={null} animate={false} />
         <WelcomeScreen dark={dark} onStart={() => setWelcomed(true)} onSkip={onSkip} />
       </>
     );
@@ -640,7 +672,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
   return (
     <>
-      <Spotlight rect={rect} transitioning={spotlightOn} />
+      <Spotlight rect={rect} animate={animateSpot} />
       <VisualCursor pos={cursorPos} pulse={cursorPulse} />
       <Tooltip
         stepId={tooltip.stepId}
@@ -650,9 +682,10 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         rect={rect}
         dark={dark}
         phase={phase}
-        isLast={stepIdx === TOTAL - 1}
+        stepIdx={stepIdx}
         onSkip={onSkip}
         onNext={handleNext}
+        onBack={handleBack}
         onSeeAgain={handleSeeAgain}
       />
     </>

@@ -13,7 +13,7 @@ import About from './pages/About';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import InteractiveTutorial from './components/tutorial/InteractiveTutorial';
+// InteractiveTutorial replaced by OnboardingTutorial for "How it Works"
 import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
@@ -290,7 +290,14 @@ function AppInner() {
       }}
     >
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
-      {showTutorial && <InteractiveTutorial currentPage={page} navigate={navigate} onClose={() => setShowTutorial(false)} />}
+      {showTutorial && (
+        <OnboardingTutorial
+          navigate={navigate}
+          skipWelcome
+          onComplete={() => setShowTutorial(false)}
+          onSkip={() => setShowTutorial(false)}
+        />
+      )}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
           onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
