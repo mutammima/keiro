@@ -7,9 +7,12 @@
 import { useEffect, useState } from 'react';
 import { ACCENT, LIGHT, DARK } from '../../theme';
 
-// Must match the key in ThemeContext.jsx
+// Must match the default logic in ThemeContext.jsx (null → dark by default)
 function getSavedDark() {
-  try { return localStorage.getItem('inv_dark_mode') === 'true'; } catch { return false; }
+  try {
+    const saved = localStorage.getItem('inv_dark_mode');
+    return saved === null ? true : saved === 'true';
+  } catch { return true; }
 }
 
 export default function SplashScreen({ onDone }) {
