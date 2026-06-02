@@ -102,25 +102,20 @@ function Blocker() {
 function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase, stepIdx, accent, onSkip, onNext, onBack, onSeeAgain }) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const tooltipW  = Math.min(320, vw - 32);
-  const TOOLTIP_H = 215;
-  const MARGIN    = 18;
+  const tooltipW  = Math.min(vw - 24, 400); // wider — fills most of the phone
+  const TOOLTIP_H = 270;                     // taller to fit bigger text + buttons
+  const PAD       = 20;
 
-  // Always put the dialog in the OPPOSITE half of the screen from the element.
-  // This guarantees the dialog never sits on top of the thing it's describing.
-  const PAD = 28;
+  // Always place the dialog in the OPPOSITE half of the screen from the element
+  // so it never blocks what it's describing.
   let tooltipTop;
   if (!rect) {
-    tooltipTop = vh - TOOLTIP_H - PAD;   // default: bottom of screen
+    tooltipTop = vh - TOOLTIP_H - PAD;
   } else {
     const elementMidY = (rect.top + rect.bottom) / 2;
-    if (elementMidY <= vh / 2) {
-      // Element is in top half → dialog goes to bottom
-      tooltipTop = vh - TOOLTIP_H - PAD;
-    } else {
-      // Element is in bottom half → dialog goes near top
-      tooltipTop = PAD + 44; // 44px clears the status bar area
-    }
+    tooltipTop = elementMidY <= vh / 2
+      ? vh - TOOLTIP_H - PAD          // element top half → dialog at bottom
+      : PAD + 48;                     // element bottom half → dialog near top
   }
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
 
@@ -133,35 +128,35 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
       style={{
         position: 'fixed',
         top:  tooltipTop,
-        left: Math.max(16, (vw - tooltipW) / 2),
+        left: Math.max(12, (vw - tooltipW) / 2),
         width: tooltipW,
         zIndex: TOOLTIP_Z,
         background: dark ? '#1c1c20' : '#ffffff',
-        borderRadius: 18,
-        padding: '13px 15px 12px',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
-        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
+        borderRadius: 22,
+        padding: '18px 20px 16px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        border: `1px solid ${dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'}`,
         touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none',
         transition: 'top 0.4s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
-      {/* Step + Skip */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
-        <span style={{ fontSize:10, fontWeight:700, color:accent, letterSpacing:'0.07em', textTransform:'uppercase' }}>
+      {/* Step label + Skip */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <span style={{ fontSize:12, fontWeight:700, color:accent, letterSpacing:'0.07em', textTransform:'uppercase' }}>
           Step {stepId} of {TOTAL}
         </span>
         <button data-tutorial-ui="skip-btn" onClick={onSkip} style={{
-          background:'none', border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
-          color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.25)',
-          padding:'2px 6px', borderRadius:6, WebkitTapHighlightColor:'transparent',
+          background:'none', border:'none', cursor:'pointer', fontSize:14, fontWeight:600,
+          color: dark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.27)',
+          padding:'3px 8px', borderRadius:8, WebkitTapHighlightColor:'transparent',
         }}>Skip</button>
       </div>
 
-      {/* Progress */}
-      <div style={{ display:'flex', gap:4, marginBottom:9 }}>
+      {/* Progress bar */}
+      <div style={{ display:'flex', gap:5, marginBottom:14 }}>
         {Array.from({ length: TOTAL }).map((_,i) => (
           <div key={i} style={{
-            flex:1, height:3, borderRadius:2,
+            flex:1, height:4, borderRadius:2,
             background: i < stepId ? accent : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'),
             opacity: i < stepId - 1 ? 0.42 : 1, transition:'background 0.3s',
           }} />
@@ -170,34 +165,34 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
 
       {/* Text — keyed so it fades in on every show() */}
       <div key={contentKey} style={{ animation:'tut-fadein 0.18s ease both' }}>
-        <div style={{ fontSize:13, fontWeight:700, color: dark ? '#fff' : '#111', marginBottom:3 }}>{title}</div>
-        <div style={{ fontSize:12, color: dark ? 'rgba(255,255,255,0.54)' : 'rgba(0,0,0,0.48)', lineHeight:1.52 }}>{desc}</div>
+        <div style={{ fontSize:17, fontWeight:800, color: dark ? '#fff' : '#111', marginBottom:6, lineHeight:1.25 }}>{title}</div>
+        <div style={{ fontSize:14, color: dark ? 'rgba(255,255,255,0.58)' : 'rgba(0,0,0,0.50)', lineHeight:1.6 }}>{desc}</div>
       </div>
 
-      {/* Buttons */}
+      {/* Action buttons */}
       {phase !== 'playing' && (
-        <div style={{ display:'flex', gap:7, marginTop:11 }}>
+        <div style={{ display:'flex', gap:8, marginTop:16 }}>
           {showBack && (
             <button data-tutorial-ui="back-btn" onClick={onBack} style={{
-              flex:1, height:37, borderRadius:11, border:'none',
+              flex:1, height:46, borderRadius:13, border:'none',
               background: dark ? '#2a2a30' : '#f0f0f3',
               color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
-              fontSize:13, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent',
+              fontSize:15, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent',
             }}>← Back</button>
           )}
           {phase === 'end-pause' && (
             <button data-tutorial-ui="see-again-btn" onClick={onSeeAgain} style={{
-              flex:1, height:37, borderRadius:11, border:'none',
+              flex:1, height:46, borderRadius:13, border:'none',
               background: dark ? '#2a2a30' : '#f0f0f3',
               color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
-              fontSize:13, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent',
+              fontSize:15, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent',
             }}>Again</button>
           )}
           <button data-tutorial-ui="next-btn" onClick={onNext} style={{
-            flex:2, height:37, borderRadius:11, border:'none',
+            flex:2, height:46, borderRadius:13, border:'none',
             background: accent, color:'#fff',
-            fontSize:14, fontWeight:700, cursor:'pointer', WebkitTapHighlightColor:'transparent',
-            boxShadow: `0 4px 14px ${accent}60`,
+            fontSize:16, fontWeight:700, cursor:'pointer', WebkitTapHighlightColor:'transparent',
+            boxShadow: `0 5px 18px ${accent}60`,
           }}>
             {phase === 'end-pause' && isLast ? "Let's go!" : 'Next →'}
           </button>
@@ -206,9 +201,9 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
 
       {/* Playing indicator */}
       {phase === 'playing' && (
-        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:9 }}>
-          <div style={{ width:6, height:6, borderRadius:3, background:accent, animation:'tut-blink 1.1s ease-in-out infinite' }} />
-          <span style={{ fontSize:11, fontWeight:500, color: dark ? 'rgba(255,255,255,0.33)' : 'rgba(0,0,0,0.28)' }}>Watch…</span>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:12 }}>
+          <div style={{ width:7, height:7, borderRadius:4, background:accent, animation:'tut-blink 1.1s ease-in-out infinite' }} />
+          <span style={{ fontSize:13, fontWeight:500, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.30)' }}>Watch…</span>
         </div>
       )}
     </div>
