@@ -185,7 +185,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
                       ? '✓ Imported'
                       : importFlash === 'empty'
                         ? 'No data'
-                        : '👤 Import Contact'}
+                        : 'Import Contact'}
                 </button>
               )}
             </div>
@@ -274,7 +274,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
               </div>
               <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
                 onClick={() => setShowScanner(true)} type="button">
-                📷
+                Scan
               </button>
             </div>
             {lastBarcode && (
@@ -337,7 +337,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
                       transition: 'background 0.15s',
                     }}
                   >
-                    {m === 'cash' ? '💵 Cash' : '💳 Card'}
+                    {m === 'cash' ? 'Cash' : 'Card'}
                   </button>
                 ))}
               </div>

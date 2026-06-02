@@ -133,7 +133,7 @@ export default function Home({ onOpenDrawer, onNav }) {
           {/* Overdue alert */}
           {overdueInvoices.length > 0 && (
             <div style={{ ...s.overdueAlert, background: dark ? 'rgba(239,68,68,0.12)' : '#fef2f2', borderColor: dark ? 'rgba(239,68,68,0.25)' : '#fecaca' }}>
-              <span style={{ fontSize: 14 }}>⚠️</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#ef4444' }}>!</span>
               <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 600 }}>
                 {overdueInvoices.length} overdue invoice{overdueInvoices.length !== 1 ? 's' : ''} — follow up needed
               </span>
@@ -214,7 +214,7 @@ export default function Home({ onOpenDrawer, onNav }) {
 
         {!loading && invoices.length === 0 && (
           <div style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, padding: '40px 24px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: ACCENT, marginBottom: 12 }}>InvoGo</div>
             <div style={{ fontWeight: 700, color: C.text, marginBottom: 6 }}>Welcome to InvoGo</div>
             <div>Tap <strong>+ New</strong> to create your first invoice.</div>
           </div>

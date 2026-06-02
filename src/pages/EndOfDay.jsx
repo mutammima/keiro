@@ -75,7 +75,7 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
           <div style={{ textAlign: 'center', color: C.textMuted, padding: '60px 24px' }}>Loading…</div>
         ) : todayInvoices.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 24px' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🌙</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.textMuted, marginBottom: 16 }}>—</div>
             <div style={{ fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 8 }}>No invoices today</div>
             <div style={{ color: C.textMuted, fontSize: 14 }}>Your day's summary will appear here once you create invoices.</div>
           </div>
@@ -114,15 +114,15 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment Method</div>
                 {cashTotal > 0 && (
                   <div style={s.breakdownRow}>
-                    <span style={{ fontSize: 18 }}>💵</span>
-                    <span style={{ flex: 1, fontSize: 14, color: C.text }}>Cash</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.textMuted }}>Cash</span>
+                    <span style={{ flex: 1, fontSize: 14, color: C.text }}></span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>${cashTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {cardTotal > 0 && (
                   <div style={s.breakdownRow}>
-                    <span style={{ fontSize: 18 }}>💳</span>
-                    <span style={{ flex: 1, fontSize: 14, color: C.text }}>Card</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.textMuted }}>Card</span>
+                    <span style={{ flex: 1, fontSize: 14, color: C.text }}></span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>${cardTotal.toFixed(2)}</span>
                   </div>
                 )}
