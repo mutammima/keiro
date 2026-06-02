@@ -50,10 +50,10 @@ export default function AppFooter({ onNav }) {
           <Pipe C={C} />
           <FooterLink label="About"        onPress={() => onNav?.('about')}    C={C} />
           <Pipe C={C} />
-          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoiceGo Bug Report', '_blank')} C={C} />
+          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoGo Bug Report', '_blank')} C={C} />
         </div>
 
-        <p style={{ ...s.version, color: C.textLight }}>InvoiceGo v4.0 · Cloud sync</p>
+        <p style={{ ...s.version, color: C.textLight }}>InvoGo v4.0 · Cloud sync</p>
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}

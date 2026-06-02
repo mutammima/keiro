@@ -1,5 +1,5 @@
 /**
- * TutorialOverlay — animated step-by-step walkthrough of InvoiceGo.
+ * TutorialOverlay — animated step-by-step walkthrough of InvoGo.
  *
  * Every demo frame uses the real DARK / LIGHT / ACCENT tokens so it looks
  * identical to the live app — same bg, same card colour, same input radius.
@@ -39,14 +39,14 @@ if (typeof document !== 'undefined' && !document.getElementById('tutor-kf')) {
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 'welcome',  title: 'Welcome to InvoiceGo',    desc: 'Create delivery invoices in seconds, track what every store owes you, and see your daily revenue — all from your phone.', Demo: DemoWelcome  },
+  { id: 'welcome',  title: 'Welcome to InvoGo',    desc: 'Create delivery invoices in seconds, track what every store owes you, and see your daily revenue — all from your phone.', Demo: DemoWelcome  },
   { id: 'customer', title: 'Fill in Customer Info',    desc: 'Enter the store name — phone and address auto-fill from past visits. Then add the customer name.', Demo: DemoCustomer },
   { id: 'items',    title: 'Add Items',                desc: 'Type a product name (or tap 📷 to scan a barcode). Enter quantity and price — a live total appears instantly.', Demo: DemoItems    },
   { id: 'generate', title: 'Generate & Share',         desc: 'Tap "Generate Invoice" to save it. A PDF opens in a new tab ready to share via AirDrop, WhatsApp, or email.', Demo: DemoGenerate },
   { id: 'history',  title: 'Invoice History',          desc: 'The ≡ tab shows all invoices. Search by store, see totals, and mark invoices Paid · Partial · Unpaid.', Demo: DemoHistory  },
   { id: 'reports',  title: 'Reports',                  desc: 'Open the sidebar and tap Reports for a revenue overview: weekly/monthly totals, top stores, top products, and a 7-day chart.', Demo: DemoReports  },
   { id: 'settings', title: 'Settings',                 desc: 'Sidebar → Settings to update your business name, phone, switch themes, manage pinned stores, and backup your data.', Demo: DemoSettings },
-  { id: 'homescreen', title: 'Add to Your Home Screen', desc: 'Install InvoiceGo like a native app — no App Store needed. It works offline and opens full-screen.', Demo: DemoHomescreen },
+  { id: 'homescreen', title: 'Add to Your Home Screen', desc: 'Install InvoGo like a native app — no App Store needed. It works offline and opens full-screen.', Demo: DemoHomescreen },
   { id: 'done',       title: "You're all set!",        desc: 'That covers everything. Reopen this guide anytime from "How it Works" in the sidebar.', Demo: DemoDone     },
 ];
 
@@ -251,7 +251,7 @@ function DemoWelcome({ dark, C }) {
           <AppLogoSVG size={36} />
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ color: C.text, fontWeight: 800, fontSize: 16, letterSpacing: 0.3 }}>InvoiceGo</div>
+          <div style={{ color: C.text, fontWeight: 800, fontSize: 16, letterSpacing: 0.3 }}>InvoGo</div>
           <div style={{ color: C.textMuted, fontSize: 10, marginTop: 4, lineHeight: 1.5 }}>Delivery invoicing, simplified</div>
         </div>
         {/* feature chips */}
@@ -670,7 +670,7 @@ function DemoHomescreen({ dark, C }) {
         color: dark ? '#7B9FFF' : '#1d4ed8',
         fontSize: 12, lineHeight: 1.5, maxWidth: 300,
       }}>
-        💡 Once installed, InvoiceGo opens full-screen with no browser chrome — just like a native app.
+        💡 Once installed, InvoGo opens full-screen with no browser chrome — just like a native app.
       </div>
     </div>
   );

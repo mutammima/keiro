@@ -1,5 +1,5 @@
 /**
- * About — overview of InvoiceGo's features and how to use them.
+ * About — overview of InvoGo's features and how to use them.
  */
 
 import { useTheme } from '../context/ThemeContext';
@@ -15,7 +15,7 @@ const SECTIONS = [
   {
     icon: '▦',
     title: 'Scan Barcodes',
-    body: 'Instead of typing product names by hand, tap the camera icon and scan a barcode. InvoiceGo looks up the product name automatically and remembers the price for next time.',
+    body: 'Instead of typing product names by hand, tap the camera icon and scan a barcode. InvoGo looks up the product name automatically and remembers the price for next time.',
   },
   {
     icon: '≡',
@@ -30,7 +30,7 @@ const SECTIONS = [
   {
     icon: '⬡',
     title: 'Products Catalog',
-    body: 'InvoiceGo remembers every product you\'ve ever added. Prices auto-fill when you pick a product you\'ve used before, so repeat deliveries are fast.',
+    body: 'InvoGo remembers every product you\'ve ever added. Prices auto-fill when you pick a product you\'ve used before, so repeat deliveries are fast.',
   },
   {
     icon: '↑',
@@ -62,7 +62,9 @@ export default function About({ onOpenDrawer, onNav }) {
 
         {/* Hero */}
         <div style={{ ...s.hero, background: C.card }}>
-          <p style={{ ...s.heroTitle, color: C.text }}>InvoiceGo</p>
+          <p style={{ ...s.heroTitle }}>
+            <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
+          </p>
           <p style={{ ...s.heroSub, color: C.textMuted }}>
             The fastest way to create, track, and share delivery invoices — right from your phone.
           </p>
@@ -82,7 +84,7 @@ export default function About({ onOpenDrawer, onNav }) {
         ))}
 
         {/* Version line */}
-        <p style={{ ...s.version, color: C.textMuted }}>InvoiceGo v4.0 — Built for delivery drivers.</p>
+        <p style={{ ...s.version, color: C.textMuted }}>InvoGo v4.0 — Built for delivery drivers.</p>
 
         <AppFooter onNav={onNav} />
       </div>
@@ -112,7 +114,7 @@ const s = {
   hero: {
     borderRadius: 20, padding: '24px 22px',
   },
-  heroTitle: { fontSize: 26, fontWeight: 800, margin: '0 0 8px', letterSpacing: -0.5 },
+  heroTitle: { fontSize: 36, fontWeight: 900, margin: '0 0 8px', letterSpacing: '-1.5px', lineHeight: 1, fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif" },
   heroSub: { fontSize: 15, lineHeight: 1.6, margin: 0 },
 
   card: { borderRadius: 18, padding: '16px 18px' },

@@ -62,8 +62,8 @@ export default function UpdateBanner({ onUpdate, isMidInvoice }) {
           </p>
           <p style={{ color: C.textMuted, fontSize: 13, margin: 0, lineHeight: 1.45 }}>
             {isMidInvoice
-              ? "A new version of InvoiceGo is ready. Finish your invoice first, or update now."
-              : "A new version of InvoiceGo is ready. Reload to get the latest features and fixes."}
+              ? "A new version of InvoGo is ready. Finish your invoice first, or update now."
+              : "A new version of InvoGo is ready. Reload to get the latest features and fixes."}
           </p>
         </div>
       </div>
