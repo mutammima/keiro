@@ -1,4 +1,13 @@
 /**
+ * @deprecated NOT IMPORTED ANYWHERE — this file is dead code.
+ *
+ * This was an earlier slide-based tutorial overlay. It was superseded by
+ * OnboardingTutorial.jsx (5-step spotlight, tied to real app actions).
+ * Safe to delete if the demo-slide approach is no longer needed.
+ *
+ * Last known reference: SplashScreen.jsx exports AppLogoSVG mentioning this
+ * file, but that comment is also stale.
+ *
  * TutorialOverlay — animated step-by-step walkthrough of InvoGo.
  *
  * Every demo frame uses the real DARK / LIGHT / ACCENT tokens so it looks

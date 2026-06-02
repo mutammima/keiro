@@ -1,4 +1,10 @@
 /**
+ * @deprecated NOT IMPORTED ANYWHERE — this file is dead code.
+ *
+ * No page or component imports DailyProgress. The per-day breakdown
+ * may have been superseded by EndOfDay.jsx or the Reports page.
+ * Safe to delete unless a swipeable day-by-day view is revived.
+ *
  * DailyProgress — shows what was sold on any given day:
  *   • Total invoiced (expected revenue)
  *   • Amount received (paid invoices)

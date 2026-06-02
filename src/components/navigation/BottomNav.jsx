@@ -1,7 +1,11 @@
 /**
- * TopNav (exported as BottomNav for compatibility) —
- * Fixed tab strip at the TOP of the screen, just below the status bar.
+ * TopNav — fixed tab strip at the TOP of the screen, just below the status bar.
  * Shows New | Invoices | Products with an underline indicator.
+ *
+ * FILE NAME NOTE: This file is named BottomNav.jsx and its default export is
+ * also called BottomNav. The nav was originally at the bottom of the screen;
+ * it was moved to the top but the filename and export name were kept to avoid
+ * touching every import across the codebase. The component IS the top nav bar.
  */
 
 import { useTheme } from '../../context/ThemeContext';

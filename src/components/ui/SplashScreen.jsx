@@ -40,7 +40,7 @@ export default function SplashScreen({ onDone }) {
       pointerEvents: phase === 'fading' ? 'none' : 'auto',
     }}>
 
-      {/* ── Logo mark — identical to DemoWelcome in TutorialOverlay ── */}
+      {/* ── Logo mark — same SVG as AppLogoSVG exported below ── */}
       <div style={{
         width: 80, height: 80,
         borderRadius: 22,
@@ -106,8 +106,8 @@ export default function SplashScreen({ onDone }) {
 
 /**
  * Shared logo SVG — document with a checkmark badge.
- * Used in SplashScreen, and mirrors DemoWelcome in TutorialOverlay.
- * Export it so TutorialOverlay can import and reuse the exact same mark.
+ * Exported so other components (e.g. auth screens, about page) can reuse
+ * the exact same mark without duplicating the SVG.
  */
 export function AppLogoSVG({ size = 44 }) {
   return (
