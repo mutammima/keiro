@@ -39,7 +39,7 @@ function focusSelector(sel) {
 
 const STEPS = [
   {
-    title: 'Welcome to InvoiceGo 👋',
+    title: 'Welcome to InvoGo 👋',
     instruction: "Let's walk through the app together. Tap Next → to go hands-free, or do each action yourself.",
     selector: null,
     navPage: null,
@@ -150,7 +150,7 @@ const STEPS = [
   },
   {
     title: "You're all set! 🎉",
-    instruction: 'You now know how to use InvoiceGo. Your data syncs to the cloud automatically.',
+    instruction: 'You now know how to use InvoGo. Your data syncs to the cloud automatically.',
     selector: null,
     navPage: null,
     autoFill: null,

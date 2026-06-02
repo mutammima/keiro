@@ -74,7 +74,9 @@ export default function LoginScreen({ onLogin }) {
 
         {/* App identity */}
         <div style={s.identity}>
-          <span style={{ ...s.appName, color: C.text }}>InvoiceGo</span>
+          <span style={{ ...s.appName }}>
+            <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
+          </span>
           <span style={{ ...s.tagline, color: C.textMuted }}>Delivery invoices, fast.</span>
         </div>
 
@@ -182,9 +184,11 @@ const s = {
     marginBottom: 4,
   },
   appName: {
-    fontSize: 28,
-    fontWeight: 800,
-    letterSpacing: '-0.02em',
+    fontSize: 34,
+    fontWeight: 900,
+    letterSpacing: '-1.5px',
+    lineHeight: 1,
+    fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
   },
   tagline: {
     fontSize: 14,

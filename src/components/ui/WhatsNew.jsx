@@ -75,7 +75,7 @@ export default function WhatsNew({ onClose }) {
               What's New in v{APP_VERSION}
             </div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              InvoiceGo just updated
+              InvoGo just updated
             </div>
           </div>
         </div>

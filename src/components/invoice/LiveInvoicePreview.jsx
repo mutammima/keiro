@@ -6,6 +6,7 @@
 
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
+import { generatePDFBlob } from '../../utils/pdfGenerator';
 
 export default function LiveInvoicePreview({
   businessName,
@@ -22,6 +23,34 @@ export default function LiveInvoicePreview({
 }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
+
+  async function handlePreviewPDF() {
+    // Open tab synchronously to avoid popup blockers, then write PDF into it
+    const tab = window.open('', '_blank');
+    try {
+      const invoice = {
+        businessName: businessName || 'My Business',
+        businessPhone: businessPhone || '',
+        number: 'PREVIEW',
+        storeName: storeName || 'Store',
+        storePhone: storePhone || '',
+        storeAddress: storeAddress || '',
+        date: date || new Date().toLocaleDateString(),
+        time: time || '',
+        items,
+        notes: notes || '',
+        sellerSignature: '',
+        buyerSignature: '',
+      };
+      const { blob, filename } = await generatePDFBlob(invoice);
+      const url = URL.createObjectURL(blob);
+      tab.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (err) {
+      tab.close();
+      console.error('PDF preview failed', err);
+    }
+  }
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0);
 
@@ -142,6 +171,32 @@ export default function LiveInvoicePreview({
             </div>
           ) : null}
         </div>
+      )}
+
+      {/* Preview as PDF button */}
+      {!isEmpty && (
+        <button
+          onClick={handlePreviewPDF}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            width: '100%',
+            marginTop: 12,
+            padding: '12px 0',
+            borderRadius: 14,
+            border: `1.5px solid ${ACCENT}`,
+            background: 'transparent',
+            color: ACCENT,
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📄</span> Preview as PDF
+        </button>
       )}
     </div>
   );

@@ -1,12 +1,12 @@
 {
-  "name": "InvoiceGo",
-  "short_name": "InvoiceGo",
+  "name": "InvoGo",
+  "short_name": "InvoGo",
   "description": "Mobile delivery invoice generator",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#1a73e8",
+  "theme_color": "#16A34A",
   "icons": [
     {
       "src": "/icon-192.png",

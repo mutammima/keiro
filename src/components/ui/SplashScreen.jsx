@@ -52,12 +52,13 @@ export default function SplashScreen({ onDone }) {
       {/* ── Word mark ── */}
       <div style={{ textAlign: 'center', animation: 'splash-rise 0.5s 0.15s ease both' }}>
         <div style={{
-          color: C.text,
-          fontSize: 28,
-          fontWeight: 800,
-          letterSpacing: 0.5,
+          fontSize: 36,
+          fontWeight: 900,
+          letterSpacing: '-1.5px',
+          lineHeight: 1,
+          fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
         }}>
-          InvoiceGo
+          <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
         </div>
         <div style={{
           color: C.textMuted,
