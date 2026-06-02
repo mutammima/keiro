@@ -24,7 +24,7 @@ import Home from './pages/Home';
 import EndOfDay from './pages/EndOfDay';
 import WhatsNew, { hasSeenWhatsNew } from './components/ui/WhatsNew';
 import PinLock, { isPinEnabled } from './components/settings/PinLock';
-import SectionGuide, { hasSeenGuide, markGuideSeen } from './components/ui/SectionGuide';
+// SectionGuide removed — the OnboardingTutorial covers the same ground
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
@@ -92,7 +92,6 @@ function AppInner() {
   const [currentInvoice, setCurrentInvoice] = useState(null);
   const [selectedStore,  setSelectedStore]  = useState(null);
   const [showTutorial,   setShowTutorial]   = useState(false);
-  const [guideSection,   setGuideSection]   = useState(null);
   // WhatsNew starts hidden — only shown after onboarding is complete so the
   // two overlays never fight each other and block all interaction.
   const [showWhatsNew,   setShowWhatsNew]   = useState(false);
@@ -121,17 +120,6 @@ function AppInner() {
     return () => window.removeEventListener('inv-version-update', handler);
   }, []);
 
-  // Sections that have a contextual guide
-  const GUIDED_SECTIONS = new Set(['invoice','history','products','reports','store-map','notes','home']);
-
-  // Show guide for a section if not yet seen
-  function maybeShowGuide(section) {
-    if (GUIDED_SECTIONS.has(section) && !hasSeenGuide(section)) {
-      // Small delay so the page renders first
-      setTimeout(() => setGuideSection(section), 350);
-    }
-  }
-
   // Tab strip index
   const [tabIdx, setTabIdx] = useState(0);
 
@@ -153,7 +141,6 @@ function AppInner() {
       setPage(p);
     }
     setDrawerOpen(false);
-    maybeShowGuide(p);
   }, []); // eslint-disable-line
 
   // Apply density class on mount + sync body background so any sub-pixel
@@ -175,9 +162,6 @@ function AppInner() {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', C.bg);
   }, [C.bg]);
-
-  // Show guide for the home/dashboard on first ever launch
-  useEffect(() => { maybeShowGuide('home'); }, []); // eslint-disable-line
 
   function handleInvoiceGenerated(invoice) {
     setCurrentInvoice(invoice);
@@ -307,7 +291,6 @@ function AppInner() {
     >
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {showTutorial && <InteractiveTutorial currentPage={page} navigate={navigate} onClose={() => setShowTutorial(false)} />}
-      {guideSection  && <SectionGuide section={guideSection} onDismiss={() => setGuideSection(null)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
           onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
