@@ -18,6 +18,16 @@ import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 /** Small red asterisk for required fields. */
 const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
 
+/** SVG camera icon for the barcode scan button. */
+function CameraIcon({ color = '#555', size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  );
+}
+
 export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
@@ -274,7 +284,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
               </div>
               <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
                 onClick={() => setShowScanner(true)} type="button">
-                Scan
+                <CameraIcon color={dark ? '#ffffff' : '#555'} />
               </button>
             </div>
             {lastBarcode && (
