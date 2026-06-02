@@ -15,74 +15,107 @@ import {
 function uid() { return '_' + Math.random().toString(36).slice(2); }
 
 /**
- * SwipeableRow — swipe left to reveal & confirm a delete action.
- * Uses native touch listeners so stopPropagation actually blocks App.jsx's
- * horizontal tab-swipe handler (which is also a native listener).
+ * SwipeableRow — swipe left to reveal a red Remove strip; release to delete.
  *
- * data-swipe-item tells App.jsx's handleStart to skip tab-swipe for this touch.
+ * iOS quirk: the parent tab content div has touchAction:'pan-y', which causes
+ * the browser to fire touchcancel for horizontal gestures before JS can commit
+ * to the swipe. Fix: axis-lock state machine (same pattern as App.jsx's tab
+ * swipe). We only call e.preventDefault() *after* confirming the gesture is
+ * a left-swipe, and we treat touchcancel as "abort → snap back" so it never
+ * accidentally triggers a delete.
+ *
+ * data-swipe-item on the outer div tells App.jsx's handleStart to skip
+ * tab-switching for touches that originate inside a swipeable row.
  */
 function SwipeableRow({ onDelete, cardBg, children }) {
-  const rowRef   = useRef(null);
-  const startRef = useRef(null);   // { x, y }
-  const offsetRef = useRef(0);     // current translateX (px)
+  const rowRef    = useRef(null);
+  const startRef  = useRef(null);   // { x, y } — set on touchstart, cleared on end
+  const dirRef    = useRef(null);   // null | 'h' (left) | 'v' — axis lock
+  const offsetRef = useRef(0);      // live translateX in px
+
   const [offsetX,  setOffsetX]  = useState(0);
   const [snapping, setSnapping] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  const handleDelete = useCallback(() => {
-    setSnapping(true);
-    setDeleting(true);
-    setOffsetX(-480);
-    setTimeout(onDelete, 280);
-  }, [onDelete]);
 
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
 
-    function onStart(e) {
-      startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    function reset(snapBack) {
+      const committed = dirRef.current === 'h';
+      startRef.current = null;
+      dirRef.current   = null;
+      setSnapping(true);
+      if (committed && snapBack) setOffsetX(0);
       offsetRef.current = 0;
+    }
+
+    function onStart(e) {
+      startRef.current  = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      offsetRef.current = 0;
+      dirRef.current    = null;
       setSnapping(false);
       setDeleting(false);
     }
 
     function onMove(e) {
       if (!startRef.current) return;
+
       const dx = e.touches[0].clientX - startRef.current.x;
       const dy = e.touches[0].clientY - startRef.current.y;
-      // Only handle left swipes with clear horizontal intent
-      if (dx >= 0 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      e.preventDefault();  // stop scroll
-      const clamped = Math.max(-100, dx);
+
+      // ── Axis-lock: wait for 6 px of movement before committing ──────────
+      if (dirRef.current === null) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too early to decide
+        // Require dx to be both leftward AND horizontally dominant
+        dirRef.current = (dx < 0 && Math.abs(dx) > Math.abs(dy)) ? 'h' : 'v';
+      }
+
+      if (dirRef.current !== 'h') return; // vertical scroll — browser handles it
+
+      // ── Confirmed left-swipe: take over this gesture ─────────────────────
+      // preventDefault stops the browser from also vertical-scrolling while
+      // we animate the row sideways (listener is passive:false so this works).
+      e.preventDefault();
+
+      const clamped = Math.max(-110, dx);
       offsetRef.current = clamped;
       setOffsetX(clamped);
     }
 
     function onEnd() {
       if (!startRef.current) return;
-      startRef.current = null;
-      setSnapping(true);
-      if (offsetRef.current < -60) {
-        // Swiped far enough — delete
+      const wasH    = dirRef.current === 'h';
+      const offset  = offsetRef.current;
+      reset(false);
+
+      if (wasH && offset < -55) {
+        // Swiped past the threshold — animate off-screen then delete
         setOffsetX(-480);
         setDeleting(true);
-        setTimeout(onDelete, 280);
+        setTimeout(onDelete, 260);
       } else {
-        setOffsetX(0);
+        setOffsetX(0); // snap back
       }
     }
 
-    el.addEventListener('touchstart', onStart, { passive: true  });
-    el.addEventListener('touchmove',  onMove,  { passive: false });
-    el.addEventListener('touchend',   onEnd,   { passive: true  });
-    el.addEventListener('touchcancel',onEnd,   { passive: true  });
+    // touchcancel = iOS aborted the gesture (e.g. pan-y took over, system UI,
+    // incoming call).  Always snap back — never delete on a cancelled gesture.
+    function onCancel() {
+      if (!startRef.current) return;
+      reset(true);
+    }
+
+    el.addEventListener('touchstart',  onStart,  { passive: true  });
+    el.addEventListener('touchmove',   onMove,   { passive: false });
+    el.addEventListener('touchend',    onEnd,    { passive: true  });
+    el.addEventListener('touchcancel', onCancel, { passive: true  });
 
     return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove',  onMove);
-      el.removeEventListener('touchend',   onEnd);
-      el.removeEventListener('touchcancel',onEnd);
+      el.removeEventListener('touchstart',  onStart);
+      el.removeEventListener('touchmove',   onMove);
+      el.removeEventListener('touchend',    onEnd);
+      el.removeEventListener('touchcancel', onCancel);
     };
   }, [onDelete]);
 
@@ -90,21 +123,26 @@ function SwipeableRow({ onDelete, cardBg, children }) {
     <div
       ref={rowRef}
       data-swipe-item
-      style={{ position: 'relative', overflow: 'hidden', opacity: deleting ? 0 : 1, transition: deleting ? 'opacity 0.28s ease' : 'none' }}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        opacity: deleting ? 0 : 1,
+        transition: deleting ? 'opacity 0.26s ease' : 'none',
+      }}
     >
-      {/* Red delete label revealed behind the row */}
+      {/* Red strip revealed behind the row when swiping left */}
       <div style={{
-        position: 'absolute', right: 0, top: 0, bottom: 0, width: 80,
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 110,
         background: '#ef4444',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.3,
-        userSelect: 'none',
+        userSelect: 'none', pointerEvents: 'none',
       }}>Remove</div>
 
-      {/* Sliding content */}
+      {/* Sliding foreground — same bg as the card to cover the strip at rest */}
       <div style={{
         transform: `translateX(${offsetX}px)`,
-        transition: snapping ? 'transform 0.25s cubic-bezier(0.4,0,0.2,1)' : 'none',
+        transition: snapping ? 'transform 0.22s cubic-bezier(0.4,0,0.2,1)' : 'none',
         background: cardBg,
         position: 'relative', zIndex: 1,
       }}>
