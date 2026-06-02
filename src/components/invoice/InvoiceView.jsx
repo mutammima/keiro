@@ -316,7 +316,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
           }}
           onClick={handleWhatsApp}
         >
-          <span style={{ fontSize: 16 }}>💬</span> Send via WhatsApp
+          Send via WhatsApp
         </button>
 
         <button

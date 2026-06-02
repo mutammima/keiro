@@ -195,7 +195,7 @@ export default function LiveInvoicePreview({
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <span style={{ fontSize: 16 }}>📄</span> Preview as PDF
+          Preview as PDF
         </button>
       )}
     </div>
