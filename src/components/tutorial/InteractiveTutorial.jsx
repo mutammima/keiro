@@ -77,7 +77,7 @@ const STEPS = [
     autoFill: () => {
       const el = document.querySelector('input[placeholder="John Smith"]');
       if (!el?.value?.trim()) setNativeValue(el, 'Mike Johnson');
-      setTimeout(() => focusSelector('input[placeholder="Marlboro Reds"]'), 80);
+      setTimeout(() => focusSelector('input[placeholder="GMan V Cut T-Shirt 6ct"]'), 80);
     },
     autoAdvanceOn: null,
   },
@@ -87,10 +87,10 @@ const STEPS = [
     selector: '[data-tutorial="invoice-add-item"]',
     navPage: 'invoice',
     autoFill: () => {
-      const prod  = document.querySelector('input[placeholder="Marlboro Reds"]');
+      const prod  = document.querySelector('input[placeholder="GMan V Cut T-Shirt 6ct"]');
       const qty   = document.querySelector('input[placeholder="1"]');
       const price = document.querySelector('input[placeholder="0.00"]');
-      if (!prod?.value?.trim())  setNativeValue(prod,  'Marlboro Reds');
+      if (!prod?.value?.trim())  setNativeValue(prod,  'GMan V Cut T-Shirt 6ct');
       if (!qty?.value?.trim())   setNativeValue(qty,   '2');
       if (!price?.value?.trim()) setNativeValue(price, '9.99');
       setTimeout(() => {

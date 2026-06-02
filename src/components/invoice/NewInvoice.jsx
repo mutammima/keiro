@@ -194,7 +194,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <AutofillInput label={<>Product Name <Req /></>} placeholder="Marlboro Reds"
+                <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt 6ct"
                   value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
                   enterKeyHint="next" onKeyDown={focusNext} />
               </div>
