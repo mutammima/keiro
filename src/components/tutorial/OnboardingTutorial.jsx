@@ -401,7 +401,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     /**
      * Move to input then type character by character.
      */
-    async function type(elOrSelector, text) {
+    async function type(elOrSelector, text, charDelay = 18) {
       if (cancelled) return;
       const el = await moveTo(elOrSelector);
       if (!el) return;
@@ -410,7 +410,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) break;
         setNativeValue(el, text.slice(0, i));
-        await sleep(18);          // fast typing — user already clicked Next
+        await sleep(charDelay);
       }
       await sleep(80);
     }
@@ -468,24 +468,27 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       // Anchor tooltip to middle of screen for this step — it won't jump
       setRect(null);
 
-      // Fill store + customer (no pause between them)
-      await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
-      await type('input[placeholder="John Smith"]',   'Mike Johnson');
-      await sleep(80);
+      // Fill store + customer — slightly slower so the user can read each field
+      await type('input[placeholder="Sunrise Deli"]', 'Corner Store', 38);
+      await sleep(200);
+      await type('input[placeholder="John Smith"]',   'Mike Johnson', 38);
+      await sleep(280);
 
       // Fill item
-      await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
+      await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt', 38);
+      await sleep(200);
       const qtyEl = document.querySelector('input[placeholder="1"]');
       if (qtyEl) {
         await moveTo(qtyEl);
         setNativeValue(qtyEl, '2');
         qtyEl.dispatchEvent(new Event('input', { bubbles: true }));
-        await sleep(120);
+        await sleep(200);
       }
-      await type('input[placeholder="0.00"]', '9.99');
+      await type('input[placeholder="0.00"]', '9.99', 38);
+      await sleep(200);
       const addBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.trim() === '+ Add Item');
-      if (addBtn) { await tap(addBtn); await sleep(180); }
+      if (addBtn) { await tap(addBtn); await sleep(300); }
 
       // Move cursor to Generate and pause so user can see what's next
       await moveTo('[data-tutorial="invoice-generate"]');
