@@ -233,6 +233,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
 
         {/* Nested card — tap to expand */}
         <div
+          {...(isFirst ? { 'data-tutorial': 'invoice-expand-latest' } : {})}
           style={{ ...s.nestedCard, background: C.nestedCard, borderColor: C.nestedCardBorder }}
           onClick={() => setExpanded(isOpen ? null : inv.number)}
         >

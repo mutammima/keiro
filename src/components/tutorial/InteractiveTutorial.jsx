@@ -120,7 +120,7 @@ const STEPS = [
   },
   {
     title: 'Step 7 — Invoice History',
-    instruction: 'Tap "Invoices" to see all your past invoices. Tap any one to expand it.',
+    instruction: 'Tap "Invoices" to see all your past invoices.',
     selector: '[data-tutorial="tab-history"]',
     navPage: 'history',
     autoFill: () => {
@@ -129,8 +129,18 @@ const STEPS = [
     autoAdvanceOn: null,
   },
   {
-    title: 'Step 8 — Products Catalog',
-    instruction: 'Tap "Products" to see your saved products. They auto-save every time you create an invoice.',
+    title: 'Step 8 — Expand an Invoice',
+    instruction: 'Tap any invoice row to expand it and see the full item breakdown. From here you can mark it as Paid, Unpaid, or Partial — tap the status badge to cycle through payment states.',
+    selector: '[data-tutorial="invoice-expand-latest"]',
+    navPage: 'history',
+    autoFill: () => {
+      document.querySelector('[data-tutorial="invoice-expand-latest"]')?.click();
+    },
+    autoAdvanceOn: null,
+  },
+  {
+    title: 'Step 9 — Products Catalog',
+    instruction: 'Tap "Products" to see your saved products. They auto-save every time you create an invoice. You can also swipe or long-press any product to remove it.',
     selector: '[data-tutorial="tab-products"]',
     navPage: 'products',
     autoFill: () => {
@@ -139,7 +149,7 @@ const STEPS = [
     autoAdvanceOn: null,
   },
   {
-    title: 'Step 9 — Sidebar & Settings',
+    title: 'Step 10 — Sidebar & Settings',
     instruction: 'Tap ☰ to open the sidebar. From here you can access Reports, Store Info, Notes, and Settings.',
     selector: '[data-tutorial="hamburger"]',
     navPage: null,
