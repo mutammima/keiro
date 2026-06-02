@@ -3,12 +3,13 @@
  * native share, and plain-text copy actions.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generatePDFBlob } from '../../utils/pdfGenerator';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
+import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -20,6 +21,25 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [sellerSig, setSellerSig] = useState(null);
   const [buyerSig,  setBuyerSig]  = useState(null);
   const [showSigs,  setShowSigs]  = useState(false);
+  const [sigSaved,  setSigSaved]  = useState(false); // flash "Saved" after auto-save
+
+  // ── Load saved signatures on mount ─────────────────────────────────────────
+  useEffect(() => {
+    const saved = getSignatures(invoice.number);
+    if (saved.seller) { setSellerSig(saved.seller); setShowSigs(true); }
+    if (saved.buyer)  { setBuyerSig(saved.buyer);   setShowSigs(true); }
+  }, [invoice.number]);
+
+  // ── Auto-save whenever either signature changes ────────────────────────────
+  useEffect(() => {
+    // Only persist if at least one sig exists (don't write a blank entry on mount)
+    if (sellerSig !== null || buyerSig !== null) {
+      saveSignatures(invoice.number, sellerSig, buyerSig);
+      setSigSaved(true);
+      const t = setTimeout(() => setSigSaved(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [sellerSig, buyerSig]); // eslint-disable-line
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const subtotal = invoice.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
@@ -216,28 +236,42 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
           )}
         </div>
 
-        {/* Signatures */}
+        {/* Signatures — Proof of delivery */}
         <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: '14px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showSigs ? 14 : 0 }}>
             <div>
               <p style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: 0 }}>Signatures</p>
               <p style={{ color: C.textMuted, fontSize: 12, margin: '2px 0 0' }}>
-                {sellerSig || buyerSig ? 'Signed — will appear in PDF' : 'Optional · included in PDF'}
+                {sigSaved
+                  ? <span style={{ color: C.successText }}>✓ Saved</span>
+                  : sellerSig || buyerSig
+                    ? 'Signed · saved to device · embedded in PDF'
+                    : 'Proof of delivery · saved with invoice'}
               </p>
             </div>
             <button
               onClick={() => setShowSigs(v => !v)}
               style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
             >
-              {showSigs ? 'Hide' : 'Sign'}
+              {showSigs ? 'Hide' : (sellerSig || buyerSig) ? 'View' : 'Sign'}
             </button>
           </div>
           {showSigs && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <SignaturePad label="Seller / Deliverer" dark={dark} C={C} onChange={setSellerSig} />
-              <SignaturePad label="Buyer / Recipient"  dark={dark} C={C} onChange={setBuyerSig}  />
+              <SignaturePad
+                label="Driver / Deliverer"
+                dark={dark} C={C}
+                initialDataUrl={sellerSig}
+                onChange={setSellerSig}
+              />
+              <SignaturePad
+                label="Store Manager — Proof of Delivery"
+                dark={dark} C={C}
+                initialDataUrl={buyerSig}
+                onChange={setBuyerSig}
+              />
               <p style={{ color: C.textLight, fontSize: 11, margin: 0, lineHeight: 1.5 }}>
-                Signing electronically here embeds your signature in the PDF. If you prefer a physical signature, print the invoice and sign the paper copy.
+                Signatures are saved to this device and embedded in the PDF. Draw with your finger then tap Download PDF to include them.
               </p>
             </div>
           )}

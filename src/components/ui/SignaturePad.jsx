@@ -6,13 +6,13 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { ACCENT } from '../../theme';
 
-export default function SignaturePad({ label, dark, C, onChange }) {
+export default function SignaturePad({ label, dark, C, onChange, initialDataUrl }) {
   const canvasRef = useRef(null);
   const drawing   = useRef(false);
   const lastPos   = useRef(null);
-  const [isEmpty, setIsEmpty] = useState(true);
+  const [isEmpty, setIsEmpty] = useState(!initialDataUrl);
 
-  // Scale canvas for device pixel ratio
+  // Scale canvas for device pixel ratio, then optionally paint saved signature
   useEffect(() => {
     const canvas = canvasRef.current;
     const rect   = canvas.getBoundingClientRect();
@@ -25,7 +25,17 @@ export default function SignaturePad({ label, dark, C, onChange }) {
     ctx.lineWidth   = 2;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
-  }, [dark]);
+
+    // Restore saved signature if provided
+    if (initialDataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        setIsEmpty(false);
+      };
+      img.src = initialDataUrl;
+    }
+  }, [dark]); // eslint-disable-line
 
   function getPos(e) {
     const canvas = canvasRef.current;

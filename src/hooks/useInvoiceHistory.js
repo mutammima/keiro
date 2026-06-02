@@ -16,6 +16,7 @@ import {
   isStorePinned,
   getBusinessName,
 } from '../utils/storage';
+import { clearSignatures } from '../utils/signatureStorage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -120,13 +121,26 @@ export function useInvoiceHistory() {
   /** True when all invoices have been collected (outstanding === 0 and there are invoices). */
   const allClear = outstanding === 0 && invoices.length > 0;
 
+  /** Returns true if the invoice is overdue: unpaid/partial and created more than 7 days ago. */
+  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  function isOverdue(inv) {
+    if (getStatus(inv) === 'paid') return false;
+    const d = new Date(inv.date);
+    return !isNaN(d) && Date.now() - d.getTime() > SEVEN_DAYS;
+  }
+
+  const overdueCount = invoices.filter(isOverdue).length;
+
   // ── Filtered lists ────────────────────────────────────────────────────────
 
   const filtered = invoices.filter(inv => {
     const q = search.trim().toLowerCase();
     const storeN = inv.storeName || inv.store_name || '';
     const matchQ = !q || storeN.toLowerCase().includes(q) || String(inv.number || inv.invoice_number).includes(q);
-    const matchS = statusFilter === 'all' || getStatus(inv) === statusFilter;
+    const matchS =
+      statusFilter === 'all'     ? true :
+      statusFilter === 'overdue' ? isOverdue(inv) :
+                                   getStatus(inv) === statusFilter;
     return matchQ && matchS;
   });
 
@@ -174,6 +188,7 @@ export function useInvoiceHistory() {
   function handleDelete(number) {
     if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
     deleteInvoice(number).catch(e => console.error(e));
+    clearSignatures(number);
     setInvoices(prev => prev.filter(i => (i.number || i.invoice_number) !== number));
     setOpenMenu(null);
   }
@@ -225,7 +240,7 @@ export function useInvoiceHistory() {
     today,
 
     // Stats
-    outstanding, unpaidCount, partialCount, todayCount, allClear,
+    outstanding, unpaidCount, partialCount, todayCount, overdueCount, allClear,
 
     // Filtered lists
     filtered,
