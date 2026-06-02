@@ -1,6 +1,14 @@
 /* ── Global reset ──────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
+/* ── Prevent iOS Safari auto-zoom on input focus ────────────────────
+ * iOS zooms in whenever a focused input has font-size < 16px.
+ * Setting a floor of 16px here prevents that while letting larger
+ * sizes defined elsewhere take effect normally. */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+
 /* ── Hide scrollbars globally (like Daimun) ─────────────────────────── */
 * {
   -ms-overflow-style: none;
