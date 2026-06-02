@@ -135,6 +135,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
             {editingBizPhone ? (
               <input
                 autoFocus
+                data-tutorial="invoice-biz-phone-input"
                 style={{ ...s.bizPhoneInput, color: C.textSub, borderBottomColor: ACCENT }}
                 value={businessPhone}
                 placeholder="Add phone number"
@@ -144,7 +145,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
                 onKeyDown={e => e.key === 'Enter' && handleBizPhoneBlur(businessPhone)}
               />
             ) : (
-              <button style={{ ...s.bizPhoneBtn, color: C.textMuted }} onClick={() => setEditingBizPhone(true)}>
+              <button data-tutorial="invoice-biz-phone-btn" style={{ ...s.bizPhoneBtn, color: C.textMuted }} onClick={() => setEditingBizPhone(true)}>
                 {businessPhone || 'Add phone'} <span style={{ fontSize: 11 }}>✎</span>
               </button>
             )}
