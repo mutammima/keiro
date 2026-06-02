@@ -77,7 +77,7 @@ const STEPS = [
     autoFill: () => {
       const el = document.querySelector('input[placeholder="John Smith"]');
       if (!el?.value?.trim()) setNativeValue(el, 'Mike Johnson');
-      setTimeout(() => focusSelector('input[placeholder="GMan V Cut T-Shirt 6ct"]'), 80);
+      setTimeout(() => focusSelector('input[placeholder="GMan V Cut T-Shirt"]'), 80);
     },
     autoAdvanceOn: null,
   },
@@ -87,10 +87,10 @@ const STEPS = [
     selector: '[data-tutorial="invoice-add-item"]',
     navPage: 'invoice',
     autoFill: () => {
-      const prod  = document.querySelector('input[placeholder="GMan V Cut T-Shirt 6ct"]');
+      const prod  = document.querySelector('input[placeholder="GMan V Cut T-Shirt"]');
       const qty   = document.querySelector('input[placeholder="1"]');
       const price = document.querySelector('input[placeholder="0.00"]');
-      if (!prod?.value?.trim())  setNativeValue(prod,  'GMan V Cut T-Shirt 6ct');
+      if (!prod?.value?.trim())  setNativeValue(prod,  'GMan V Cut T-Shirt');
       if (!qty?.value?.trim())   setNativeValue(qty,   '2');
       if (!price?.value?.trim()) setNativeValue(price, '9.99');
       setTimeout(() => {
@@ -140,10 +140,12 @@ const STEPS = [
   },
   {
     title: 'Step 9 — Sidebar & Settings',
-    instruction: 'Tap ☰ to access Reports, Store Info, Notes, and Settings.',
-    selector: null, // hamburger is always accessible; no spotlight needed
+    instruction: 'Tap ☰ to open the sidebar. From here you can access Reports, Store Info, Notes, and Settings.',
+    selector: '[data-tutorial="hamburger"]',
     navPage: null,
-    autoFill: null,
+    autoFill: () => {
+      document.querySelector('[data-tutorial="hamburger"]')?.click();
+    },
     autoAdvanceOn: null,
   },
   {

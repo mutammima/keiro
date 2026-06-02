@@ -6,9 +6,9 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 
-const ThemeContext = createContext({ dark: false, toggleDark: () => {}, accent: '#4A7BF7', setAccent: () => {} });
+const ThemeContext = createContext({ dark: false, toggleDark: () => {}, accent: '#16A34A', setAccent: () => {} });
 
-export const DEFAULT_ACCENT = '#4A7BF7';
+export const DEFAULT_ACCENT = '#16A34A';
 
 function applyThemeColor(dark) {
   const color = dark ? '#000000' : '#f0ede8';

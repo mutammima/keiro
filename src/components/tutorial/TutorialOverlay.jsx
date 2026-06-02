@@ -318,7 +318,7 @@ function DemoItems({ dark, C }) {
     const t = setInterval(() => setTick(v => (v + 1) % 88), 120);
     return () => clearInterval(t);
   }, []);
-  const prodTxt   = 'GMan V Cut T-Shirt 6ct'.slice(0, Math.min(22, Math.floor(tick / 2)));
+  const prodTxt   = 'GMan V Cut T-Shirt'.slice(0, Math.min(18, Math.floor(tick / 2)));
   const showQtyPr = tick > 26;
   const qtyVal    = tick > 36 ? '2' : '';
   const priceVal  = tick > 46 ? '12.50' : '';
@@ -400,7 +400,7 @@ function DemoGenerate({ dark, C }) {
         {/* Invoice preview */}
         <Card C={C} dark={dark}>
           <SectionLabel text="Items" C={C} />
-          {[['GMan V Cut T-Shirt 6ct','2×','$25.00'],['GMan Crew Neck 6ct','3×','$30.00']].map(([n,q,t], i) => (
+          {[['GMan V Cut T-Shirt','2×','$25.00'],['GMan Crew Neck','3×','$30.00']].map(([n,q,t], i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i === 0 ? `1px solid ${C.divider}` : 'none' }}>
               <span style={{ color: C.text, fontSize: 10, fontWeight: 500 }}>{n}</span>
               <span style={{ color: C.textMuted, fontSize: 10 }}>{q}</span>
