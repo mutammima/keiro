@@ -1,4 +1,11 @@
 /**
+ * @deprecated NOT ROUTED IN App.jsx — this file is dead code.
+ *
+ * App.jsx routes store-related views to StoreMap.jsx (store info + OSM map)
+ * and StoreBalance.jsx (per-store running balance). StoresPage.jsx is not
+ * referenced in any navigate() call or import.
+ * Safe to delete unless a standalone all-stores list page is revived.
+ *
  * StoresPage — lists all stores visited with:
  *   • Outstanding balance (unpaid total)
  *   • Phone number (tap to call)

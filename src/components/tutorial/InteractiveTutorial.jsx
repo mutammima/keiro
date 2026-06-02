@@ -1,4 +1,11 @@
 /**
+ * @deprecated NOT IMPORTED ANYWHERE — this file is dead code.
+ *
+ * App.jsx has the comment: "InteractiveTutorial replaced by OnboardingTutorial
+ * for 'How it Works'". The NavDrawer's "How it Works" button now triggers
+ * OnboardingTutorial via the onTutorial prop in App.jsx.
+ * Safe to delete unless the interactive auto-fill walkthrough is revived.
+ *
  * InteractiveTutorial — "How it Works" walkthrough triggered from the NavDrawer.
  *
  * Improvements over the old version:
