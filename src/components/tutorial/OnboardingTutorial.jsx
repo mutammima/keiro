@@ -1,37 +1,27 @@
 /**
  * OnboardingTutorial — Welcome screen → Step-based autoplay with pauses.
  *
- * Flow:
- *   0. Welcome screen — "Want a quick tour?"  Yes → tutorial, No → skip
- *   1–5. Each step:
- *        a. Shows description text first → user presses Next to start demo
- *        b. Demo runs; pauses before each sub-action so user can read
- *        c. End-pause: "Again" replays whole step, "Next →" advances
- *
- * "Again" fix: uses a closure-local `cancelled` flag instead of a shared
- * ref, so the old async chain can't keep running after a new one starts.
- *
- * Steps:
- *   1. Set business name   (New Invoice page)
- *   2. Create an invoice   (store → customer → product → generate)
- *   3. Invoices page       (expand → status cycle → collapse)
- *   4. Store balance       (tap store → view balance → back)
- *   5. Products catalogue  (auto-saved + mention removal)
+ * UX improvements in this version:
+ *  • Tooltip card slides smoothly to new positions (CSS transition on top)
+ *  • Spotlight panels animate between elements (transition on all sides)
+ *  • Text content fades in cleanly on every show() call (keyed fade-in)
+ *  • Shorter, plain-English copy throughout
+ *  • "Again" bug fixed: closure-local `cancelled` flag, not a shared ref
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { ACCENT } from '../../theme';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const TOTAL     = 5;
 const OVERLAY_Z = 9100;
 const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
-const PAD       = 5;
+const PAD       = 6;
 
-// ── React-friendly input setter ───────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function setNativeValue(el, value) {
   if (!el) return;
@@ -42,7 +32,9 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-// ── Visual cursor ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Visual cursor
+// ─────────────────────────────────────────────────────────────────────────────
 
 function VisualCursor({ pos, pulse }) {
   return (
@@ -52,11 +44,7 @@ function VisualCursor({ pos, pulse }) {
       background: pulse ? ACCENT : 'rgba(255,255,255,0.93)',
       border: `2.5px solid ${ACCENT}`,
       zIndex: CURSOR_Z, pointerEvents: 'none',
-      transition: [
-        'left 0.42s cubic-bezier(0.4,0,0.2,1)',
-        'top  0.42s cubic-bezier(0.4,0,0.2,1)',
-        'background 0.14s', 'transform 0.14s', 'box-shadow 0.14s',
-      ].join(', '),
+      transition: 'left 0.40s cubic-bezier(0.4,0,0.2,1), top 0.40s cubic-bezier(0.4,0,0.2,1), background 0.13s, transform 0.13s, box-shadow 0.13s',
       transform:  pulse ? 'scale(0.6)' : 'scale(1)',
       boxShadow: pulse
         ? '0 0 0 8px rgba(74,123,247,0.28), 0 0 0 16px rgba(74,123,247,0.1)'
@@ -65,15 +53,21 @@ function VisualCursor({ pos, pulse }) {
   );
 }
 
-// ── Spotlight ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Spotlight — 4 panels that slide smoothly between positions
+// ─────────────────────────────────────────────────────────────────────────────
 
-function Spotlight({ rect }) {
+const PANEL_T = 'top 0.36s cubic-bezier(0.4,0,0.2,1), left 0.36s cubic-bezier(0.4,0,0.2,1), right 0.36s cubic-bezier(0.4,0,0.2,1), bottom 0.36s cubic-bezier(0.4,0,0.2,1), width 0.36s cubic-bezier(0.4,0,0.2,1), height 0.36s cubic-bezier(0.4,0,0.2,1)';
+
+function Spotlight({ rect, transitioning }) {
   const stopTouch = e => e.preventDefault();
   const base = {
     position: 'fixed', background: 'transparent',
     zIndex: OVERLAY_Z, pointerEvents: 'all',
     touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+    transition: transitioning ? PANEL_T : 'none',
   };
+
   if (!rect) return <div style={{ ...base, inset: 0 }} onTouchMove={stopTouch} />;
 
   const top    = Math.max(0, rect.top    - PAD);
@@ -92,26 +86,29 @@ function Spotlight({ rect }) {
       <div style={{ ...base, top: bottom, left: 0,     right: 0,    bottom: 0      }} {...pp} />
       <div style={{ ...base, top,         left: 0,     width: left, height: h      }} {...pp} />
       <div style={{ ...base, top,         left: right, right: 0,    height: h      }} {...pp} />
+      {/* Glow ring — also transitions */}
       <div style={{
         position: 'fixed', top, left, width: w, height: h,
         zIndex: OVERLAY_Z + 1, pointerEvents: 'none', borderRadius: 10,
         boxShadow: `0 0 0 2.5px ${ACCENT}, 0 0 0 5px rgba(74,123,247,0.32), 0 0 22px 7px rgba(74,123,247,0.14)`,
+        transition: transitioning ? PANEL_T : 'none',
       }} />
     </>
   );
 }
 
-// ── Tooltip card ──────────────────────────────────────────────────────────────
-// phase: 'playing' | 'mid-pause' | 'end-pause'
+// ─────────────────────────────────────────────────────────────────────────────
+// Tooltip card  — slides vertically + fades text on content change
+// ─────────────────────────────────────────────────────────────────────────────
 
-function Tooltip({ stepId, title, desc, rect, dark, phase, isLast, onSkip, onNext, onSeeAgain }) {
+function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, isLast, onSkip, onNext, onSeeAgain }) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const tooltipW  = Math.min(320, vw - 32);
-  const TOOLTIP_H = phase !== 'playing' ? 215 : 175;
+  const TOOLTIP_H = phase !== 'playing' ? 210 : 170;
 
-  const visTop    = rect ? Math.max(0, Math.min(vh, rect.top))    : vh * 0.6;
-  const visBottom = rect ? Math.max(0, Math.min(vh, rect.bottom)) : vh * 0.6;
+  const visTop    = rect ? Math.max(0, Math.min(vh, rect.top))    : vh * 0.55;
+  const visBottom = rect ? Math.max(0, Math.min(vh, rect.bottom)) : vh * 0.55;
   const elementCenter = (visTop + visBottom) / 2;
 
   let tooltipTop = elementCenter > vh / 2
@@ -123,61 +120,72 @@ function Tooltip({ stepId, title, desc, rect, dark, phase, isLast, onSkip, onNex
     <div
       data-tutorial-ui="tooltip"
       style={{
-        position: 'fixed', top: tooltipTop,
-        left: Math.max(16, (vw - tooltipW) / 2), width: tooltipW,
+        position: 'fixed',
+        top: tooltipTop,
+        left: Math.max(16, (vw - tooltipW) / 2),
+        width: tooltipW,
         zIndex: TOOLTIP_Z,
         background: dark ? '#1c1c20' : '#ffffff',
-        borderRadius: 18, padding: '14px 16px 13px',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.52)',
+        borderRadius: 18,
+        padding: '13px 15px 12px',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+        // Smooth vertical slide when spotlight moves
+        transition: 'top 0.36s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
       {/* Step label + Skip */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: ACCENT, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Step {stepId} of {TOTAL}
         </span>
         <button data-tutorial-ui="skip-btn" onClick={onSkip} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 12, fontWeight: 600,
-          color: dark ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.28)',
+          background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+          color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.25)',
           padding: '2px 6px', borderRadius: 6, WebkitTapHighlightColor: 'transparent',
         }}>Skip</button>
       </div>
 
       {/* Progress bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 9 }}>
         {Array.from({ length: TOTAL }).map((_, i) => (
           <div key={i} style={{
             flex: 1, height: 3, borderRadius: 2,
-            background: i < stepId ? ACCENT : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'),
-            opacity: i < stepId - 1 ? 0.45 : 1, transition: 'background 0.3s',
+            background: i < stepId ? ACCENT : (dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'),
+            opacity: i < stepId - 1 ? 0.42 : 1,
+            transition: 'background 0.3s',
           }} />
         ))}
       </div>
 
-      {/* Title + desc */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.56)' : 'rgba(0,0,0,0.5)', lineHeight: 1.55 }}>{desc}</div>
+      {/* Text content — keyed so it fades in on every change */}
+      <div key={contentKey} style={{ animation: 'tut-fadein 0.22s ease both' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#fff' : '#111', marginBottom: 3 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.54)' : 'rgba(0,0,0,0.48)', lineHeight: 1.52 }}>
+          {desc}
+        </div>
+      </div>
 
-      {/* Buttons */}
+      {/* Action buttons */}
       {phase !== 'playing' && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
           {phase === 'end-pause' && (
             <button data-tutorial-ui="see-again-btn" onClick={onSeeAgain} style={{
-              flex: 1, height: 38, borderRadius: 12, border: 'none',
+              flex: 1, height: 37, borderRadius: 11, border: 'none',
               background: dark ? '#2a2a30' : '#f0f0f3',
-              color: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+              color: dark ? 'rgba(255,255,255,0.68)' : 'rgba(0,0,0,0.58)',
               fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}>Again</button>
           )}
           <button data-tutorial-ui="next-btn" onClick={onNext} style={{
             flex: phase === 'end-pause' ? 2 : 1,
-            height: 38, borderRadius: 12, border: 'none',
+            height: 37, borderRadius: 11, border: 'none',
             background: ACCENT, color: '#fff',
             fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-            boxShadow: '0 4px 14px rgba(74,123,247,0.4)',
+            boxShadow: '0 4px 14px rgba(74,123,247,0.38)',
           }}>
             {phase === 'end-pause' && isLast ? 'Start using the app' : 'Next →'}
           </button>
@@ -186,10 +194,10 @@ function Tooltip({ stepId, title, desc, rect, dark, phase, isLast, onSkip, onNex
 
       {/* Playing indicator */}
       {phase === 'playing' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9 }}>
           <div style={{ width: 6, height: 6, borderRadius: 3, background: ACCENT, animation: 'tut-blink 1.1s ease-in-out infinite' }} />
-          <span style={{ fontSize: 11, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)' }}>
-            Watch the demo…
+          <span style={{ fontSize: 11, fontWeight: 500, color: dark ? 'rgba(255,255,255,0.33)' : 'rgba(0,0,0,0.28)' }}>
+            Watch…
           </span>
         </div>
       )}
@@ -197,38 +205,32 @@ function Tooltip({ stepId, title, desc, rect, dark, phase, isLast, onSkip, onNex
   );
 }
 
-// ── Welcome screen ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Welcome screen
+// ─────────────────────────────────────────────────────────────────────────────
 
 function WelcomeScreen({ dark, onStart, onSkip }) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
   return (
-    <div
-      data-tutorial-ui="welcome"
-      style={{
-        position: 'fixed', inset: 0, zIndex: TOOLTIP_Z,
-        background: dark ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.45)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24,
-      }}
-    >
+    <div data-tutorial-ui="welcome" style={{
+      position: 'fixed', inset: 0, zIndex: TOOLTIP_Z,
+      background: dark ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
       <div style={{
         width: '100%', maxWidth: 340,
         background: dark ? '#1c1c20' : '#ffffff',
-        borderRadius: 24, padding: '32px 24px 24px',
+        borderRadius: 24, padding: '30px 22px 22px',
         boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         textAlign: 'center',
+        animation: 'tut-fadein 0.3s ease both',
       }}>
-        {/* Logo mark */}
         <div style={{
-          width: 64, height: 64, borderRadius: 18,
-          background: ACCENT, margin: '0 auto 16px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 12px 32px ${ACCENT}55`,
+          width: 60, height: 60, borderRadius: 16, background: ACCENT,
+          margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 10px 28px ${ACCENT}55`,
         }}>
-          <svg width={34} height={34} viewBox="0 0 44 44" fill="none">
+          <svg width={32} height={32} viewBox="0 0 44 44" fill="none">
             <rect x="8" y="4" width="24" height="32" rx="4" fill="white" fillOpacity="0.22" />
             <rect x="8" y="4" width="24" height="32" rx="4" stroke="white" strokeWidth="2.2" />
             <line x1="14" y1="14" x2="26" y2="14" stroke="white" strokeWidth="2" strokeLinecap="round" />
@@ -240,64 +242,68 @@ function WelcomeScreen({ dark, onStart, onSkip }) {
           </svg>
         </div>
 
-        <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', color: dark ? '#fff' : '#111', marginBottom: 8 }}>
+        <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: '-0.4px', color: dark ? '#fff' : '#111', marginBottom: 8 }}>
           Welcome to <span style={{ color: ACCENT }}>InvoGo!</span>
         </div>
-        <div style={{ fontSize: 14, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)', lineHeight: 1.6, marginBottom: 28 }}>
-          Would you like a quick tour? We'll walk you through the app step by step — it only takes a minute.
+        <div style={{ fontSize: 13, color: dark ? 'rgba(255,255,255,0.52)' : 'rgba(0,0,0,0.48)', lineHeight: 1.6, marginBottom: 24 }}>
+          Want a quick tour? We'll show you how everything works in about a minute.
         </div>
 
         <button data-tutorial-ui="welcome-start" onClick={onStart} style={{
-          width: '100%', height: 48, borderRadius: 14, border: 'none',
+          width: '100%', height: 46, borderRadius: 13, border: 'none',
           background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700,
           cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-          boxShadow: '0 6px 20px rgba(74,123,247,0.45)',
-          marginBottom: 10,
-        }}>
-          Show me around
-        </button>
+          boxShadow: '0 6px 20px rgba(74,123,247,0.42)', marginBottom: 9,
+        }}>Show me around</button>
+
         <button data-tutorial-ui="welcome-skip" onClick={onSkip} style={{
-          width: '100%', height: 40, borderRadius: 12, border: 'none',
-          background: 'none', color: dark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.35)',
-          fontSize: 14, fontWeight: 500, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-        }}>
-          I'll explore myself
-        </button>
+          width: '100%', height: 38, borderRadius: 11, border: 'none',
+          background: 'none', color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.32)',
+          fontSize: 13, fontWeight: 500, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+        }}>I'll explore myself</button>
       </div>
     </div>
   );
 }
 
-// ── Keyframes ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyframes (injected once)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function ensureKeyframes() {
   if (document.getElementById('tut-kf')) return;
   const el = document.createElement('style');
   el.id = 'tut-kf';
-  el.textContent = `@keyframes tut-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }`;
+  el.textContent = `
+    @keyframes tut-blink   { 0%,100%{opacity:1} 50%{opacity:0.18} }
+    @keyframes tut-fadein  { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+  `;
   document.head.appendChild(el);
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
   const { dark } = useTheme();
 
-  const [welcomed,    setWelcomed]    = useState(false);
-  const [cursorPos,   setCursorPos]   = useState({ x: -100, y: -100 });
-  const [cursorPulse, setCursorPulse] = useState(false);
-  const [rect,        setRect]        = useState(null);
-  const [tooltip,     setTooltip]     = useState({ stepId: 1, title: '', desc: '' });
-  const [stepIdx,     setStepIdx]     = useState(0);
-  const [replayKey,   setReplayKey]   = useState(0);
-  const [phase,       setPhase]       = useState('playing');
+  const [welcomed,     setWelcomed]     = useState(false);
+  const [cursorPos,    setCursorPos]    = useState({ x: -100, y: -100 });
+  const [cursorPulse,  setCursorPulse]  = useState(false);
+  const [rect,         setRect]         = useState(null);
+  const [spotlightOn,  setSpotlightOn]  = useState(false); // delay transitions until after first rect set
+  const [tooltip,      setTooltip]      = useState({ stepId: 1, title: '', desc: '' });
+  const [contentKey,   setContentKey]   = useState(0);     // increments on every show() → triggers fade-in
+  const [stepIdx,      setStepIdx]      = useState(0);
+  const [replayKey,    setReplayKey]    = useState(0);
+  const [phase,        setPhase]        = useState('playing');
 
-  // nextResolverRef: set while paused, called by handleNext
   const nextResolverRef = useRef(null);
 
   useEffect(() => { ensureKeyframes(); }, []);
 
-  // ── Lock body + block user taps ───────────────────────────────────────────
+  // ── Lock body + block taps ────────────────────────────────────────────────
   useEffect(() => {
     const so = document.body.style.overflow;
     const sp = document.body.style.position;
@@ -333,29 +339,30 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, []);
 
-  // ── Run step when stepIdx or replayKey changes ────────────────────────────
+  // ── Step runner ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!welcomed) return; // don't run until user confirmed the tutorial
+    if (!welcomed) return;
 
-    // ── IMPORTANT: closure-local cancel flag ─────────────────────────────────
-    // We intentionally use a closure variable (not a shared ref) so the old
-    // async chain cannot keep running after a new effect starts, even if
-    // React resets a shared ref before the old Promise microtask fires.
+    // Closure-local cancel flag — immune to React ref reset timing
     let cancelled = false;
 
     setPhase('playing');
     setRect(null);
+    setSpotlightOn(false);
     setCursorPos({ x: -100, y: -100 });
     setCursorPulse(false);
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
-    const show  = (id, title, desc) => { if (!cancelled) setTooltip({ stepId: id, title, desc }); };
 
-    /**
-     * Pause and wait for the user to press Next.
-     * isEnd=false → mid-pause (Next only)
-     * isEnd=true  → end-pause (Again + Next)
-     */
+    let ckSeq = 0; // local counter so each show() gets a unique key
+    function show(id, title, desc) {
+      if (cancelled) return;
+      ckSeq++;
+      const k = ckSeq;
+      setTooltip({ stepId: id, title, desc });
+      setContentKey(k);
+    }
+
     async function waitForUser(isEnd = false) {
       if (cancelled) return;
       setPhase(isEnd ? 'end-pause' : 'mid-pause');
@@ -370,12 +377,13 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         ? document.querySelector(elOrSelector) : elOrSelector;
       if (!el) return null;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await sleep(400);
+      await sleep(380);
       if (cancelled) return null;
       const r = el.getBoundingClientRect();
       setCursorPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
       setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
-      await sleep(460);
+      setSpotlightOn(true);
+      await sleep(450);
       return cancelled ? null : el;
     }
 
@@ -384,11 +392,11 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       const el = await moveTo(elOrSelector);
       if (!el) return;
       setCursorPulse(true);
-      await sleep(160);
+      await sleep(155);
       el.click();
-      await sleep(200);
+      await sleep(195);
       setCursorPulse(false);
-      await sleep(300);
+      await sleep(290);
     }
 
     async function type(elOrSelector, text) {
@@ -396,77 +404,72 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       const el = await moveTo(elOrSelector);
       if (!el) return;
       setNativeValue(el, '');
-      await sleep(80);
+      await sleep(75);
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) break;
         setNativeValue(el, text.slice(0, i));
-        await sleep(50);
+        await sleep(48);
       }
-      await sleep(240);
+      await sleep(220);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // STEP 1 — Business name
-    // ════════════════════════════════════════════════════════════════════════
-    async function step1_businessName() {
+    // ══ STEP 1 — Business name ══════════════════════════════════════════════
+    async function step1() {
       navigate('invoice');
       await sleep(900);
       setRect(null);
 
-      show(1, 'Set your business name', 'Your business name prints at the top of every invoice. Tap it to edit it right here on the invoice page.');
+      show(1, 'Your business name', 'It shows on every invoice. Tap it to change it.');
       await waitForUser(false);
       if (cancelled) return;
 
       await tap('[data-tutorial="invoice-biz-name-btn"]');
-      await sleep(350);
+      await sleep(300);
 
       const inputEl = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
       if (inputEl) {
-        show(1, 'Type your business name', 'This appears on every PDF you send to customers.');
+        show(1, 'Type your name', 'This prints at the top of every PDF.');
         await moveTo(inputEl);
         setNativeValue(inputEl, '');
-        await sleep(80);
+        await sleep(70);
         const name = 'J&Y Distributions';
         for (let i = 1; i <= name.length; i++) {
           if (cancelled) break;
           setNativeValue(inputEl, name.slice(0, i));
-          await sleep(52);
+          await sleep(50);
         }
-        await sleep(450);
+        await sleep(420);
         inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-        await sleep(550);
+        await sleep(500);
       }
 
       setRect(null);
-      show(1, 'Business name saved!', 'Every invoice you generate will now show your business name at the top.');
+      show(1, 'Saved!', 'Your name will appear on all your invoices.');
       await waitForUser(true);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // STEP 2 — Create an invoice
-    // ════════════════════════════════════════════════════════════════════════
-    async function step2_createInvoice() {
+    // ══ STEP 2 — Create an invoice ══════════════════════════════════════════
+    async function step2() {
       navigate('invoice');
       await sleep(900);
       setRect(null);
 
-      // Intro — user reads before anything moves
-      show(2, 'Create an invoice', 'Fill in who you\'re delivering to, add the products, then generate the invoice.');
+      show(2, 'Create an invoice', 'Enter the store, add your items, then generate.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Sub-part: store details
+      // Store details
       await moveTo('[data-tutorial="invoice-store-name"]');
-      show(2, 'Who are you delivering to?', 'Enter the store name and the contact person receiving the delivery.');
+      show(2, 'Who are you delivering to?', 'Enter the store name and contact person.');
       await waitForUser(false);
       if (cancelled) return;
       await type('input[placeholder="Sunrise Deli"]', 'Corner Store');
       await type('input[placeholder="John Smith"]',   'Mike Johnson');
-      await sleep(250);
+      await sleep(220);
 
-      // Sub-part: add item
+      // Add item
       await moveTo('[data-tutorial="invoice-add-item"]');
-      show(2, 'Add your products', 'Enter the item name, quantity, and unit price — then tap + Add Item.');
+      show(2, 'Add items', 'Name, quantity, price — then tap + Add Item.');
       await waitForUser(false);
       if (cancelled) return;
       await type('input[placeholder="GMan V Cut T-Shirt"]', 'GMan V Cut T-Shirt');
@@ -474,144 +477,125 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
       if (qtyEl) {
         await moveTo(qtyEl);
         setNativeValue(qtyEl, '');
-        await sleep(70);
+        await sleep(65);
         setNativeValue(qtyEl, '2');
         qtyEl.dispatchEvent(new Event('input', { bubbles: true }));
-        await sleep(240);
+        await sleep(220);
       }
       await type('input[placeholder="0.00"]', '9.99');
       const addBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.trim() === '+ Add Item');
-      if (addBtn) { await tap(addBtn); await sleep(450); }
+      if (addBtn) { await tap(addBtn); await sleep(420); }
 
-      // Sub-part: generate
+      // Generate
       await moveTo('[data-tutorial="invoice-generate"]');
-      show(2, 'Generate the invoice', 'Tap Generate to save this invoice and produce a shareable PDF.');
+      show(2, 'Generate', 'Tap Generate to save the invoice and create the PDF.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-generate"]');
-      await sleep(1300);
+      await sleep(1200);
 
       setRect(null);
-      show(2, 'Invoice created!', 'Download the PDF, share it via WhatsApp, or tap New Invoice to start another delivery.');
+      show(2, 'Invoice created!', 'Download, share via WhatsApp, or start a new one.');
       await waitForUser(true);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // STEP 3 — Invoices page
-    // ════════════════════════════════════════════════════════════════════════
-    async function step3_invoicesPage() {
+    // ══ STEP 3 — Invoices page ══════════════════════════════════════════════
+    async function step3() {
       navigate('history');
       await sleep(900);
       setRect(null);
 
-      // Intro
-      show(3, 'Your Invoices page', 'Every invoice you create shows up here, sorted by date. Tap any one to expand it.');
+      show(3, 'Invoices', 'All your invoices are here. Tap one to expand it.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Sub-part: expand
+      // Expand
       await moveTo('[data-tutorial="invoice-expand-latest"]');
-      show(3, 'Tap to expand', 'Tapping the invoice row reveals the full item breakdown.');
+      show(3, 'Tap to expand', 'See all the items inside the invoice.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="invoice-expand-latest"]');
-      await sleep(800);
+      await sleep(750);
 
-      // Sub-part: status badge
+      // Status badge
       await moveTo('[data-tutorial="status-badge-latest"]');
-      show(3, 'Change the payment status', 'Tap the status badge to cycle between Unpaid, Paid, and Partial — update it whenever you collect payment.');
+      show(3, 'Payment status', 'Tap to switch between Unpaid, Paid, and Partial.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="status-badge-latest"]'); // → Paid
-      await sleep(550);
+      await sleep(500);
       await tap('[data-tutorial="status-badge-latest"]'); // → Partial
-      await sleep(550);
+      await sleep(500);
       await tap('[data-tutorial="status-badge-latest"]'); // → Unpaid
-      await sleep(650);
+      await sleep(600);
 
-      // Mid-pause: Next collapses the invoice
+      // Mid-pause before collapse
       setRect(null);
-      show(3, 'Tap Next to collapse', 'Press Next to close the invoice back up.');
+      show(3, 'Collapse it', 'Tap Next to close the invoice.');
       await waitForUser(false);
       if (cancelled) return;
-
       await tap('[data-tutorial="invoice-expand-latest"]');
-      await sleep(650);
+      await sleep(600);
       setRect(null);
 
-      show(3, 'Invoices page done!', 'Expand any invoice at any time to review items or update the payment status.');
+      show(3, 'Got it!', 'Open any invoice to review or update its status.');
       await waitForUser(true);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // STEP 4 — Store balance
-    // ════════════════════════════════════════════════════════════════════════
-    async function step4_storeBalance() {
+    // ══ STEP 4 — Store balance ══════════════════════════════════════════════
+    async function step4() {
       navigate('history');
       await sleep(700);
       setRect(null);
 
-      // Intro
-      show(4, 'Track store balances', 'Tap any store name to see the full payment history and running balance for that store.');
+      show(4, 'Store balances', 'Tap a store name to see what they owe you.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Sub-part: tap store name
       await moveTo('[data-tutorial="store-name-link"]');
-      show(4, 'Tap the store name', 'This opens a complete balance breakdown — every invoice and payment recorded.');
+      show(4, 'Tap the store', 'Opens a full invoice history for that store.');
       await waitForUser(false);
       if (cancelled) return;
       await tap('[data-tutorial="store-name-link"]');
-      await sleep(1700);
+      await sleep(1600);
 
-      // Mid-pause: user reads balance page
-      show(4, 'Running balance', 'You can see exactly what each store owes you at a glance. Tap Next to go back.');
+      show(4, 'Balance view', 'See the running total of what this store owes. Tap Next to go back.');
       await waitForUser(false);
       if (cancelled) return;
 
       const backBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
       if (backBtn) { await tap(backBtn); } else { navigate('history'); }
-      await sleep(650);
+      await sleep(600);
       setRect(null);
 
-      show(4, 'Store balances tracked!', 'Access any store\'s balance any time from the Invoices page.');
+      show(4, 'Done!', 'Access store balances anytime from the Invoices page.');
       await waitForUser(true);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // STEP 5 — Products
-    // ════════════════════════════════════════════════════════════════════════
-    async function step5_products() {
+    // ══ STEP 5 — Products ═══════════════════════════════════════════════════
+    async function step5() {
       navigate('products');
       await sleep(900);
       setRect(null);
 
-      // Intro
-      show(5, 'Products auto-save', 'Every item you sell is automatically saved here — no manual entry needed. InvoGo autofills names and prices next time.');
+      show(5, 'Products auto-save', 'Items you sell are saved here automatically. InvoGo fills them in next time.');
       await waitForUser(false);
       if (cancelled) return;
 
-      // Sub-part: show the list
       await moveTo('[data-tutorial="products-list"]');
-      show(5, 'Your product catalogue', 'Products grow as you create invoices. Swipe or long-press any product to remove it from the list.');
+      show(5, 'Your catalogue', 'Grows as you invoice. Swipe or long-press to remove a product.');
       await waitForUser(false);
       if (cancelled) return;
-      await sleep(1200);
+      await sleep(900);
 
       setRect(null);
-      show(5, "You're all set!", "That's everything. Tap below to start using InvoGo.");
+      show(5, "You're ready!", 'Tap below to start using InvoGo.');
       await waitForUser(true);
     }
 
-    const steps = [
-      step1_businessName,
-      step2_createInvoice,
-      step3_invoicesPage,
-      step4_storeBalance,
-      step5_products,
-    ];
+    const steps = [step1, step2, step3, step4, step5];
 
     async function runStep() {
       const fn = steps[stepIdx];
@@ -626,7 +610,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
 
     return () => {
       cancelled = true;
-      // Unblock any pending waitForUser so the async chain exits cleanly
       if (nextResolverRef.current) {
         nextResolverRef.current();
         nextResolverRef.current = null;
@@ -634,43 +617,36 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, [stepIdx, replayKey, welcomed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Button handlers ───────────────────────────────────────────────────────
-
   function handleNext() {
     if (nextResolverRef.current) {
       const r = nextResolverRef.current;
       nextResolverRef.current = null;
-      r(); // resolve whatever pause is pending
+      r();
     }
   }
 
   function handleSeeAgain() {
-    // Incrementing replayKey triggers cleanup (cancels + unblocks) → step restarts
     setReplayKey(k => k + 1);
   }
 
-  // ── Welcome screen ────────────────────────────────────────────────────────
   if (!welcomed) {
     return (
       <>
-        <Spotlight rect={null} />
-        <WelcomeScreen
-          dark={dark}
-          onStart={() => setWelcomed(true)}
-          onSkip={onSkip}
-        />
+        <Spotlight rect={null} transitioning={false} />
+        <WelcomeScreen dark={dark} onStart={() => setWelcomed(true)} onSkip={onSkip} />
       </>
     );
   }
 
   return (
     <>
-      <Spotlight rect={rect} />
+      <Spotlight rect={rect} transitioning={spotlightOn} />
       <VisualCursor pos={cursorPos} pulse={cursorPulse} />
       <Tooltip
         stepId={tooltip.stepId}
         title={tooltip.title}
         desc={tooltip.desc}
+        contentKey={contentKey}
         rect={rect}
         dark={dark}
         phase={phase}
