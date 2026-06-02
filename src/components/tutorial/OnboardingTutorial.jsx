@@ -276,7 +276,7 @@ function Tooltip({ step, stepIndex, instruction, rect, dark, onSkip, onAutoFill 
           WebkitTapHighlightColor: 'transparent',
         }}
       >
-        {stepIndex === TOTAL - 1 ? 'Finish 🎉' : 'Next →'}
+        {stepIndex === TOTAL - 1 ? 'Finish' : 'Next →'}
       </button>
 
       {!step.manualAdvance && (
@@ -440,18 +440,35 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip }) {
         return;
       }
       if (sel === '[data-tutorial="invoice-store-name"]') {
+        // Fill store + customer name, then chain through item + generate automatically
         setNativeValue(document.querySelector('input[placeholder="Sunrise Deli"]'), 'Corner Store');
         setNativeValue(document.querySelector('input[placeholder="John Smith"]'),   'Mike Johnson');
+        setTimeout(() => {
+          setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
+          setNativeValue(document.querySelector('input[placeholder="1"]'),   '2');
+          setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
+          setTimeout(() => {
+            Array.from(document.querySelectorAll('button'))
+              .find(b => b.textContent.trim() === '+ Add Item')?.click();
+            setTimeout(() => {
+              document.querySelector('[data-tutorial="invoice-generate"]')?.click();
+            }, 400);
+          }, 150);
+        }, 400);
         return;
       }
       if (sel === '[data-tutorial="invoice-add-item"]') {
+        // Already have store name — fill item + generate
         setNativeValue(document.querySelector('input[placeholder="GMan V Cut T-Shirt"]'), 'GMan V Cut T-Shirt');
-        setNativeValue(document.querySelector('input[placeholder="1"]'),             '2');
-        setNativeValue(document.querySelector('input[placeholder="0.00"]'),          '9.99');
+        setNativeValue(document.querySelector('input[placeholder="1"]'),   '2');
+        setNativeValue(document.querySelector('input[placeholder="0.00"]'), '9.99');
         setTimeout(() => {
           Array.from(document.querySelectorAll('button'))
             .find(b => b.textContent.trim() === '+ Add Item')?.click();
-        }, 60);
+          setTimeout(() => {
+            document.querySelector('[data-tutorial="invoice-generate"]')?.click();
+          }, 400);
+        }, 150);
         return;
       }
       if (sel === '[data-tutorial="invoice-generate"]') {
