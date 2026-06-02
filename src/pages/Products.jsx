@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
@@ -182,7 +183,9 @@ export default function Products({ onOpenDrawer, onNav }) {
         <AppFooter onNav={onNav} />
       </div>
 
-      {confirmDelete && (
+      {/* Portal renders the modal at document.body so it escapes the
+          overflow:hidden on the swipe-wrapper parent in App.jsx */}
+      {confirmDelete && createPortal(
         <div style={s.modalOverlay} onClick={() => setConfirmDelete(null)}>
           <div
             style={{ ...s.modalCard, background: C.card, borderColor: C.cardBorder }}
@@ -190,7 +193,7 @@ export default function Products({ onOpenDrawer, onNav }) {
           >
             <p style={{ ...s.modalTitle, color: C.text }}>Remove product?</p>
             <p style={{ ...s.modalText, color: C.textSub }}>
-              Are you sure you want to remove “{confirmDelete.name}”? This can’t be undone.
+              Are you sure you want to remove "{confirmDelete.name}"? This can't be undone.
             </p>
             <div style={s.modalActions}>
               <button
@@ -203,7 +206,8 @@ export default function Products({ onOpenDrawer, onNav }) {
               >Remove</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
