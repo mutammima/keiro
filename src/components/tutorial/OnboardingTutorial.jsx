@@ -106,20 +106,20 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
   const TOOLTIP_H = 215;
   const MARGIN    = 18;
 
+  // Always put the dialog in the OPPOSITE half of the screen from the element.
+  // This guarantees the dialog never sits on top of the thing it's describing.
+  const PAD = 28;
   let tooltipTop;
   if (!rect) {
-    tooltipTop = vh * 0.80 - TOOLTIP_H / 2;
+    tooltipTop = vh - TOOLTIP_H - PAD;   // default: bottom of screen
   } else {
-    const spaceBelow = vh - (rect.bottom + MARGIN);
-    const spaceAbove = rect.top - MARGIN;
-    if (spaceBelow >= TOOLTIP_H) {
-      tooltipTop = rect.bottom + MARGIN;
-    } else if (spaceAbove >= TOOLTIP_H) {
-      tooltipTop = rect.top - MARGIN - TOOLTIP_H;
+    const elementMidY = (rect.top + rect.bottom) / 2;
+    if (elementMidY <= vh / 2) {
+      // Element is in top half → dialog goes to bottom
+      tooltipTop = vh - TOOLTIP_H - PAD;
     } else {
-      tooltipTop = spaceBelow >= spaceAbove
-        ? rect.bottom + MARGIN
-        : rect.top - MARGIN - TOOLTIP_H;
+      // Element is in bottom half → dialog goes near top
+      tooltipTop = PAD + 44; // 44px clears the status bar area
     }
   }
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
@@ -305,13 +305,10 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
   // ── Global click + touch blocker ─────────────────────────────────────────
   useEffect(() => {
-    const so = document.body.style.overflow, sp = document.body.style.position;
-    const ho = document.documentElement.style.overflow, sy = window.scrollY;
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${sy}px`;
-    document.body.style.width = '100%';
-    document.documentElement.style.overflow = 'hidden';
+    // App.css already sets html/body overflow:hidden so we don't need to
+    // set position:fixed on body (which shifts the layout and causes a black
+    // gap at the bottom on iOS). The Blocker div + touchmove listener below
+    // are enough to prevent unwanted scrolling during the tutorial.
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
     function blockClicks(e) {
@@ -321,10 +318,6 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     }
     document.addEventListener('click', blockClicks, true);
     return () => {
-      document.body.style.overflow = so; document.body.style.position = sp;
-      document.body.style.top = ''; document.body.style.width = '';
-      document.documentElement.style.overflow = ho;
-      window.scrollTo(0, sy);
       document.removeEventListener('touchmove', stopTouch);
       document.removeEventListener('click', blockClicks, true);
     };
