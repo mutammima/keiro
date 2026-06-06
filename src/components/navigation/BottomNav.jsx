@@ -11,17 +11,25 @@
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 
-const TABS = [
-  { id: 'invoice',  label: 'New',      tutorial: 'tab-new'      },
-  { id: 'history',  label: 'Invoices', tutorial: 'tab-history'  },
-  { id: 'products', label: 'Products', tutorial: 'tab-products' },
+const DRIVER_TABS = [
+  { id: 'invoice',    label: 'New',     tutorial: 'tab-new'      },
+  { id: 'history',    label: 'Invoices',tutorial: 'tab-history'  },
+  { id: 'products',   label: 'Products',tutorial: 'tab-products' },
+];
+
+const OWNER_TABS = [
+  { id: 'so-request', label: 'Request', tutorial: null },
+  { id: 'so-orders',  label: 'Orders',  tutorial: null },
+  { id: 'so-drivers', label: 'Drivers', tutorial: null },
 ];
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
 
-export default function BottomNav({ currentPage, onNav, onOpenDrawer }) {
+export default function BottomNav({ currentPage, onNav, onOpenDrawer, role }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
+
+  const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
   const activeIdx = TABS.findIndex(t =>
     currentPage === t.id || (t.id === 'invoice' && currentPage === 'invoice-view')

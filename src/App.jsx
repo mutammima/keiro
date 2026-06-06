@@ -28,21 +28,27 @@ import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
+// Store Owner role
+import RoleSelector from './components/onboarding/RoleSelector';
+import NewRequest from './pages/storeowner/NewRequest';
+import SOOrders from './pages/storeowner/SOOrders';
+import SODrivers from './pages/storeowner/SODrivers';
+import SOHome from './pages/storeowner/SOHome';
+import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import './App.css';
 
-// The three draggable bottom-nav tabs
-const TABS = ['invoice', 'history', 'products'];
+// Tab IDs for each role
+const DRIVER_TABS = ['invoice', 'history', 'products'];
+const OWNER_TABS  = ['so-request', 'so-orders', 'so-drivers'];
 
-function tabIndex(p) {
+function tabIndex(tabs, p) {
   if (p === 'invoice-view') return 0;
-  return TABS.indexOf(p);
+  return tabs.indexOf(p);
 }
 
 // For non-tab pages that slide up from bottom
-function overlayAnim(from, to) {
-  // going TO a non-tab page
-  if (TABS.indexOf(to) === -1 && to !== 'invoice-view') return 'page-from-bottom';
-  // coming BACK to a tab page from a non-tab page
+function overlayAnim(tabs, to) {
+  if (tabs.indexOf(to) === -1 && to !== 'invoice-view') return 'page-from-bottom';
   return 'page-fade';
 }
 
@@ -78,15 +84,23 @@ function isEasyMode() {
   try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
 }
 
-function AppInner() {
+function AppInner({ role }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const easyMode = isEasyMode();
 
+  const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
+
   // In easy mode skip the dashboard and land straight on New Invoice tab
   const [pinUnlocked,    setPinUnlocked]    = useState(() => !isPinEnabled());
-  const [page,           setPage]           = useState(easyMode ? 'invoice' : 'home');
-  const [overlayPage,    setOverlayPage]    = useState(easyMode ? null : 'home');
+  const [page,           setPage]           = useState(() => {
+    if (role === 'store_owner') return 'so-request';
+    return easyMode ? 'invoice' : 'home';
+  });
+  const [overlayPage,    setOverlayPage]    = useState(() => {
+    if (role === 'store_owner') return 'so-home';
+    return easyMode ? null : 'home';
+  });
   const [overlayClass,   setOverlayClass]   = useState('page-fade');
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
@@ -123,14 +137,18 @@ function AppInner() {
   // Tab strip index
   const [tabIdx, setTabIdx] = useState(0);
 
+  // tabsRef — lets swipe handlers always read the current TABS without re-registering
+  const tabsRef = useRef(TABS);
+  useEffect(() => { tabsRef.current = TABS; }, [role]); // eslint-disable-line
+
   // Keep `page` in sync with tabIdx (used by BottomNav + NavDrawer highlight)
   useEffect(() => {
-    if (overlayPage === null) setPage(TABS[tabIdx]);
+    if (overlayPage === null) setPage(tabsRef.current[tabIdx]);
   }, [tabIdx, overlayPage]);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const navigate = useCallback((p) => {
-    const ti = tabIndex(p);
+    const ti = tabIndex(tabsRef.current, p);
     if (ti !== -1) {
       setTabIdx(ti);
       setOverlayPage(null);
@@ -173,7 +191,7 @@ function AppInner() {
 
   function goBackFromOverlay() {
     setOverlayPage(null);
-    setPage(TABS[tabIdx]);
+    setPage(tabsRef.current[tabIdx]);
   }
 
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
@@ -234,8 +252,8 @@ function AppInner() {
       const idx = tabIdxRef.current;
       const W   = el.offsetWidth; // actual container px width (not vw)
       const clamped = Math.max(
-        idx >= TABS.length - 1 ? -60 : -W,
-        Math.min(idx <= 0      ?  60 :  W, dx)
+        idx >= tabsRef.current.length - 1 ? -60 : -W,
+        Math.min(idx <= 0                  ?  60 :  W, dx)
       );
       swipeDelta.current = clamped;
       setSwiping(true);
@@ -251,10 +269,10 @@ function AppInner() {
       setSwiping(false);
       setDragOffset(0);
 
-      if (d < -SWIPE_THRESHOLD && idx < TABS.length - 1) {
-        navigateRef.current(TABS[idx + 1]);
+      if (d < -SWIPE_THRESHOLD && idx < tabsRef.current.length - 1) {
+        navigateRef.current(tabsRef.current[idx + 1]);
       } else if (d > SWIPE_THRESHOLD && idx > 0) {
-        navigateRef.current(TABS[idx - 1]);
+        navigateRef.current(tabsRef.current[idx - 1]);
       }
     }
 
@@ -340,11 +358,15 @@ function AppInner() {
               boxSizing: 'border-box',
             }}
           >
-            {[
-              <NewInvoice key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
+            {(role === 'store_owner' ? [
+              <NewRequest  key="so-request" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOOrders    key="so-orders"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SODrivers   key="so-drivers" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+            ] : [
+              <NewInvoice    key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
               <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
-              <Products key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-            ].map((child, i) => (
+              <Products      key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+            ]).map((child, i) => (
               <div
                 key={i}
                 data-scroll-container="tab"
@@ -376,7 +398,8 @@ function AppInner() {
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
           )}
-          {overlayPage === 'home'       && <Home       onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'home'    && <Home    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'so-home' && <SOHome  onClose={goBackFromOverlay} onNav={navigate} />}
           {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -392,10 +415,10 @@ function AppInner() {
 
       {/* Hide top nav on overlay pages — they have their own headers */}
       {overlayPage === null && (
-        <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} />
+        <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} />
       )}
       <OfflineBanner dark={dark} />
-      {shouldShowOnboarding && (
+      {shouldShowOnboarding && role !== 'store_owner' && (
         <OnboardingTutorial
           navigate={navigate}
           onComplete={() => { markOnboardingComplete(); navigate('history'); }}
@@ -406,12 +429,32 @@ function AppInner() {
   );
 }
 
-function AppInnerWithPin() {
+// RoleGate — resolves the role before rendering AppInner.
+// Keeping it separate means AppInner always receives a non-null role,
+// so no conditional-hook issues inside AppInner.
+function RoleGate() {
+  const [role, setRoleState] = useState(() => resolveStartupRole());
+
+  if (role === null) {
+    return (
+      <RoleSelector
+        onSelect={(r) => {
+          setRole(r);       // persist to localStorage
+          setRoleState(r);  // re-render with chosen role
+        }}
+      />
+    );
+  }
+
+  return <AppInnerWithPin role={role} />;
+}
+
+function AppInnerWithPin({ role }) {
   const [unlocked, setUnlocked] = useState(() => !isPinEnabled());
   if (!unlocked) {
     return <PinLock onSuccess={() => setUnlocked(true)} />;
   }
-  return <AppInner />;
+  return <AppInner role={role} />;
 }
 
 export default function App() {
@@ -420,7 +463,7 @@ export default function App() {
     <ThemeProvider>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
       <AuthGate>
-        <AppInnerWithPin />
+        <RoleGate />
       </AuthGate>
     </ThemeProvider>
   );
