@@ -92,7 +92,6 @@ function AppInner({ role }) {
   const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
   // In easy mode skip the dashboard and land straight on New Invoice tab
-  const [pinUnlocked,    setPinUnlocked]    = useState(() => !isPinEnabled());
   const [page,           setPage]           = useState(() => {
     if (role === 'store_owner') return 'so-request';
     return easyMode ? 'invoice' : 'home';
@@ -120,12 +119,6 @@ function AppInner({ role }) {
       setShowWhatsNew(true);
     }
   }, [shouldShowOnboarding]);
-
-  // Sync the <meta name="theme-color"> with dark mode so iPhone status bar matches
-  useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0C0C0C' : '#ffffff');
-  }, [dark]);
 
   // Listen for version-check update signal and surface it to the user
   useEffect(() => {
@@ -328,6 +321,7 @@ function AppInner({ role }) {
         onNav={navigate}
         currentPage={page}
         onTutorial={() => setShowTutorial(true)}
+        role={role}
       />
 
       {/* ── Tab strip — swipeable ─────────────────────────────────────────── */}
@@ -403,7 +397,7 @@ function AppInner({ role }) {
           {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}

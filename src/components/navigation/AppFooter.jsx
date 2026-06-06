@@ -33,7 +33,7 @@ export default function AppFooter({ onNav }) {
   const [modal, setModal] = useState(null); // 'news' | 'roadmap' | 'backup' | null
 
   // ── Backup logic from hook ─────────────────────────────────────────────────
-  const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
+  const { backupMsg, clearBackupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -58,14 +58,14 @@ export default function AppFooter({ onNav }) {
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}
       {modal && (
-        <div style={s.overlay} onClick={() => { setModal(null); setBackupMsg(''); }}>
+        <div style={s.overlay} onClick={() => { setModal(null); clearBackupMsg(); }}>
           <div style={{ ...s.sheet, background: C.card }} onClick={e => e.stopPropagation()}>
             <div style={{ ...s.sheetHandle, background: C.divider }} />
             <div style={{ ...s.sheetHeader, borderBottomColor: C.divider }}>
               <span style={{ ...s.sheetTitle, color: C.text }}>
                 {modal === 'news' ? "What's New" : modal === 'roadmap' ? 'Roadmap' : 'Backup & Restore'}
               </span>
-              <button style={{ ...s.sheetClose, color: C.textMuted }} onClick={() => { setModal(null); setBackupMsg(''); }}>✕</button>
+              <button style={{ ...s.sheetClose, color: C.textMuted }} onClick={() => { setModal(null); clearBackupMsg(); }}>✕</button>
             </div>
 
             <div style={s.sheetBody}>
