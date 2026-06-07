@@ -138,8 +138,8 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
               gap: 3,
             }}>
               {[
-                { id: 'driver',      label: '🚗  Driver' },
-                { id: 'store_owner', label: '🏪  Owner'  },
+                { id: 'driver',      label: 'Driver' },
+                { id: 'store_owner', label: 'Owner'  },
               ].map(({ id, label }) => {
                 const active = role === id;
                 return (

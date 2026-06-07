@@ -74,7 +74,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={onOpenDrawer} style={s.iconBtn(C)}>☰</button>
+        <div style={{ width: 36 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>New Request</span>
         <div style={{ width: 36 }} />
       </div>
@@ -88,6 +88,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
           <label style={s.label(C)}>Product Name</label>
           <input
+            data-tutorial="so-request-product"
             style={{ ...s.input, ...inp, borderColor: errors.productName ? C.danger : C.inputBorder }}
             placeholder="e.g. Whole Milk 1 Gal"
             value={productName}
@@ -97,6 +98,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
           <label style={{ ...s.label(C), marginTop: 14 }}>Quantity</label>
           <input
+            data-tutorial="so-request-qty"
             type="number"
             min="1"
             style={{ ...s.input, ...inp, borderColor: errors.quantity ? C.danger : C.inputBorder }}
@@ -113,6 +115,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
           <label style={s.label(C)}>Requested Delivery Date</label>
           <input
+            data-tutorial="so-request-date"
             type="date"
             style={{ ...s.input, ...inp, borderColor: errors.deliveryDate ? C.danger : C.inputBorder }}
             value={deliveryDate}
@@ -165,6 +168,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
         {/* Submit */}
         <button
+          data-tutorial="so-request-submit"
           onClick={handleSubmit}
           style={{
             height: 52, borderRadius: 16, border: 'none',
