@@ -302,7 +302,14 @@ function AppInner({ role, onSwitchRole }) {
       }}
     >
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
-      {showTutorial && (
+      {showTutorial && role === 'store_owner' && (
+        <SOOnboardingTutorial
+          navigate={navigate}
+          onComplete={() => setShowTutorial(false)}
+          onSkip={() => setShowTutorial(false)}
+        />
+      )}
+      {showTutorial && role !== 'store_owner' && (
         <OnboardingTutorial
           navigate={navigate}
           skipWelcome
