@@ -395,12 +395,31 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       navigate('so-request');
       clearCursor();
       await sleep(400);
+
+      // Push tooltip to BOTTOM before pausing so it does not cover the form fields.
+      // product label is in the top half of the screen -> opposite-half rule puts tooltip at bottom.
+      const productLabelEl = document.querySelector('[data-tutorial="so-label-product"]');
+      if (productLabelEl) {
+        const r = productLabelEl.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+      }
+
       await waitForUser(false);
       if (cancelled) return;
 
-      // rect=null throughout step 1 -> tooltip anchored near top (stepIdx=0 default)
-      // Cursor visits each field LABEL so typed text is always visible
+      // Scroll back to top — previous run may have left page scrolled down
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await sleep(400);
 
+      // Re-read rect after scroll so it reflects the settled position
+      const productLabelAfterScroll = document.querySelector('[data-tutorial="so-label-product"]');
+      if (productLabelAfterScroll) {
+        const r = productLabelAfterScroll.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+      }
+      await sleep(100);
+
+      // Cursor sits on each LABEL while text appears in the INPUT below it
       await typeInto('[data-tutorial="so-label-product"]', '[data-tutorial="so-request-product"]', 'Whole Milk 1 Gal', 38);
       await sleep(280);
 
@@ -411,7 +430,8 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       tomorrow.setDate(tomorrow.getDate() + 1);
       await fillDate('[data-tutorial="so-label-date"]', '[data-tutorial="so-request-date"]', tomorrow.toISOString().split('T')[0]);
 
-      // Anchor tooltip near top before moving cursor to submit at bottom
+      // Now move cursor to submit (bottom of page).
+      // Update rect to submit: element in bottom half → tooltip flips to top.
       const submitEl = document.querySelector('[data-tutorial="so-request-submit"]');
       if (submitEl) {
         const r = submitEl.getBoundingClientRect();
