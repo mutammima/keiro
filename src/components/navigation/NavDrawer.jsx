@@ -239,15 +239,13 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
             <span style={s.navIcon} aria-hidden="true">{Icons.profile}</span>
             <span>Profile</span>
           </button>
-          {!isOwner && (
-            <button
-              style={{ ...s.navItem, color: C.navText }}
-              onClick={() => { onClose(); onTutorial?.(); }}
-            >
-              <span style={s.navIcon} aria-hidden="true">{Icons.help}</span>
-              <span>How it Works</span>
-            </button>
-          )}
+          <button
+            style={{ ...s.navItem, color: C.navText }}
+            onClick={() => { onClose(); onTutorial?.(); }}
+          >
+            <span style={s.navIcon} aria-hidden="true">{Icons.help}</span>
+            <span>How it Works</span>
+          </button>
           <button
             style={{ ...s.navItem, color: C.danger, background: 'none', transition: 'color 0.4s ease' }}
             onClick={handleSignOut}
