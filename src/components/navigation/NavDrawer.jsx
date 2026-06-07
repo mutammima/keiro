@@ -85,7 +85,7 @@ function isEasyMode() {
   try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
 }
 
-export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role }) {
+export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const [pinned, setPinned] = useState([]);
@@ -126,6 +126,48 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
         <div style={s.drawerHeader}>
           <button style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>←</button>
         </div>
+
+        {/* Role toggle pill — Uber-style instant switch */}
+        {onSwitchRole && (
+          <div style={{ padding: '0 10px 14px' }}>
+            <div style={{
+              display: 'flex',
+              background: dark ? '#1a1a1a' : '#f0f0f0',
+              borderRadius: 12,
+              padding: 3,
+              gap: 3,
+            }}>
+              {[
+                { id: 'driver',      label: '🚗  Driver' },
+                { id: 'store_owner', label: '🏪  Owner'  },
+              ].map(({ id, label }) => {
+                const active = role === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { if (!active) { onSwitchRole(id); onClose(); } }}
+                    style={{
+                      flex: 1,
+                      padding: '8px 4px',
+                      borderRadius: 9,
+                      border: 'none',
+                      background: active ? ACCENT : 'transparent',
+                      color: active ? '#fff' : C.textMuted,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: active ? 'default' : 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      transition: 'background 0.18s, color 0.18s',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Main nav */}
         <nav style={s.nav}>

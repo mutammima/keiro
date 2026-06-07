@@ -43,7 +43,7 @@ const ACCENT_PRESETS = [
   '#64748B', // slate
 ];
 
-export default function Settings({ onOpenDrawer, onNav, onClose }) {
+export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole }) {
   const { dark, toggleDark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -174,9 +174,18 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
   // ── Switch Role ────────────────────────────────────────────────────────────
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
 
+  // Get the current role to know which one to switch TO
+  const currentRole = (() => { try { return JSON.parse(localStorage.getItem('inv_user_role')); } catch { return 'driver'; } })();
+  const nextRole    = currentRole === 'store_owner' ? 'driver' : 'store_owner';
+  const nextLabel   = nextRole === 'store_owner' ? 'Store Owner' : 'Delivery Driver';
+
   function handleSwitchRole() {
-    localStorage.removeItem('inv_user_role');
-    window.location.reload();
+    if (onSwitchRole) {
+      onSwitchRole(nextRole);   // instant — no reload
+    } else {
+      localStorage.removeItem('inv_user_role');
+      window.location.reload(); // fallback (should never happen)
+    }
   }
 
   // ── Terms expanded ─────────────────────────────────────────────────────────
@@ -453,7 +462,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
             </>
           )}
           <Divider C={C} />
-          <Row label="Switch Role" sub="Change between Delivery Driver and Store Owner" C={C}>
+          <Row label="Switch Role" sub={`Switch to ${nextLabel}`} C={C}>
             <button
               style={{ ...s.smallBtn, background: C.rowBg, color: C.textMuted, border: `1px solid ${C.divider}` }}
               onClick={() => setConfirmSwitchRole(true)}
@@ -624,9 +633,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
             style={{ width: '100%', maxWidth: 340, borderRadius: 18, border: `1px solid ${C.cardBorder}`, background: C.card, padding: '22px 20px 18px', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}
             onClick={e => e.stopPropagation()}
           >
-            <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>Switch Role?</p>
+            <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>Switch to {nextLabel}?</p>
             <p style={{ fontSize: 14, color: C.textSub, margin: '0 0 20px', lineHeight: 1.5 }}>
-              You'll return to the role selection screen. Your data won't be affected.
+              The app will switch instantly. Your data won't be affected.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button

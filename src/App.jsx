@@ -84,7 +84,7 @@ function isEasyMode() {
   try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
 }
 
-function AppInner({ role }) {
+function AppInner({ role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const easyMode = isEasyMode();
@@ -322,6 +322,7 @@ function AppInner({ role }) {
         currentPage={page}
         onTutorial={() => setShowTutorial(true)}
         role={role}
+        onSwitchRole={onSwitchRole}
       />
 
       {/* ── Tab strip — swipeable ─────────────────────────────────────────── */}
@@ -397,7 +398,7 @@ function AppInner({ role }) {
           {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -429,26 +430,26 @@ function AppInner({ role }) {
 function RoleGate() {
   const [role, setRoleState] = useState(() => resolveStartupRole());
 
-  if (role === null) {
-    return (
-      <RoleSelector
-        onSelect={(r) => {
-          setRole(r);       // persist to localStorage
-          setRoleState(r);  // re-render with chosen role
-        }}
-      />
-    );
+  function switchRole(r) {
+    setRole(r);       // persist to localStorage
+    setRoleState(r);  // instant re-render — no reload needed
   }
 
-  return <AppInnerWithPin role={role} />;
+  if (role === null) {
+    return <RoleSelector onSelect={switchRole} />;
+  }
+
+  // key={role} remounts AppInnerWithPin cleanly when role changes,
+  // resetting all tab/overlay/page state to initial values for the new role.
+  return <AppInnerWithPin key={role} role={role} onSwitchRole={switchRole} />;
 }
 
-function AppInnerWithPin({ role }) {
+function AppInnerWithPin({ role, onSwitchRole }) {
   const [unlocked, setUnlocked] = useState(() => !isPinEnabled());
   if (!unlocked) {
     return <PinLock onSuccess={() => setUnlocked(true)} />;
   }
-  return <AppInner role={role} />;
+  return <AppInner role={role} onSwitchRole={onSwitchRole} />;
 }
 
 export default function App() {
