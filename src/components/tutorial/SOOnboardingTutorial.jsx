@@ -1,11 +1,12 @@
 /**
- * SOOnboardingTutorial — Store Owner onboarding. Same autoplay format as
- * OnboardingTutorial (driver) but walks through Request → Orders → Drivers.
+ * SOOnboardingTutorial — Store Owner onboarding.
+ * Fluid, non-blocking walkthrough of Request -> Orders -> Drivers.
  *
  * Props:
- *   navigate(page)  — app navigation
- *   onComplete()    — called when user finishes
- *   onSkip()        — called when user skips
+ *   navigate(page)    -- app navigation
+ *   onComplete()      -- called when user finishes
+ *   onSkip()          -- called when user skips
+ *   skipWelcome       -- skip welcome card (used by "How it Works" in sidebar)
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -39,12 +40,12 @@ function getTutAccent(appAccent) {
 
 function setNativeValue(el, value) {
   if (!el) return;
-  const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  s.call(el, value);
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-// ─── Visual cursor dot ────────────────────────────────────────────────────────
+// -- Visual cursor dot --------------------------------------------------------
 
 function VisualCursor({ pos, pulse, accent }) {
   return (
@@ -68,7 +69,7 @@ function VisualCursor({ pos, pulse, accent }) {
   );
 }
 
-// ─── Invisible blocker ────────────────────────────────────────────────────────
+// -- Invisible blocker --------------------------------------------------------
 
 function Blocker() {
   const stopTouch = e => e.preventDefault();
@@ -80,7 +81,9 @@ function Blocker() {
   );
 }
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
+// -- Tooltip ------------------------------------------------------------------
+// Opposite-half rule: element in top half -> tooltip at bottom; vice versa.
+// rect=null -> tooltip floats at default position (top for step 0, bottom otherwise).
 
 function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, stepIdx, accent, onSkip, onNext, onBack, onSeeAgain }) {
   const vw = window.innerWidth;
@@ -92,13 +95,11 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, stepIdx, 
   let tooltipTop;
   if (!rect) {
     tooltipTop = stepIdx === 0 ? PAD + 48 : vh - TOOLTIP_H - PAD;
-  } else if (stepIdx === 0) {
-    tooltipTop = rect.bottom + 14;
   } else {
     const elementMidY = (rect.top + rect.bottom) / 2;
     tooltipTop = elementMidY <= vh / 2
-      ? vh - TOOLTIP_H - PAD
-      : PAD + 48;
+      ? vh - TOOLTIP_H - PAD   // element in top half -> tooltip at bottom
+      : PAD + 48;               // element in bottom half -> tooltip near top
   }
   tooltipTop = Math.max(8, Math.min(vh - TOOLTIP_H - 8, tooltipTop));
 
@@ -160,7 +161,7 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, stepIdx, 
               background: dark ? '#2a2a30' : '#f0f0f3',
               color: dark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.55)',
               fontSize:15, fontWeight:600, cursor:'pointer', WebkitTapHighlightColor:'transparent',
-            }}>← Back</button>
+            }}>Back</button>
           )}
           {phase === 'end-pause' && (
             <button data-tutorial-ui="see-again-btn" onClick={onSeeAgain} style={{
@@ -176,7 +177,7 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, stepIdx, 
             fontSize:16, fontWeight:700, cursor:'pointer', WebkitTapHighlightColor:'transparent',
             boxShadow: `0 5px 18px ${accent}60`,
           }}>
-            {phase === 'end-pause' && isLast ? "Let's go!" : 'Next →'}
+            {phase === 'end-pause' && isLast ? "Let's go!" : 'Next ->'}
           </button>
         </div>
       )}
@@ -184,14 +185,14 @@ function Tooltip({ stepId, title, desc, contentKey, rect, dark, phase, stepIdx, 
       {phase === 'playing' && (
         <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:12 }}>
           <div style={{ width:7, height:7, borderRadius:4, background:accent, animation:'tut-blink 1.1s ease-in-out infinite' }} />
-          <span style={{ fontSize:13, fontWeight:500, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.30)' }}>Watch…</span>
+          <span style={{ fontSize:13, fontWeight:500, color: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.30)' }}>Watch...</span>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Welcome screen ────────────────────────────────────────────────────────────
+// -- Welcome screen -----------------------------------------------------------
 
 function WelcomeScreen({ dark, accent, onStart, onSkip }) {
   return (
@@ -208,7 +209,6 @@ function WelcomeScreen({ dark, accent, onStart, onSkip }) {
         border:`1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         textAlign:'center', animation:'tut-fadein 0.3s ease both',
       }}>
-        {/* Store icon */}
         <div style={{
           width:60, height:60, borderRadius:16, background:accent,
           margin:'0 auto 14px', display:'flex', alignItems:'center', justifyContent:'center',
@@ -224,7 +224,7 @@ function WelcomeScreen({ dark, accent, onStart, onSkip }) {
           Welcome to <span style={{ color:accent }}>InvoGo!</span>
         </div>
         <div style={{ fontSize:13, color: dark ? 'rgba(255,255,255,0.52)' : 'rgba(0,0,0,0.48)', lineHeight:1.6, marginBottom:24 }}>
-          Quick tour of your store owner tools — takes about a minute.
+          Quick tour of your store owner tools -- takes about a minute.
         </div>
         <button data-tutorial-ui="welcome-start" onClick={onStart} style={{
           width:'100%', height:46, borderRadius:13, border:'none',
@@ -242,7 +242,7 @@ function WelcomeScreen({ dark, accent, onStart, onSkip }) {
   );
 }
 
-// ─── Keyframes ─────────────────────────────────────────────────────────────────
+// -- Keyframes ----------------------------------------------------------------
 
 function ensureKeyframes() {
   if (document.getElementById('tut-kf')) return;
@@ -255,13 +255,14 @@ function ensureKeyframes() {
   document.head.appendChild(s);
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// -- Main component -----------------------------------------------------------
 
-export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
+export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, skipWelcome = false }) {
   const { dark, accent: appAccent } = useTheme();
   const accent = getTutAccent(appAccent);
 
-  const [welcomed,    setWelcomed]    = useState(false);
+  // skipWelcome=true means jump straight into the step runner (used by "How it Works")
+  const [welcomed,    setWelcomed]    = useState(skipWelcome);
   const [cursorPos,   setCursorPos]   = useState({ x: -100, y: -100 });
   const [cursorPulse, setCursorPulse] = useState(false);
   const [rect,        setRect]        = useState(null);
@@ -275,7 +276,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
 
   useEffect(() => { ensureKeyframes(); }, []);
 
-  // ── Global click + touch blocker ─────────────────────────────────────────
+  // Global click + touch blocker
   useEffect(() => {
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
@@ -291,7 +292,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
     };
   }, []);
 
-  // ── Step runner ───────────────────────────────────────────────────────────
+  // Step runner
   useEffect(() => {
     if (!welcomed) return;
 
@@ -325,6 +326,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       if (!cancelled) setPhase('playing');
     }
 
+    // Move cursor to element (does NOT update rect -- tooltip stays anchored)
     async function moveTo(elOrSelector) {
       if (cancelled) return null;
       const el = typeof elOrSelector === 'string'
@@ -339,6 +341,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       return cancelled ? null : el;
     }
 
+    // Move cursor to element, pulse, click
     async function tap(elOrSelector) {
       if (cancelled) return;
       const el = await moveTo(elOrSelector);
@@ -352,21 +355,41 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       await sleep(120);
     }
 
-    async function type(elOrSelector, text, charDelay = 22) {
+    /**
+     * Cursor points to LABEL -- text types into INPUT below it.
+     * Keeps cursor off the field so typed characters are always visible.
+     */
+    async function typeInto(labelSel, inputSel, text, charDelay = 38) {
       if (cancelled) return;
-      const el = await moveTo(elOrSelector);
-      if (!el) return;
-      setNativeValue(el, '');
-      await sleep(30);
+      await moveTo(labelSel);
+      const inputEl = typeof inputSel === 'string'
+        ? document.querySelector(inputSel) : inputSel;
+      if (!inputEl) return;
+      setNativeValue(inputEl, '');
+      await sleep(50);
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) break;
-        setNativeValue(el, text.slice(0, i));
+        setNativeValue(inputEl, text.slice(0, i));
         await sleep(charDelay);
       }
       await sleep(80);
     }
 
-    // ══ STEP 1 — New Request ══════════════════════════════════════════════════
+    /**
+     * Cursor points to date LABEL -- ISO date value is set on INPUT.
+     */
+    async function fillDate(labelSel, inputSel, isoDate) {
+      if (cancelled) return;
+      await moveTo(labelSel);
+      const el = typeof inputSel === 'string'
+        ? document.querySelector(inputSel) : inputSel;
+      if (!el) return;
+      setNativeValue(el, isoDate);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep(280);
+    }
+
+    // == STEP 1 -- New Request ================================================
     async function step1() {
       show(1, 'Place a delivery request', 'Fill in what you need, pick a date, and your driver gets notified.');
       navigate('so-request');
@@ -375,77 +398,70 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       await waitForUser(false);
       if (cancelled) return;
 
-      // Anchor tooltip near product field
-      const productEl = document.querySelector('[data-tutorial="so-request-product"]');
-      if (productEl) {
-        const r = productEl.getBoundingClientRect();
+      // rect=null throughout step 1 -> tooltip anchored near top (stepIdx=0 default)
+      // Cursor visits each field LABEL so typed text is always visible
+
+      await typeInto('[data-tutorial="so-label-product"]', '[data-tutorial="so-request-product"]', 'Whole Milk 1 Gal', 38);
+      await sleep(280);
+
+      await typeInto('[data-tutorial="so-label-qty"]', '[data-tutorial="so-request-qty"]', '12', 38);
+      await sleep(280);
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      await fillDate('[data-tutorial="so-label-date"]', '[data-tutorial="so-request-date"]', tomorrow.toISOString().split('T')[0]);
+
+      // Anchor tooltip near top before moving cursor to submit at bottom
+      const submitEl = document.querySelector('[data-tutorial="so-request-submit"]');
+      if (submitEl) {
+        const r = submitEl.getBoundingClientRect();
         setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
       }
-
-      await type('[data-tutorial="so-request-product"]', 'Whole Milk 1 Gal', 28);
-      await sleep(150);
-
-      await type('[data-tutorial="so-request-qty"]', '12', 28);
-      await sleep(150);
-
-      // Set date input to tomorrow
-      const dateEl = document.querySelector('[data-tutorial="so-request-date"]');
-      if (dateEl) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const iso = tomorrow.toISOString().split('T')[0];
-        await moveTo(dateEl);
-        setNativeValue(dateEl, iso);
-        dateEl.dispatchEvent(new Event('change', { bubbles: true }));
-        await sleep(200);
-      }
-
-      // Move cursor to submit and pause
       await moveTo('[data-tutorial="so-request-submit"]');
       show(1, 'Tap Send Request', 'Your request is sent straight to your driver.');
       await waitForUser(true);
     }
 
-    // ══ STEP 2 — Orders ═══════════════════════════════════════════════════════
+    // == STEP 2 -- Orders =====================================================
     async function step2() {
-      show(2, 'Track your requests', 'Every request shows up here. Tap one to update its status.');
+      show(2, 'Track your requests', 'Every request shows up here. Filter by status to stay organised.');
       navigate('so-orders');
       clearCursor();
       await sleep(500);
       await waitForUser(false);
       if (cancelled) return;
 
-      // Try to expand the first order card if any exist
+      // Sweep cursor across all filter pills (rect=null -> tooltip stays at bottom)
+      const FILTER_IDS = ['all', 'pending', 'accepted', 'delivered', 'cancelled'];
+      for (const f of FILTER_IDS) {
+        if (cancelled) return;
+        const pill = document.querySelector(`[data-tutorial="so-filter-${f}"]`);
+        if (pill) { await moveTo(pill); await sleep(120); }
+      }
+
+      // If there's an order card, expand it and show status actions
       const firstCard = document.querySelector('[data-tutorial="so-order-card"]');
       if (firstCard) {
-        setRect(firstCard.getBoundingClientRect());
+        const r = firstCard.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+        show(2, 'Tap to expand', 'See details and change the status.');
+        await waitForUser(false);
+        if (cancelled) return;
         await tap(firstCard);
         await sleep(400);
         show(2, 'Update the status', 'Mark orders Accepted or Delivered as they progress.');
         await waitForUser(false);
         if (cancelled) return;
-        // Collapse it
         await tap(firstCard);
         await sleep(200);
-      } else {
-        // Empty state — show the filter pills
-        const filterRow = document.querySelector('[data-tutorial="so-orders-filters"]');
-        if (filterRow) {
-          setRect(filterRow.getBoundingClientRect());
-          await moveTo(filterRow);
-          await sleep(200);
-        }
-        show(2, 'Filter by status', 'Use Pending, Accepted, or Delivered to focus on what matters.');
-        await waitForUser(false);
-        if (cancelled) return;
       }
 
       clearCursor();
-      show(2, 'Got it!', 'Accepted and Delivered statuses keep you and your driver in sync.');
+      show(2, 'All caught up!', 'Accepted and Delivered keep you and your driver in sync.');
       await waitForUser(true);
     }
 
-    // ══ STEP 3 — Drivers ══════════════════════════════════════════════════════
+    // == STEP 3 -- Drivers ====================================================
     async function step3() {
       show(3, 'Manage your drivers', 'Add drivers and list what they carry so you always order from the right person.');
       navigate('so-drivers');
@@ -454,25 +470,22 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       await waitForUser(false);
       if (cancelled) return;
 
-      // Tap + Add to open the form
       const addBtn = document.querySelector('[data-tutorial="so-drivers-add-btn"]');
       if (addBtn) {
-        setRect(addBtn.getBoundingClientRect());
+        const r = addBtn.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
         await tap(addBtn);
-        await sleep(300);
+        await sleep(350);
 
-        // Type a driver name
-        const nameInput = document.querySelector('[data-tutorial="so-drivers-name-input"]');
-        if (nameInput) {
-          await type(nameInput, 'John Smith', 28);
-          await sleep(200);
-        }
+        // Cursor -> name label, type -> name input (label-cursor pattern)
+        await typeInto('[data-tutorial="so-label-driver-name"]', '[data-tutorial="so-drivers-name-input"]', 'John Smith', 38);
+        await sleep(200);
 
-        show(3, 'Add phone & inventory', 'Note what products each driver carries — makes ordering fast.');
+        show(3, 'Add phone & inventory', 'Note what products each driver carries -- makes ordering fast.');
         await waitForUser(false);
         if (cancelled) return;
 
-        // Tap Cancel (same button now shows "Cancel")
+        // Cancel the form (same button toggles)
         const cancelBtn = document.querySelector('[data-tutorial="so-drivers-add-btn"]');
         if (cancelBtn) { await tap(cancelBtn); await sleep(200); }
       }
@@ -482,9 +495,9 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
       await waitForUser(true);
     }
 
-    // ══ STEP 4 — Hamburger menu ═══════════════════════════════════════════════
+    // == STEP 4 -- Hamburger ==================================================
     async function step4() {
-      show(4, 'More at your fingertips', 'Tap the menu icon for your dashboard, settings, notes, and more.');
+      show(4, 'More at your fingertips', 'Tap the menu icon for your dashboard, settings, and more.');
       clearCursor();
       await sleep(300);
       await waitForUser(false);
@@ -501,13 +514,13 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip }) {
         await sleep(200);
       }
 
-      show(4, 'Dashboard, Settings & more', 'Your order summary, app preferences, and profile all live in that menu.');
+      show(4, 'Dashboard, Settings & more', 'Order summary, preferences, and profile all live in that menu.');
       await waitForUser(true);
     }
 
-    // ══ STEP 5 — Done! ════════════════════════════════════════════════════════
+    // == STEP 5 -- Done! ======================================================
     async function step5() {
-      show(5, "You're all set!", 'Start by placing your first request — your driver will see it right away.');
+      show(5, "You're all set!", 'Start by placing your first request -- your driver will see it right away.');
       navigate('so-request');
       clearCursor();
       await sleep(300);
