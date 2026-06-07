@@ -86,7 +86,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>What do you need?</p>
 
-          <label style={s.label(C)}>Product Name</label>
+          <label data-tutorial="so-label-product" style={s.label(C)}>Product Name</label>
           <input
             data-tutorial="so-request-product"
             style={{ ...s.input, ...inp, borderColor: errors.productName ? C.danger : C.inputBorder }}
@@ -96,7 +96,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
           />
           {errors.productName && <p style={s.error(C)}>{errors.productName}</p>}
 
-          <label style={{ ...s.label(C), marginTop: 14 }}>Quantity</label>
+          <label data-tutorial="so-label-qty" style={{ ...s.label(C), marginTop: 14 }}>Quantity</label>
           <input
             data-tutorial="so-request-qty"
             type="number"
@@ -113,7 +113,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>When do you need it?</p>
 
-          <label style={s.label(C)}>Requested Delivery Date</label>
+          <label data-tutorial="so-label-date" style={s.label(C)}>Requested Delivery Date</label>
           <input
             data-tutorial="so-request-date"
             type="date"

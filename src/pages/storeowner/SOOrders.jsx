@@ -79,6 +79,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
           return (
             <button
               key={f}
+              data-tutorial={`so-filter-${f}`}
               onClick={() => setFilter(f)}
               style={{
                 flexShrink: 0, padding: '6px 14px', borderRadius: 20,

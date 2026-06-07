@@ -98,7 +98,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
         {showAdd && (
           <div style={s.card(C)}>
             <p style={s.sectionLabel(C)}>New Driver</p>
-            <label style={s.label(C)}>Name</label>
+            <label data-tutorial="so-label-driver-name" style={s.label(C)}>Name</label>
             <input data-tutorial="so-drivers-name-input" style={{ ...s.input, ...inp }} placeholder="e.g. John Smith"
               value={newName} onChange={e => { setNewName(e.target.value); setAddError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleAddDriver()} autoFocus />

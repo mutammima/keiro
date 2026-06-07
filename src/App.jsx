@@ -305,6 +305,7 @@ function AppInner({ role, onSwitchRole }) {
       {showTutorial && role === 'store_owner' && (
         <SOOnboardingTutorial
           navigate={navigate}
+          skipWelcome
           onComplete={() => setShowTutorial(false)}
           onSkip={() => setShowTutorial(false)}
         />
