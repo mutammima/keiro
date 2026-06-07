@@ -101,21 +101,36 @@ export async function getInvoices() {
 
 /**
  * Delete an invoice by invoice number.
+ * Removes from localStorage first (so offline deletes persist), then syncs to cloud.
  * @param {number} number
  * @returns {Promise<void>}
  */
 export async function deleteInvoice(number) {
+  // Local-first: remove immediately so the delete survives offline
+  const list = lsGet('inv_list', []);
+  lsSet('inv_list', list.filter(i => (i.number || i.invoice_number) !== number));
+  // Best-effort cloud delete
   const { error } = await db.deleteInvoice(number);
   if (error) console.error('deleteInvoice error', error);
 }
 
 /**
  * Update payment status of an invoice.
+ * Updates localStorage immediately so offline changes survive, then syncs to cloud.
  * @param {number} number
  * @param {string} status
  * @returns {Promise<void>}
  */
 export async function updateInvoicePaymentStatus(number, status) {
+  // Local-first: update the cache so the change survives offline
+  const list = lsGet('inv_list', []);
+  const updated = list.map(i =>
+    (i.number || i.invoice_number) === number
+      ? { ...i, paymentStatus: status, payment_status: status }
+      : i
+  );
+  lsSet('inv_list', updated);
+  // Best-effort cloud sync
   const { error } = await db.updateInvoicePaymentStatus(number, status);
   if (error) console.error('updateInvoicePaymentStatus error', error);
 }

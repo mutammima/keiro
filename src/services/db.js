@@ -685,7 +685,7 @@ export async function getAllInvoicePayments() {
     const { data, error } = await supabase
       .from('invoice_payments')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('ts', { ascending: false });
     return { data, error };
   } catch (err) {
     return { data: null, error: err };
@@ -704,7 +704,7 @@ export async function saveInvoicePayment(payment) {
         invoice_number: Number(payment.invoiceNumber),
         amount:         Number(payment.amount),
         note:           payment.note || '',
-        created_at:     payment.ts  || new Date().toISOString(),
+        ts:             payment.ts  || new Date().toISOString(),
       });
     return { error };
   } catch (err) {

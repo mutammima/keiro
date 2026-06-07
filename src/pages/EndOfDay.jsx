@@ -13,6 +13,11 @@ function subtotalOf(inv) {
   return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
 }
 
+/** Normalise payment status — handles both camelCase (local) and snake_case (DB). */
+function getStatus(inv) {
+  return inv.paymentStatus || inv.payment_status || 'unpaid';
+}
+
 function todayStr() {
   return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
@@ -36,10 +41,10 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
 
   const total = todayInvoices.reduce((s, inv) => s + subtotalOf(inv), 0);
   const collected = todayInvoices
-    .filter(inv => inv.paymentStatus === 'paid')
+    .filter(inv => getStatus(inv) === 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
   const partial = todayInvoices
-    .filter(inv => inv.paymentStatus === 'partial')
+    .filter(inv => getStatus(inv) === 'partial')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
   const outstanding = total - collected;
 
@@ -50,9 +55,9 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
     .filter(inv => inv.paymentMethod === 'card')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
 
-  const paidCount    = todayInvoices.filter(i => i.paymentStatus === 'paid').length;
-  const unpaidCount  = todayInvoices.filter(i => !i.paymentStatus || i.paymentStatus === 'unpaid').length;
-  const partialCount = todayInvoices.filter(i => i.paymentStatus === 'partial').length;
+  const paidCount    = todayInvoices.filter(i => getStatus(i) === 'paid').length;
+  const unpaidCount  = todayInvoices.filter(i => getStatus(i) === 'unpaid').length;
+  const partialCount = todayInvoices.filter(i => getStatus(i) === 'partial').length;
 
   function sc(status) {
     const key = status || 'unpaid';
@@ -135,18 +140,19 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
             </div>
             <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {todayInvoices.map(inv => {
-                const total = subtotalOf(inv);
-                const colors = sc(inv.paymentStatus);
+                const total  = subtotalOf(inv);
+                const st     = getStatus(inv);
+                const colors = sc(st);
                 return (
-                  <div key={inv.number} style={{ ...s.invRow, background: C.card, borderColor: C.cardBorder }}>
+                  <div key={inv.number || inv.invoice_number} style={{ ...s.invRow, background: C.card, borderColor: C.cardBorder }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{inv.storeName}</div>
-                      <div style={{ fontSize: 12, color: C.textMuted }}>#{inv.number}{inv.time ? `  ·  ${inv.time}` : ''}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{inv.storeName || inv.store_name}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted }}>#{inv.number || inv.invoice_number}{inv.time ? `  ·  ${inv.time}` : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>${total.toFixed(2)}</div>
                       <div style={{ ...s.statusChip, background: colors?.bg, color: colors?.text, borderColor: colors?.border }}>
-                        {(inv.paymentStatus || 'unpaid').charAt(0).toUpperCase() + (inv.paymentStatus || 'unpaid').slice(1)}
+                        {st.charAt(0).toUpperCase() + st.slice(1)}
                       </div>
                     </div>
                   </div>
