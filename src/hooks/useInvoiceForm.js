@@ -22,10 +22,8 @@ import {
   saveBusinessName,
   getBusinessPhone,
   saveBusinessPhone,
-  getStorePhone,
-  saveStorePhone,
-  getStoreAddress,
-  saveStoreAddress,
+  getStoreDetails,
+  saveStoreDetails,
   getPinnedStores,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
@@ -157,13 +155,11 @@ export function useInvoiceForm(onGenerated) {
     latestStoreNameRef.current = val;
     setStoreName(val);
     if (val?.trim()) {
-      getStorePhone(val).then(p => {
+      // Single combined query instead of two separate calls
+      getStoreDetails(val).then(({ phone, address }) => {
         if (latestStoreNameRef.current !== val) return; // stale — ignore
-        if (p) setStorePhone(p);
-      }).catch(() => {});
-      getStoreAddress(val).then(a => {
-        if (latestStoreNameRef.current !== val) return; // stale — ignore
-        if (a) setStoreAddress(a);
+        if (phone)   setStorePhone(phone);
+        if (address) setStoreAddress(address);
       }).catch(() => {});
     }
   }
@@ -261,8 +257,10 @@ export function useInvoiceForm(onGenerated) {
 
       await saveInvoice(invoice);
       await saveStoreName(storeName.trim());
-      if (storePhone.trim()) await saveStorePhone(storeName.trim(), storePhone.trim());
-      if (storeAddress.trim()) await saveStoreAddress(storeName.trim(), storeAddress.trim());
+      // Save phone + address in one upsert
+      if (storePhone.trim() || storeAddress.trim()) {
+        await saveStoreDetails(storeName.trim(), storePhone.trim(), storeAddress.trim());
+      }
 
       // Reset form fields
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');

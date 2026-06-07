@@ -27,6 +27,7 @@ import { signOut } from '../services/auth';
 import AppFooter from '../components/navigation/AppFooter';
 import PinLock, { isPinEnabled, setPin, clearPin } from '../components/settings/PinLock';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
+import { createPortal } from 'react-dom';
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 const ACCENT_PRESETS = [
@@ -168,6 +169,14 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
   function removeLogo() {
     localStorage.removeItem('inv_logo_b64');
     setLogo(null);
+  }
+
+  // ── Switch Role ────────────────────────────────────────────────────────────
+  const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
+
+  function handleSwitchRole() {
+    localStorage.removeItem('inv_user_role');
+    window.location.reload();
   }
 
   // ── Terms expanded ─────────────────────────────────────────────────────────
@@ -443,6 +452,15 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
               </Row>
             </>
           )}
+          <Divider C={C} />
+          <Row label="Switch Role" sub="Change between Delivery Driver and Store Owner" C={C}>
+            <button
+              style={{ ...s.smallBtn, background: C.rowBg, color: C.textMuted, border: `1px solid ${C.divider}` }}
+              onClick={() => setConfirmSwitchRole(true)}
+            >
+              Switch
+            </button>
+          </Row>
         </Section>
 
         {/* PIN setup overlay */}
@@ -595,6 +613,35 @@ export default function Settings({ onOpenDrawer, onNav, onClose }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      {/* Switch Role confirm modal */}
+      {confirmSwitchRole && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setConfirmSwitchRole(false)}
+        >
+          <div
+            style={{ width: '100%', maxWidth: 340, borderRadius: 18, border: `1px solid ${C.cardBorder}`, background: C.card, padding: '22px 20px 18px', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>Switch Role?</p>
+            <p style={{ fontSize: 14, color: C.textSub, margin: '0 0 20px', lineHeight: 1.5 }}>
+              You'll return to the role selection screen. Your data won't be affected.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                style={{ flex: 1, height: 46, borderRadius: 12, border: `1px solid ${C.inputBorder}`, background: C.inputBg, color: C.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => setConfirmSwitchRole(false)}
+              >Cancel</button>
+              <button
+                style={{ flex: 1, height: 46, borderRadius: 12, border: 'none', background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={handleSwitchRole}
+              >Switch</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

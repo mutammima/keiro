@@ -10,19 +10,33 @@
 
 import { supabase } from './supabase';
 
+// ── Auth cache ────────────────────────────────────────────────────────────────
+// Cache the user ID so we don't hit supabase.auth.getUser() on every query.
+// The auth state listener invalidates it on sign-in / sign-out / token refresh
+// so the cached value is always consistent with the current session.
+
+let _cachedUserId = null;
+
+supabase.auth.onAuthStateChange((event, session) => {
+  _cachedUserId = session?.user?.id ?? null;
+});
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
  * Returns the user id of the currently authenticated user, or null.
+ * Uses the module-level cache to avoid a round-trip on every DB call.
  * @returns {Promise<string|null>}
  */
 async function getCurrentUserId() {
+  if (_cachedUserId !== null) return _cachedUserId;
   const { data } = await supabase.auth.getUser();
-  return data?.user?.id ?? null;
+  _cachedUserId = data?.user?.id ?? null;
+  return _cachedUserId;
 }
 
 /**
- * Returns { noSession: true } if there is no real Supabase session,
+ * Returns true if there is no real Supabase session,
  * so callers fall back to localStorage gracefully.
  */
 async function noSession() {
@@ -485,6 +499,66 @@ export async function saveStoreAddress(storeName, address) {
       .from('stores')
       .upsert(
         { user_id: userId, name: storeName.trim(), store_address: address.trim(), updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,name' }
+      )
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Fetch both phone and address for a store in a single query.
+ * Replaces two separate getStorePhone + getStoreAddress calls.
+ * @param {string} storeName
+ * @returns {Promise<{ data: {phone:string, address:string}, error: object|null }>}
+ */
+export async function getStoreDetails(storeName) {
+  if (!storeName?.trim()) return { data: { phone: '', address: '' }, error: null };
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('store_phone, store_address')
+      .eq('name', storeName.trim())
+      .maybeSingle();
+
+    if (error) return { data: { phone: '', address: '' }, error };
+    return {
+      data: { phone: data?.store_phone || '', address: data?.store_address || '' },
+      error: null,
+    };
+  } catch (err) {
+    return { data: { phone: '', address: '' }, error: err };
+  }
+}
+
+/**
+ * Upsert both phone and address for a store in a single query.
+ * Replaces two separate saveStorePhone + saveStoreAddress calls.
+ * @param {string} storeName
+ * @param {string} phone
+ * @param {string} address
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function saveStoreDetails(storeName, phone, address) {
+  if (!storeName?.trim()) return { data: null, error: null };
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data, error } = await supabase
+      .from('stores')
+      .upsert(
+        {
+          user_id: userId,
+          name: storeName.trim(),
+          store_phone: (phone || '').trim(),
+          store_address: (address || '').trim(),
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: 'user_id,name' }
       )
       .select()

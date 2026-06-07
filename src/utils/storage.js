@@ -316,6 +316,37 @@ export async function saveStoreAddress(storeName, address) {
   if (error) console.error('saveStoreAddress error', error);
 }
 
+// ─── Store Details (combined phone + address) ────────────────────────────────
+
+/**
+ * Fetches both phone and address for a store in ONE query.
+ * Falls back to separate localStorage keys if Supabase fails.
+ * @param {string} storeName
+ * @returns {Promise<{phone:string, address:string}>}
+ */
+export async function getStoreDetails(storeName) {
+  const { data, error } = await db.getStoreDetails(storeName);
+  if (error) {
+    const phones = lsGet('inv_store_phones', {});
+    const addrs  = lsGet('inv_store_addrs',  {});
+    const key    = storeName?.trim();
+    return { phone: phones[key] || '', address: addrs[key] || '' };
+  }
+  return data;
+}
+
+/**
+ * Upserts both phone and address for a store in ONE query.
+ * @param {string} storeName
+ * @param {string} phone
+ * @param {string} address
+ * @returns {Promise<void>}
+ */
+export async function saveStoreDetails(storeName, phone, address) {
+  const { error } = await db.saveStoreDetails(storeName, phone, address);
+  if (error) console.error('saveStoreDetails error', error);
+}
+
 // ─── Pinned Stores — localStorage (UI preference) ────────────────────────────
 
 export function getPinnedStores() {
