@@ -356,12 +356,11 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
     }
 
     /**
-     * Cursor points to LABEL -- text types into INPUT below it.
-     * Keeps cursor off the field so typed characters are always visible.
+     * Cursor moves to the INPUT, clears it, then types character by character.
      */
-    async function typeInto(labelSel, inputSel, text, charDelay = 38) {
+    async function typeInto(inputSel, text, charDelay = 38) {
       if (cancelled) return;
-      await moveTo(labelSel);
+      await moveTo(inputSel);
       const inputEl = typeof inputSel === 'string'
         ? document.querySelector(inputSel) : inputSel;
       if (!inputEl) return;
@@ -376,11 +375,11 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
     }
 
     /**
-     * Cursor points to date LABEL -- ISO date value is set on INPUT.
+     * Cursor moves to the date INPUT and sets the ISO date value.
      */
-    async function fillDate(labelSel, inputSel, isoDate) {
+    async function fillDate(inputSel, isoDate) {
       if (cancelled) return;
-      await moveTo(labelSel);
+      await moveTo(inputSel);
       const el = typeof inputSel === 'string'
         ? document.querySelector(inputSel) : inputSel;
       if (!el) return;
@@ -396,11 +395,11 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       clearCursor();
       await sleep(400);
 
-      // Push tooltip to BOTTOM before pausing so it does not cover the form fields.
-      // product label is in the top half of the screen -> opposite-half rule puts tooltip at bottom.
-      const productLabelEl = document.querySelector('[data-tutorial="so-label-product"]');
-      if (productLabelEl) {
-        const r = productLabelEl.getBoundingClientRect();
+      // Push tooltip to BOTTOM before pausing — product input is in the top half
+      // so the opposite-half rule places the tooltip at bottom, away from the form.
+      const productInputEl = document.querySelector('[data-tutorial="so-request-product"]');
+      if (productInputEl) {
+        const r = productInputEl.getBoundingClientRect();
         setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
       }
 
@@ -412,23 +411,23 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       await sleep(400);
 
       // Re-read rect after scroll so it reflects the settled position
-      const productLabelAfterScroll = document.querySelector('[data-tutorial="so-label-product"]');
-      if (productLabelAfterScroll) {
-        const r = productLabelAfterScroll.getBoundingClientRect();
+      const productInputAfterScroll = document.querySelector('[data-tutorial="so-request-product"]');
+      if (productInputAfterScroll) {
+        const r = productInputAfterScroll.getBoundingClientRect();
         setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
       }
       await sleep(100);
 
-      // Cursor sits on each LABEL while text appears in the INPUT below it
-      await typeInto('[data-tutorial="so-label-product"]', '[data-tutorial="so-request-product"]', 'Whole Milk 1 Gal', 38);
+      // Cursor moves to each INPUT field and types directly into it
+      await typeInto('[data-tutorial="so-request-product"]', 'Whole Milk 1 Gal', 38);
       await sleep(280);
 
-      await typeInto('[data-tutorial="so-label-qty"]', '[data-tutorial="so-request-qty"]', '12', 38);
+      await typeInto('[data-tutorial="so-request-qty"]', '12', 38);
       await sleep(280);
 
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      await fillDate('[data-tutorial="so-label-date"]', '[data-tutorial="so-request-date"]', tomorrow.toISOString().split('T')[0]);
+      await fillDate('[data-tutorial="so-request-date"]', tomorrow.toISOString().split('T')[0]);
 
       // Move cursor to submit. Update rect so tooltip flips to top (submit is bottom-half).
       const submitEl = document.querySelector('[data-tutorial="so-request-submit"]');
@@ -505,8 +504,8 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
         await tap(addBtn);
         await sleep(350);
 
-        // Cursor -> name label, type -> name input (label-cursor pattern)
-        await typeInto('[data-tutorial="so-label-driver-name"]', '[data-tutorial="so-drivers-name-input"]', 'John Smith', 38);
+        // Cursor moves directly to the name input and types into it
+        await typeInto('[data-tutorial="so-drivers-name-input"]', 'John Smith', 38);
         await sleep(200);
 
         // Actually save the driver — creates a real entry so the user sees
