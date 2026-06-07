@@ -25,7 +25,7 @@ try {
 // Write version.json so the deployed static server exposes it
 fs.writeFileSync('./public/version.json', JSON.stringify({ version: appVersion }));
 
-console.log(`[InvoiceGo] Build version: ${appVersion}`);
+console.log(`[InvoGo] Build version: ${appVersion}`);
 
 export default defineConfig({
   plugins: [react()],
