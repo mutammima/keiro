@@ -18,6 +18,7 @@ import {
 } from '../utils/storage';
 import { clearSignatures } from '../utils/signatureStorage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
+import { clearPaymentsFor } from '../utils/paymentStorage';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export function useInvoiceHistory() {
     if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
     deleteInvoice(number).catch(e => console.error(e));
     clearSignatures(number);
+    clearPaymentsFor(number);
     setInvoices(prev => prev.filter(i => (i.number || i.invoice_number) !== number));
     setOpenMenu(null);
   }

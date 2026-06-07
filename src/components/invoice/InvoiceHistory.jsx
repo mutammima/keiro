@@ -4,11 +4,23 @@
  * All business logic lives in useInvoiceHistory; this component is pure UI.
  */
 
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
+import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
+import { getBridgeRequests, dismissBridgeRequest } from '../../utils/storeOwnerStorage';
+
+/** Format a payment timestamp to "Jun 2 · 3:45 PM" */
+function fmtPaymentDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    + ' · '
+    + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   const { dark } = useTheme();
@@ -30,6 +42,81 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     handleDelete, handleShare, handleTogglePin,
     isStorePinned,
   } = useInvoiceHistory();
+
+  // ── Payment log state ─────────────────────────────────────────────────────
+  const [logPaymentFor, setLogPaymentFor] = useState(null); // invoice number | null
+  const [logAmount, setLogAmount]         = useState('');
+  const [logNote, setLogNote]             = useState('');
+  const [paymentsVer, setPaymentsVer]     = useState(0);   // bump to re-read payments
+
+  function handleAddPayment() {
+    const amt = parseFloat(logAmount);
+    if (!logPaymentFor || isNaN(amt) || amt <= 0) return;
+    addPayment(logPaymentFor, amt, logNote);
+    const inv   = invoices.find(i => (i.number || i.invoice_number) === logPaymentFor);
+    const total = inv ? subtotalOf(inv) : 0;
+    const paid  = getTotalPaid(logPaymentFor);
+    const next  = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+    setStatus(logPaymentFor, next);
+    setLogPaymentFor(null);
+    setLogAmount('');
+    setLogNote('');
+    setPaymentsVer(v => v + 1);
+  }
+
+  function handleRemovePayment(invoiceNumber, paymentId) {
+    removePayment(invoiceNumber, paymentId);
+    const inv   = invoices.find(i => (i.number || i.invoice_number) === invoiceNumber);
+    const total = inv ? subtotalOf(inv) : 0;
+    const paid  = getTotalPaid(invoiceNumber);
+    const next  = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+    setStatus(invoiceNumber, next);
+    setPaymentsVer(v => v + 1);
+  }
+
+  // ── Duplicate invoice ─────────────────────────────────────────────────────
+  function handleDuplicate(inv) {
+    const prefill = {
+      storeName:    inv.storeName    || inv.store_name    || '',
+      storePhone:   inv.storePhone   || inv.store_phone   || '',
+      storeAddress: inv.storeAddress || inv.store_address || '',
+      customerName: inv.customerName || inv.customer_name || '',
+      notes:        inv.notes || '',
+      items: (inv.items || []).map(item => ({
+        id: `dup_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name:  item.name,
+        qty:   item.qty,
+        price: item.price,
+      })),
+    };
+    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    setOpenMenu(null);
+    onNav('invoice');
+  }
+
+  // ── Bridge requests (from Store Owner) ───────────────────────────────────
+  const [bridgeRequests, setBridgeRequests] = useState(() => getBridgeRequests());
+
+  function handleFillFromRequest(req) {
+    const prefill = {
+      notes: req.notes || '',
+      items: [{
+        id:    `br_${Date.now()}`,
+        name:  req.productName,
+        qty:   req.quantity,
+        price: '',
+      }],
+    };
+    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    dismissBridgeRequest(req.id);
+    setBridgeRequests(getBridgeRequests());
+    onNav('invoice');
+  }
+
+  function handleDismissRequest(id) {
+    dismissBridgeRequest(id);
+    setBridgeRequests(getBridgeRequests());
+  }
 
   // ── Helper: resolve STATUS color tokens for the current theme ─────────────
   function sc(status) {
@@ -106,6 +193,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
+                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
                   <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => handleDelete(inv.number)}>Delete Invoice</button>
                 </div>
               )}
@@ -220,6 +308,11 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                   >
                     Share PDF
                   </button>
+                  <button style={{ ...s.dropdownItem, color: C.text }}
+                    onClick={() => handleDuplicate(inv)}
+                  >
+                    Duplicate
+                  </button>
                   <button style={{ ...s.dropdownItem, color: C.danger }}
                     onClick={() => handleDelete(inv.number)}
                   >
@@ -285,7 +378,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           )}
         </div>
 
-        {/* Expanded: notes + share */}
+        {/* Expanded: notes + payment log + share */}
         {isOpen && (
           <>
             {inv.notes && (
@@ -294,6 +387,43 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                 <p style={{ ...s.notesText, color: C.textSub }}>{inv.notes}</p>
               </div>
             )}
+
+            {/* Payment log */}
+            {(() => {
+              const payments = getPaymentsFor(inv.number); // eslint-disable-line
+              void paymentsVer; // depend on version to re-read after mutations
+              const paid      = payments.reduce((s, p) => s + Number(p.amount), 0);
+              const remaining = Math.max(0, total - paid);
+              return (
+                <div style={{ borderTop: `1px solid ${C.divider}`, padding: '10px 16px 4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: payments.length ? 8 : 0 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textMuted }}>Payments</span>
+                    {paid > 0 && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>
+                        ${paid.toFixed(2)} paid · <span style={{ color: remaining > 0 ? '#f59e0b' : '#22c55e' }}>${remaining.toFixed(2)} {remaining > 0 ? 'left' : 'settled'}</span>
+                      </span>
+                    )}
+                  </div>
+                  {payments.map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: `1px solid ${C.divider}` }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#22c55e', minWidth: 52 }}>${Number(p.amount).toFixed(2)}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color: C.textMuted }}>{fmtPaymentDate(p.ts)}</div>
+                        {p.note && <div style={{ fontSize: 11, color: C.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.note}</div>}
+                      </div>
+                      <button onClick={() => handleRemovePayment(inv.number, p.id)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '2px 4px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>×</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => { setLogPaymentFor(inv.number); setLogAmount(''); setLogNote(''); }}
+                    style={{ marginTop: 8, marginBottom: 4, height: 32, width: '100%', border: `1.5px dashed ${C.divider}`, borderRadius: 8, background: 'none', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    + Log Payment
+                  </button>
+                </div>
+              );
+            })()}
+
             <div style={{ ...s.expandedActions, borderTopColor: C.divider }}>
               <button
                 style={{ ...s.shareBtn, opacity: sharing === inv.number ? 0.6 : 1 }}
@@ -320,6 +450,29 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
       </div>
 
       <div style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
+        {/* Bridge requests — orders pushed from Store Owner role */}
+        {bridgeRequests.length > 0 && (
+          <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
+              📦 New from Store Owner ({bridgeRequests.length})
+            </p>
+            {bridgeRequests.map(req => (
+              <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#1e3a5f' }}>{req.productName}</div>
+                  <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : '#4a7bbf' }}>Qty {req.quantity}{req.notes ? ` · ${req.notes}` : ''}</div>
+                </div>
+                <button onClick={() => handleFillFromRequest(req)} style={{ flexShrink: 0, height: 34, padding: '0 14px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                  Fill Invoice
+                </button>
+                <button onClick={() => handleDismissRequest(req.id)} style={{ flexShrink: 0, background: 'none', border: 'none', color: dark ? 'rgba(255,255,255,0.4)' : '#93c5fd', fontSize: 16, cursor: 'pointer', padding: '0 4px', WebkitTapHighlightColor: 'transparent' }}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Hero card */}
         {invoices.length > 0 && (
           <div style={{
@@ -431,6 +584,61 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
         )}
         <AppFooter onNav={onNav} />
       </div>
+
+      {/* Log Payment modal */}
+      {logPaymentFor !== null && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 env(safe-area-inset-bottom)' }}
+          onClick={() => setLogPaymentFor(null)}
+        >
+          <div
+            style={{ width: '100%', maxWidth: 480, borderRadius: '20px 20px 0 0', background: C.card, padding: '20px 20px 28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: C.divider, margin: '0 auto 18px' }} />
+            <p style={{ fontSize: 16, fontWeight: 800, color: C.text, margin: '0 0 16px' }}>
+              Log Payment
+              {(() => { const inv = invoices.find(i => (i.number || i.invoice_number) === logPaymentFor); return inv ? <span style={{ fontWeight: 500, color: C.textMuted, fontSize: 13 }}> · Invoice #{logPaymentFor} · {inv.storeName || inv.store_name}</span> : null; })()}
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+              <div style={{ flex: '0 0 120px' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>Amount ($)</label>
+                <input
+                  autoFocus
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={logAmount}
+                  onChange={e => setLogAmount(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddPayment()}
+                  style={{ width: '100%', boxSizing: 'border-box', height: 46, fontSize: 18, fontWeight: 700, padding: '0 12px', border: `1.5px solid ${C.inputBorder}`, borderRadius: 12, background: C.inputBg, color: C.text, outline: 'none' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>Note (optional)</label>
+                <input
+                  placeholder="e.g. cash, partial..."
+                  value={logNote}
+                  onChange={e => setLogNote(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddPayment()}
+                  style={{ width: '100%', boxSizing: 'border-box', height: 46, fontSize: 15, padding: '0 12px', border: `1.5px solid ${C.inputBorder}`, borderRadius: 12, background: C.inputBg, color: C.text, outline: 'none' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+              <button
+                style={{ flex: 1, height: 48, border: `1px solid ${C.inputBorder}`, borderRadius: 14, background: C.inputBg, color: C.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => setLogPaymentFor(null)}
+              >Cancel</button>
+              <button
+                style={{ flex: 2, height: 48, border: 'none', borderRadius: 14, background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', opacity: (!logAmount || isNaN(parseFloat(logAmount)) || parseFloat(logAmount) <= 0) ? 0.5 : 1 }}
+                onClick={handleAddPayment}
+                disabled={!logAmount || isNaN(parseFloat(logAmount)) || parseFloat(logAmount) <= 0}
+              >Add Payment</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
