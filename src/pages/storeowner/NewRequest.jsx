@@ -3,10 +3,10 @@
  * Creates an order request (product, quantity, delivery date, assigned driver).
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getDrivers, saveOrder } from '../../utils/storeOwnerStorage';
+import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -23,7 +23,11 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
   const [errors,        setErrors]        = useState({});
   const [submitted,     setSubmitted]     = useState(false);
 
-  const drivers = getDrivers();
+  const [drivers, setDrivers] = useState(() => getDrivers());
+
+  useEffect(() => {
+    loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
+  }, []);
 
   function validate() {
     const e = {};

@@ -3,11 +3,11 @@
  * Lists all order requests with status management.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver } from '../../utils/storeOwnerStorage';
+import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 
 const STATUS_META = {
@@ -33,6 +33,11 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
   const [orders,        setOrders]        = useState(() => getOrders());
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [expandedId,    setExpandedId]    = useState(null);
+
+  // Fetch latest from cloud on mount (syncs localStorage cache too)
+  useEffect(() => {
+    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+  }, []);
 
   function refresh() { setOrders(getOrders()); }
 

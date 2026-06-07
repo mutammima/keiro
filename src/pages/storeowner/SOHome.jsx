@@ -3,10 +3,10 @@
  * Shows pending orders count, recent orders, and most-ordered products.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getOrders } from '../../utils/storeOwnerStorage';
+import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 
 const STATUS_META = {
   pending:   { label: 'Pending',   color: '#f59e0b' },
@@ -25,7 +25,11 @@ export default function SOHome({ onClose, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const orders = getOrders();
+  const [orders, setOrders] = useState(() => getOrders());
+
+  useEffect(() => {
+    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+  }, []);
 
   const stats = useMemo(() => {
     const pending   = orders.filter(o => o.status === 'pending').length;

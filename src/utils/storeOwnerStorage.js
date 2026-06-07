@@ -12,6 +12,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import * as db from '../services/db';
 
 // ─── Role ─────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,7 @@ export function saveOrder(order) {
   if (idx >= 0) orders[idx] = order;
   else orders.unshift(order);
   lsSet('inv_so_orders', orders);
+  db.saveSOOrder(order).catch(e => console.error('saveSOOrder cloud error', e));
 }
 
 export function updateOrderStatus(id, status) {
@@ -83,10 +85,36 @@ export function updateOrderStatus(id, status) {
   if (idx < 0) return;
   orders[idx] = { ...orders[idx], status };
   lsSet('inv_so_orders', orders);
+  db.updateSOOrderStatus(id, status).catch(e => console.error('updateSOOrderStatus cloud error', e));
 }
 
 export function deleteOrder(id) {
   lsSet('inv_so_orders', getOrders().filter(o => o.id !== id));
+  db.deleteSOOrder(id).catch(e => console.error('deleteSOOrder cloud error', e));
+}
+
+/**
+ * Fetches all orders from Supabase, syncs them to localStorage, and returns the list.
+ * Components call this in a useEffect on mount.
+ * @returns {Promise<StoreOrder[]>}
+ */
+export async function loadOrdersFromCloud() {
+  const { data, error } = await db.getSOOrders();
+  if (error || !data) return getOrders();
+  // Map DB snake_case columns → app camelCase shape
+  const orders = data.map(row => ({
+    id:           row.id,
+    productName:  row.product_name,
+    quantity:     row.quantity,
+    deliveryDate: row.delivery_date,
+    driverId:     row.driver_id   || null,
+    driverName:   row.driver_name || 'Unassigned',
+    status:       row.status,
+    notes:        row.notes       || '',
+    createdAt:    row.created_at,
+  }));
+  lsSet('inv_so_orders', orders);
+  return orders;
 }
 
 // ─── Drivers ──────────────────────────────────────────────────────────────────
@@ -109,10 +137,29 @@ export function saveDriver(driver) {
   if (idx >= 0) drivers[idx] = driver;
   else drivers.unshift(driver);
   lsSet('inv_so_drivers', drivers);
+  db.saveSODriver(driver).catch(e => console.error('saveSODriver cloud error', e));
 }
 
 export function deleteDriver(id) {
   lsSet('inv_so_drivers', getDrivers().filter(d => d.id !== id));
+  db.deleteSODriver(id).catch(e => console.error('deleteSODriver cloud error', e));
+}
+
+/**
+ * Fetches all drivers from Supabase, syncs to localStorage, returns the list.
+ * @returns {Promise<SODriver[]>}
+ */
+export async function loadDriversFromCloud() {
+  const { data, error } = await db.getSODrivers();
+  if (error || !data) return getDrivers();
+  const drivers = data.map(row => ({
+    id:        row.id,
+    name:      row.name,
+    phone:     row.phone     || '',
+    inventory: Array.isArray(row.inventory) ? row.inventory : [],
+  }));
+  lsSet('inv_so_drivers', drivers);
+  return drivers;
 }
 
 // ─── Driver Bridge (SO → Driver invoice pre-fill) ─────────────────────────────

@@ -138,6 +138,67 @@ create index if not exists idx_invoice_items_invoice   on invoice_items(invoice_
 
 ---
 
+## SQL — Store Owner + Payment tables (added v2)
+
+Run this block to add the three tables introduced for the Store Owner role and payment logging.
+
+```sql
+-- ── Store Owner Orders ────────────────────────────────────────────────────────
+create table if not exists so_orders (
+  id            text primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  product_name  text not null default '',
+  quantity      int  not null default 1,
+  delivery_date text not null default '',
+  driver_id     text not null default '',
+  driver_name   text not null default '',
+  status        text not null default 'pending',
+  notes         text not null default '',
+  created_at    timestamptz not null default now()
+);
+
+-- ── Store Owner Drivers ───────────────────────────────────────────────────────
+create table if not exists so_drivers (
+  id        text primary key,
+  user_id   uuid not null references auth.users(id) on delete cascade,
+  name      text not null,
+  phone     text not null default '',
+  inventory jsonb not null default '[]'
+);
+
+-- ── Invoice Payment Log ───────────────────────────────────────────────────────
+create table if not exists invoice_payments (
+  id             text primary key,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  invoice_number integer not null,
+  amount         numeric(10,2) not null,
+  note           text not null default '',
+  created_at     timestamptz not null default now()
+);
+
+-- ── Enable RLS ────────────────────────────────────────────────────────────────
+alter table so_orders       enable row level security;
+alter table so_drivers      enable row level security;
+alter table invoice_payments enable row level security;
+
+-- ── RLS policies ─────────────────────────────────────────────────────────────
+create policy "so_orders: users own their rows" on so_orders
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "so_drivers: users own their rows" on so_drivers
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "invoice_payments: users own their rows" on invoice_payments
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ── Indexes ───────────────────────────────────────────────────────────────────
+create index if not exists idx_so_orders_user       on so_orders(user_id, created_at desc);
+create index if not exists idx_so_drivers_user      on so_drivers(user_id, name);
+create index if not exists idx_payments_user_inv    on invoice_payments(user_id, invoice_number);
+```
+
+---
+
 ## Table reference
 
 | Table | Key columns | Notes |
@@ -146,6 +207,9 @@ create index if not exists idx_invoice_items_invoice   on invoice_items(invoice_
 | `products` | `user_id`, `barcode` (unique pair) | `last_price` updated on each save |
 | `invoices` | `user_id`, `invoice_number` (unique pair) | Denormalised store/business fields for PDF generation |
 | `invoice_items` | `invoice_id`, `user_id` | Cascade-deleted when invoice is deleted |
+| `so_orders` | `id` (app-generated text), `user_id` | Store Owner order requests |
+| `so_drivers` | `id` (app-generated text), `user_id` | Driver directory; `inventory` is jsonb array |
+| `invoice_payments` | `id` (app-generated text), `invoice_number` | Payment log; `created_at` used as timestamp |
 
 ## Data shape notes
 
