@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getOrders, updateOrderStatus, deleteOrder } from '../../utils/storeOwnerStorage';
+import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver } from '../../utils/storeOwnerStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 
 const STATUS_META = {
@@ -37,6 +37,11 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
   function refresh() { setOrders(getOrders()); }
 
   function handleStatus(id, status) {
+    // When accepting, push a bridge request for the Driver role to pick up
+    if (status === 'accepted') {
+      const order = orders.find(o => o.id === id);
+      if (order) bridgeOrderToDriver(order);
+    }
     updateOrderStatus(id, status);
     refresh();
   }

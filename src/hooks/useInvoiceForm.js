@@ -89,6 +89,22 @@ export function useInvoiceForm(onGenerated) {
     getStoreNames().then(names => setStoreNames(names || [])).catch(() => {});
   }, []);
 
+  // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('inv_prefill');
+      if (!raw) return;
+      localStorage.removeItem('inv_prefill');
+      const p = JSON.parse(raw);
+      if (p.storeName)    setStoreName(p.storeName);
+      if (p.storePhone)   setStorePhone(p.storePhone);
+      if (p.storeAddress) setStoreAddress(p.storeAddress);
+      if (p.customerName) setCustomerName(p.customerName);
+      if (p.notes)        setNotes(p.notes);
+      if (Array.isArray(p.items) && p.items.length) setItems(p.items);
+    } catch {}
+  }, []); // eslint-disable-line
+
   // ── Add-item form state ──────────────────────────────────────────────────
 
   // Ref to track the latest product name so stale async lookups don't overwrite.

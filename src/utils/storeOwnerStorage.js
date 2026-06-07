@@ -114,3 +114,40 @@ export function saveDriver(driver) {
 export function deleteDriver(id) {
   lsSet('inv_so_drivers', getDrivers().filter(d => d.id !== id));
 }
+
+// ─── Driver Bridge (SO → Driver invoice pre-fill) ─────────────────────────────
+//
+// When a Store Owner accepts an order, they can push a "bridge request" into a
+// queue that the Driver sees as a banner in Invoice History.  The driver taps it
+// to open a pre-filled New Invoice form, reviews it, and generates the invoice.
+//
+// BridgeRequest shape:
+// {
+//   id: string,
+//   productName: string,
+//   quantity: number,
+//   notes: string,
+//   orderId: string,      // source SO order id
+//   bridgedAt: string,    // ISO timestamp
+// }
+
+export function bridgeOrderToDriver(order) {
+  const requests = lsGet('inv_bridge_requests', []);
+  requests.unshift({
+    id: `br_${Date.now()}`,
+    productName: order.productName,
+    quantity: order.quantity,
+    notes: order.notes || '',
+    orderId: order.id,
+    bridgedAt: new Date().toISOString(),
+  });
+  lsSet('inv_bridge_requests', requests);
+}
+
+export function getBridgeRequests() {
+  return lsGet('inv_bridge_requests', []);
+}
+
+export function dismissBridgeRequest(id) {
+  lsSet('inv_bridge_requests', getBridgeRequests().filter(r => r.id !== id));
+}
