@@ -430,16 +430,24 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       tomorrow.setDate(tomorrow.getDate() + 1);
       await fillDate('[data-tutorial="so-label-date"]', '[data-tutorial="so-request-date"]', tomorrow.toISOString().split('T')[0]);
 
-      // Now move cursor to submit (bottom of page).
-      // Update rect to submit: element in bottom half → tooltip flips to top.
+      // Move cursor to submit. Update rect so tooltip flips to top (submit is bottom-half).
       const submitEl = document.querySelector('[data-tutorial="so-request-submit"]');
       if (submitEl) {
         const r = submitEl.getBoundingClientRect();
         setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
       }
       await moveTo('[data-tutorial="so-request-submit"]');
-      show(1, 'Tap Send Request', 'Your request is sent straight to your driver.');
-      await waitForUser(true);
+      show(1, 'Sending your request...', 'Your driver gets notified right away.');
+
+      // Actually tap submit — creates a real order in localStorage so the user
+      // sees it in Orders and Dashboard after the tutorial.
+      setCursorPulse(true);
+      await sleep(80);
+      submitEl?.click();
+      await sleep(80);
+      setCursorPulse(false);
+      // Wait for the "Request Sent!" green flash + auto-navigation to so-orders
+      await sleep(900);
     }
 
     // == STEP 2 -- Orders =====================================================
@@ -501,28 +509,30 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
         await typeInto('[data-tutorial="so-label-driver-name"]', '[data-tutorial="so-drivers-name-input"]', 'John Smith', 38);
         await sleep(200);
 
-        show(3, 'Add phone & inventory', 'Note what products each driver carries -- makes ordering fast.');
-        await waitForUser(false);
-        if (cancelled) return;
-
-        // Cancel the form (same button toggles)
-        const cancelBtn = document.querySelector('[data-tutorial="so-drivers-add-btn"]');
-        if (cancelBtn) { await tap(cancelBtn); await sleep(200); }
+        // Actually save the driver — creates a real entry so the user sees
+        // "John Smith" in the list and can assign them to requests right away.
+        const saveBtn = Array.from(document.querySelectorAll('button'))
+          .find(b => b.textContent.trim() === 'Save Driver');
+        if (saveBtn) {
+          await tap(saveBtn);
+          await sleep(400);
+        }
       }
 
       clearCursor();
-      show(3, 'Driver directory', 'Your drivers show up here ready to assign to any request.');
+      show(3, 'Driver added!', 'John Smith is in your directory. Assign them when placing a request.');
       await waitForUser(true);
     }
 
-    // == STEP 4 -- Hamburger ==================================================
+    // == STEP 4 -- Dashboard ==================================================
     async function step4() {
-      show(4, 'More at your fingertips', 'Tap the menu icon for your dashboard, settings, and more.');
+      show(4, 'Your dashboard', 'Tap the menu icon anytime to see your order stats at a glance.');
       clearCursor();
       await sleep(300);
       await waitForUser(false);
       if (cancelled) return;
 
+      // Show cursor pulsing on the hamburger so the user knows where it is
       const hamburger = document.querySelector('[data-tutorial="hamburger"]');
       if (hamburger) {
         const r = hamburger.getBoundingClientRect();
@@ -534,13 +544,19 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
         await sleep(200);
       }
 
-      show(4, 'Dashboard, Settings & more', 'Order summary, preferences, and profile all live in that menu.');
+      // Open the dashboard overlay so the user actually SEES it
+      navigate('so-home');
+      await sleep(500);
+      setRect(null);
+      clearCursor();
+
+      show(4, 'Order summary', 'Pending, accepted, and delivered counts — plus your most-ordered products, all in one place.');
       await waitForUser(true);
     }
 
     // == STEP 5 -- Done! ======================================================
     async function step5() {
-      show(5, "You're all set!", 'Start by placing your first request -- your driver will see it right away.');
+      show(5, "You're all set!", "Your first request is in Orders and John Smith is in Drivers. Start ordering!");
       navigate('so-request');
       clearCursor();
       await sleep(300);
