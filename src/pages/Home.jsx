@@ -35,7 +35,6 @@ function dateStr(d) {
 }
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const PRODUCT_COLORS = ['#4A7BF7', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
