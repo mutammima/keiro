@@ -24,6 +24,11 @@ function subtotalOf(inv) {
   return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
 }
 
+/** Normalise payment status from either camelCase (local) or snake_case (DB) field. */
+function getStatus(inv) {
+  return inv.paymentStatus || inv.payment_status || 'unpaid';
+}
+
 function dateStr(d) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
@@ -185,25 +190,26 @@ export default function Home({ onOpenDrawer, onNav }) {
   const todayInvoices = invoices.filter(inv => inv.date === today);
   const todayTotal    = todayInvoices.reduce((s, inv) => s + subtotalOf(inv), 0);
   const todayCollected = todayInvoices
-    .filter(inv => inv.paymentStatus === 'paid')
+    .filter(inv => getStatus(inv) === 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
 
   // ── All-time collection ──────────────────────────────────────────────────────
   const totalPaid  = invoices
-    .filter(inv => inv.paymentStatus === 'paid')
+    .filter(inv => getStatus(inv) === 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
   const totalOwed  = invoices
-    .filter(inv => !inv.paymentStatus || inv.paymentStatus === 'unpaid' || inv.paymentStatus === 'partial')
+    .filter(inv => getStatus(inv) !== 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
-  const unpaidCount = invoices.filter(inv => !inv.paymentStatus || inv.paymentStatus === 'unpaid').length;
-  const paidCount   = invoices.filter(inv => inv.paymentStatus === 'paid').length;
+  const unpaidCount = invoices.filter(inv => getStatus(inv) === 'unpaid').length;
+  const paidCount   = invoices.filter(inv => getStatus(inv) === 'paid').length;
 
   // ── Overdue ──────────────────────────────────────────────────────────────────
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
+  const flagMs   = flagDays * 24 * 60 * 60 * 1000;
   const overdueCount = invoices.filter(inv => {
-    if (inv.paymentStatus === 'paid') return false;
+    if (getStatus(inv) === 'paid') return false;
     const d = new Date(inv.date);
-    return !isNaN(d) && d.getTime() < sevenDaysAgo;
+    return !isNaN(d) && Date.now() - d.getTime() > flagMs;
   }).length;
 
   // ── Last 7 days (bar chart) ──────────────────────────────────────────────────
@@ -235,8 +241,10 @@ export default function Home({ onOpenDrawer, onNav }) {
   // ── Pinned store balances ────────────────────────────────────────────────────
   const storeBalance = {};
   invoices.forEach(inv => {
-    if (!storeBalance[inv.storeName]) storeBalance[inv.storeName] = 0;
-    if (inv.paymentStatus !== 'paid') storeBalance[inv.storeName] += subtotalOf(inv);
+    const sn = inv.storeName || inv.store_name;
+    if (!sn) return;
+    if (!storeBalance[sn]) storeBalance[sn] = 0;
+    if (getStatus(inv) !== 'paid') storeBalance[sn] += subtotalOf(inv);
   });
 
   return (

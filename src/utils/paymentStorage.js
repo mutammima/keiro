@@ -106,8 +106,12 @@ export async function loadAllPaymentsFromCloud() {
       id:     row.id,
       amount: Number(row.amount),
       note:   row.note || '',
-      ts:     row.created_at,
+      ts:     row.ts || row.created_at,  // ts is the DB column; fallback for safety
     });
+  });
+  // Sort each invoice's payments newest-first (mirror addPayment's unshift ordering)
+  Object.keys(all).forEach(k => {
+    all[k].sort((a, b) => new Date(b.ts) - new Date(a.ts));
   });
   lsSet(KEY, all);
 }

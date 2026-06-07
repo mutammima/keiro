@@ -125,12 +125,16 @@ export function useInvoiceHistory() {
   /** True when all invoices have been collected (outstanding === 0 and there are invoices). */
   const allClear = outstanding === 0 && invoices.length > 0;
 
-  /** Returns true if the invoice is overdue: unpaid/partial and created more than 7 days ago. */
-  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  /**
+   * Returns true if the invoice is overdue: unpaid/partial and older than the
+   * user's configured auto-flag threshold (default 7 days from Settings → Automation).
+   */
+  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
+  const FLAG_MS  = flagDays * 24 * 60 * 60 * 1000;
   function isOverdue(inv) {
     if (getStatus(inv) === 'paid') return false;
     const d = new Date(inv.date);
-    return !isNaN(d) && Date.now() - d.getTime() > SEVEN_DAYS;
+    return !isNaN(d) && Date.now() - d.getTime() > FLAG_MS;
   }
 
   const overdueCount = invoices.filter(isOverdue).length;

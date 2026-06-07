@@ -98,13 +98,16 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   const [bridgeRequests, setBridgeRequests] = useState(() => getBridgeRequests());
 
   function handleFillFromRequest(req) {
+    // Note: price is intentionally omitted so the driver sees "0.00" and is
+    // prompted to enter the actual sale price before generating the invoice.
+    // Items with price 0 are flagged visually in the form.
     const prefill = {
       notes: req.notes || '',
       items: [{
         id:    `br_${Date.now()}`,
         name:  req.productName,
-        qty:   req.quantity,
-        price: '',
+        qty:   Number(req.quantity) || 1,
+        price: 0,
       }],
     };
     localStorage.setItem('inv_prefill', JSON.stringify(prefill));
@@ -124,19 +127,22 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     return dark ? STATUS[key]?.dark : STATUS[key]?.light;
   }
 
+  // Read auto-flag threshold once from localStorage (default 7 days)
+  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
+  const flagMs   = flagDays * 24 * 60 * 60 * 1000;
+
   // ── Invoice Card ──────────────────────────────────────────────────────────
   function InvoiceCard({ inv, isFirst }) {
     const total   = subtotalOf(inv);
     const isOpen  = expanded === inv.number;
-    const pinned  = isStorePinned(inv.storeName);
-    const colors  = sc(inv.paymentStatus);
+    const pinned  = isStorePinned(inv.storeName || inv.store_name);
+    const status  = inv.paymentStatus || inv.payment_status || 'unpaid';
+    const colors  = sc(status);
     const menuOpen = openMenu === inv.number;
 
-    // Overdue: unpaid/partial and older than 7 days
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const invDate = new Date(inv.date);
-    const isOverdue = (inv.paymentStatus !== 'paid') &&
-      !isNaN(invDate) && invDate.getTime() < sevenDaysAgo;
+    // Overdue: unpaid/partial and older than auto-flag threshold
+    const invDate   = new Date(inv.date);
+    const isOverdue = status !== 'paid' && !isNaN(invDate) && Date.now() - invDate.getTime() > flagMs;
 
     // ── COMPACT card: lean 2-line row, total + status inline, no sub-card ──────
     if (D.compact) {
@@ -165,7 +171,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
             }} />
             {/* Store name */}
             <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {inv.storeName}
+              {inv.storeName || inv.store_name}
               {isOverdue && <span style={{ fontSize: 9, fontWeight: 800, color: '#ef4444', marginLeft: 6, textTransform: 'uppercase' }}>OVRD</span>}
             </span>
             {/* Total */}
@@ -187,7 +193,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                       <button key={st} style={{ ...s.dropdownItem, color: C.text }} onClick={() => setStatus(inv.number, st)}>
                         <span style={{ ...s.miniDot, background: stColors.text }} />
                         {STATUS[st].label}
-                        {(inv.paymentStatus || 'unpaid') === st && <span style={{ marginLeft: 'auto', color: ACCENT }}>✓</span>}
+                        {status === st && <span style={{ marginLeft: 'auto', color: ACCENT }}>✓</span>}
                       </button>
                     );
                   })}
@@ -211,7 +217,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                 marginLeft: 'auto', flexShrink: 0,
               }}
               onClick={() => cycleStatus(inv.number)}
-            >{STATUS[inv.paymentStatus || 'unpaid']?.label}</span>
+            >{STATUS[status]?.label}</span>
           </div>
 
           {/* Expanded items (compact) */}
@@ -249,9 +255,9 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
               <button
                 {...(isFirst ? { 'data-tutorial': 'store-name-link' } : {})}
                 style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => { onSelectStore?.(inv.storeName); if (isFirst) window.dispatchEvent(new CustomEvent('inv-onboarding-store-viewed')); }}
+                onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent('inv-onboarding-store-viewed')); }}
               >
-                {inv.storeName}
+                {inv.storeName || inv.store_name}
               </button>
               {isOverdue && (
                 <span style={{
@@ -296,7 +302,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                       >
                         <span style={{ ...s.miniDot, background: stColors.text }} />
                         {STATUS[st].label}
-                        {(inv.paymentStatus || 'unpaid') === st && (
+                        {status === st && (
                           <span style={{ marginLeft: 'auto', color: ACCENT }}>✓</span>
                         )}
                       </button>
@@ -371,7 +377,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
             onClick={() => cycleStatus(inv.number)}
             title="Tap to change"
           >
-            {STATUS[inv.paymentStatus || 'unpaid']?.label}
+            {STATUS[status]?.label}
           </button>
           {sharing === inv.number && (
             <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>Sharing…</span>
@@ -683,7 +689,7 @@ const s = {
 
   // Search/filter
   filterCard: {
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: 16, overflow: 'hidden', border: '1px solid',
   },
   searchInput: {
     width: '100%', boxSizing: 'border-box', height: 44,

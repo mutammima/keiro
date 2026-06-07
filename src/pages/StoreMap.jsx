@@ -8,18 +8,26 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
-import { getInvoices, getPinnedStores, togglePinnedStore } from '../utils/storage';
+import { getInvoices, getPinnedStores, togglePinnedStore, saveStoreDetails, lsGet } from '../utils/storage';
 
-// ── Local overrides storage ────────────────────────────────────────────────────
-const OVERRIDES_KEY = 'inv_store_overrides';
+// ── Shared store overrides — reads from the same keys as the main app ──────────
+// Falls back to legacy inv_store_overrides for data written before this fix.
 function loadOverrides() {
-  try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveOverride(name, data) {
-  const all = loadOverrides();
-  all[name] = { ...(all[name] || {}), ...data };
-  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(all));
+  const phones = lsGet('inv_store_phones', {});
+  const addrs  = lsGet('inv_store_addrs',  {});
+  const legacy = (() => { try { return JSON.parse(localStorage.getItem('inv_store_overrides')) || {}; } catch { return {}; } })();
+  // Merge: main app keys take precedence over legacy key
+  const all = {};
+  for (const [name, val] of Object.entries(legacy)) {
+    all[name] = { address: val.address || '', phone: val.phone || '' };
+  }
+  for (const [name, phone] of Object.entries(phones)) {
+    all[name] = { ...(all[name] || {}), phone };
+  }
+  for (const [name, address] of Object.entries(addrs)) {
+    all[name] = { ...(all[name] || {}), address };
+  }
+  return all;
 }
 
 // ── Open native maps ──────────────────────────────────────────────────────────
@@ -123,7 +131,8 @@ function EditSheet({ store, C, dark, onSave, onClose }) {
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
   function handleSave() {
-    saveOverride(store.name, { address: address.trim(), phone: phone.trim() });
+    // Persist to shared storage (Supabase + localStorage) so New Invoice form picks it up
+    saveStoreDetails(store.name, phone.trim(), address.trim()).catch(e => console.error('saveStoreDetails', e));
     onSave({ address: address.trim(), phone: phone.trim() });
   }
 
