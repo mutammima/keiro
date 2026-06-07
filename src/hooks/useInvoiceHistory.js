@@ -18,7 +18,7 @@ import {
 } from '../utils/storage';
 import { clearSignatures } from '../utils/signatureStorage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
-import { clearPaymentsFor } from '../utils/paymentStorage';
+import { clearPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -69,14 +69,17 @@ export function useInvoiceHistory() {
 
   const today = todayStr();
 
-  // ── Load invoices from cloud on mount ────────────────────────────────────
+  // ── Load invoices + payment log from cloud on mount ──────────────────────
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getInvoices().then(list => {
+    // Both fetches run in parallel; invoices gate the loading spinner,
+    // payments sync silently in the background.
+    Promise.all([
+      getInvoices(),
+      loadAllPaymentsFromCloud().catch(() => {}),
+    ]).then(([list]) => {
       if (!cancelled) {
-        // getInvoices() returns newest-first from cloud;
-        // if falling back to localStorage it's oldest-first — reverse it.
         setInvoices(Array.isArray(list) ? list : []);
         setLoading(false);
       }

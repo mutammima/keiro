@@ -570,6 +570,169 @@ export async function saveStoreDetails(storeName, phone, address) {
   }
 }
 
+// ── Store Owner Orders ────────────────────────────────────────────────────────
+
+export async function getSOOrders() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('so_orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveSOOrder(order) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('so_orders')
+      .upsert({
+        id:            order.id,
+        user_id:       userId,
+        product_name:  order.productName,
+        quantity:      order.quantity,
+        delivery_date: order.deliveryDate || '',
+        driver_id:     order.driverId    || '',
+        driver_name:   order.driverName  || '',
+        status:        order.status      || 'pending',
+        notes:         order.notes       || '',
+        created_at:    order.createdAt   || new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function updateSOOrderStatus(id, status) {
+  try {
+    const { error } = await supabase
+      .from('so_orders')
+      .update({ status })
+      .eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteSOOrder(id) {
+  try {
+    const { error } = await supabase.from('so_orders').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// ── Store Owner Drivers ───────────────────────────────────────────────────────
+
+export async function getSODrivers() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('so_drivers')
+      .select('*')
+      .order('name');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveSODriver(driver) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('so_drivers')
+      .upsert({
+        id:        driver.id,
+        user_id:   userId,
+        name:      driver.name,
+        phone:     driver.phone     || '',
+        inventory: driver.inventory || [],
+      }, { onConflict: 'id' })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteSODriver(id) {
+  try {
+    const { error } = await supabase.from('so_drivers').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// ── Invoice Payment Log ───────────────────────────────────────────────────────
+
+export async function getAllInvoicePayments() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoice_payments')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveInvoicePayment(payment) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('invoice_payments')
+      .insert({
+        id:             payment.id,
+        user_id:        userId,
+        invoice_number: Number(payment.invoiceNumber),
+        amount:         Number(payment.amount),
+        note:           payment.note || '',
+        created_at:     payment.ts  || new Date().toISOString(),
+      });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteInvoicePayment(id) {
+  try {
+    const { error } = await supabase.from('invoice_payments').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function clearInvoicePayments(invoiceNumber) {
+  try {
+    const { error } = await supabase
+      .from('invoice_payments')
+      .delete()
+      .eq('invoice_number', invoiceNumber);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
 // ── Business info / settings — kept in localStorage (single-user config) ──────
 // Delegated to storage.js; see getBusinessName / saveBusinessName etc. there.
 

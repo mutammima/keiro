@@ -5,11 +5,11 @@
  * before assigning an order.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getDrivers, saveDriver, deleteDriver } from '../../utils/storeOwnerStorage';
+import { getDrivers, saveDriver, deleteDriver, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -20,6 +20,11 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
   const [drivers,       setDrivers]       = useState(() => getDrivers());
   const [showAdd,       setShowAdd]       = useState(false);
+
+  // Fetch latest from cloud on mount
+  useEffect(() => {
+    loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
+  }, []);
   const [expandedId,    setExpandedId]    = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
