@@ -15,6 +15,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 // InteractiveTutorial replaced by OnboardingTutorial for "How it Works"
 import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
+import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
 import BottomNav from './components/navigation/BottomNav';
@@ -418,6 +419,13 @@ function AppInner({ role, onSwitchRole }) {
           navigate={navigate}
           onComplete={() => { markOnboardingComplete(); navigate('history'); }}
           onSkip={() => { skipOnboarding(); navigate('history'); }}
+        />
+      )}
+      {shouldShowOnboarding && role === 'store_owner' && (
+        <SOOnboardingTutorial
+          navigate={navigate}
+          onComplete={() => { markOnboardingComplete(); navigate('so-request'); }}
+          onSkip={() => { skipOnboarding(); navigate('so-request'); }}
         />
       )}
     </div>

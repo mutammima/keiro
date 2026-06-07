@@ -81,9 +81,10 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={onOpenDrawer} style={s.iconBtn(C)}>☰</button>
+        <div style={{ width: 36 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Drivers</span>
         <button
+          data-tutorial="so-drivers-add-btn"
           onClick={() => { setShowAdd(v => !v); setAddError(''); }}
           style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, padding: '7px 16px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
         >
@@ -98,7 +99,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
           <div style={s.card(C)}>
             <p style={s.sectionLabel(C)}>New Driver</p>
             <label style={s.label(C)}>Name</label>
-            <input style={{ ...s.input, ...inp }} placeholder="e.g. John Smith"
+            <input data-tutorial="so-drivers-name-input" style={{ ...s.input, ...inp }} placeholder="e.g. John Smith"
               value={newName} onChange={e => { setNewName(e.target.value); setAddError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleAddDriver()} autoFocus />
             <label style={{ ...s.label(C), marginTop: 12 }}>Phone <span style={{ color: C.textMuted, fontWeight: 400 }}>(optional)</span></label>

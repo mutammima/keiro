@@ -67,13 +67,13 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={onOpenDrawer} style={s.iconBtn(C)}>☰</button>
+        <div style={{ width: 36 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Orders</span>
         <div style={{ width: 36 }} />
       </div>
 
       {/* Filter pills */}
-      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 4px', overflowX: 'auto' }}>
+      <div data-tutorial="so-orders-filters" style={{ display: 'flex', gap: 8, padding: '12px 16px 4px', overflowX: 'auto' }}>
         {FILTERS.map(f => {
           const active = filter === f;
           return (
@@ -109,7 +109,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
               <button style={s.accentBtn} onClick={() => onNav('so-request')}>+ New Request</button>
             )}
           </div>
-        ) : visible.map(order => {
+        ) : visible.map((order, orderIdx) => {
           const meta = STATUS_META[order.status] || STATUS_META.pending;
           const expanded = expandedId === order.id;
           return (
@@ -119,6 +119,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
             >
               {/* Main row */}
               <button
+                data-tutorial={orderIdx === 0 ? 'so-order-card' : undefined}
                 onClick={() => setExpandedId(expanded ? null : order.id)}
                 style={{ width: '100%', background: 'none', border: 'none', padding: '14px 16px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', textAlign: 'left' }}
               >
