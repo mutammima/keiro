@@ -86,5 +86,7 @@ export function useBackup() {
   }
 
   // ── Return ─────────────────────────────────────────────────────────────────
-  return { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile };
+  function clearBackupMsg() { setBackupMsg(''); }
+
+  return { backupMsg, clearBackupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile };
 }

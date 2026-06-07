@@ -42,7 +42,7 @@ const ACCENT_PRESETS = [
   '#64748B', // slate
 ];
 
-export default function Settings({ onOpenDrawer, onNav }) {
+export default function Settings({ onOpenDrawer, onNav, onClose }) {
   const { dark, toggleDark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -136,7 +136,7 @@ export default function Settings({ onOpenDrawer, onNav }) {
   function unpin(name) { togglePinnedStore(name); setPinned(getPinnedStores()); }
 
   // ── Backup ─────────────────────────────────────────────────────────────────
-  const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
+  const { backupMsg, clearBackupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
   // ── PIN lock ───────────────────────────────────────────────────────────────
   const [pinEnabled, setPinEnabled] = useState(() => isPinEnabled());
@@ -189,9 +189,9 @@ export default function Settings({ onOpenDrawer, onNav }) {
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Settings</span>
-        {/* Close / back — returns to the invoice tab (critical in easy mode where there's no bottom nav) */}
+        {/* Close / back — uses onClose when provided, falls back to navigating to first tab */}
         <button
-          onClick={() => onNav('invoice')}
+          onClick={() => onClose ? onClose() : onNav('invoice')}
           style={{ width: 36, height: 36, background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent', borderRadius: 10 }}
           aria-label="Close settings"
         >✕</button>

@@ -73,6 +73,10 @@ const NAV_ITEMS_FULL = [
   { id: 'notes',      label: 'Notes',      icon: Icons.notes },
 ];
 
+const NAV_ITEMS_OWNER = [
+  { id: 'so-home',    label: 'Dashboard',  icon: Icons.home },
+];
+
 const NAV_ITEMS_EASY = [];
 
 const SETTINGS_ITEM = { id: 'settings', label: 'Settings', icon: Icons.settings };
@@ -81,11 +85,13 @@ function isEasyMode() {
   try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
 }
 
-export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial }) {
+export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const [pinned, setPinned] = useState([]);
-  const NAV_ITEMS = isEasyMode() ? NAV_ITEMS_EASY : NAV_ITEMS_FULL;
+
+  const isOwner = role === 'store_owner';
+  const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (isEasyMode() ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
 
   // Refresh pinned list whenever drawer opens
   useEffect(() => {
@@ -142,8 +148,8 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
           })}
         </nav>
 
-        {/* Pinned stores */}
-        {pinned.length > 0 && (
+        {/* Pinned stores — driver only */}
+        {!isOwner && pinned.length > 0 && (
           <div style={{ padding: '0 10px 4px' }}>
             <div style={{ ...s.dividerLine, background: C.divider, margin: '4px 2px 10px' }} />
             <div style={{ color: C.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, paddingLeft: 4 }}>
@@ -159,7 +165,7 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
                     color: C.navActiveText,
                     borderColor: dark ? 'rgba(74,123,247,0.18)' : 'rgba(74,123,247,0.15)',
                   }}
-                  onClick={() => { onClose(); /* future: navigate to store detail */ }}
+                  onClick={() => { onClose(); onNav('store-map'); }}
                 >
                   <span style={{ fontSize: 11 }}>★</span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
@@ -191,13 +197,15 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
             <span style={s.navIcon} aria-hidden="true">{Icons.profile}</span>
             <span>Profile</span>
           </button>
-          <button
-            style={{ ...s.navItem, color: C.navText }}
-            onClick={() => { onClose(); onTutorial?.(); }}
-          >
-            <span style={s.navIcon} aria-hidden="true">{Icons.help}</span>
-            <span>How it Works</span>
-          </button>
+          {!isOwner && (
+            <button
+              style={{ ...s.navItem, color: C.navText }}
+              onClick={() => { onClose(); onTutorial?.(); }}
+            >
+              <span style={s.navIcon} aria-hidden="true">{Icons.help}</span>
+              <span>How it Works</span>
+            </button>
+          )}
           <button
             style={{ ...s.navItem, color: C.danger, background: 'none', transition: 'color 0.4s ease' }}
             onClick={handleSignOut}

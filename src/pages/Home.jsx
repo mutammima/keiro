@@ -29,6 +29,7 @@ function dateStr(d) {
 }
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const PRODUCT_COLORS = ['#4A7BF7', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 // ─── 7-Day Bar Chart ──────────────────────────────────────────────────────────
 
@@ -237,9 +238,6 @@ export default function Home({ onOpenDrawer, onNav }) {
     if (!storeBalance[inv.storeName]) storeBalance[inv.storeName] = 0;
     if (inv.paymentStatus !== 'paid') storeBalance[inv.storeName] += subtotalOf(inv);
   });
-
-  // ── Pill bar colors for top products (cycle through palette) ─────────────────
-  const PRODUCT_COLORS = ['#4A7BF7', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: C.bg }}>

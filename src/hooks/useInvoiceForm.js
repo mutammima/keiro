@@ -7,7 +7,7 @@
  * async are unchanged.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   getNextInvoiceNumber,
   saveInvoice,
@@ -66,6 +66,9 @@ export function useInvoiceForm(onGenerated) {
   const [editingBiz, setEditingBiz]           = useState(false);
   const [editingBizPhone, setEditingBizPhone] = useState(false);
 
+  // Ref to track the latest store name so stale async phone/address lookups don't overwrite.
+  const latestStoreNameRef = useRef('');
+
   // ── Store / customer state ───────────────────────────────────────────────
   const [storeName, setStoreName]         = useState('');
   const [customerName, setCustomerName]   = useState('');
@@ -90,6 +93,9 @@ export function useInvoiceForm(onGenerated) {
 
   // ── Add-item form state ──────────────────────────────────────────────────
 
+  // Ref to track the latest product name so stale async lookups don't overwrite.
+  const latestProductNameRef = useRef('');
+
   /**
    * Sets the product name and — if a saved price exists for that product —
    * auto-fills the price field. This fires when the user selects from autocomplete
@@ -97,9 +103,12 @@ export function useInvoiceForm(onGenerated) {
    * @param {string} val - Product name being set.
    */
   function handleProductNameChange(val) {
+    latestProductNameRef.current = val;
     setProductName(val);
     // Async lookup — only auto-fill when price field is currently empty
+    // and the product name hasn't changed since we fired the request.
     getProductByName(val).then(saved => {
+      if (latestProductNameRef.current !== val) return; // stale — ignore
       if (saved && saved.lastPrice > 0) {
         setPrice(String(saved.lastPrice));
       }
@@ -145,10 +154,17 @@ export function useInvoiceForm(onGenerated) {
    * @param {string} val - Selected or typed store name.
    */
   function handleStoreNameChange(val) {
+    latestStoreNameRef.current = val;
     setStoreName(val);
     if (val?.trim()) {
-      getStorePhone(val).then(p => { if (p) setStorePhone(p); }).catch(() => {});
-      getStoreAddress(val).then(a => { if (a) setStoreAddress(a); }).catch(() => {});
+      getStorePhone(val).then(p => {
+        if (latestStoreNameRef.current !== val) return; // stale — ignore
+        if (p) setStorePhone(p);
+      }).catch(() => {});
+      getStoreAddress(val).then(a => {
+        if (latestStoreNameRef.current !== val) return; // stale — ignore
+        if (a) setStoreAddress(a);
+      }).catch(() => {});
     }
   }
 

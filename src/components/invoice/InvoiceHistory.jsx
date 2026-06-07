@@ -17,7 +17,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
 
   // ── Business logic (state + handlers) from hook ───────────────────────────
   const {
-    invoices, bizName,
+    invoices, bizName, loading,
     expanded, setExpanded,
     search, setSearch,
     statusFilter, setStatusFilter,
@@ -385,7 +385,11 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: C.textMuted, fontSize: 14 }}>
+            Loading invoices…
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={s.empty}>
             <p style={{ ...s.emptyText, color: C.textSub }}>
               {invoices.length === 0 ? 'No invoices yet.' : 'No results.'}
