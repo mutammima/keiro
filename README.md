@@ -31,7 +31,7 @@ src/
   main.jsx             React entry point + service worker registration
 
   pages/               Full-screen navigable pages (opened via navigate())
-    Home.jsx           Dashboard — daily Collected / Owed stats
+    Home.jsx           Visual dashboard — today strip, 7-day bar chart, donut ring, top products
     Reports.jsx        Today / Week / Month / Year analytics + top stores/products
     Settings.jsx       Business info, theme, PIN, display density, backup
     StoreMap.jsx       Store info — swipe-to-edit, pinned stores, OSM map
@@ -44,11 +44,12 @@ src/
 
   components/
     auth/              AuthGate (session wrapper) · LoginScreen (email + passkey)
+    dashboard/         Chart components for Home: BarChart · DonutRing · HorizBar · PRODUCT_COLORS
     invoice/           NewInvoice · InvoiceHistory · InvoiceView · InvoicePreview
                        EditItemModal · LiveInvoicePreview
-    navigation/        BottomNav (file) = TopNav bar (component) · NavDrawer · AppFooter
+    navigation/        BottomNav.jsx (top tab bar) · NavDrawer · AppFooter
     settings/          PinLock · ThemeToggle
-    tutorial/          OnboardingTutorial (active) — see note below
+    tutorial/          OnboardingTutorial (active)
     ui/                SplashScreen · UpdateBanner · WhatsNew · BarcodeScanner
                        AutofillInput · SignaturePad · SettingsUI
 
