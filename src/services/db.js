@@ -681,6 +681,51 @@ export async function deleteSODriver(id) {
   }
 }
 
+// ── Store Owner → Driver Bridge Requests ──────────────────────────────────────
+
+export async function getBridgeRequests() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('so_bridge_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveBridgeRequest(req) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('so_bridge_requests')
+      .upsert({
+        id:           req.id,
+        user_id:      userId,
+        product_name: req.productName || '',
+        quantity:     Number(req.quantity) || 1,
+        notes:        req.notes || '',
+        order_id:     req.orderId || '',
+        created_at:   req.bridgedAt || new Date().toISOString(),
+      }, { onConflict: 'id' });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteBridgeRequest(id) {
+  try {
+    const { error } = await supabase.from('so_bridge_requests').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
 // ── Invoice Payment Log ───────────────────────────────────────────────────────
 
 export async function getAllInvoicePayments() {

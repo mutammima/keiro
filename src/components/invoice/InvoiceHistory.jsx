@@ -4,7 +4,7 @@
  * All business logic lives in useInvoiceHistory; this component is pure UI.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../../theme';
@@ -12,7 +12,7 @@ import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
-import { getBridgeRequests, dismissBridgeRequest } from '../../utils/storeOwnerStorage';
+import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
 function fmtPaymentDate(iso) {
@@ -95,7 +95,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
   }
 
   // ── Bridge requests (from Store Owner) ───────────────────────────────────
+  // Seed from the localStorage cache, then refresh from the cloud (source of
+  // truth) so requests created on another device show up here.
   const [bridgeRequests, setBridgeRequests] = useState(() => getBridgeRequests());
+
+  useEffect(() => {
+    loadBridgeRequestsFromCloud().then(setBridgeRequests).catch(() => {});
+  }, []);
 
   function handleFillFromRequest(req) {
     // Note: price is intentionally omitted so the driver sees "0.00" and is
