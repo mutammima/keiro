@@ -53,6 +53,13 @@ export default function AppFooter({ onNav }) {
           <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoGo Bug Report', '_blank')} C={C} />
         </div>
 
+        {/* Legal links */}
+        <div style={s.linkRow}>
+          <FooterLink label="Privacy Policy" onPress={() => onNav?.('privacy')} C={C} />
+          <Pipe C={C} />
+          <FooterLink label="Terms of Service" onPress={() => onNav?.('terms')} C={C} />
+        </div>
+
         <p style={{ ...s.version, color: C.textLight }}>InvoGo v4.0 · Cloud sync</p>
       </div>
 

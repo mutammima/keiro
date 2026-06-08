@@ -10,6 +10,7 @@ import Products from './pages/Products';
 import StoreBalance from './pages/StoreBalance';
 import AuthGate from './components/auth/AuthGate';
 import About from './pages/About';
+import Legal from './pages/Legal';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
@@ -406,6 +407,8 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'home'    && <Home    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'so-home' && <SOHome  onClose={goBackFromOverlay} onNav={navigate} />}
           {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'privacy'    && <Legal section="privacy" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} />}
