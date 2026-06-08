@@ -103,7 +103,12 @@ src/
 | `src/services/auth.js` | Auth helpers (signIn, signOut, passkey) |
 | `src/services/db.js` | Database CRUD helpers |
 | `src/services/migration.js` | LocalStorage → Supabase migration |
-| `src/utils/storage.js` | Data helpers (Supabase + localStorage) |
+| `src/utils/storage.js` | Data helpers (Supabase + localStorage); mirrors invoices to cache + emits sync-error toasts on failed cloud writes |
+| `src/utils/paymentStorage.js` | Per-invoice payment ledger (amounts, notes, timestamps) — local first, Supabase sync |
+| `src/utils/storeOwnerStorage.js` | Store Owner → Driver order bridge; cloud-synced via `so_bridge_requests` with RLS |
+| `src/utils/reminderMessage.js` | Builds the overdue-invoice WhatsApp reminder message + `wa.me` deep link |
+| `src/utils/syncNotify.js` | Bridges non-React storage-layer cloud-write failures to a global toast (`inv-sync-error` event) |
+| `src/components/ui/SyncToast.jsx` | Global banner that surfaces failed critical cloud writes |
 | `src/utils/pdfGenerator.js` | jsPDF invoice generation |
 | `src/utils/barcodeApi.js` | Barcode lookup API |
 | `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update |
@@ -149,7 +154,16 @@ These files have `@deprecated` banners. Safe to delete when doing a cleanup pass
 | `src/components/ui/DailyProgress.jsx` | Home.jsx charts |
 | `src/hooks/useColors.js` | inline `PRODUCT_COLORS` in `DashboardCharts.jsx` |
 
+## Recently Shipped
+
+- **Payment logging with timestamps** — per-invoice ledger (`utils/paymentStorage.js`)
+- **Overdue payment reminders** — one-tap WhatsApp reminder on overdue invoices (`utils/reminderMessage.js`, surfaced in `InvoiceHistory.jsx`); days overdue counts from the invoice date, amount due reflects the remaining balance for partials
+- **Reliable invoice cloud save** — `customer_name` + `payment_method` now persist; `saveInvoice` is an upsert so retries converge on `unique(user_id, invoice_number)`
+- **Cloud-sync failure feedback** — `utils/syncNotify.js` + `components/ui/SyncToast.jsx` warn when a critical write saved locally but didn't reach the cloud
+- **Store Owner → Driver bridge** — cloud-synced order handoff via `so_bridge_requests` (RLS-scoped per user)
+
 ## Pending / Priority 2 Features
 
-- **Payment logging with timestamps** — running ledger per invoice ("$40 received May 28")
 - **Weekly store statement** — per-store weekly balance view
+- **Smart order suggestions** — frequency analysis on a store's recent invoices, surfaced as one-tap chips
+- **Invoice anomaly warning** — flag totals far outside a store's historical average

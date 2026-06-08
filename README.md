@@ -2,6 +2,16 @@
 
 Mobile-first delivery invoicing PWA. Create invoices on the go, track what every store owes, and see your daily/weekly/monthly revenue — all from your phone.
 
+## Features
+
+- **Fast invoicing** — number, save, and total invoices automatically; barcode scan to look up products and auto-fill prices.
+- **Store balances & payment tracking** — per-store outstanding balances, a per-invoice payment ledger with timestamps, and Paid / Unpaid / Partial status.
+- **Overdue payment reminders** — one tap opens WhatsApp with a polite, pre-filled reminder (store, invoice #, days overdue, exact balance due).
+- **PDF + WhatsApp share** — send a clean invoice from your phone in one tap.
+- **Dashboard & reports** — daily/weekly/monthly/yearly revenue, top stores and products.
+- **Resilient cloud sync** — Supabase with a localStorage fallback; failed cloud writes surface a visible warning instead of failing silently, and saves retry safely (upsert).
+- **Two roles** — Driver and Store Owner, with a cloud-synced order handoff between them.
+
 ## Tech stack
 
 - **React 19 + Vite** — fast dev server, PWA build
@@ -51,7 +61,7 @@ src/
     settings/          PinLock · ThemeToggle
     tutorial/          OnboardingTutorial (active)
     ui/                SplashScreen · UpdateBanner · WhatsNew · BarcodeScanner
-                       AutofillInput · SignaturePad · SettingsUI
+                       AutofillInput · SignaturePad · SettingsUI · SyncToast
 
   hooks/
     useInvoiceForm.js     Invoice form state + barcode lookup
@@ -71,6 +81,10 @@ src/
 
   utils/
     storage.js        Data helpers — wraps both Supabase and localStorage
+    paymentStorage.js Per-invoice payment ledger (amounts, notes, timestamps)
+    storeOwnerStorage.js  Store Owner → Driver order bridge (cloud-synced)
+    reminderMessage.js   Overdue-invoice WhatsApp reminder message + wa.me link
+    syncNotify.js     Surfaces failed critical cloud writes as a global toast
     pdfGenerator.js   jsPDF invoice generation
     barcodeApi.js     Barcode lookup API
     signatureStorage.js  Signature canvas persistence
