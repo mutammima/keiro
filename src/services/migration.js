@@ -113,13 +113,16 @@ export async function runMigrationIfNeeded() {
   }
 
   // ── Mark migration complete ───────────────────────────────────────────────
+  // Only flag the migration done when EVERYTHING succeeded. If any item failed,
+  // leave the flag unset so the migration retries on next load — otherwise the
+  // failed rows would be stranded in localStorage and never reach the cloud.
   if (errors.length === 0) {
     localStorage.setItem(MIGRATION_FLAG, 'true');
   } else {
-    // Partial migration — log errors but still set flag to avoid infinite retries.
-    // User can restore from backup if data is missing.
-    console.error('[Migration] Completed with errors:', errors);
-    localStorage.setItem(MIGRATION_FLAG, 'true');
+    console.error(
+      `[Migration] ${errors.length} item(s) failed — leaving migration flag unset so it retries on next load. Failed items:`,
+      errors
+    );
   }
 
   return { ran: true, invoicesMigrated, productsMigrated, storesMigrated, errors };
