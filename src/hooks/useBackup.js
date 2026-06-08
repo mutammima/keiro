@@ -8,14 +8,44 @@ import { useRef, useState } from 'react';
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 /**
- * All localStorage keys that belong to this app.
- * Used to collect every key during export and validate files during import.
+ * Canonical list of every app localStorage key, for documentation and reference.
+ * NOTE: export no longer iterates this list — it sweeps every live `inv_` key
+ * (see collectBackupKeys) so newly-added keys can never be silently dropped from
+ * a backup again. This list is kept current as a human-readable inventory.
+ *
+ * Data:        inv_number, inv_list, inv_catalog, inv_payments, inv_logo_b64,
+ *              inv_stores, inv_store_phones, inv_store_addrs, inv_store_overrides,
+ *              inv_pinned_stores, inv_product_names, inv_notes,
+ *              inv_so_orders, inv_so_drivers, inv_bridge_requests,
+ *              inv_sig_<invoiceNumber> (one per signed invoice),
+ *              inv_business_name, inv_business_phone
+ * Settings:    inv_dark_mode, inv_accent_color, inv_density, inv_easy_mode,
+ *              inv_auto_flag_days, inv_auto_mark_days, inv_user_role, inv_pin,
+ *              inv_onboarding_complete, inv_tutorial_seen
  */
-const ALL_KEYS = [
-  'inv_number', 'inv_list', 'inv_catalog', 'inv_stores', 'inv_product_names',
-  'inv_business_name', 'inv_business_phone', 'inv_store_phones', 'inv_store_addrs',
-  'inv_pinned_stores', 'inv_dark_mode',
-];
+
+/**
+ * Keys that must NEVER be backed up or restored:
+ *  - inv_prefill:  transient half-filled form state, not user data
+ *  - inv_migrated: the localStorage→Supabase migration flag; restoring it onto a
+ *    fresh device would wrongly skip migration and strand local data
+ */
+const EXCLUDE_KEYS = new Set(['inv_prefill', 'inv_migrated']);
+
+/**
+ * Returns every live `inv_` localStorage key except the excluded transient ones.
+ * Sweeping localStorage (rather than a hardcoded list) guarantees signatures
+ * (inv_sig_*) and any future key are always captured.
+ * @returns {string[]}
+ */
+function collectBackupKeys() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('inv_') && !EXCLUDE_KEYS.has(k)) keys.push(k);
+  }
+  return keys;
+}
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
@@ -42,7 +72,7 @@ export function useBackup() {
    */
   function handleExport() {
     const data = {};
-    ALL_KEYS.forEach(k => {
+    collectBackupKeys().forEach(k => {
       const v = localStorage.getItem(k);
       if (v !== null) data[k] = v;
     });
@@ -74,7 +104,10 @@ export function useBackup() {
         if (typeof data !== 'object' || !data['inv_list']) {
           setBackupMsg('Invalid backup file.'); return;
         }
-        Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, v));
+        Object.entries(data).forEach(([k, v]) => {
+          if (EXCLUDE_KEYS.has(k)) return; // never restore transient/migration keys
+          localStorage.setItem(k, v);
+        });
         setBackupMsg('Restore complete — reload to see your data.');
         setTimeout(() => window.location.reload(), 1500);
       } catch {
