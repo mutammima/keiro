@@ -9,19 +9,18 @@ import { LIGHT, DARK, ACCENT } from '../../theme';
 import { useBackup } from '../../hooks/useBackup';
 
 const WHATS_NEW = [
-  { v: '3.2', notes: ['Barcode auto-lookup from product database', 'Backup & restore your data', 'Emoji-free clean UI'] },
-  { v: '3.1', notes: ['Liquid glass sticky header', 'Business name shown while scrolling', 'Horizontal scroll fixed'] },
-  { v: '3.0', notes: ['Dark redesign', 'Pinned stores', 'Hero summary card', 'Today / Earlier grouping'] },
+  { v: '5.9', notes: ['Overdue payment reminders — one-tap WhatsApp', 'Reliable cloud sync with on-screen sync alerts', 'Privacy Policy & Terms added'] },
+  { v: '5.0', notes: ['Per-invoice payment log with timestamps', 'Store Owner ↔ Driver order handoff', 'Visual dashboard & reports'] },
+  { v: '4.0', notes: ['Cloud sync across devices (Supabase)', 'Sign-in & passkey support', 'Signature capture on invoices'] },
+  { v: '3.0', notes: ['Dark redesign', 'Pinned stores', 'Hero summary card', 'Barcode auto-lookup', 'Backup & restore'] },
   { v: '2.0', notes: ['Customer addresses', 'Notes field', 'Payment status', 'Search & filter history'] },
   { v: '1.0', notes: ['Invoice generation & PDF export', 'Barcode scanner', 'Product catalog', 'Store phone autofill'] },
 ];
 
 const ROADMAP = [
-  'Duplicate invoice in one tap',
-  'Store profile — full balance & history per store',
-  'Weekly / monthly revenue summary',
-  'Default product prices (auto-fills when added)',
-  'Overdue invoice alerts',
+  'Weekly store statement — per-store balance view',
+  'Smart order suggestions from past invoices',
+  'Invoice anomaly warnings (unusually large totals)',
   'CSV export for bookkeeping',
 ];
 
@@ -60,7 +59,7 @@ export default function AppFooter({ onNav }) {
           <FooterLink label="Terms of Service" onPress={() => onNav?.('terms')} C={C} />
         </div>
 
-        <p style={{ ...s.version, color: C.textLight }}>InvoGo v4.0 · Cloud sync</p>
+        <p style={{ ...s.version, color: C.textLight }}>InvoGo v5.9 · Cloud sync</p>
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}
