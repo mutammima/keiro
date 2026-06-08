@@ -38,6 +38,11 @@ const SECTIONS = [
     body: 'Open any invoice and tap "Share PDF" to send a clean, professional invoice directly from your phone via iMessage, WhatsApp, email, or any other app.',
   },
   {
+    icon: '💬',
+    title: 'Payment Reminders',
+    body: 'When an invoice goes overdue, tap Remind to open WhatsApp with a polite, pre-written reminder — the store name, invoice number, days overdue, and the exact balance still owed are all filled in. Just review and hit send.',
+  },
+  {
     icon: '☁',
     title: 'Cloud Sync',
     body: 'Your data is securely stored in the cloud. Sign in on any device and all your invoices, products, and stores are right there. Everything is backed up automatically — nothing gets lost.',
@@ -84,7 +89,7 @@ export default function About({ onOpenDrawer, onNav }) {
         ))}
 
         {/* Version line */}
-        <p style={{ ...s.version, color: C.textMuted }}>InvoGo v4.0 — Built for delivery drivers.</p>
+        <p style={{ ...s.version, color: C.textMuted }}>InvoGo v5.9 — Built for delivery drivers.</p>
 
         <AppFooter onNav={onNav} />
       </div>

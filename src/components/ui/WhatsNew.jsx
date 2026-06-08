@@ -6,16 +6,14 @@
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 
-export const APP_VERSION = '5.8';
+export const APP_VERSION = '5.9';
 
 const CHANGELOG = [
-  'New Dashboard — overview of balance, pinned stores & top products',
-  'End of Day summary — today\'s invoices, collected & outstanding',
-  'WhatsApp share — one tap sends the invoice to your customer',
-  'Overdue flagging — unpaid invoices older than 7 days are highlighted',
-  'Signature capture — sign invoices and embed in the PDF',
-  'Instant updates — all devices reload automatically when a new version is available',
-  'Slimmer nav — takes much less screen space',
+  'Payment reminders — one tap sends an overdue-invoice reminder over WhatsApp, with the balance and days overdue filled in',
+  'Reliable cloud sync — customer name and payment method now always save to the cloud',
+  'Sync alerts — a banner warns you if something saved on your device but didn\'t reach the cloud',
+  'Cross-device store orders — orders sent from the Store Owner view now reach the driver on any device',
+  'Stronger backups — exports now include every part of your data, including payments and signatures',
 ];
 
 const SEEN_KEY = `inv_whats_new_seen_${APP_VERSION}`;
