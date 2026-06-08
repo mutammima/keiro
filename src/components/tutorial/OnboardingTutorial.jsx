@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
 
 const TOTAL     = 5;
 const TOOLTIP_Z = 9200;
@@ -435,7 +436,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       await sleep(100);
       const nameInput = document.querySelector('[data-tutorial="invoice-biz-name-input"]');
       if (nameInput) {
-        await type(nameInput, 'J&Y Distributions');
+        await type(nameInput, DEFAULT_BUSINESS_NAME);
         await sleep(150);
         nameInput.dispatchEvent(new Event('blur', { bubbles: true }));
         await sleep(150);
