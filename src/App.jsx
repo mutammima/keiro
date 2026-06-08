@@ -19,7 +19,7 @@ import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
-import BottomNav from './components/navigation/BottomNav';
+import TopNav from './components/navigation/TopNav';
 import StoreMap from './pages/StoreMap';
 import Notes from './pages/Notes';
 import Home from './pages/Home';
@@ -136,7 +136,7 @@ function AppInner({ role, onSwitchRole }) {
   const tabsRef = useRef(TABS);
   useEffect(() => { tabsRef.current = TABS; }, [role]); // eslint-disable-line
 
-  // Keep `page` in sync with tabIdx (used by BottomNav + NavDrawer highlight)
+  // Keep `page` in sync with tabIdx (used by TopNav + NavDrawer highlight)
   useEffect(() => {
     if (overlayPage === null) setPage(tabsRef.current[tabIdx]);
   }, [tabIdx, overlayPage]);
@@ -422,7 +422,7 @@ function AppInner({ role, onSwitchRole }) {
 
       {/* Hide top nav on overlay pages — they have their own headers */}
       {overlayPage === null && (
-        <BottomNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} />
       )}
       <OfflineBanner dark={dark} />
       {shouldShowOnboarding && role !== 'store_owner' && (

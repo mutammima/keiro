@@ -83,7 +83,7 @@ src/
 | `src/components/invoice/InvoiceHistory.jsx` | History list, overdue flagging, payment status |
 | `src/components/invoice/InvoicePreview.jsx` | Invoice preview component |
 | `src/components/invoice/EditItemModal.jsx` | Edit line item modal |
-| `src/components/navigation/BottomNav.jsx` | Top tab bar (☰ + New/Invoices/Products tabs) — file is BottomNav.jsx, component acts as top nav |
+| `src/components/navigation/TopNav.jsx` | Top tab bar (☰ + New/Invoices/Products tabs) — historically named BottomNav |
 | `src/components/navigation/NavDrawer.jsx` | Sidebar navigation drawer |
 | `src/components/navigation/AppFooter.jsx` | In-page footer links |
 | `src/components/auth/AuthGate.jsx` | Auth wrapper |

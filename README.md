@@ -57,7 +57,7 @@ src/
     dashboard/         Chart components for Home: BarChart · DonutRing · HorizBar · PRODUCT_COLORS
     invoice/           NewInvoice · InvoiceHistory · InvoiceView · InvoicePreview
                        EditItemModal · LiveInvoicePreview
-    navigation/        BottomNav.jsx (top tab bar) · NavDrawer · AppFooter
+    navigation/        TopNav.jsx (top tab bar) · NavDrawer · AppFooter
     settings/          PinLock · ThemeToggle
     tutorial/          OnboardingTutorial (active)
     ui/                SplashScreen · UpdateBanner · WhatsNew · BarcodeScanner
