@@ -55,6 +55,7 @@ create table if not exists invoices (
   user_id        uuid not null references auth.users(id) on delete cascade,
   invoice_number integer not null,
   store_name     text not null default '',
+  customer_name  text not null default '',
   store_phone    text not null default '',
   store_address  text not null default '',
   business_name  text not null default '',
@@ -62,11 +63,18 @@ create table if not exists invoices (
   date           text not null default '',
   time           text not null default '',
   notes          text not null default '',
+  payment_method text not null default 'cash',
   payment_status text not null default 'unpaid',
   created_at     timestamptz not null default now(),
 
   unique(user_id, invoice_number)
 );
+
+-- ── Migration for EXISTING databases ──────────────────────────────────────────
+-- If the invoices table was created before customer_name / payment_method
+-- existed, run these once in the Supabase SQL editor (safe to re-run):
+alter table invoices add column if not exists customer_name  text not null default '';
+alter table invoices add column if not exists payment_method text not null default 'cash';
 
 -- ── Invoice Items ─────────────────────────────────────────────────────────────
 create table if not exists invoice_items (

@@ -68,6 +68,8 @@ export async function getInvoices() {
     const shaped = (data || []).map(inv => ({
       ...inv,
       number: inv.invoice_number,
+      customerName: inv.customer_name || '',
+      paymentMethod: inv.payment_method || 'cash',
       items: (inv.invoice_items || []).map(item => ({
         id: item.id,
         name: item.name,
@@ -101,6 +103,7 @@ export async function saveInvoice(invoice) {
         user_id: userId,
         invoice_number: invoice.number,
         store_name: invoice.storeName,
+        customer_name: invoice.customerName || '',
         store_phone: invoice.storePhone || '',
         store_address: invoice.storeAddress || '',
         business_name: invoice.businessName || '',
@@ -108,6 +111,7 @@ export async function saveInvoice(invoice) {
         date: invoice.date,
         time: invoice.time || '',
         notes: invoice.notes || '',
+        payment_method: invoice.paymentMethod || 'cash',
         payment_status: invoice.paymentStatus || 'unpaid',
         created_at: invoice.createdAt || new Date().toISOString(),
       })

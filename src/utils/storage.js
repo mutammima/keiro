@@ -75,14 +75,20 @@ export async function peekInvoiceNumber() {
  */
 export async function saveInvoice(invoice) {
   const { error } = await db.saveInvoice(invoice);
+
+  // Mirror the invoice into the localStorage cache regardless of outcome so the
+  // local copy always matches what we attempted to persist (including
+  // customerName and paymentMethod). On error this is the offline fallback;
+  // on success it keeps the cache in sync with the cloud.
+  const list = lsGet('inv_list', []);
+  const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
+  if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
+  lsSet('inv_list', list);
+
   if (error) {
     console.warn('saveInvoice: cloud save failed, using localStorage fallback', error);
-    const list = lsGet('inv_list', []);
-    // Replace if same number exists, otherwise prepend
-    const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
-    if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
-    lsSet('inv_list', list);
   }
+  return { error };
 }
 
 /**
