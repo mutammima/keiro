@@ -10,6 +10,7 @@
  */
 
 import * as db from '../services/db';
+import { notifySyncError } from './syncNotify';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {
@@ -87,6 +88,7 @@ export async function saveInvoice(invoice) {
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, using localStorage fallback', error);
+    notifySyncError('Invoice saved on this device but could not sync to the cloud. It will retry when your connection is restored.');
   }
   return { error };
 }

@@ -18,6 +18,7 @@ import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
 import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
+import SyncToast from './components/ui/SyncToast';
 import BottomNav from './components/navigation/BottomNav';
 import StoreMap from './pages/StoreMap';
 import Notes from './pages/Notes';
@@ -473,6 +474,7 @@ export default function App() {
   return (
     <ThemeProvider>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+      <SyncToast />
       <AuthGate>
         <RoleGate />
       </AuthGate>

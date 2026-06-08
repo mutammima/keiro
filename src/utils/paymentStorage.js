@@ -13,6 +13,7 @@
 
 import { lsGet, lsSet } from './storage';
 import * as db from '../services/db';
+import { notifySyncError } from './syncNotify';
 
 const KEY = 'inv_payments';
 
@@ -45,9 +46,19 @@ export function addPayment(invoiceNumber, amount, note = '') {
   };
   all[key].unshift(payment);
   lsSet(KEY, all);
-  // Background cloud sync
+  // Background cloud sync — surface a failure to the user since payments are
+  // money records. db helpers return { error }; also guard against throws.
   db.saveInvoicePayment({ ...payment, invoiceNumber: Number(invoiceNumber) })
-    .catch(e => console.error('saveInvoicePayment cloud error', e));
+    .then(({ error }) => {
+      if (error) {
+        console.error('saveInvoicePayment cloud error', error);
+        notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+      }
+    })
+    .catch(e => {
+      console.error('saveInvoicePayment cloud error', e);
+      notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+    });
   return [...all[key]];
 }
 
