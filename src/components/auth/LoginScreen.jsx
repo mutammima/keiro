@@ -44,8 +44,10 @@ export default function LoginScreen({ onLogin }) {
     }
 
     // ── Test account: username=test / password=test ──────────────────────────
-    // Wipes all app data (keeps theme), logs in as a fresh first-time user.
-    if (username.trim().toLowerCase() === 'test' && password === 'test') {
+    // DEV ONLY — gated behind import.meta.env.DEV so Vite strips this entire
+    // branch from production builds. Bypasses Supabase auth to log in as a
+    // fresh first-time local user (wipes app data, keeps theme). Never ships.
+    if (import.meta.env.DEV && username.trim().toLowerCase() === 'test' && password === 'test') {
       clearTestUserData();
       onLogin({ id: 'test', email: 'test@invoicego.app' });
       return;
