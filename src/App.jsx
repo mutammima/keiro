@@ -14,7 +14,6 @@ import Legal from './pages/Legal';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-// InteractiveTutorial replaced by OnboardingTutorial for "How it Works"
 import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
 import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
