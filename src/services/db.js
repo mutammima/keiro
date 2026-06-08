@@ -68,6 +68,8 @@ export async function getInvoices() {
     const shaped = (data || []).map(inv => ({
       ...inv,
       number: inv.invoice_number,
+      customerName: inv.customer_name || '',
+      paymentMethod: inv.payment_method || 'cash',
       items: (inv.invoice_items || []).map(item => ({
         id: item.id,
         name: item.name,
@@ -94,13 +96,17 @@ export async function saveInvoice(invoice) {
     const userId = await getCurrentUserId();
     if (!userId) return { data: null, error: new Error('Not authenticated') };
 
-    // Insert the invoice header
+    // Upsert the invoice header. Using upsert (not a plain insert) so that a
+    // retried save — after a transient cloud failure, or a re-run migration —
+    // converges instead of colliding on the unique(user_id, invoice_number)
+    // constraint and erroring out as a duplicate.
     const { data: invRow, error: invErr } = await supabase
       .from('invoices')
-      .insert({
+      .upsert({
         user_id: userId,
         invoice_number: invoice.number,
         store_name: invoice.storeName,
+        customer_name: invoice.customerName || '',
         store_phone: invoice.storePhone || '',
         store_address: invoice.storeAddress || '',
         business_name: invoice.businessName || '',
@@ -108,15 +114,26 @@ export async function saveInvoice(invoice) {
         date: invoice.date,
         time: invoice.time || '',
         notes: invoice.notes || '',
+        payment_method: invoice.paymentMethod || 'cash',
         payment_status: invoice.paymentStatus || 'unpaid',
         created_at: invoice.createdAt || new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id,invoice_number' })
       .select()
       .single();
 
     if (invErr) return { data: null, error: invErr };
 
-    // Batch-insert line items
+    // Replace line items. On an upsert that updated an existing invoice, the
+    // old item rows are still attached to invRow.id — clear them first so a
+    // re-save doesn't accumulate duplicate line items.
+    const { error: clearErr } = await supabase
+      .from('invoice_items')
+      .delete()
+      .eq('invoice_id', invRow.id);
+
+    if (clearErr) return { data: invRow, error: clearErr };
+
+    // Batch-insert the current line items
     if (invoice.items && invoice.items.length > 0) {
       const itemRows = invoice.items.map(item => ({
         invoice_id: invRow.id,
@@ -671,6 +688,51 @@ export async function saveSODriver(driver) {
 export async function deleteSODriver(id) {
   try {
     const { error } = await supabase.from('so_drivers').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// ── Store Owner → Driver Bridge Requests ──────────────────────────────────────
+
+export async function getBridgeRequests() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('so_bridge_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveBridgeRequest(req) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('so_bridge_requests')
+      .upsert({
+        id:           req.id,
+        user_id:      userId,
+        product_name: req.productName || '',
+        quantity:     Number(req.quantity) || 1,
+        notes:        req.notes || '',
+        order_id:     req.orderId || '',
+        created_at:   req.bridgedAt || new Date().toISOString(),
+      }, { onConflict: 'id' });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteBridgeRequest(id) {
+  try {
+    const { error } = await supabase.from('so_bridge_requests').delete().eq('id', id);
     return { error };
   } catch (err) {
     return { error: err };

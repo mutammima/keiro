@@ -55,6 +55,7 @@ create table if not exists invoices (
   user_id        uuid not null references auth.users(id) on delete cascade,
   invoice_number integer not null,
   store_name     text not null default '',
+  customer_name  text not null default '',
   store_phone    text not null default '',
   store_address  text not null default '',
   business_name  text not null default '',
@@ -62,11 +63,18 @@ create table if not exists invoices (
   date           text not null default '',
   time           text not null default '',
   notes          text not null default '',
+  payment_method text not null default 'cash',
   payment_status text not null default 'unpaid',
   created_at     timestamptz not null default now(),
 
   unique(user_id, invoice_number)
 );
+
+-- ── Migration for EXISTING databases ──────────────────────────────────────────
+-- If the invoices table was created before customer_name / payment_method
+-- existed, run these once in the Supabase SQL editor (safe to re-run):
+alter table invoices add column if not exists customer_name  text not null default '';
+alter table invoices add column if not exists payment_method text not null default 'cash';
 
 -- ── Invoice Items ─────────────────────────────────────────────────────────────
 create table if not exists invoice_items (
@@ -176,10 +184,24 @@ create table if not exists invoice_payments (
   created_at     timestamptz not null default now()
 );
 
+-- ── Store Owner → Driver Bridge Requests ──────────────────────────────────────
+-- When a Store Owner accepts an order, a bridge request is queued for the Driver
+-- role (same user, possibly a different device) to pre-fill a new invoice.
+create table if not exists so_bridge_requests (
+  id           text primary key,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  product_name text not null default '',
+  quantity     int  not null default 1,
+  notes        text not null default '',
+  order_id     text not null default '',
+  created_at   timestamptz not null default now()
+);
+
 -- ── Enable RLS ────────────────────────────────────────────────────────────────
-alter table so_orders       enable row level security;
-alter table so_drivers      enable row level security;
-alter table invoice_payments enable row level security;
+alter table so_orders         enable row level security;
+alter table so_drivers        enable row level security;
+alter table invoice_payments  enable row level security;
+alter table so_bridge_requests enable row level security;
 
 -- ── RLS policies ─────────────────────────────────────────────────────────────
 create policy "so_orders: users own their rows" on so_orders
@@ -191,10 +213,14 @@ create policy "so_drivers: users own their rows" on so_drivers
 create policy "invoice_payments: users own their rows" on invoice_payments
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+create policy "so_bridge_requests: users own their rows" on so_bridge_requests
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 create index if not exists idx_so_orders_user       on so_orders(user_id, created_at desc);
 create index if not exists idx_so_drivers_user      on so_drivers(user_id, name);
 create index if not exists idx_payments_user_inv    on invoice_payments(user_id, invoice_number);
+create index if not exists idx_bridge_user_created  on so_bridge_requests(user_id, created_at desc);
 ```
 
 ---

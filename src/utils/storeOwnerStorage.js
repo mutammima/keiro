@@ -179,22 +179,50 @@ export async function loadDriversFromCloud() {
 // }
 
 export function bridgeOrderToDriver(order) {
-  const requests = lsGet('inv_bridge_requests', []);
-  requests.unshift({
+  const req = {
     id: `br_${Date.now()}`,
     productName: order.productName,
     quantity: order.quantity,
     notes: order.notes || '',
     orderId: order.id,
     bridgedAt: new Date().toISOString(),
-  });
+  };
+  // Local-first so the request survives offline / same-device immediately…
+  const requests = lsGet('inv_bridge_requests', []);
+  requests.unshift(req);
   lsSet('inv_bridge_requests', requests);
+  // …then push to the cloud so the Driver role sees it on any device.
+  db.saveBridgeRequest(req).catch(e => console.error('saveBridgeRequest cloud error', e));
 }
 
 export function getBridgeRequests() {
   return lsGet('inv_bridge_requests', []);
 }
 
+/**
+ * Fetches bridge requests from Supabase (the source of truth), syncs them into
+ * the localStorage cache, and returns the list. The Driver side calls this in a
+ * useEffect on mount so requests created on another device appear here.
+ * @returns {Promise<BridgeRequest[]>}
+ */
+export async function loadBridgeRequestsFromCloud() {
+  const { data, error } = await db.getBridgeRequests();
+  if (error || !data) return getBridgeRequests();
+  const requests = data.map(row => ({
+    id:          row.id,
+    productName: row.product_name,
+    quantity:    row.quantity,
+    notes:       row.notes    || '',
+    orderId:     row.order_id  || '',
+    bridgedAt:   row.created_at,
+  }));
+  lsSet('inv_bridge_requests', requests);
+  return requests;
+}
+
 export function dismissBridgeRequest(id) {
+  // Local-first remove so the dismissal survives offline…
   lsSet('inv_bridge_requests', getBridgeRequests().filter(r => r.id !== id));
+  // …then best-effort cloud delete so it doesn't reappear on next sync.
+  db.deleteBridgeRequest(id).catch(e => console.error('deleteBridgeRequest cloud error', e));
 }
