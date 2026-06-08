@@ -27,6 +27,7 @@ import {
   getPinnedStores,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
+import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ function uid() {
 export function useInvoiceForm(onGenerated) {
   // ── Business info state ──────────────────────────────────────────────────
   // Business name/phone are synchronous localStorage reads — no async needed.
-  const [businessName, setBusinessName]       = useState(() => getBusinessName() || 'J&Y Distributions');
+  const [businessName, setBusinessName]       = useState(() => getBusinessName() || DEFAULT_BUSINESS_NAME);
   const [businessPhone, setBusinessPhone]     = useState(() => getBusinessPhone() || '');
   const [editingBiz, setEditingBiz]           = useState(false);
   const [editingBizPhone, setEditingBizPhone] = useState(false);

@@ -11,6 +11,7 @@ import {
   saveProductName,
   getBusinessName,
 } from '../utils/storage';
+import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
 
@@ -31,7 +32,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const bizName = getBusinessName() || 'J&Y Distributions';
+  const bizName = getBusinessName() || DEFAULT_BUSINESS_NAME;
   const [catalog, setCatalog] = useState({});
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [editingBarcode, setEditingBarcode] = useState(null);

@@ -9,6 +9,7 @@
  */
 
 import { supabase } from './supabase';
+import { INVOICE_NUMBER_START } from '../utils/constants';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -218,11 +219,11 @@ export async function getNextInvoiceNumber() {
       .order('invoice_number', { ascending: false })
       .limit(1);
 
-    if (error) return { data: 1001, error };
-    const max = data?.[0]?.invoice_number ?? 1000;
+    if (error) return { data: INVOICE_NUMBER_START + 1, error };
+    const max = data?.[0]?.invoice_number ?? INVOICE_NUMBER_START;
     return { data: max + 1, error: null };
   } catch (err) {
-    return { data: 1001, error: err };
+    return { data: INVOICE_NUMBER_START + 1, error: err };
   }
 }
 

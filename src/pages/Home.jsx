@@ -18,21 +18,9 @@ import { LIGHT, DARK, ACCENT } from '../theme';
 import { getInvoices, getPinnedStores, getBusinessName } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
 import { BarChart, DonutRing, HorizBar, PRODUCT_COLORS } from '../components/dashboard/DashboardCharts';
+import { subtotalOf, getStatus, formatInvoiceDate as dateStr, isOverdue, getFlagDays } from '../utils/invoiceUtils';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-function subtotalOf(inv) {
-  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-}
-
-/** Normalise payment status from either camelCase (local) or snake_case (DB) field. */
-function getStatus(inv) {
-  return inv.paymentStatus || inv.payment_status || 'unpaid';
-}
-
-function dateStr(d) {
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -73,13 +61,8 @@ export default function Home({ onOpenDrawer, onNav }) {
   const paidCount   = invoices.filter(inv => getStatus(inv) === 'paid').length;
 
   // ── Overdue ──────────────────────────────────────────────────────────────────
-  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
-  const flagMs   = flagDays * 24 * 60 * 60 * 1000;
-  const overdueCount = invoices.filter(inv => {
-    if (getStatus(inv) === 'paid') return false;
-    const d = new Date(inv.date);
-    return !isNaN(d) && Date.now() - d.getTime() > flagMs;
-  }).length;
+  const flagDays = getFlagDays();
+  const overdueCount = invoices.filter(inv => isOverdue(inv, flagDays)).length;
 
   // ── Last 7 days (bar chart) ──────────────────────────────────────────────────
   const last7 = Array.from({ length: 7 }, (_, i) => {

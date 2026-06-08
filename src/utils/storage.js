@@ -1,7 +1,7 @@
 /**
  * storage.js — centralised data helpers for InvoGo.
  *
- * Functions that touch cloud data delegate to src/lib/db.js.
+ * Functions that touch cloud data delegate to src/services/db.js.
  * Functions that touch device-only preferences (business name, pinned stores,
  * dark mode) still use localStorage directly — they are not worth a DB table.
  *
@@ -11,13 +11,14 @@
 
 import * as db from '../services/db';
 import { notifySyncError } from './syncNotify';
+import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {
-  BUSINESS_NAME:    'inv_business_name',
-  BUSINESS_PHONE:   'inv_business_phone',
-  PINNED_STORES:    'inv_pinned_stores',
-  PRODUCT_NAMES:    'inv_product_names',  // autocomplete cache (derived from DB)
+  BUSINESS_NAME:    STORAGE_KEYS.BUSINESS_NAME,
+  BUSINESS_PHONE:   STORAGE_KEYS.BUSINESS_PHONE,
+  PINNED_STORES:    STORAGE_KEYS.PINNED_STORES,
+  PRODUCT_NAMES:    STORAGE_KEYS.PRODUCT_NAMES,  // autocomplete cache (derived from DB)
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,9 +51,9 @@ export async function getNextInvoiceNumber() {
   if (error) {
     console.error('getNextInvoiceNumber error', error);
     // Fallback to localStorage counter for offline support
-    const current = lsGet('inv_number', 1000);
+    const current = lsGet(STORAGE_KEYS.NUMBER, INVOICE_NUMBER_START);
     const next = current + 1;
-    lsSet('inv_number', next);
+    lsSet(STORAGE_KEYS.NUMBER, next);
     return next;
   }
   return data;
@@ -64,7 +65,7 @@ export async function getNextInvoiceNumber() {
  */
 export async function peekInvoiceNumber() {
   const { data } = await db.getNextInvoiceNumber();
-  return data ?? (lsGet('inv_number', 1000) + 1);
+  return data ?? (lsGet(STORAGE_KEYS.NUMBER, INVOICE_NUMBER_START) + 1);
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────

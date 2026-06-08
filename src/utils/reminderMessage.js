@@ -9,6 +9,8 @@
  * phone-handling already used in InvoiceView.handleWhatsApp.
  */
 
+import { buildWhatsAppUrl } from './invoiceUtils';
+
 /**
  * Builds the reminder message body using the app's WhatsApp *bold* convention.
  * @param {object} p
@@ -35,15 +37,12 @@ export function buildReminderMessage({ storeName, invoiceNumber, date, amountDue
 
 /**
  * Builds the wa.me deep link that opens WhatsApp with the reminder pre-filled.
- * Mirrors InvoiceView.handleWhatsApp: strips non-digits from the phone, and
- * falls back to a number-less link (user picks the contact) when no phone is
- * saved for the store.
+ * Falls back to a number-less link (user picks the contact) when no phone is
+ * saved for the store — handled by the shared buildWhatsAppUrl.
  * @param {object} p - Same fields as buildReminderMessage, plus storePhone.
  * @param {string} [p.storePhone]
  * @returns {string}
  */
 export function buildReminderUrl(p) {
-  const phone = (p.storePhone || '').replace(/\D/g, '');
-  const encoded = encodeURIComponent(buildReminderMessage(p));
-  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  return buildWhatsAppUrl(p.storePhone, buildReminderMessage(p));
 }

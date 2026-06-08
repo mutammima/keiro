@@ -8,19 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS } from '../theme';
 import { getInvoices } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
-
-function subtotalOf(inv) {
-  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-}
-
-/** Normalise payment status — handles both camelCase (local) and snake_case (DB). */
-function getStatus(inv) {
-  return inv.paymentStatus || inv.payment_status || 'unpaid';
-}
-
-function todayStr() {
-  return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
+import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
 
 export default function EndOfDay({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
@@ -36,7 +24,7 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
     });
   }, []);
 
-  const today = todayStr();
+  const today = todayInvoiceDate();
   const todayInvoices = invoices.filter(inv => inv.date === today);
 
   const total = todayInvoices.reduce((s, inv) => s + subtotalOf(inv), 0);
