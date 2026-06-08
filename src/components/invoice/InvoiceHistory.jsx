@@ -13,6 +13,7 @@ import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../ho
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
+import { buildReminderUrl } from '../../utils/reminderMessage';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
 function fmtPaymentDate(iso) {
@@ -92,6 +93,31 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     localStorage.setItem('inv_prefill', JSON.stringify(prefill));
     setOpenMenu(null);
     onNav('invoice');
+  }
+
+  // ── Overdue payment reminder ──────────────────────────────────────────────
+  // Opens WhatsApp with a pre-drafted reminder. Amount due is the remaining
+  // balance (full total for unpaid, total − payments for partial); "days
+  // overdue" counts from the invoice date. Never auto-sends — WhatsApp opens
+  // pre-filled for the user to review and tap send.
+  function handleRemind(inv) {
+    const total     = subtotalOf(inv);
+    const paid      = getTotalPaid(inv.number);
+    const amountDue = Math.max(0, total - paid);
+    if (amountDue <= 0) return; // settled — nothing to chase
+    const invDate     = new Date(inv.date);
+    const daysOverdue = isNaN(invDate) ? 0 : Math.floor((Date.now() - invDate.getTime()) / 86400000);
+    const url = buildReminderUrl({
+      storeName:     inv.storeName  || inv.store_name  || '',
+      storePhone:    inv.storePhone || inv.store_phone || '',
+      invoiceNumber: inv.number,
+      date:          inv.date,
+      amountDue,
+      daysOverdue,
+      businessName:  bizName,
+    });
+    setOpenMenu(null);
+    window.open(url, '_blank');
   }
 
   // ── Bridge requests (from Store Owner) ───────────────────────────────────
@@ -204,6 +230,9 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
+                  {isOverdue && (
+                    <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>💬 Send Reminder</button>
+                  )}
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
                   <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => handleDelete(inv.number)}>Delete Invoice</button>
@@ -237,11 +266,19 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                 </div>
               ))}
               {inv.notes && <p style={{ fontSize: 11, color: C.textMuted, margin: '6px 0 2px' }}>📝 {inv.notes}</p>}
-              <button
-                style={{ width: '100%', marginTop: 6, marginBottom: 4, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
-                onClick={() => handleShare(inv)}
-                disabled={!!sharing}
-              >Share PDF</button>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 4 }}>
+                {isOverdue && (
+                  <button
+                    style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    onClick={() => handleRemind(inv)}
+                  >💬 Remind</button>
+                )}
+                <button
+                  style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
+                  onClick={() => handleShare(inv)}
+                  disabled={!!sharing}
+                >Share PDF</button>
+              </div>
             </div>
           )}
         </div>
@@ -315,6 +352,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
+                  {isOverdue && (
+                    <button style={{ ...s.dropdownItem, color: C.text }}
+                      onClick={() => handleRemind(inv)}
+                    >
+                      💬 Send Reminder
+                    </button>
+                  )}
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleShare(inv)}
                   >
@@ -385,9 +429,23 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
           >
             {STATUS[status]?.label}
           </button>
-          {sharing === inv.number && (
-            <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>Sharing…</span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {sharing === inv.number && (
+              <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>Sharing…</span>
+            )}
+            {isOverdue && (
+              <button
+                onClick={() => handleRemind(inv)}
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20,
+                  border: `1px solid ${dark ? 'rgba(239,68,68,0.35)' : '#fca5a5'}`,
+                  background: dark ? 'rgba(239,68,68,0.12)' : '#fef2f2',
+                  color: '#ef4444', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                }}
+                title="Send a payment reminder over WhatsApp"
+              >💬 Remind</button>
+            )}
+          </div>
         </div>
 
         {/* Expanded: notes + payment log + share */}
