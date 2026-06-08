@@ -96,10 +96,13 @@ export async function saveInvoice(invoice) {
     const userId = await getCurrentUserId();
     if (!userId) return { data: null, error: new Error('Not authenticated') };
 
-    // Insert the invoice header
+    // Upsert the invoice header. Using upsert (not a plain insert) so that a
+    // retried save — after a transient cloud failure, or a re-run migration —
+    // converges instead of colliding on the unique(user_id, invoice_number)
+    // constraint and erroring out as a duplicate.
     const { data: invRow, error: invErr } = await supabase
       .from('invoices')
-      .insert({
+      .upsert({
         user_id: userId,
         invoice_number: invoice.number,
         store_name: invoice.storeName,
@@ -114,13 +117,23 @@ export async function saveInvoice(invoice) {
         payment_method: invoice.paymentMethod || 'cash',
         payment_status: invoice.paymentStatus || 'unpaid',
         created_at: invoice.createdAt || new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id,invoice_number' })
       .select()
       .single();
 
     if (invErr) return { data: null, error: invErr };
 
-    // Batch-insert line items
+    // Replace line items. On an upsert that updated an existing invoice, the
+    // old item rows are still attached to invRow.id — clear them first so a
+    // re-save doesn't accumulate duplicate line items.
+    const { error: clearErr } = await supabase
+      .from('invoice_items')
+      .delete()
+      .eq('invoice_id', invRow.id);
+
+    if (clearErr) return { data: invRow, error: clearErr };
+
+    // Batch-insert the current line items
     if (invoice.items && invoice.items.length > 0) {
       const itemRows = invoice.items.map(item => ({
         invoice_id: invRow.id,
