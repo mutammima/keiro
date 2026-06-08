@@ -150,13 +150,16 @@ export default function LoginScreen({ onLogin }) {
           </button>
         )}
 
-        {/* Dev bypass */}
-        <button
-          onClick={() => onLogin({ id: 'dev', email: 'dev@invoicego.app' })}
-          style={{ ...s.toggleBtn, color: C.textMuted, fontSize: 13, width: '100%', marginTop: -4 }}
-        >
-          Continue without account
-        </button>
+        {/* Dev bypass — local development only. Creates a fake session whose
+            cloud writes all fail RLS, so it must never ship to production. */}
+        {import.meta.env.DEV && (
+          <button
+            onClick={() => onLogin({ id: 'dev', email: 'dev@invoicego.app' })}
+            style={{ ...s.toggleBtn, color: C.textMuted, fontSize: 13, width: '100%', marginTop: -4 }}
+          >
+            Continue without account (dev)
+          </button>
+        )}
 
         {/* Toggle mode */}
         <div style={s.toggle}>
