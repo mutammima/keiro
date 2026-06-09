@@ -3,7 +3,7 @@
  * Calls onChange(dataUrl | null) whenever signature changes.
  */
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { ACCENT } from '../../theme';
 
 export default function SignaturePad({ label, dark, C, onChange, initialDataUrl }) {

@@ -16,16 +16,8 @@ import * as db from '../services/db';
 
 // ─── Role ─────────────────────────────────────────────────────────────────────
 
-export function getRole() {
-  return lsGet('inv_user_role', 'driver');
-}
-
 export function setRole(role) {
   lsSet('inv_user_role', role);
-}
-
-export function isStoreOwner() {
-  return getRole() === 'store_owner';
 }
 
 /**

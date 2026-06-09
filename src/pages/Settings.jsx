@@ -25,7 +25,7 @@ import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import AppFooter from '../components/navigation/AppFooter';
-import PinLock, { isPinEnabled, setPin, clearPin } from '../components/settings/PinLock';
+import PinLock, { isPinEnabled, clearPin } from '../components/settings/PinLock';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
 
@@ -44,7 +44,7 @@ const ACCENT_PRESETS = [
 ];
 
 export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole }) {
-  const { dark, toggleDark, accent, setAccent } = useTheme();
+  const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   // ── Business info ──────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
   function unpin(name) { togglePinnedStore(name); setPinned(getPinnedStores()); }
 
   // ── Backup ─────────────────────────────────────────────────────────────────
-  const { backupMsg, clearBackupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
+  const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
   // ── PIN lock ───────────────────────────────────────────────────────────────
   const [pinEnabled, setPinEnabled] = useState(() => isPinEnabled());

@@ -52,12 +52,6 @@ function tabIndex(tabs, p) {
   return tabs.indexOf(p);
 }
 
-// For non-tab pages that slide up from bottom
-function overlayAnim(tabs, to) {
-  if (tabs.indexOf(to) === -1 && to !== 'invoice-view') return 'page-from-bottom';
-  return 'page-fade';
-}
-
 // ── Offline banner ────────────────────────────────────────────────────────────
 
 function OfflineBanner({ dark }) {

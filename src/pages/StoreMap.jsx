@@ -5,7 +5,7 @@
  * • Edit sheet lets you update address + phone; saved in localStorage
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import { getInvoices, getPinnedStores, togglePinnedStore, saveStoreDetails, lsGet } from '../utils/storage';

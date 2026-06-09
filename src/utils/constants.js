@@ -61,13 +61,3 @@ export const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * invoice is flagged overdue, when the user hasn't configured a threshold.
  */
 export const DEFAULT_FLAG_DAYS = 7;
-
-// ── Repeated colours ────────────────────────────────────────────────────────
-// Hex values used in several places that aren't part of the LIGHT/DARK theme
-// tokens (e.g. brand red for overdue, WhatsApp green).
-export const COLORS = {
-  danger:        '#ef4444', // overdue text / destructive accents
-  dangerBorder:  '#fca5a5', // overdue card border (light mode)
-  whatsapp:      '#25d366', // WhatsApp brand green
-  success:       '#2ECC8A', // "saved / complete" green
-};

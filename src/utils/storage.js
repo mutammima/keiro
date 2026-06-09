@@ -59,15 +59,6 @@ export async function getNextInvoiceNumber() {
   return data;
 }
 
-/**
- * Returns what the next invoice number would be (read-only). Used for display.
- * @returns {Promise<number>}
- */
-export async function peekInvoiceNumber() {
-  const { data } = await db.getNextInvoiceNumber();
-  return data ?? (lsGet(STORAGE_KEYS.NUMBER, INVOICE_NUMBER_START) + 1);
-}
-
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /**
@@ -428,7 +419,3 @@ export function saveProductName(name) {
   }
 }
 
-export function deleteProductName(name) {
-  const names = lsGet(KEYS.PRODUCT_NAMES, []);
-  lsSet(KEYS.PRODUCT_NAMES, names.filter(n => n !== name));
-}

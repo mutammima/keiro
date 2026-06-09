@@ -109,10 +109,6 @@ export function saveMyDemand(demand) {
   return withId;
 }
 
-export function deleteMyDemand(id) {
-  db.deleteMarketplaceDemand(id).catch(e => console.error('deleteMarketplaceDemand cloud error', e));
-}
-
 // ── All demand (driver feed: stores that need things) ────────────────────────
 
 export function getAllDemand() {

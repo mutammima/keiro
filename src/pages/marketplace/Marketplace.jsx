@@ -15,7 +15,7 @@ import {
   loadMyListingsFromCloud, getMyListings,
   productMatches, claimDemand,
 } from '../../utils/marketplaceStorage';
-import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { getBusinessName } from '../../utils/storage';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -82,8 +82,6 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
     }
     setBusyId(null);
   }
-
-  const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg, overflowX: 'clip' }}>
