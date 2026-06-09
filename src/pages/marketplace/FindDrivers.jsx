@@ -13,6 +13,7 @@ import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { loadAllListingsFromCloud, getAllListings, productMatches } from '../../utils/marketplaceStorage';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
+import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
 
 export default function FindDrivers({ onOpenDrawer, onNav }) {
@@ -23,13 +24,24 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
   const [orders, setOrders] = useState(() => getOrders());
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [here, setHere] = useState(null);
+  const [locReady, setLocReady] = useState(false);
 
   useEffect(() => {
     Promise.all([loadAllListingsFromCloud(), loadOrdersFromCloud()])
       .then(([l, o]) => { setListings(l); setOrders(o); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    getCurrentPosition()
+      .then(c => setHere(c))
+      .catch(() => {})
+      .finally(() => setLocReady(true));
   }, []);
+
+  // Miles from the store to a driver, or null when either lacks coords.
+  function distOf(listing) {
+    return haversineMiles(here, listing);
+  }
 
   // Names of drivers this store has ordered from before (for the trust tag).
   const knownDrivers = useMemo(() => {
@@ -52,15 +64,19 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
   const results = useMemo(() => {
     const q = query.trim();
     const list = q ? listings.filter(l => productMatches(l.productName, q)) : listings;
-    // Known drivers first, then cheapest.
+    // Known drivers first, then nearest, then cheapest.
     return [...list].sort((a, b) => {
       const ak = knownDrivers.has((a.driverName || '').trim().toLowerCase());
       const bk = knownDrivers.has((b.driverName || '').trim().toLowerCase());
       if (ak !== bk) return bk - ak;
+      const da = distOf(a), db = distOf(b);
+      const ka = da == null ? Infinity : da;
+      const kb = db == null ? Infinity : db;
+      if (ka !== kb) return ka - kb;
       return (a.price || 0) - (b.price || 0);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listings, query, knownDrivers]);
+  }, [listings, query, knownDrivers, here]);
 
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
@@ -97,6 +113,12 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
           </div>
         )}
 
+        {locReady && !here && listings.length > 0 && (
+          <p style={{ fontSize: 12, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
+            Enable location to sort drivers by how close they are to you.
+          </p>
+        )}
+
         {/* Loading / empty */}
         {loading && listings.length === 0 && (
           <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 13, paddingTop: 30 }}>Loading drivers…</p>
@@ -118,7 +140,10 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{l.productName}</div>
-                  <div style={{ fontSize: 13, color: C.textSub, marginTop: 3 }}>{l.driverName || 'A driver'}</div>
+                  <div style={{ fontSize: 13, color: C.textSub, marginTop: 3 }}>
+                    {l.driverName || 'A driver'}
+                    {distOf(l) != null && <span style={{ color: ACCENT, fontWeight: 600 }}> · {formatDistance(distOf(l))}</span>}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: ACCENT }}>

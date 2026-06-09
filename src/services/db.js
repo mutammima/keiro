@@ -850,6 +850,8 @@ export async function saveMarketplaceListing(listing) {
         price:        Number(listing.price) || 0,
         unit:         listing.unit || 'each',
         active:       listing.active !== false,
+        lat:          Number.isFinite(Number(listing.lat)) ? Number(listing.lat) : null,
+        lng:          Number.isFinite(Number(listing.lng)) ? Number(listing.lng) : null,
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'id' })
       .select()
@@ -900,6 +902,8 @@ export async function saveMarketplaceDemand(demand) {
         needed_by:    demand.neededBy || '',
         notes:        demand.notes    || '',
         status:       demand.status   || 'open',
+        lat:          Number.isFinite(Number(demand.lat)) ? Number(demand.lat) : null,
+        lng:          Number.isFinite(Number(demand.lng)) ? Number(demand.lng) : null,
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'id' })
       .select()

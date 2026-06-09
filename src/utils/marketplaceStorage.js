@@ -95,6 +95,8 @@ function mapListingRow(row) {
     price:       Number(row.price) || 0,
     unit:        row.unit || 'each',
     active:      row.active !== false,
+    lat:         row.lat != null ? Number(row.lat) : null,
+    lng:         row.lng != null ? Number(row.lng) : null,
     updatedAt:   row.updated_at,
   };
 }
@@ -146,6 +148,8 @@ function mapDemandRow(row) {
     status:      row.status || 'open',
     claimedBy:   row.claimed_by || null,
     claimedName: row.claimed_name || '',
+    lat:         row.lat != null ? Number(row.lat) : null,
+    lng:         row.lng != null ? Number(row.lng) : null,
     createdAt:   row.created_at,
   };
 }
