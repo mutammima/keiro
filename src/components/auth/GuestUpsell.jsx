@@ -16,7 +16,7 @@
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { GUEST_ENTRY_CAP, promptAccount } from '../../utils/guestMode';
+import { promptAccount } from '../../utils/guestMode';
 
 export function GuestCapModal({ open, onClose }) {
   const { dark } = useTheme();
@@ -43,14 +43,12 @@ export function GuestCapModal({ open, onClose }) {
           display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: 40, lineHeight: 1 }}>🔒</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.text, lineHeight: 1.25 }}>
           You've reached the free limit
         </div>
         <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.6 }}>
-          Guests can save up to {GUEST_ENTRY_CAP} entries on this device. Create a free
-          account to save unlimited entries, back them up, and sync across your
-          devices. Everything you've made so far comes with you.
+          Create a free account to save unlimited entries, back them up, and sync
+          across your devices. Everything you've made so far comes with you.
         </div>
         <button
           onClick={promptAccount}
