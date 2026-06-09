@@ -114,8 +114,9 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
   if (!rect) {
     tooltipTop = stepIdx === 0 ? PAD + 48 : vh - TOOLTIP_H - PAD;
   } else if (stepIdx === 0) {
-    // Adjacent-below: right under the active element, clamped so it fits
-    tooltipTop = rect.bottom + 14;
+    // Adjacent-below: under the active element with extra breathing room so the
+    // dialog isn't crowding the phone-number field on the first step.
+    tooltipTop = rect.bottom + 32;
   } else {
     const elementMidY = (rect.top + rect.bottom) / 2;
     tooltipTop = elementMidY <= vh / 2
@@ -609,7 +610,9 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     return (
       <>
         <Blocker />
-        <WelcomeScreen dark={dark} accent={accent} onStart={() => setWelcomed(true)} onSkip={onSkip} />
+        {/* Welcome uses the app's blue brand accent (not the contrasting
+            tutorial accent) so the first screen after sign-up stays on-brand. */}
+        <WelcomeScreen dark={dark} accent={appAccent} onStart={() => setWelcomed(true)} onSkip={onSkip} />
       </>
     );
   }
