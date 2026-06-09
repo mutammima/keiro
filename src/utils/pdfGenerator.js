@@ -15,7 +15,7 @@ import autoTable from 'jspdf-autotable';
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
 async function buildPDF(invoice) {
-  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature } = invoice;
+  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0 } = invoice;
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -165,11 +165,14 @@ async function buildPDF(invoice) {
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
 
+  const paid = Math.max(0, Number(paidAmount) || 0);
+  const due = Math.max(0, subtotal - paid);
+
   doc.text('Subtotal', labelX, finalY + rowH);
   doc.text(`$${subtotal.toFixed(2)}`, valueX, finalY + rowH, { align: 'right' });
 
   doc.text('Payments', labelX, finalY + rowH * 2);
-  doc.text('$0.00', valueX, finalY + rowH * 2, { align: 'right' });
+  doc.text(`-$${paid.toFixed(2)}`, valueX, finalY + rowH * 2, { align: 'right' });
 
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.4);
@@ -179,7 +182,7 @@ async function buildPDF(invoice) {
   doc.setFontSize(11);
   doc.setTextColor(30, 30, 30);
   doc.text('Due (USD):', labelX, finalY + rowH * 3 + 6);
-  doc.text(`$${subtotal.toFixed(2)}`, valueX, finalY + rowH * 3 + 6, { align: 'right' });
+  doc.text(`$${due.toFixed(2)}`, valueX, finalY + rowH * 3 + 6, { align: 'right' });
 
   // ── Notes ─────────────────────────────────────────────────────────────────
   let notesEndY = finalY + rowH * 3 + 6;

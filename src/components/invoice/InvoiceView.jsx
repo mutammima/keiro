@@ -10,6 +10,7 @@ import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
 import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
+import { getTotalPaid } from '../../utils/paymentStorage';
 import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 
@@ -45,11 +46,13 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const subtotal = subtotalOf(invoice);
+  const paid = getTotalPaid(invoice.number);
+  const due = Math.max(0, subtotal - paid);
   const sc = dark ? STATUS[invoice.paymentStatus || 'unpaid']?.dark : STATUS[invoice.paymentStatus || 'unpaid']?.light;
 
   /** Generates the PDF blob + filename for this invoice. */
   async function getBlob() {
-    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig });
+    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid });
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -218,10 +221,24 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             </div>
           ))}
 
+          {/* Payments summary — only shown once something has been paid */}
+          {paid > 0 && (
+            <>
+              <div style={{ ...s.totalRow, paddingTop: 11, paddingBottom: 2, background: C.subtotalBar }}>
+                <span style={{ ...s.metaLabel, color: C.subtotalText }}>Subtotal</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.subtotalText }}>${subtotal.toFixed(2)}</span>
+              </div>
+              <div style={{ ...s.totalRow, paddingTop: 2, paddingBottom: 2, background: C.subtotalBar }}>
+                <span style={{ ...s.metaLabel, color: C.subtotalText }}>Paid</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.successText }}>-${paid.toFixed(2)}</span>
+              </div>
+            </>
+          )}
+
           {/* Total */}
-          <div style={{ ...s.totalRow, background: C.subtotalBar }}>
-            <span style={{ ...s.totalLabel, color: C.subtotalText }}>Total Due</span>
-            <span style={{ ...s.totalAmt, color: C.subtotalText }}>${subtotal.toFixed(2)}</span>
+          <div style={{ ...s.totalRow, background: C.subtotalBar, ...(paid > 0 ? { paddingTop: 6 } : {}) }}>
+            <span style={{ ...s.totalLabel, color: C.subtotalText }}>{paid > 0 ? 'Balance Due' : 'Total Due'}</span>
+            <span style={{ ...s.totalAmt, color: C.subtotalText }}>${due.toFixed(2)}</span>
           </div>
 
           {/* Notes */}
