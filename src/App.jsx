@@ -37,6 +37,9 @@ import SOOrders from './pages/storeowner/SOOrders';
 import SODrivers from './pages/storeowner/SODrivers';
 import SOHome from './pages/storeowner/SOHome';
 import SOReports from './pages/storeowner/SOReports';
+import Marketplace from './pages/marketplace/Marketplace';
+import MyListings from './pages/marketplace/MyListings';
+import FindDrivers from './pages/marketplace/FindDrivers';
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import './App.css';
 
@@ -407,6 +410,9 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'home'    && <Home    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'so-home'    && <SOHome    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'so-reports' && <SOReports onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'marketplace'  && <Marketplace onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'my-listings'  && <MyListings  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'find-drivers' && <FindDrivers onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'privacy'    && <Legal section="privacy" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}

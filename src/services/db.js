@@ -797,6 +797,155 @@ export async function clearInvoicePayments(invoiceNumber) {
   }
 }
 
+// ── Marketplace ───────────────────────────────────────────────────────────────
+//
+// UNLIKE every table above, the marketplace tables are SHARED: their SELECT RLS
+// policy allows any authenticated user to read all rows, so drivers and stores
+// can discover each other. Writes are still owner-only (plus a driver-claims-open
+// exception on demand). See supabase-marketplace.sql.
+
+/** All active driver listings across every driver (the supply side). */
+export async function getMarketplaceListings() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('marketplace_listings')
+      .select('*')
+      .eq('active', true)
+      .order('product_name');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Just the current user's own listings (for the driver's editor). */
+export async function getMyMarketplaceListings() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('marketplace_listings')
+      .select('*')
+      .eq('user_id', userId)
+      .order('product_name');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveMarketplaceListing(listing) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('marketplace_listings')
+      .upsert({
+        id:           listing.id,
+        user_id:      userId,
+        driver_name:  listing.driverName  || '',
+        driver_phone: listing.driverPhone || '',
+        product_name: listing.productName || '',
+        price:        Number(listing.price) || 0,
+        unit:         listing.unit || 'each',
+        active:       listing.active !== false,
+        updated_at:   new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteMarketplaceListing(id) {
+  try {
+    const { error } = await supabase.from('marketplace_listings').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+/** All open store demand across every store (the demand side). */
+export async function getMarketplaceDemand() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('marketplace_demand')
+      .select('*')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function saveMarketplaceDemand(demand) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('marketplace_demand')
+      .upsert({
+        id:           demand.id,
+        user_id:      userId,
+        store_name:   demand.storeName   || '',
+        store_phone:  demand.storePhone  || '',
+        product_name: demand.productName || '',
+        quantity:     Number(demand.quantity) || 1,
+        target_price: Number(demand.targetPrice) || 0,
+        needed_by:    demand.neededBy || '',
+        notes:        demand.notes    || '',
+        status:       demand.status   || 'open',
+        updated_at:   new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteMarketplaceDemand(id) {
+  try {
+    const { error } = await supabase.from('marketplace_demand').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+/**
+ * A driver claims an open demand row. Allowed cross-user by the
+ * "driver claims open" RLS policy as long as the row is still open and the
+ * driver stamps themselves as claimer.
+ */
+export async function claimMarketplaceDemand(id, claimedName) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('marketplace_demand')
+      .update({
+        status:       'claimed',
+        claimed_by:   userId,
+        claimed_name: claimedName || '',
+        updated_at:   new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'open')          // optimistic-concurrency: only if still open
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
 // ── Business info / settings — kept in localStorage (single-user config) ──────
 // Delegated to storage.js; see getBusinessName / saveBusinessName etc. there.
 
