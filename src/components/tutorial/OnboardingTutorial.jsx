@@ -114,8 +114,9 @@ function Tooltip({ stepId, title, desc, contentKey, cursorPos, rect, dark, phase
   if (!rect) {
     tooltipTop = stepIdx === 0 ? PAD + 48 : vh - TOOLTIP_H - PAD;
   } else if (stepIdx === 0) {
-    // Adjacent-below: right under the active element, clamped so it fits
-    tooltipTop = rect.bottom + 14;
+    // Adjacent-below: under the active element with extra breathing room so the
+    // dialog isn't crowding the phone-number field on the first step.
+    tooltipTop = rect.bottom + 32;
   } else {
     const elementMidY = (rect.top + rect.bottom) / 2;
     tooltipTop = elementMidY <= vh / 2
