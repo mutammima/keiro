@@ -1,6 +1,8 @@
 /**
- * SOHome — Dashboard overlay for Store Owner role.
+ * SOHome — Dashboard for the Store Owner role.
  * Shows pending orders count, recent orders, and most-ordered products.
+ * Reached from the nav drawer; its header shows a ☰ that reopens the drawer
+ * (it's a home base, not a dismissible modal — so no close "×").
  */
 
 import { useMemo, useState, useEffect } from 'react';
@@ -21,7 +23,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function SOHome({ onClose, onNav }) {
+export default function SOHome({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -80,10 +82,11 @@ export default function SOHome({ onClose, onNav }) {
         flexShrink: 0,
       }}>
         <button
-          onClick={onClose}
-          style={{ background: 'none', border: 'none', fontSize: 22, color: C.text, cursor: 'pointer', padding: '2px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }}
+          onClick={onOpenDrawer}
+          aria-label="Open menu"
+          style={{ background: 'none', border: 'none', fontSize: 20, color: C.text, cursor: 'pointer', padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }}
         >
-          ×
+          ☰
         </button>
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>
           Dashboard
@@ -152,7 +155,7 @@ export default function SOHome({ onClose, onNav }) {
               <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 12px' }}>No orders yet.</p>
               <button
                 style={{ background: ACCENT, border: 'none', color: '#fff', padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => { onClose(); onNav('so-request'); }}
+                onClick={() => onNav('so-request')}
               >
                 + New Request
               </button>
@@ -192,13 +195,13 @@ export default function SOHome({ onClose, onNav }) {
         {/* Quick actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <button
-            onClick={() => { onClose(); onNav('so-request'); }}
+            onClick={() => onNav('so-request')}
             style={{ background: ACCENT, border: 'none', color: '#fff', padding: '14px 12px', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
           >
             + New Request
           </button>
           <button
-            onClick={() => { onClose(); onNav('so-orders'); }}
+            onClick={() => onNav('so-orders')}
             style={{ background: C.card, border: `1px solid ${C.cardBorder}`, color: C.text, padding: '14px 12px', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
           >
             View Orders
