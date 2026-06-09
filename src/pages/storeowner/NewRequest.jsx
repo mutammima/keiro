@@ -7,6 +7,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
+import { canSaveGuestEntry } from '../../utils/guestMode';
+import { GuestCapModal } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -23,6 +25,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
   const [notes,         setNotes]         = useState('');
   const [errors,        setErrors]        = useState({});
   const [submitted,     setSubmitted]     = useState(false);
+  const [guestWall,     setGuestWall]     = useState(false);
 
   const [drivers, setDrivers] = useState(() => getDrivers());
 
@@ -41,6 +44,9 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
   function handleSubmit() {
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); return; }
+
+    // Guest hard cap: block the save and surface the account-upsell modal.
+    if (!canSaveGuestEntry()) { setGuestWall(true); return; }
 
     const driver = drivers.find(d => d.id === driverId);
     const order = {
@@ -73,6 +79,8 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg }}>
+
+      <GuestCapModal open={guestWall} onClose={() => setGuestWall(false)} />
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>

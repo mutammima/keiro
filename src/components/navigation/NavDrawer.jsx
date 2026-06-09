@@ -8,6 +8,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { signOut } from '../../services/auth';
 import { getPinnedStores } from '../../utils/storage';
+import { isGuest, promptAccount } from '../../utils/guestMode';
 
 // SVG icon components — clean geometric shapes, no emoji
 const Icons = {
@@ -99,6 +100,8 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
   useEffect(() => {
     if (open) setPinned(getPinnedStores());
   }, [open]);
+
+  const guest = isGuest();
 
   async function handleSignOut() {
     await signOut();
@@ -248,13 +251,23 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
             <span style={s.navIcon} aria-hidden="true">{Icons.help}</span>
             <span>How it Works</span>
           </button>
-          <button
-            style={{ ...s.navItem, color: C.danger, background: 'none', transition: 'color 0.4s ease' }}
-            onClick={handleSignOut}
-          >
-            <span style={s.navIcon} aria-hidden="true">{Icons.signout}</span>
-            <span>Sign Out</span>
-          </button>
+          {guest ? (
+            <button
+              style={{ ...s.navItem, color: ACCENT, background: 'none', transition: 'color 0.4s ease' }}
+              onClick={promptAccount}
+            >
+              <span style={s.navIcon} aria-hidden="true">{Icons.profile}</span>
+              <span>Create Account</span>
+            </button>
+          ) : (
+            <button
+              style={{ ...s.navItem, color: C.danger, background: 'none', transition: 'color 0.4s ease' }}
+              onClick={handleSignOut}
+            >
+              <span style={s.navIcon} aria-hidden="true">{Icons.signout}</span>
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
     </>

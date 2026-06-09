@@ -10,6 +10,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { isGuest } from '../../utils/guestMode';
+import { GuestBanner } from '../../components/auth/GuestUpsell';
 
 const STATUS_META = {
   pending:   { label: 'Pending',   color: '#f59e0b' },
@@ -121,6 +123,8 @@ export default function SOReports({ onOpenDrawer, onNav }) {
       </div>
 
       <div style={{ padding: '16px 16px 48px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {isGuest() && <GuestBanner />}
 
         {orders.length === 0 ? (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '28px 18px', textAlign: 'center' }}>

@@ -14,6 +14,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import { getInvoices } from '../utils/storage';
+import { isGuest } from '../utils/guestMode';
+import { GuestBanner } from '../components/auth/GuestUpsell';
 import AppFooter from '../components/navigation/AppFooter';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -176,6 +178,8 @@ export default function Reports({ onOpenDrawer, onNav }) {
       </div>
 
       <div style={s.body}>
+
+        {isGuest() && <GuestBanner />}
 
         {/* Range toggle — Today / This Week / This Month / This Year */}
         <div style={{ ...s.segmented, background: dark ? '#1a1a1a' : '#e0e0e0' }}>

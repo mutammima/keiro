@@ -19,6 +19,8 @@ import { getInvoices, getPinnedStores, getBusinessName } from '../utils/storage'
 import AppFooter from '../components/navigation/AppFooter';
 import { BarChart, DonutRing, HorizBar, PRODUCT_COLORS } from '../components/dashboard/DashboardCharts';
 import { subtotalOf, getStatus, formatInvoiceDate as dateStr, isOverdue, getFlagDays } from '../utils/invoiceUtils';
+import { isGuest } from '../utils/guestMode';
+import { GuestBanner } from '../components/auth/GuestUpsell';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +123,12 @@ export default function Home({ onOpenDrawer, onNav }) {
 
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 88 }}>
+
+        {isGuest() && (
+          <div style={{ margin: '14px 16px 0' }}>
+            <GuestBanner />
+          </div>
+        )}
 
         {/* ── Today strip ─────────────────────────────────────────────────── */}
         <div style={{

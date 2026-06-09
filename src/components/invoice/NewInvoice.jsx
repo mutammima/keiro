@@ -13,6 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceForm } from '../../hooks/useInvoiceForm';
+import { GuestCapModal } from '../auth/GuestUpsell';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 
 /** Small red asterisk for required fields. */
@@ -55,6 +56,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
     showScanner, setShowScanner,
     generating, error,
     handleGenerate,
+    guestWall, setGuestWall,
   } = useInvoiceForm(onGenerated);
 
   // ── Contact import ────────────────────────────────────────────────────────
@@ -111,6 +113,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
     <>
       {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
       {editingItem && <EditItemModal item={editingItem} onSave={handleEditSave} onClose={() => setEditingItem(null)} />}
+      <GuestCapModal open={guestWall} onClose={() => setGuestWall(false)} />
 
       <div data-tutorial="invoice-form" style={{ ...s.page, background: C.bg }}>
         {/* Header */}
