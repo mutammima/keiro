@@ -610,7 +610,9 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     return (
       <>
         <Blocker />
-        <WelcomeScreen dark={dark} accent={accent} onStart={() => setWelcomed(true)} onSkip={onSkip} />
+        {/* Welcome uses the app's blue brand accent (not the contrasting
+            tutorial accent) so the first screen after sign-up stays on-brand. */}
+        <WelcomeScreen dark={dark} accent={appAccent} onStart={() => setWelcomed(true)} onSkip={onSkip} />
       </>
     );
   }
