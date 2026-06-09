@@ -42,6 +42,7 @@ export const STORAGE_KEYS = {
   ONBOARDING_DONE:  'inv_onboarding_complete',
   TUTORIAL_SEEN:    'inv_tutorial_seen',
   MIGRATED:         'inv_migrated',
+  MIGRATED_AT:      'inv_migrated_at',
 };
 
 // ── Business defaults ───────────────────────────────────────────────────────

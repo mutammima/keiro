@@ -7,8 +7,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
-import { canSaveGuestEntry } from '../../utils/guestMode';
-import { GuestCapModal } from '../../components/auth/GuestUpsell';
+import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
+import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -91,6 +91,15 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
       {/* Form */}
       <div style={{ padding: '16px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Guest-mode persistent warning — local-only data, no cloud backup */}
+        {isGuest() && (
+          <GuestBanner
+            title="You're in guest mode"
+            subtitle="Your data is saved on this device only. Create a free account to back up your orders."
+            cta="Create Account"
+          />
+        )}
 
         {/* Product */}
         <div style={{ ...s.card(C) }}>

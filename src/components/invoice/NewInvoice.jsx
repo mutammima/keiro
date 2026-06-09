@@ -13,7 +13,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceForm } from '../../hooks/useInvoiceForm';
-import { GuestCapModal } from '../auth/GuestUpsell';
+import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
+import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 
 /** Small red asterisk for required fields. */
@@ -157,6 +158,17 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
         </div>
 
         <div style={s.body}>
+          {/* Guest-mode persistent warning — local-only data, no cloud backup */}
+          {isGuest() && (
+            <div style={{ marginBottom: 16 }}>
+              <GuestBanner
+                title="You're in guest mode"
+                subtitle="Your data is saved on this device only. Create a free account to back up your invoices."
+                cta="Create Account"
+              />
+            </div>
+          )}
+
           {/* Customer */}
           <div data-tutorial="invoice-store-name" className="card-enter-1" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             {/* Customer header row */}
