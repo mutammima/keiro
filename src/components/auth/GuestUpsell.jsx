@@ -44,11 +44,11 @@ export function GuestCapModal({ open, onClose }) {
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 800, color: C.text, lineHeight: 1.25 }}>
-          You've reached the free limit
+          You've reached the limit!
         </div>
         <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.6 }}>
-          Create a free account to save unlimited entries, back them up, and sync
-          across your devices. Everything you've made so far comes with you.
+          Create an account to save unlimited entries, back them up, and sync
+          across your devices.
         </div>
         <button
           onClick={promptAccount}
