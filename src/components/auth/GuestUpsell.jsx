@@ -76,7 +76,11 @@ export function GuestCapModal({ open, onClose }) {
   );
 }
 
-export function GuestBanner({ title = 'Sign up to unlock the full dashboard', subtitle = 'Cloud backup, cross-device sync, and long-term analytics need a free account. Your local data migrates automatically.' }) {
+export function GuestBanner({
+  title = 'Sign up to unlock the full dashboard',
+  subtitle = 'Cloud backup, cross-device sync, and long-term analytics need a free account. Your local data migrates automatically.',
+  cta = 'Sign up',
+}) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -102,7 +106,7 @@ export function GuestBanner({ title = 'Sign up to unlock the full dashboard', su
           cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
         }}
       >
-        Sign up
+        {cta}
       </button>
     </div>
   );

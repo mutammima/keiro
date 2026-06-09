@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { useBackup } from '../../hooks/useBackup';
+import { isGuest, promptAccount } from '../../utils/guestMode';
 
 const WHATS_NEW = [
   { v: '5.9', notes: ['Overdue payment reminders — one-tap WhatsApp', 'Reliable cloud sync with on-screen sync alerts', 'Privacy Policy & Terms added'] },
@@ -96,6 +97,29 @@ export default function AppFooter({ onNav }) {
               {/* Backup & Restore */}
               {modal === 'backup' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Guest warning — local-only data is at risk and can't reach the cloud */}
+                  {isGuest() && (
+                    <div style={{
+                      background: dark ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.10)',
+                      border: `1px solid ${dark ? 'rgba(245,158,11,0.35)' : 'rgba(245,158,11,0.30)'}`,
+                      borderRadius: 14, padding: '13px 15px',
+                      display: 'flex', flexDirection: 'column', gap: 10,
+                    }}>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <span style={{ fontSize: 20, lineHeight: 1.2 }} aria-hidden="true">⚠️</span>
+                        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: C.text }}>
+                          <strong>You're in guest mode.</strong> Your data is stored only on this device and <strong>cannot be backed up to the cloud</strong>. It will be lost if you clear the app or switch phones — an exported file is your only copy. Create a free account to back up and sync automatically.
+                        </p>
+                      </div>
+                      <button
+                        style={{ ...s.backupBtn, background: ACCENT, color: '#fff', margin: 0 }}
+                        onClick={promptAccount}
+                      >
+                        Create Account
+                      </button>
+                    </div>
+                  )}
+
                   <p style={{ ...s.backupDesc, color: C.textMuted }}>
                     Your data lives only on this device. Export a backup file regularly and keep it somewhere safe — your email, iCloud, Google Drive, etc. If you ever lose your data, restore from that file.
                   </p>
