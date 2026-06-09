@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { generatePDFBlob } from '../../utils/pdfGenerator';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
@@ -52,6 +51,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
   /** Generates the PDF blob + filename for this invoice. */
   async function getBlob() {
+    // Lazy-load the PDF stack (jsPDF + autotable) only on demand.
+    const { generatePDFBlob } = await import('../../utils/pdfGenerator');
     return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid });
   }
 

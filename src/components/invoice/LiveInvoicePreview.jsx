@@ -6,7 +6,6 @@
 
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { generatePDFBlob } from '../../utils/pdfGenerator';
 
 export default function LiveInvoicePreview({
   businessName,
@@ -42,7 +41,10 @@ export default function LiveInvoicePreview({
         sellerSignature: '',
         buyerSignature: '',
       };
-      const { blob, filename } = await generatePDFBlob(invoice);
+      // Lazy-load the PDF stack (jsPDF + autotable) only when actually used —
+      // keeps ~350 kB out of the initial app bundle.
+      const { generatePDFBlob } = await import('../../utils/pdfGenerator');
+      const { blob } = await generatePDFBlob(invoice);
       const url = URL.createObjectURL(blob);
       tab.location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 30000);
