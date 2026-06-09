@@ -17,6 +17,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
   const [productName,   setProductName]   = useState('');
   const [quantity,      setQuantity]      = useState('');
+  const [price,         setPrice]         = useState('');
   const [deliveryDate,  setDeliveryDate]  = useState('');
   const [driverId,      setDriverId]      = useState('');
   const [notes,         setNotes]         = useState('');
@@ -46,6 +47,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
       id: uid(),
       productName: productName.trim(),
       quantity: Number(quantity),
+      price: Number(price) || 0,
       deliveryDate,
       driverId: driverId || null,
       driverName: driver ? driver.name : 'Unassigned',
@@ -59,7 +61,7 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
     // Reset form after a brief confirmation flash
     setTimeout(() => {
-      setProductName(''); setQuantity(''); setDeliveryDate('');
+      setProductName(''); setQuantity(''); setPrice(''); setDeliveryDate('');
       setDriverId(''); setNotes(''); setErrors({}); setSubmitted(false);
       onNav('so-orders');
     }, 700);
@@ -107,6 +109,25 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
             onChange={e => { setQuantity(e.target.value); setErrors(v => ({ ...v, quantity: '' })); }}
           />
           {errors.quantity && <p style={s.error(C)}>{errors.quantity}</p>}
+
+          <label style={{ ...s.label(C), marginTop: 14 }}>
+            Unit Price <span style={{ color: C.textMuted, fontWeight: 400, fontSize: 11 }}>optional</span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            style={{ ...s.input, ...inp }}
+            placeholder="e.g. 3.50"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+          />
+          {Number(quantity) > 0 && Number(price) > 0 && (
+            <p style={{ fontSize: 13, fontWeight: 600, color: C.textSub, margin: '6px 0 0' }}>
+              Estimated total: <span style={{ color: C.text }}>${(Number(quantity) * Number(price)).toFixed(2)}</span>
+            </p>
+          )}
         </div>
 
         {/* Delivery date */}

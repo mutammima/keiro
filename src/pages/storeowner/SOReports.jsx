@@ -41,11 +41,15 @@ export default function SOReports({ onOpenDrawer, onNav }) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const byStatus = { pending: 0, accepted: 0, delivered: 0, cancelled: 0 };
     let thisMonth = 0;
+    let totalSpend = 0;
+    let monthSpend = 0;
     orders.forEach(o => {
       if (byStatus[o.status] !== undefined) byStatus[o.status] += 1;
-      if (orderTime(o) >= monthStart) thisMonth += 1;
+      const lineTotal = (Number(o.quantity) || 0) * (Number(o.price) || 0);
+      totalSpend += lineTotal;
+      if (orderTime(o) >= monthStart) { thisMonth += 1; monthSpend += lineTotal; }
     });
-    return { total: orders.length, thisMonth, byStatus };
+    return { total: orders.length, thisMonth, byStatus, totalSpend, monthSpend };
   }, [orders]);
 
   // 7-day order-volume trend (oldest → newest)
@@ -78,11 +82,13 @@ export default function SOReports({ onOpenDrawer, onNav }) {
 
   const maxTrend = Math.max(1, ...trend.map(d => d.count));
 
+  const money = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const statCards = [
-    { label: 'Total Orders', value: stats.total,             color: C.text     },
-    { label: 'This Month',   value: stats.thisMonth,         color: ACCENT     },
-    { label: 'Delivered',    value: stats.byStatus.delivered, color: '#22c55e' },
-    { label: 'Pending',      value: stats.byStatus.pending,   color: '#f59e0b' },
+    { label: 'Total Spend',   value: money(stats.totalSpend), color: '#22c55e' },
+    { label: 'Spent This Mo.', value: money(stats.monthSpend), color: ACCENT    },
+    { label: 'Total Orders',  value: stats.total,              color: C.text    },
+    { label: 'Delivered',     value: stats.byStatus.delivered, color: C.textSub },
   ];
 
   return (
@@ -132,7 +138,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {statCards.map(({ label, value, color }) => (
                 <div key={label} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '16px 18px' }}>
-                  <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1.1, letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
                   <div style={{ fontSize: 12, color: C.textMuted, marginTop: 4, fontWeight: 600 }}>{label}</div>
                 </div>
               ))}

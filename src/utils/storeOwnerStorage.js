@@ -58,6 +58,7 @@ export function resolveStartupRole() {
 //   id: string,
 //   productName: string,
 //   quantity: number,
+//   price: number,          // unit price; 0 when not provided
 //   deliveryDate: string,   // ISO date string YYYY-MM-DD
 //   driverId: string|null,
 //   driverName: string,     // cached for display
@@ -106,6 +107,7 @@ export async function loadOrdersFromCloud() {
     id:           row.id,
     productName:  row.product_name,
     quantity:     row.quantity,
+    price:        Number(row.price) || 0,
     deliveryDate: row.delivery_date,
     driverId:     row.driver_id   || null,
     driverName:   row.driver_name || 'Unassigned',
