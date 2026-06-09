@@ -14,6 +14,7 @@ import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
+import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
 function fmtPaymentDate(iso) {
@@ -105,8 +106,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     const paid      = getTotalPaid(inv.number);
     const amountDue = Math.max(0, total - paid);
     if (amountDue <= 0) return; // settled — nothing to chase
-    const invDate     = new Date(inv.date);
-    const daysOverdue = isNaN(invDate) ? 0 : Math.floor((Date.now() - invDate.getTime()) / 86400000);
+    const daysOverdue = daysSince(inv.date);
     const url = buildReminderUrl({
       storeName:     inv.storeName  || inv.store_name  || '',
       storePhone:    inv.storePhone || inv.store_phone || '',
@@ -159,9 +159,9 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     return dark ? STATUS[key]?.dark : STATUS[key]?.light;
   }
 
-  // Read auto-flag threshold once from localStorage (default 7 days)
-  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
-  const flagMs   = flagDays * 24 * 60 * 60 * 1000;
+  // Read auto-flag threshold once so per-card overdue checks don't each hit
+  // localStorage. Overdue detection itself is shared via invoiceUtils.
+  const flagDays = getFlagDays();
 
   // ── Invoice Card ──────────────────────────────────────────────────────────
   function InvoiceCard({ inv, isFirst }) {
@@ -172,9 +172,8 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
     const colors  = sc(status);
     const menuOpen = openMenu === inv.number;
 
-    // Overdue: unpaid/partial and older than auto-flag threshold
-    const invDate   = new Date(inv.date);
-    const isOverdue = status !== 'paid' && !isNaN(invDate) && Date.now() - invDate.getTime() > flagMs;
+    // Overdue: unpaid/partial and older than the auto-flag threshold
+    const isOverdue = isInvoiceOverdue(inv, flagDays);
 
     // ── COMPACT card: lean 2-line row, total + status inline, no sub-card ──────
     if (D.compact) {

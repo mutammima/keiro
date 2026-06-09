@@ -19,6 +19,12 @@ import {
 import { clearSignatures } from '../utils/signatureStorage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { clearPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
+import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
+
+// Re-exported so existing consumers (e.g. InvoiceHistory) can keep importing
+// subtotalOf from this hook; the canonical definition lives in invoiceUtils.
+export { subtotalOf };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -27,22 +33,6 @@ export const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
 /** Number of "older" invoices to show per page before "Load more". */
 export const PAGE_SIZE = 8;
-
-// ── Utilities ──────────────────────────────────────────────────────────────────
-
-/** Returns today's date formatted identically to how invoice dates are stored. */
-function todayStr() {
-  return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-/**
- * Calculates the subtotal for a single invoice.
- * @param {object} inv - Invoice object with an `items` array.
- * @returns {number} Sum of (qty * price) for every line item.
- */
-export function subtotalOf(inv) {
-  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-}
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
@@ -55,7 +45,7 @@ export function useInvoiceHistory() {
   // ── Core data state ──────────────────────────────────────────────────────
   const [invoices, setInvoices]   = useState([]);
   const [loading, setLoading]     = useState(true);
-  const bizName = getBusinessName() || 'J&Y Distributions';
+  const bizName = getBusinessName() || DEFAULT_BUSINESS_NAME;
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [expanded, setExpanded]           = useState(null);
@@ -67,7 +57,7 @@ export function useInvoiceHistory() {
   const [, forceUpdate]                   = useState(0);
   const menuRef = useRef(null);
 
-  const today = todayStr();
+  const today = todayInvoiceDate();
 
   // ── Load invoices + payment log from cloud on mount ──────────────────────
   useEffect(() => {
@@ -110,13 +100,8 @@ export function useInvoiceHistory() {
 
   /** Total amount owed across all unpaid and partially paid invoices. */
   const outstanding = invoices
-    .filter(i => (i.paymentStatus || i.payment_status || 'unpaid') !== 'paid')
+    .filter(i => getStatus(i) !== 'paid')
     .reduce((s, i) => s + subtotalOf(i), 0);
-
-  // Normalise paymentStatus — DB uses snake_case column but our shape re-maps it
-  function getStatus(inv) {
-    return inv.paymentStatus || inv.payment_status || 'unpaid';
-  }
 
   const unpaidCount  = invoices.filter(i => getStatus(i) === 'unpaid').length;
   const partialCount = invoices.filter(i => getStatus(i) === 'partial').length;
@@ -125,19 +110,11 @@ export function useInvoiceHistory() {
   /** True when all invoices have been collected (outstanding === 0 and there are invoices). */
   const allClear = outstanding === 0 && invoices.length > 0;
 
-  /**
-   * Returns true if the invoice is overdue: unpaid/partial and older than the
-   * user's configured auto-flag threshold (default 7 days from Settings → Automation).
-   */
-  const flagDays = (() => { try { return JSON.parse(localStorage.getItem('inv_auto_flag_days')) || 7; } catch { return 7; } })();
-  const FLAG_MS  = flagDays * 24 * 60 * 60 * 1000;
-  function isOverdue(inv) {
-    if (getStatus(inv) === 'paid') return false;
-    const d = new Date(inv.date);
-    return !isNaN(d) && Date.now() - d.getTime() > FLAG_MS;
-  }
-
-  const overdueCount = invoices.filter(isOverdue).length;
+  // Overdue detection (shared with InvoiceHistory + Home via invoiceUtils).
+  // Read the threshold once here and pass it into isOverdue to avoid hitting
+  // localStorage for every invoice in the list.
+  const flagDays = getFlagDays();
+  const overdueCount = invoices.filter(inv => isOverdue(inv, flagDays)).length;
 
   // ── Filtered lists ────────────────────────────────────────────────────────
 
@@ -147,7 +124,7 @@ export function useInvoiceHistory() {
     const matchQ = !q || storeN.toLowerCase().includes(q) || String(inv.number || inv.invoice_number).includes(q);
     const matchS =
       statusFilter === 'all'     ? true :
-      statusFilter === 'overdue' ? isOverdue(inv) :
+      statusFilter === 'overdue' ? isOverdue(inv, flagDays) :
                                    getStatus(inv) === statusFilter;
     return matchQ && matchS;
   });

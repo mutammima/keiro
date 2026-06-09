@@ -10,6 +10,8 @@ import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
 import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
+import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
+import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -42,7 +44,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   }, [sellerSig, buyerSig]); // eslint-disable-line
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const subtotal = invoice.items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+  const subtotal = subtotalOf(invoice);
   const sc = dark ? STATUS[invoice.paymentStatus || 'unpaid']?.dark : STATUS[invoice.paymentStatus || 'unpaid']?.light;
 
   /** Generates the PDF blob + filename for this invoice. */
@@ -95,7 +97,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
   /** Opens WhatsApp with a pre-filled invoice summary message. */
   function handleWhatsApp() {
-    const phone = (invoice.storePhone || '').replace(/\D/g, '');
     const lines = [
       `*Invoice #${invoice.number}*`,
       `${invoice.date}`,
@@ -110,11 +111,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       `*Total: $${subtotal.toFixed(2)}*`,
       ...(invoice.notes ? [`\nNotes: ${invoice.notes}`] : []),
     ].join('\n');
-    const encoded = encodeURIComponent(lines);
-    const url = phone
-      ? `https://wa.me/${phone}?text=${encoded}`
-      : `https://wa.me/?text=${encoded}`;
-    window.open(url, '_blank');
+    window.open(buildWhatsAppUrl(invoice.storePhone, lines), '_blank');
   }
 
   /** Formats the invoice as plain text and copies it to the clipboard. */
@@ -149,7 +146,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ ...s.title, color: C.text }}>{getBusinessName() || 'J&Y Distributions'}</span>
+          <span style={{ ...s.title, color: C.text }}>{getBusinessName() || DEFAULT_BUSINESS_NAME}</span>
           <span style={{ fontSize: 12, color: C.textMuted }}>Invoice #{invoice.number}</span>
         </div>
         <div style={{ width: 60 }} />

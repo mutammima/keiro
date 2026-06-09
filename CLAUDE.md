@@ -83,7 +83,7 @@ src/
 | `src/components/invoice/InvoiceHistory.jsx` | History list, overdue flagging, payment status |
 | `src/components/invoice/InvoicePreview.jsx` | Invoice preview component |
 | `src/components/invoice/EditItemModal.jsx` | Edit line item modal |
-| `src/components/navigation/BottomNav.jsx` | Top tab bar (☰ + New/Invoices/Products tabs) — file is BottomNav.jsx, component acts as top nav |
+| `src/components/navigation/TopNav.jsx` | Top tab bar (☰ + New/Invoices/Products tabs) — historically named BottomNav |
 | `src/components/navigation/NavDrawer.jsx` | Sidebar navigation drawer |
 | `src/components/navigation/AppFooter.jsx` | In-page footer links |
 | `src/components/auth/AuthGate.jsx` | Auth wrapper |
@@ -142,17 +142,15 @@ src/
 - **`overflowX: 'clip'` not `'hidden'`**: `clip` prevents horizontal scroll without creating a new containing block — use it on page wrappers so fixed portals still escape.
 - **Unauthenticated Supabase deletes**: RLS silently returns no error when the user isn't logged in, so always delete from localStorage first, then attempt the cloud sync.
 
-## Dead Files (deprecated, not yet removed)
+## Shared Utilities
 
-These files have `@deprecated` banners. Safe to delete when doing a cleanup pass:
-
-| File | Replaced by |
-|------|------------|
-| `src/components/tutorial/TutorialOverlay.jsx` | `OnboardingTutorial.jsx` |
-| `src/components/tutorial/InteractiveTutorial.jsx` | `OnboardingTutorial.jsx` |
-| `src/pages/StoresPage.jsx` | `StoreMap.jsx` |
-| `src/components/ui/DailyProgress.jsx` | Home.jsx charts |
-| `src/hooks/useColors.js` | inline `PRODUCT_COLORS` in `DashboardCharts.jsx` |
+- `src/utils/constants.js` — single source of truth for magic values: `STORAGE_KEYS`
+  (every `inv_` key), `DEFAULT_BUSINESS_NAME`, `INVOICE_NUMBER_START`, `MS_PER_DAY`,
+  `DEFAULT_FLAG_DAYS`, and `COLORS` (repeated non-theme hex values).
+- `src/utils/invoiceUtils.js` — pure invoice helpers shared across screens:
+  `subtotalOf`, `getStatus`, `formatInvoiceDate` / `todayInvoiceDate`, `getFlagDays`,
+  `daysSince`, `isOverdue`, and `buildWhatsAppUrl`. Prefer these over re-deriving
+  totals/overdue/status inline.
 
 ## Recently Shipped
 

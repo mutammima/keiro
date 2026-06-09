@@ -20,6 +20,7 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
+import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -48,7 +49,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
   const C = dark ? DARK : LIGHT;
 
   // ── Business info ──────────────────────────────────────────────────────────
-  const [bizName,  setBizName]  = useState(() => getBusinessName()  || 'J&Y Distributions');
+  const [bizName,  setBizName]  = useState(() => getBusinessName()  || DEFAULT_BUSINESS_NAME);
   const [bizPhone, setBizPhone] = useState(() => getBusinessPhone() || '');
   const [bizSaved, setBizSaved] = useState(false);
 
@@ -309,7 +310,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Name</label>
-              <input data-tutorial="settings-biz-name" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder="J&Y Distributions" />
+              <input data-tutorial="settings-biz-name" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder={DEFAULT_BUSINESS_NAME} />
             </div>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Phone</label>

@@ -8,16 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import { getInvoices, updateInvoicePaymentStatus } from '../utils/storage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
-
-/** Calculates the subtotal for a single invoice. */
-function subtotalOf(inv) {
-  return (inv.items || []).reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-}
-
-/** Normalise payment status from either camelCase or snake_case field. */
-function getStatus(inv) {
-  return inv.paymentStatus || inv.payment_status || 'unpaid';
-}
+import { subtotalOf, getStatus } from '../utils/invoiceUtils';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
