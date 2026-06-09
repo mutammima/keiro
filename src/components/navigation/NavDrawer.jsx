@@ -41,6 +41,17 @@ const Icons = {
       <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
     </svg>
   ),
+  market: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l1.5-5h15L21 9"/><path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9z"/>
+      <path d="M3 9a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 3 0"/>
+    </svg>
+  ),
+  tag: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+    </svg>
+  ),
   settings: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
@@ -67,17 +78,20 @@ const Icons = {
 };
 
 const NAV_ITEMS_FULL = [
-  { id: 'home',       label: 'Dashboard',  icon: Icons.home },
-  { id: 'reports',    label: 'Reports',    icon: Icons.reports },
-  { id: 'end-of-day', label: 'End of Day', icon: Icons.endofday },
-  { id: 'store-map',  label: 'Store Info', icon: Icons.storemap },
-  { id: 'notes',      label: 'Notes',      icon: Icons.notes },
+  { id: 'home',        label: 'Dashboard',   icon: Icons.home },
+  { id: 'marketplace', label: 'Marketplace', icon: Icons.market },
+  { id: 'my-listings', label: 'My Listings', icon: Icons.tag },
+  { id: 'reports',     label: 'Reports',     icon: Icons.reports },
+  { id: 'end-of-day',  label: 'End of Day',  icon: Icons.endofday },
+  { id: 'store-map',   label: 'Store Info',  icon: Icons.storemap },
+  { id: 'notes',       label: 'Notes',       icon: Icons.notes },
 ];
 
 const NAV_ITEMS_OWNER = [
-  { id: 'so-home',    label: 'Dashboard',  icon: Icons.home },
-  { id: 'so-reports', label: 'Reports',    icon: Icons.reports },
-  { id: 'notes',      label: 'Notes',      icon: Icons.notes },
+  { id: 'so-home',      label: 'Dashboard',    icon: Icons.home },
+  { id: 'find-drivers', label: 'Find Drivers', icon: Icons.market },
+  { id: 'so-reports',   label: 'Reports',      icon: Icons.reports },
+  { id: 'notes',        label: 'Notes',        icon: Icons.notes },
 ];
 
 const NAV_ITEMS_EASY = [];

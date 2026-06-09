@@ -31,7 +31,12 @@ import { useRef, useState } from 'react';
  *    restoring them onto a fresh device would wrongly skip migration and strand
  *    local data
  */
-const EXCLUDE_KEYS = new Set(['inv_prefill', 'inv_migrated', 'inv_migrated_at']);
+const EXCLUDE_KEYS = new Set([
+  'inv_prefill', 'inv_migrated', 'inv_migrated_at',
+  // Marketplace caches are cloud-sourced, cross-user snapshots — not this user's
+  // own data. Backing them up would capture other users' listings / orders.
+  'inv_mkt_my_listings', 'inv_mkt_listings', 'inv_mkt_demand',
+]);
 
 /**
  * Returns every live `inv_` localStorage key except the excluded transient ones.

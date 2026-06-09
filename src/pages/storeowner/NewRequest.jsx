@@ -7,6 +7,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
+import { saveMyDemand } from '../../utils/marketplaceStorage';
+import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
 import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -63,6 +65,24 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
     };
 
     saveOrder(order);
+
+    // No driver assigned → broadcast this order to the marketplace so any driver
+    // who carries the product can discover and accept it. Assigning a specific
+    // driver keeps it a private handoff (not published).
+    if (!driverId) {
+      saveMyDemand({
+        id: order.id,
+        storeName:   getBusinessName()  || 'A store',
+        storePhone:  getBusinessPhone() || '',
+        productName: order.productName,
+        quantity:    order.quantity,
+        targetPrice: order.price,
+        neededBy:    order.deliveryDate,
+        notes:       order.notes,
+        status:      'open',
+      });
+    }
+
     setSubmitted(true);
 
     // Reset form after a brief confirmation flash
