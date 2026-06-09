@@ -75,6 +75,8 @@ const NAV_ITEMS_FULL = [
 
 const NAV_ITEMS_OWNER = [
   { id: 'so-home',    label: 'Dashboard',  icon: Icons.home },
+  { id: 'so-reports', label: 'Reports',    icon: Icons.reports },
+  { id: 'notes',      label: 'Notes',      icon: Icons.notes },
 ];
 
 const NAV_ITEMS_EASY = [];
