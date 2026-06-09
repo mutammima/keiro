@@ -93,7 +93,10 @@ export function GuestBanner({
         display: 'flex', alignItems: 'center', gap: 12,
       }}
     >
-      <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden="true">🔒</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0, color: ACCENT }}>
+        <rect x="4" y="10.5" width="16" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3 }}>{title}</div>
         <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.45, marginTop: 2 }}>{subtitle}</div>
