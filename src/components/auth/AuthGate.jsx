@@ -70,13 +70,18 @@ export default function AuthGate({ children }) {
     try {
       const result = await runMigrationIfNeeded();
       if (result.ran) {
-        const { invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated = 0 } = result;
-        const parts = [];
-        if (invoicesMigrated) parts.push(`${invoicesMigrated} invoices`);
-        if (ordersMigrated)   parts.push(`${ordersMigrated} orders`);
-        if (productsMigrated)  parts.push(`${productsMigrated} products`);
-        if (storesMigrated)    parts.push(`${storesMigrated} stores`);
-        setMigrationMsg(parts.length ? `Data backed up: ${parts.join(', ')}.` : '');
+        const { invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated = 0, partial } = result;
+        if (partial) {
+          // New data created during a guest session after a previous migration.
+          setMigrationMsg('We found new data from your last guest session. Syncing it to your account now.');
+        } else {
+          const parts = [];
+          if (invoicesMigrated) parts.push(`${invoicesMigrated} invoices`);
+          if (ordersMigrated)   parts.push(`${ordersMigrated} orders`);
+          if (productsMigrated)  parts.push(`${productsMigrated} products`);
+          if (storesMigrated)    parts.push(`${storesMigrated} stores`);
+          setMigrationMsg(parts.length ? `Data backed up: ${parts.join(', ')}.` : '');
+        }
         setTimeout(() => setMigrationMsg(''), 5000);
       }
     } catch (e) {

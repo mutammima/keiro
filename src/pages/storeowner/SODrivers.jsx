@@ -41,7 +41,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
   function handleAddDriver() {
     if (!newName.trim()) { setAddError('Driver name is required.'); return; }
-    saveDriver({ id: uid(), name: newName.trim(), phone: newPhone.trim(), inventory: [] });
+    saveDriver({ id: uid(), name: newName.trim(), phone: newPhone.trim(), inventory: [], createdAt: new Date().toISOString() });
     setNewName(''); setNewPhone(''); setAddError(''); setShowAdd(false);
     refresh();
   }

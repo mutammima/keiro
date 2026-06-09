@@ -27,10 +27,11 @@ import { useRef, useState } from 'react';
 /**
  * Keys that must NEVER be backed up or restored:
  *  - inv_prefill:  transient half-filled form state, not user data
- *  - inv_migrated: the localStorage→Supabase migration flag; restoring it onto a
- *    fresh device would wrongly skip migration and strand local data
+ *  - inv_migrated / inv_migrated_at: the localStorage→Supabase migration markers;
+ *    restoring them onto a fresh device would wrongly skip migration and strand
+ *    local data
  */
-const EXCLUDE_KEYS = new Set(['inv_prefill', 'inv_migrated']);
+const EXCLUDE_KEYS = new Set(['inv_prefill', 'inv_migrated', 'inv_migrated_at']);
 
 /**
  * Returns every live `inv_` localStorage key except the excluded transient ones.
