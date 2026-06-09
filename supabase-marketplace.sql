@@ -99,6 +99,14 @@ create policy "marketplace_demand: driver claims open"
   using (auth.role() = 'authenticated' and status = 'open')
   with check (claimed_by = auth.uid());
 
+-- ── Geo: optional device coordinates for "near me" sorting ───────────────────
+-- Both are nullable: a driver/store may decline location, in which case the row
+-- still publishes and simply sorts last in distance-ordered feeds.
+alter table marketplace_listings add column if not exists lat double precision;
+alter table marketplace_listings add column if not exists lng double precision;
+alter table marketplace_demand   add column if not exists lat double precision;
+alter table marketplace_demand   add column if not exists lng double precision;
+
 -- ── Indexes ──────────────────────────────────────────────────────────────────
 create index if not exists idx_mkt_listings_product on marketplace_listings(product_name);
 create index if not exists idx_mkt_listings_user    on marketplace_listings(user_id);

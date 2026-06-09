@@ -3,12 +3,13 @@
  * Creates an order request (product, quantity, delivery date, assigned driver).
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
 import { saveMyDemand } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { getCurrentPosition } from '../../utils/geo';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
 import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -31,8 +32,13 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
   const [drivers, setDrivers] = useState(() => getDrivers());
 
+  // Best-effort store location, stamped on broadcast demand so nearby drivers
+  // surface first. Null when the store declines location.
+  const coords = useRef(null);
+
   useEffect(() => {
     loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
+    getCurrentPosition().then(c => { if (c) coords.current = c; }).catch(() => {});
   }, []);
 
   function validate() {
@@ -80,6 +86,8 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
         neededBy:    order.deliveryDate,
         notes:       order.notes,
         status:      'open',
+        lat:         coords.current ? coords.current.lat : null,
+        lng:         coords.current ? coords.current.lng : null,
       });
     }
 

@@ -7,12 +7,13 @@
  * marketplace_listings (see marketplaceStorage.js).
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getMyListings, saveMyListing, deleteMyListing, loadMyListingsFromCloud } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { getCurrentPosition } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
 
 const UNITS = ['each', 'case', 'box', 'gal', 'lb', 'pack'];
@@ -31,8 +32,13 @@ export default function MyListings({ onOpenDrawer, onNav }) {
   const [unit, setUnit] = useState('each');
   const [error, setError] = useState('');
 
+  // Best-effort device location, captured once and stamped on each saved listing
+  // so stores can sort drivers by "near me". Null when location is unavailable.
+  const coords = useRef(null);
+
   useEffect(() => {
     loadMyListingsFromCloud().then(setListings).catch(() => {});
+    getCurrentPosition().then(c => { if (c) coords.current = c; }).catch(() => {});
   }, []);
 
   function resetForm() {
@@ -53,6 +59,8 @@ export default function MyListings({ onOpenDrawer, onNav }) {
       price: Number(price) || 0,
       unit,
       active: true,
+      lat: coords.current ? coords.current.lat : (base.lat ?? null),
+      lng: coords.current ? coords.current.lng : (base.lng ?? null),
     });
     setListings(prev => {
       const idx = prev.findIndex(l => l.id === saved.id);

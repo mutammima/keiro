@@ -17,6 +17,7 @@ import {
 } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
+import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
 
 export default function Marketplace({ onOpenDrawer, onNav }) {
@@ -28,12 +29,18 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
   const [onlyMatches, setOnlyMatches] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [here, setHere] = useState(null);       // viewer coords, or null
+  const [locReady, setLocReady] = useState(false); // resolved the location attempt
 
   useEffect(() => {
     Promise.all([loadAllDemandFromCloud(), loadMyListingsFromCloud()])
       .then(([d, l]) => { setDemand(d); setMyListings(l); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    getCurrentPosition()
+      .then(c => setHere(c))
+      .catch(() => {})
+      .finally(() => setLocReady(true));
   }, []);
 
   // Does this order match something I carry?
@@ -41,13 +48,25 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
     return myListings.some(l => productMatches(l.productName, order.productName));
   }
 
+  // Miles from the viewer to a store's order, or null when either lacks coords.
+  function distOf(order) {
+    return haversineMiles(here, order);
+  }
+
   const open = useMemo(() => demand.filter(d => d.status === 'open'), [demand]);
   const visible = useMemo(() => {
     const list = onlyMatches && myListings.length > 0 ? open.filter(matchesMe) : open;
-    // Matches first, then newest
-    return [...list].sort((a, b) => (matchesMe(b) - matchesMe(a)));
+    // Matches first, then nearest (rows without distance sort last).
+    return [...list].sort((a, b) => {
+      const m = matchesMe(b) - matchesMe(a);
+      if (m !== 0) return m;
+      const da = distOf(a), db = distOf(b);
+      const ka = da == null ? Infinity : da;
+      const kb = db == null ? Infinity : db;
+      return ka - kb;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, onlyMatches, myListings]);
+  }, [open, onlyMatches, myListings, here]);
 
   async function handleAccept(order) {
     setBusyId(order.id);
@@ -84,6 +103,12 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
             <FilterBtn label="Matches my products" active={onlyMatches} onClick={() => setOnlyMatches(true)} C={C} />
             <FilterBtn label="All open orders" active={!onlyMatches} onClick={() => setOnlyMatches(false)} C={C} />
           </div>
+        )}
+
+        {locReady && !here && open.length > 0 && (
+          <p style={{ fontSize: 12, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
+            Enable location to sort orders by how close they are to you.
+          </p>
         )}
 
         {myListings.length === 0 && (
@@ -126,6 +151,7 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {distOf(order) != null && <Chip C={C} accent>{formatDistance(distOf(order))}</Chip>}
                 {order.neededBy && <Chip C={C}>Needed by {order.neededBy}</Chip>}
                 {order.targetPrice > 0 && <Chip C={C}>Target ${Number(order.targetPrice).toFixed(2)}</Chip>}
               </div>
@@ -173,9 +199,15 @@ function FilterBtn({ label, active, onClick, C }) {
   );
 }
 
-function Chip({ children, C }) {
+function Chip({ children, C, accent }) {
   return (
-    <span style={{ fontSize: 11.5, fontWeight: 600, color: C.textSub, background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 20, padding: '4px 10px' }}>
+    <span style={{
+      fontSize: 11.5, fontWeight: accent ? 700 : 600,
+      color: accent ? ACCENT : C.textSub,
+      background: accent ? 'rgba(74,123,247,0.12)' : C.inputBg,
+      border: `1px solid ${accent ? 'rgba(74,123,247,0.35)' : C.inputBorder}`,
+      borderRadius: 20, padding: '4px 10px',
+    }}>
       {children}
     </span>
   );
