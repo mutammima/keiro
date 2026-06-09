@@ -16,7 +16,7 @@ import {
   isStorePinned,
   getBusinessName,
 } from '../utils/storage';
-import { clearSignatures } from '../utils/signatureStorage';
+import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
 import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { clearPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
@@ -68,6 +68,7 @@ export function useInvoiceHistory() {
     Promise.all([
       getInvoices(),
       loadAllPaymentsFromCloud().catch(() => {}),
+      loadAllSignaturesFromCloud().catch(() => {}),
     ]).then(([list]) => {
       if (!cancelled) {
         setInvoices(Array.isArray(list) ? list : []);

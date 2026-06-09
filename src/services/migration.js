@@ -127,19 +127,38 @@ export async function runMigrationIfNeeded() {
     }
   }
 
+  // Collect new/changed signatures (proof of delivery). Stored one per key
+  // `inv_sig_<n>`; `updatedAt` (added by signatureStorage) drives incremental
+  // sync — entries without it are pre-existing and only migrate on a first run.
+  const signatureList = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('inv_sig_')) continue;
+      const sig = lsGet(key, null);
+      if (!sig || (!sig.seller && !sig.buyer)) continue;
+      if (!isNewTs(sig.updatedAt)) continue;
+      signatureList.push({
+        invoiceNumber: Number(key.slice('inv_sig_'.length)),
+        seller: sig.seller || null,
+        buyer:  sig.buyer  || null,
+      });
+    }
+  } catch { /* localStorage unavailable — skip signature migration */ }
+
   // Catalog/stores have no per-row timestamp. Migrate them on the first run, or
   // on a partial run whenever there are new invoices to attach them to. Upserts
   // keep this duplicate-free.
   const migrateCatalog = !isPartial || invoiceList.length > 0;
 
-  const hasNew = invoiceList.length > 0 || soOrders.length > 0 || soDrivers.length > 0 || paymentList.length > 0;
+  const hasNew = invoiceList.length > 0 || soOrders.length > 0 || soDrivers.length > 0 || paymentList.length > 0 || signatureList.length > 0;
 
   // Nothing new to sync — record a baseline timestamp and exit. This both
   // upgrades a legacy device to the timestamp scheme and gives brand-new
   // accounts a clean starting point for future incremental checks.
   if (!hasNew) {
     stampMigrated();
-    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, paymentsMigrated: 0, errors: [] };
+    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, paymentsMigrated: 0, signaturesMigrated: 0, errors: [] };
   }
 
   const errors = [];
@@ -148,6 +167,7 @@ export async function runMigrationIfNeeded() {
   let storesMigrated = 0;
   let ordersMigrated = 0;
   let paymentsMigrated = 0;
+  let signaturesMigrated = 0;
 
   // ── Migrate invoices ───────────────────────────────────────────────────────
   for (const inv of invoiceList) {
@@ -177,6 +197,22 @@ export async function runMigrationIfNeeded() {
       }
     } catch (e) {
       errors.push(`Payment ${p.id} (inv #${p.invoiceNumber}): ${e.message}`);
+    }
+  }
+
+  // ── Migrate invoice signatures ─────────────────────────────────────────────
+  // Proof-of-delivery PNGs created locally (often as a guest) — sync so they
+  // survive a device change. Upsert on (user, invoice) makes this idempotent.
+  for (const sig of signatureList) {
+    try {
+      const { error } = await db.saveSignatureRow(sig);
+      if (error) {
+        errors.push(`Signature (inv #${sig.invoiceNumber}): ${error.message || JSON.stringify(error)}`);
+      } else {
+        signaturesMigrated++;
+      }
+    } catch (e) {
+      errors.push(`Signature (inv #${sig.invoiceNumber}): ${e.message}`);
     }
   }
 
@@ -264,5 +300,5 @@ export async function runMigrationIfNeeded() {
     );
   }
 
-  return { ran: true, partial: isPartial, invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated, paymentsMigrated, errors };
+  return { ran: true, partial: isPartial, invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated, paymentsMigrated, signaturesMigrated, errors };
 }

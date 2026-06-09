@@ -797,6 +797,56 @@ export async function clearInvoicePayments(invoiceNumber) {
   }
 }
 
+// ── Invoice Signatures (proof of delivery) ────────────────────────────────────
+
+/** All of the current user's signature rows, for rebuilding the local cache. */
+export async function getAllSignatures() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoice_signatures')
+      .select('*');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Upsert one invoice's signatures (one row per user+invoice). */
+export async function saveSignatureRow({ invoiceNumber, seller, buyer }) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('invoice_signatures')
+      .upsert({
+        user_id:        userId,
+        invoice_number: Number(invoiceNumber),
+        seller:         seller || null,
+        buyer:          buyer  || null,
+        updated_at:     new Date().toISOString(),
+      }, { onConflict: 'user_id,invoice_number' });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteSignatureRow(invoiceNumber) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('invoice_signatures')
+      .delete()
+      .eq('user_id', userId)
+      .eq('invoice_number', Number(invoiceNumber));
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
 // ── Marketplace ───────────────────────────────────────────────────────────────
 //
 // UNLIKE every table above, the marketplace tables are SHARED: their SELECT RLS
