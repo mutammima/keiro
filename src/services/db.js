@@ -613,6 +613,7 @@ export async function saveSOOrder(order) {
         user_id:       userId,
         product_name:  order.productName,
         quantity:      order.quantity,
+        price:         Number(order.price) || 0,
         delivery_date: order.deliveryDate || '',
         driver_id:     order.driverId    || '',
         driver_name:   order.driverName  || '',
