@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK } from '../../theme';
 import { getSession, onAuthStateChange } from '../../services/auth';
 import { runMigrationIfNeeded } from '../../services/migration';
+import { isGuest, enterGuest, exitGuest } from '../../utils/guestMode';
 import LoginScreen from './LoginScreen';
 
 /**
@@ -24,6 +25,7 @@ export default function AuthGate({ children }) {
   const C = dark ? DARK : LIGHT;
 
   const [session, setSession]         = useState(null);
+  const [guest, setGuest]             = useState(() => isGuest());
   const [checking, setChecking]       = useState(true);
   const [migrating, setMigrating]     = useState(false);
   const [migrationMsg, setMigrationMsg] = useState('');
@@ -47,8 +49,19 @@ export default function AuthGate({ children }) {
     return unsubscribe;
   }, []);
 
+  // ── Continue as guest — no account, local-only, capped ────────────────────
+  function handleGuest() {
+    enterGuest();
+    setGuest(true);
+  }
+
   // ── After login callback ──────────────────────────────────────────────────
   async function handleLogin(user) {
+    // A real session supersedes guest mode; clear the flag so the app stops
+    // enforcing guest limits and the migration below backs up local data.
+    exitGuest();
+    setGuest(false);
+
     // Show app immediately with a non-blocking migration
     setSession({ user });
 
@@ -57,10 +70,13 @@ export default function AuthGate({ children }) {
     try {
       const result = await runMigrationIfNeeded();
       if (result.ran) {
-        const { invoicesMigrated, productsMigrated, storesMigrated } = result;
-        setMigrationMsg(
-          `Data migrated: ${invoicesMigrated} invoices, ${productsMigrated} products, ${storesMigrated} stores.`
-        );
+        const { invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated = 0 } = result;
+        const parts = [];
+        if (invoicesMigrated) parts.push(`${invoicesMigrated} invoices`);
+        if (ordersMigrated)   parts.push(`${ordersMigrated} orders`);
+        if (productsMigrated)  parts.push(`${productsMigrated} products`);
+        if (storesMigrated)    parts.push(`${storesMigrated} stores`);
+        setMigrationMsg(parts.length ? `Data backed up: ${parts.join(', ')}.` : '');
         setTimeout(() => setMigrationMsg(''), 5000);
       }
     } catch (e) {
@@ -85,12 +101,12 @@ export default function AuthGate({ children }) {
     );
   }
 
-  // ── Not authenticated ─────────────────────────────────────────────────────
-  if (!session) {
-    return <LoginScreen onLogin={handleLogin} />;
+  // ── Not authenticated and not a guest — show the auth screen ──────────────
+  if (!session && !guest) {
+    return <LoginScreen onLogin={handleLogin} onGuest={handleGuest} />;
   }
 
-  // ── Authenticated — render app ────────────────────────────────────────────
+  // ── Authenticated OR guest — render app ───────────────────────────────────
   return (
     <>
       {children}

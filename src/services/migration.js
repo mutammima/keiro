@@ -44,9 +44,17 @@ export async function runMigrationIfNeeded() {
   }
 
   const invoiceList = lsGet('inv_list', []);
+  const soOrders    = lsGet('inv_so_orders', []);
+  const soDrivers   = lsGet('inv_so_drivers', []);
 
-  // No local data to migrate
-  if (!invoiceList || invoiceList.length === 0) {
+  // No local data to migrate (driver OR store-owner side). A guest who only used
+  // the Store Owner role has orders/drivers but no invoices — so we can't gate
+  // solely on the invoice list, or their data would be stranded locally.
+  const hasData =
+    (invoiceList && invoiceList.length > 0) ||
+    (soOrders && soOrders.length > 0) ||
+    (soDrivers && soDrivers.length > 0);
+  if (!hasData) {
     localStorage.setItem(MIGRATION_FLAG, 'true');
     return { ran: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, errors: [] };
   }
@@ -55,6 +63,7 @@ export async function runMigrationIfNeeded() {
   let invoicesMigrated = 0;
   let productsMigrated = 0;
   let storesMigrated = 0;
+  let ordersMigrated = 0;
 
   // ── Migrate invoices ───────────────────────────────────────────────────────
   for (const inv of invoiceList) {
@@ -112,6 +121,31 @@ export async function runMigrationIfNeeded() {
     }
   }
 
+  // ── Migrate Store Owner drivers ───────────────────────────────────────────
+  // Drivers first so orders that reference a driver_id resolve cleanly.
+  for (const driver of soDrivers) {
+    try {
+      const { error } = await db.saveSODriver(driver);
+      if (error) errors.push(`Driver "${driver.name}": ${error.message || JSON.stringify(error)}`);
+    } catch (e) {
+      errors.push(`Driver "${driver.name}": ${e.message}`);
+    }
+  }
+
+  // ── Migrate Store Owner orders ────────────────────────────────────────────
+  for (const order of soOrders) {
+    try {
+      const { error } = await db.saveSOOrder(order);
+      if (error) {
+        errors.push(`Order ${order.id}: ${error.message || JSON.stringify(error)}`);
+      } else {
+        ordersMigrated++;
+      }
+    } catch (e) {
+      errors.push(`Order ${order.id}: ${e.message}`);
+    }
+  }
+
   // ── Mark migration complete ───────────────────────────────────────────────
   // Only flag the migration done when EVERYTHING succeeded. If any item failed,
   // leave the flag unset so the migration retries on next load — otherwise the
@@ -125,5 +159,5 @@ export async function runMigrationIfNeeded() {
     );
   }
 
-  return { ran: true, invoicesMigrated, productsMigrated, storesMigrated, errors };
+  return { ran: true, invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated, errors };
 }

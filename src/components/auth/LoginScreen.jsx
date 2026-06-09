@@ -9,9 +9,9 @@ import { LIGHT, DARK, ACCENT } from '../../theme';
 import { signInWithEmail, signUpWithEmail, signInWithPasskey, isPasskeySupported } from '../../services/auth';
 
 /**
- * @param {{ onLogin: function }} props
+ * @param {{ onLogin: function, onGuest?: function }} props
  */
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ onLogin, onGuest }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -152,6 +152,27 @@ export default function LoginScreen({ onLogin }) {
           </button>
         )}
 
+        {/* Continue as guest — try the app with no account. Data stays on this
+            device and is capped; creating an account later migrates it. */}
+        {onGuest && (
+          <>
+            <div style={s.divider}>
+              <span style={{ ...s.dividerLine, background: C.divider }} />
+              <span style={{ color: C.textMuted, fontSize: 12, fontWeight: 600 }}>or</span>
+              <span style={{ ...s.dividerLine, background: C.divider }} />
+            </div>
+            <button
+              onClick={onGuest}
+              style={{ ...s.secondaryBtn, background: C.nestedCard, color: C.text, border: `1px solid ${C.inputBorder}` }}
+            >
+              Continue as guest
+            </button>
+            <span style={{ ...s.tagline, color: C.textMuted, textAlign: 'center', fontSize: 12, marginTop: -6 }}>
+              No account needed — save up to 5 entries on this device.
+            </span>
+          </>
+        )}
+
         {/* Dev bypass — local development only. Creates a fake session whose
             cloud writes all fail RLS, so it must never ship to production. */}
         {import.meta.env.DEV && (
@@ -260,6 +281,16 @@ const s = {
     cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
     width: '100%',
+  },
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    margin: '2px 0',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
   },
   toggle: {
     textAlign: 'center',

@@ -28,6 +28,7 @@ import {
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { canSaveGuestEntry } from '../utils/guestMode';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ export function useInvoiceForm(onGenerated) {
   const [showScanner, setShowScanner] = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [error, setError]             = useState('');
+  const [guestWall, setGuestWall]     = useState(false); // hard cap reached (guest)
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -254,6 +256,9 @@ export function useInvoiceForm(onGenerated) {
     if (!customerName.trim()) return setError('Enter a customer name.');
     if (items.length === 0) return setError('Add at least one item.');
 
+    // Guest hard cap: block the save and surface the account-upsell modal.
+    if (!canSaveGuestEntry()) { setGuestWall(true); return; }
+
     setGenerating(true);
     try {
       const invoiceNumber = await getNextInvoiceNumber();
@@ -333,5 +338,6 @@ export function useInvoiceForm(onGenerated) {
     generating,
     error,
     handleGenerate,
+    guestWall, setGuestWall,
   };
 }
