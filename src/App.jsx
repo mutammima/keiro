@@ -79,7 +79,7 @@ function OfflineBanner({ dark }) {
       zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
       paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
     }}>
-      You are offline — changes won't save
+      You're offline — changes save on this device and sync when you're back online
     </div>
   );
 }

@@ -20,7 +20,7 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
-import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -148,7 +148,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
   const [density, setDensity] = useState(() => lsGet('inv_density', 'comfortable'));
 
   // ── Auto-flag / auto-mark ──────────────────────────────────────────────────
-  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', 3));
+  // Default must match getFlagDays()'s DEFAULT_FLAG_DAYS, or the picker shows a
+  // different threshold than the overdue engine actually uses until first edit.
+  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', DEFAULT_FLAG_DAYS));
   const [autoMarkDays, setAutoMarkDays] = useState(() => lsGet('inv_auto_mark_days', 0)); // 0 = off
 
   // ── Logo upload ────────────────────────────────────────────────────────────
