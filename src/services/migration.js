@@ -97,6 +97,7 @@ export async function runMigrationIfNeeded() {
   const allInvoices = lsGet('inv_list', []);
   const allOrders   = lsGet('inv_so_orders', []);
   const allDrivers  = lsGet('inv_so_drivers', []);
+  const allPayments = lsGet('inv_payments', {}); // { [invoiceNumber]: Payment[] }
 
   // On a partial run, only take entries created after the last migration.
   // On a first run, take everything. Entries missing a parseable createdAt are
@@ -106,24 +107,39 @@ export async function runMigrationIfNeeded() {
     const t = entryTime(entry);
     return !isNaN(t) && t > lastMs;
   };
+  // Payments timestamp under `ts`, not `createdAt`, so they need their own check.
+  const isNewTs = (ts) => {
+    if (!isPartial) return true;
+    const t = Date.parse(ts || '');
+    return !isNaN(t) && t > lastMs;
+  };
 
   const invoiceList = allInvoices.filter(isNew);
   const soOrders    = allOrders.filter(isNew);
   const soDrivers   = allDrivers.filter(isNew);
+
+  // Flatten the payment ledger into a list of new payments, each carrying its
+  // invoice number so the cloud row can be attached to the right invoice.
+  const paymentList = [];
+  for (const [invoiceNumber, list] of Object.entries(allPayments)) {
+    for (const p of (Array.isArray(list) ? list : [])) {
+      if (isNewTs(p?.ts)) paymentList.push({ ...p, invoiceNumber: Number(invoiceNumber) });
+    }
+  }
 
   // Catalog/stores have no per-row timestamp. Migrate them on the first run, or
   // on a partial run whenever there are new invoices to attach them to. Upserts
   // keep this duplicate-free.
   const migrateCatalog = !isPartial || invoiceList.length > 0;
 
-  const hasNew = invoiceList.length > 0 || soOrders.length > 0 || soDrivers.length > 0;
+  const hasNew = invoiceList.length > 0 || soOrders.length > 0 || soDrivers.length > 0 || paymentList.length > 0;
 
   // Nothing new to sync — record a baseline timestamp and exit. This both
   // upgrades a legacy device to the timestamp scheme and gives brand-new
   // accounts a clean starting point for future incremental checks.
   if (!hasNew) {
     stampMigrated();
-    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, errors: [] };
+    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, paymentsMigrated: 0, errors: [] };
   }
 
   const errors = [];
@@ -131,6 +147,7 @@ export async function runMigrationIfNeeded() {
   let productsMigrated = 0;
   let storesMigrated = 0;
   let ordersMigrated = 0;
+  let paymentsMigrated = 0;
 
   // ── Migrate invoices ───────────────────────────────────────────────────────
   for (const inv of invoiceList) {
@@ -143,6 +160,23 @@ export async function runMigrationIfNeeded() {
       }
     } catch (e) {
       errors.push(`Invoice #${inv.number}: ${e.message}`);
+    }
+  }
+
+  // ── Migrate invoice payments ───────────────────────────────────────────────
+  // The payment ledger is money data created locally — for a guest it never
+  // reached the cloud (no session at log time), so without this it would be lost
+  // on the first cloud load after sign-up. Upsert on the stable payment id.
+  for (const p of paymentList) {
+    try {
+      const { error } = await db.saveInvoicePayment(p);
+      if (error) {
+        errors.push(`Payment ${p.id} (inv #${p.invoiceNumber}): ${error.message || JSON.stringify(error)}`);
+      } else {
+        paymentsMigrated++;
+      }
+    } catch (e) {
+      errors.push(`Payment ${p.id} (inv #${p.invoiceNumber}): ${e.message}`);
     }
   }
 
@@ -230,5 +264,5 @@ export async function runMigrationIfNeeded() {
     );
   }
 
-  return { ran: true, partial: isPartial, invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated, errors };
+  return { ran: true, partial: isPartial, invoicesMigrated, productsMigrated, storesMigrated, ordersMigrated, paymentsMigrated, errors };
 }

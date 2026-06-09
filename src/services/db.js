@@ -762,14 +762,14 @@ export async function saveInvoicePayment(payment) {
     if (!userId) return { data: null, error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('invoice_payments')
-      .insert({
+      .upsert({
         id:             payment.id,
         user_id:        userId,
         invoice_number: Number(payment.invoiceNumber),
         amount:         Number(payment.amount),
         note:           payment.note || '',
         ts:             payment.ts  || new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
     return { error };
   } catch (err) {
     return { error: err };
