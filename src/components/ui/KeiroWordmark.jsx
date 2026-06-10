@@ -1,10 +1,12 @@
 /**
  * KeiroWordmark — reusable branded wordmark.
  *
- * Renders "Ke i̊ rō" where:
- *   · the 'i' is the accent colour (dot stands out as the accent element)
- *   · the 'o' is text colour with an accent-coloured macron bar above it
- *   · 'Ke' and 'r' are the standard text colour
+ * Renders "Ke i̊rō" where:
+ *   · 'Ke' is the standard text colour
+ *   · 'iro' has a single continuous accent-coloured bar floating above all
+ *     three letters — connecting the dot of the 'i' through to the macron
+ *     of the 'ō' in one unified stroke
+ *   · all letter bodies are the standard text colour
  *
  * All sizing is em-relative so it scales with any font-size passed via style.
  */
@@ -12,24 +14,25 @@
 import { ACCENT } from '../../theme';
 
 /**
- * MacronO — renders a text-coloured 'o' with an accent-coloured macron
- * (the horizontal bar) floating above it, like the ō in Keirō.
+ * IroWithBar — renders "iro" with a single accent-coloured bar spanning
+ * the full width of all three letters, floating just above them.
  */
-function MacronO({ textColor }) {
+function IroWithBar({ textColor }) {
   return (
     <span style={{ position: 'relative', display: 'inline-block' }}>
-      <span style={{ color: textColor }}>o</span>
+      {/* Single continuous bar across i + r + o */}
       <span style={{
         position: 'absolute',
         top: '-0.17em',
-        left: '10%',
-        width: '80%',
-        height: '0.07em',
+        left: 0,
+        right: 0,
+        height: '0.08em',
         background: ACCENT,
         borderRadius: '0.04em',
         display: 'block',
         pointerEvents: 'none',
       }} />
+      <span style={{ color: textColor }}>iro</span>
     </span>
   );
 }
@@ -48,9 +51,7 @@ export default function KeiroWordmark({ style = {}, C }) {
   return (
     <span style={base}>
       <span style={{ color: textColor }}>Ke</span>
-      <span style={{ color: ACCENT }}>i</span>
-      <span style={{ color: textColor }}>r</span>
-      <MacronO textColor={textColor} />
+      <IroWithBar textColor={textColor} />
     </span>
   );
 }
