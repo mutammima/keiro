@@ -86,7 +86,7 @@ export function useBackup() {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     const date = new Date().toISOString().slice(0, 10);
-    a.href = url; a.download = `invoicego-backup-${date}.json`; a.click();
+    a.href = url; a.download = `keiro-backup-${date}.json`; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     setBackupMsg('Backup downloaded.');
     setTimeout(() => setBackupMsg(''), 3000);

@@ -11,7 +11,7 @@ const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || supabaseUrl === 'YOUR_SUPABASE_URL_HERE') {
-  console.warn('[InvoGo] Supabase URL not configured. Set VITE_SUPABASE_URL in .env');
+  console.warn('[Keiro] Supabase URL not configured. Set VITE_SUPABASE_URL in .env');
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnon || '', {

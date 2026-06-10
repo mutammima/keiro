@@ -221,7 +221,7 @@ function WelcomeScreen({ dark, accent, onStart, onSkip }) {
           </svg>
         </div>
         <div style={{ fontSize:21, fontWeight:900, letterSpacing:'-0.4px', color: dark ? '#fff' : '#111', marginBottom:8 }}>
-          Welcome to <span style={{ color:accent }}>InvoGo!</span>
+          Welcome to <span style={{ color:accent }}>Keiro!</span>
         </div>
         <div style={{ fontSize:13, color: dark ? 'rgba(255,255,255,0.52)' : 'rgba(0,0,0,0.48)', lineHeight:1.6, marginBottom:24 }}>
           Quick tour of your store owner tools -- takes about a minute.
