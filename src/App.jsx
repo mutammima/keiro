@@ -37,18 +37,23 @@ import SOOrders from './pages/storeowner/SOOrders';
 import SODrivers from './pages/storeowner/SODrivers';
 import SOHome from './pages/storeowner/SOHome';
 import SOReports from './pages/storeowner/SOReports';
+import SOInvoices from './pages/storeowner/SOInvoices';
+import DriverReports from './pages/driver/DriverReports';
+import DriverStores from './pages/driver/DriverStores';
 import Marketplace from './pages/marketplace/Marketplace';
 import MyListings from './pages/marketplace/MyListings';
 import FindDrivers from './pages/marketplace/FindDrivers';
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import './App.css';
 
-// Tab IDs for each role
-const DRIVER_TABS = ['invoice', 'history', 'products'];
-const OWNER_TABS  = ['so-request', 'so-orders', 'so-drivers'];
+// Tab IDs for each role (connection-first navigation)
+const DRIVER_TABS = ['home', 'route', 'stores', 'reports'];
+const OWNER_TABS  = ['so-home', 'so-orders', 'so-drivers', 'so-invoices'];
 
 function tabIndex(tabs, p) {
-  if (p === 'invoice-view') return 0;
+  // invoice-view is a post-generate overlay; the strip is hidden while it shows,
+  // but treat it as the Route tab so the underlying index stays sensible.
+  if (p === 'invoice-view') { const i = tabs.indexOf('route'); return i === -1 ? 0 : i; }
   return tabs.indexOf(p);
 }
 
@@ -97,15 +102,13 @@ function AppInner({ role, onSwitchRole }) {
 
   const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
-  // In easy mode skip the dashboard and land straight on New Invoice tab
+  // Dashboards are now tab 0 for both roles — no dashboard overlay on launch.
+  // In easy mode the driver lands on the Route tab (invoice list + "+ New").
   const [page,           setPage]           = useState(() => {
-    if (role === 'store_owner') return 'so-request';
-    return easyMode ? 'invoice' : 'home';
-  });
-  const [overlayPage,    setOverlayPage]    = useState(() => {
     if (role === 'store_owner') return 'so-home';
-    return easyMode ? null : 'home';
+    return easyMode ? 'route' : 'home';
   });
+  const [overlayPage,    setOverlayPage]    = useState(() => null);
   const [overlayClass,   setOverlayClass]   = useState('page-fade');
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
@@ -133,8 +136,8 @@ function AppInner({ role, onSwitchRole }) {
     return () => window.removeEventListener('inv-version-update', handler);
   }, []);
 
-  // Tab strip index
-  const [tabIdx, setTabIdx] = useState(0);
+  // Tab strip index — easy-mode driver starts on Route (index 1), else tab 0
+  const [tabIdx, setTabIdx] = useState(() => (role !== 'store_owner' && easyMode ? 1 : 0));
 
   // tabsRef — lets swipe handlers always read the current TABS without re-registering
   const tabsRef = useRef(TABS);
@@ -368,13 +371,15 @@ function AppInner({ role, onSwitchRole }) {
             }}
           >
             {(role === 'store_owner' ? [
-              <NewRequest  key="so-request" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOOrders    key="so-orders"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SODrivers   key="so-drivers" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ] : [
-              <NewInvoice    key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
-              <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
-              <Products      key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+              <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
+              <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ]).map((child, i) => (
               <div
                 key={i}
@@ -407,8 +412,13 @@ function AppInner({ role, onSwitchRole }) {
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
           )}
-          {overlayPage === 'home'    && <Home    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'so-home'    && <SOHome    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'invoice' && (
+            <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
+          )}
+          {overlayPage === 'so-request' && (
+            <NewRequest onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={goBackFromOverlay} />
+          )}
+          {overlayPage === 'products' && <Products  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'so-reports' && <SOReports onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'marketplace'  && <Marketplace onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'my-listings'  && <MyListings  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -436,15 +446,15 @@ function AppInner({ role, onSwitchRole }) {
       {shouldShowOnboarding && role !== 'store_owner' && (
         <OnboardingTutorial
           navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('history'); }}
-          onSkip={() => { skipOnboarding(); navigate('history'); }}
+          onComplete={() => { markOnboardingComplete(); navigate('route'); }}
+          onSkip={() => { skipOnboarding(); navigate('route'); }}
         />
       )}
       {shouldShowOnboarding && role === 'store_owner' && (
         <SOOnboardingTutorial
           navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('so-request'); }}
-          onSkip={() => { skipOnboarding(); navigate('so-request'); }}
+          onComplete={() => { markOnboardingComplete(); navigate('so-home'); }}
+          onSkip={() => { skipOnboarding(); navigate('so-home'); }}
         />
       )}
     </div>

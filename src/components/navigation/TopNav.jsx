@@ -10,15 +10,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 
 const DRIVER_TABS = [
-  { id: 'invoice',    label: 'New',     tutorial: 'tab-new'      },
-  { id: 'history',    label: 'Invoices',tutorial: 'tab-history'  },
-  { id: 'products',   label: 'Products',tutorial: 'tab-products' },
+  { id: 'home',    label: 'Home',    tutorial: null },
+  { id: 'route',   label: 'Route',   tutorial: null },
+  { id: 'stores',  label: 'Stores',  tutorial: null },
+  { id: 'reports', label: 'Reports', tutorial: null },
 ];
 
 const OWNER_TABS = [
-  { id: 'so-request', label: 'Request', tutorial: null },
-  { id: 'so-orders',  label: 'Orders',  tutorial: null },
-  { id: 'so-drivers', label: 'Drivers', tutorial: null },
+  { id: 'so-home',     label: 'Home',     tutorial: null },
+  { id: 'so-orders',   label: 'Orders',   tutorial: null },
+  { id: 'so-drivers',  label: 'Drivers',  tutorial: null },
+  { id: 'so-invoices', label: 'Invoices', tutorial: null },
 ];
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
@@ -29,9 +31,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
 
   const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
-  const activeIdx = TABS.findIndex(t =>
-    currentPage === t.id || (t.id === 'invoice' && currentPage === 'invoice-view')
-  );
+  const activeIdx = TABS.findIndex(t => currentPage === t.id);
 
   return (
     <div style={{

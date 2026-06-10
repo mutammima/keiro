@@ -194,7 +194,7 @@ export default function Home({ onOpenDrawer, onNav }) {
             {/* View all */}
             <button
               style={{ alignSelf: 'flex-start', background: 'none', border: `1px solid ${C.divider}`, borderRadius: 10, padding: '6px 12px', fontSize: 12, fontWeight: 700, color: ACCENT, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}
-              onClick={() => onNav('history')}
+              onClick={() => onNav('route')}
             >All →</button>
           </div>
 
