@@ -53,6 +53,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
     lastBarcode, productNames,
     handleScan, addItem,
     items, removeItem,
+    suggestions, addSuggestedItem,
     editingItem, setEditingItem, handleEditSave,
     showScanner, setShowScanner,
     generating, error,
@@ -297,6 +298,26 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
           {/* Add item */}
           <div data-tutorial="invoice-add-item" className="card-enter-3" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
+
+            {/* Smart order suggestions — frequent items from this store's history */}
+            {suggestions.length > 0 && (
+              <div style={s.pinnedRow}>
+                <span style={{ ...s.pinnedLabel, color: C.textMuted }}>Suggested for {storeName.trim()}</span>
+                <div style={s.chips}>
+                  {suggestions.map(sug => (
+                    <button
+                      key={sug.name.toLowerCase()}
+                      type="button"
+                      onClick={() => addSuggestedItem(sug)}
+                      style={{ ...s.chip, background: C.rowBg, color: C.textSub, border: `1px dashed ${ACCENT}` }}
+                    >
+                      + {sug.name} ×{sug.qty}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
