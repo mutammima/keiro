@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ACCENT, LIGHT, DARK } from '../../theme';
+import { LIGHT, DARK } from '../../theme';
 import KeiroWordmark from './KeiroWordmark';
 
 // Must match the default logic in ThemeContext.jsx (null → dark by default)
@@ -35,30 +35,18 @@ export default function SplashScreen({ onDone }) {
       background: C.bg,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      gap: 20,
+      gap: 12,
       opacity: phase === 'fading' ? 0 : 1,
       transition: 'opacity 0.6s ease',
       pointerEvents: phase === 'fading' ? 'none' : 'auto',
     }}>
 
-      {/* ── Logo mark — Keiro wordmark in a white rounded square ── */}
-      <div style={{
-        width: 80, height: 80,
-        borderRadius: 22,
-        background: '#ffffff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 16px 48px ${ACCENT}55`,
-        animation: 'splash-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-      }}>
-        <KeiroWordmark C={{ text: '#0f0f0f' }} style={{ fontSize: 22 }} />
-      </div>
-
       {/* ── Word mark ── */}
-      <div style={{ textAlign: 'center', animation: 'splash-rise 0.5s 0.15s ease both' }}>
+      <div style={{ textAlign: 'center', animation: 'splash-rise 0.5s ease both' }}>
         <div style={{
-          fontSize: 36,
+          fontSize: 48,
           fontWeight: 900,
-          letterSpacing: '-1.5px',
+          letterSpacing: '-2px',
           lineHeight: 1,
           fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
         }}>
@@ -68,7 +56,7 @@ export default function SplashScreen({ onDone }) {
           color: C.textMuted,
           fontSize: 13,
           fontWeight: 500,
-          marginTop: 5,
+          marginTop: 8,
           letterSpacing: 0.3,
         }}>
           Streamlining the way you do business.
@@ -86,49 +74,17 @@ export default function SplashScreen({ onDone }) {
         fontWeight: 400,
         opacity: 0.45,
         letterSpacing: 0.2,
-        animation: 'splash-rise 0.5s 0.35s ease both',
+        animation: 'splash-rise 0.5s 0.2s ease both',
       }}>
         Developed by Mutammim
       </div>
 
       <style>{`
-        @keyframes splash-pop {
-          from { transform: scale(0.6); opacity: 0; }
-          to   { transform: scale(1);   opacity: 1; }
-        }
         @keyframes splash-rise {
           from { transform: translateY(10px); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
         }
       `}</style>
     </div>
-  );
-}
-
-/**
- * Shared logo SVG — document with a checkmark badge.
- * Exported so other components (e.g. auth screens, about page) can reuse
- * the exact same mark without duplicating the SVG.
- */
-export function AppLogoSVG({ size = 44 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
-      {/* Document body */}
-      <rect x="8" y="4" width="24" height="32" rx="4" fill="white" fillOpacity="0.22" />
-      <rect x="8" y="4" width="24" height="32" rx="4" stroke="white" strokeWidth="2.2" />
-      {/* Text lines */}
-      <line x1="14" y1="14" x2="26" y2="14" stroke="white" strokeWidth="2"   strokeLinecap="round" />
-      <line x1="14" y1="20" x2="26" y2="20" stroke="white" strokeWidth="2"   strokeLinecap="round" />
-      <line x1="14" y1="26" x2="20" y2="26" stroke="white" strokeWidth="2"   strokeLinecap="round" />
-      {/* Check badge */}
-      <circle cx="32" cy="34" r="7"  fill={ACCENT} />
-      <circle cx="32" cy="34" r="7"  stroke="white" strokeWidth="1.5" />
-      <polyline
-        points="28.5,34 31,36.5 35.5,31.5"
-        stroke="white" strokeWidth="2"
-        strokeLinecap="round" strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
   );
 }
