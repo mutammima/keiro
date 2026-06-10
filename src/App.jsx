@@ -44,6 +44,7 @@ import Marketplace from './pages/marketplace/Marketplace';
 import MyListings from './pages/marketplace/MyListings';
 import FindDrivers from './pages/marketplace/FindDrivers';
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
+import { redeemPendingInvite } from './utils/connectionStorage';
 import './App.css';
 
 // Tab IDs for each role (connection-first navigation)
@@ -170,6 +171,13 @@ function AppInner({ role, onSwitchRole }) {
       const d = JSON.parse(localStorage.getItem('inv_density')) || 'comfortable';
       document.body.classList.toggle('density-compact', d === 'compact');
     } catch {}
+  }, []);
+
+  // Redeem a captured invite code once authenticated. AppInner only renders
+  // inside AuthGate, so the user is signed in by the time this runs. Best-effort:
+  // if the cloud isn't reachable the code stays queued and retries next load.
+  useEffect(() => {
+    redeemPendingInvite().catch(() => {});
   }, []);
 
   // Keep document.body, html, and theme-color meta in sync with the app theme.
