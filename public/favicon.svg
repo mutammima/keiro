@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="115" fill="#ffffff"/>
+  <rect width="512" height="512" rx="115" fill="#4A7BF7"/>
   <text
     font-family="Inter, SF Pro Display, -apple-system, system-ui, sans-serif"
     font-weight="900"
@@ -8,7 +8,6 @@
     text-anchor="middle"
     x="256"
     y="318"
-  >
-    <tspan fill="#0f0f0f">Ke</tspan><tspan fill="#4A7BF7">i</tspan><tspan fill="#0f0f0f">ro</tspan>
-  </text>
+    fill="white"
+  >Keiro</text>
 </svg>
