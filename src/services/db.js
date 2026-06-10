@@ -950,6 +950,111 @@ export async function claimMarketplaceDemand(id, claimedName) {
   }
 }
 
+// ── Connections (invite-only driver ↔ store links) ───────────────────────────
+//
+// A connection is created by ONE side as a pending invite carrying a random
+// invite_code. The other side redeems that code, which fills the empty user-id
+// side and flips status to 'active'. See supabase-connections.sql for the RLS.
+
+/** Connections where the current user is the inviter or one of the two sides. */
+export async function getConnections() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connections')
+      .select('*')
+      .or(`invited_by.eq.${userId},driver_user_id.eq.${userId},store_user_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Create a pending invite. The inviter's own side is stamped from the session. */
+export async function createConnection(conn) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connections')
+      .insert({
+        id:             conn.id,
+        invite_code:    conn.inviteCode,
+        inviter_role:   conn.inviterRole,
+        inviter_name:   conn.inviterName || '',
+        invited_by:     userId,
+        status:         'pending',
+        driver_user_id: conn.inviterRole === 'driver'      ? userId : null,
+        store_user_id:  conn.inviterRole === 'store_owner' ? userId : null,
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Look up a single connection by its invite code (used during redemption). */
+export async function findConnectionByCode(code) {
+  if (!code) return { data: null, error: null };
+  try {
+    const { data, error } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('invite_code', code)
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Redeem an invite code: fill the empty side with the current user and flip the
+ * row to 'active'. Optimistic-concurrency on status = 'pending' so a code can't
+ * be redeemed twice. Returns the already-active row as a no-op success.
+ */
+export async function redeemConnection(code) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    const { data: conn, error: findErr } = await findConnectionByCode(code);
+    if (findErr) return { data: null, error: findErr };
+    if (!conn)   return { data: null, error: new Error('invite not found') };
+    if (conn.invited_by === userId) return { data: null, error: new Error('cannot redeem your own invite') };
+    if (conn.status === 'active')   return { data: conn, error: null };
+
+    const patch = conn.inviter_role === 'driver'
+      ? { store_user_id:  userId, status: 'active', activated_at: new Date().toISOString() }
+      : { driver_user_id: userId, status: 'active', activated_at: new Date().toISOString() };
+
+    const { data, error } = await supabase
+      .from('connections')
+      .update(patch)
+      .eq('id', conn.id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Cancel/remove an invite (inviter only, per RLS). */
+export async function deleteConnection(id) {
+  try {
+    const { error } = await supabase.from('connections').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
 // ── Business info / settings — kept in localStorage (single-user config) ──────
 // Delegated to storage.js; see getBusinessName / saveBusinessName etc. there.
 
