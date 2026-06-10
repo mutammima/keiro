@@ -67,10 +67,9 @@ export default function SOHome({ onOpenDrawer, onNav }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 50,
+      minHeight: '100%',
       background: C.bg,
       display: 'flex', flexDirection: 'column',
-      overflowY: 'auto',
     }}>
 
       {/* Header */}
