@@ -15,7 +15,7 @@ const LAST_UPDATED = 'June 8, 2026';
 const CONTACT = 'alomonds@gmail.com';
 
 const PRIVACY = {
-  intro: 'This Privacy Policy explains how InvoGo collects, uses, and protects your information. By using InvoGo you agree to the practices described here.',
+  intro: 'This Privacy Policy explains how Keiro collects, uses, and protects your information. By using Keiro you agree to the practices described here.',
   sections: [
     { h: 'Information we collect', b: 'Your sign-in email (handled by our authentication provider, Supabase) and the business data you enter: business name and phone, invoice details, customer/store names, store phone numbers and addresses, payment records, notes, and signatures. We do not collect payment card numbers, bank details, or government IDs, and the app does not process payments.' },
     { h: 'How your data is stored', b: 'Your data is stored in your account in Supabase and protected by per-user Row Level Security, so each account can only access its own data. A copy may also be cached locally on your device so the app works offline.' },
@@ -23,18 +23,18 @@ const PRIVACY = {
     { h: 'Sharing of information', b: 'We share information only with service providers that run the app (such as Supabase), or when required by law. Any invoice you export or send (PDF, WhatsApp) is shared by you, at your direction, with recipients you choose.' },
     { h: 'Data retention & your rights', b: 'We keep your data while your account is active. You can delete individual records anytime, and you may request access, correction, export, or full account deletion by contacting us.' },
     { h: 'Security', b: 'We use encrypted connections, authentication, and Row Level Security to protect your data. No method of storage or transmission is 100% secure, so we cannot guarantee absolute security.' },
-    { h: "Children's privacy", b: 'InvoGo is not directed to children under 13, and we do not knowingly collect their personal information.' },
+    { h: "Children's privacy", b: 'Keiro is not directed to children under 13, and we do not knowingly collect their personal information.' },
   ],
 };
 
 const TERMS = {
-  intro: 'These Terms govern your use of InvoGo. By using the app, you agree to them. If you do not agree, do not use the app.',
+  intro: 'These Terms govern your use of Keiro. By using the app, you agree to them. If you do not agree, do not use the app.',
   sections: [
-    { h: 'The service', b: 'InvoGo is a tool for creating, storing, and sharing delivery invoices and related business records. It helps you organize your own business information.' },
+    { h: 'The service', b: 'Keiro is a tool for creating, storing, and sharing delivery invoices and related business records. It helps you organize your own business information.' },
     { h: 'Your account', b: 'You are responsible for keeping your credentials secure and for all activity under your account, for providing accurate information, and for using the app in compliance with applicable laws.' },
     { h: 'Your data and content', b: 'You own the business data you enter. You grant us a limited license to store and process it solely to operate the app for you. You are responsible for the accuracy and lawfulness of the invoices you generate and send.' },
     { h: 'Acceptable use', b: 'Do not use the app for unlawful or deceptive purposes, attempt to access data belonging to other users, circumvent security, disrupt the service, or misuse it beyond what the law permits.' },
-    { h: 'Invoices and financial records', b: 'InvoGo is a record-keeping and document tool. It does not process payments and does not provide accounting, tax, or financial advice. You are solely responsible for the correctness of your invoices and for meeting your own legal, tax, and accounting obligations.' },
+    { h: 'Invoices and financial records', b: 'Keiro is a record-keeping and document tool. It does not process payments and does not provide accounting, tax, or financial advice. You are solely responsible for the correctness of your invoices and for meeting your own legal, tax, and accounting obligations.' },
     { h: 'Availability & backups', b: 'The app is provided "as is" and "as available." We do not guarantee it will be uninterrupted, error-free, or that data will never be lost. You are responsible for keeping your own backups of important data.' },
     { h: 'Disclaimer & liability', b: 'To the maximum extent permitted by law, the app is provided without warranties of any kind, and we are not liable for any indirect, incidental, or consequential damages, or for lost profits, revenue, data, or goodwill.' },
     { h: 'Termination', b: 'You may stop using the app anytime. We may suspend or terminate access if you violate these Terms or to protect the app and its users.' },

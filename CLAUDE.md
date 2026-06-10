@@ -1,4 +1,4 @@
-# InvoiceGo — Claude Instructions
+# Keiro — Claude Instructions
 
 ## Branching & Pull Requests
 

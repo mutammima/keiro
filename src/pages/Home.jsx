@@ -35,7 +35,7 @@ export default function Home({ onOpenDrawer, onNav }) {
   const [invoices, setInvoices] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const pinned  = getPinnedStores();
-  const bizName = getBusinessName() || 'InvoGo';
+  const bizName = getBusinessName() || 'Keiro';
 
   useEffect(() => {
     getInvoices().then(list => {
@@ -269,9 +269,9 @@ export default function Home({ onOpenDrawer, onNav }) {
         {!loading && invoices.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 36, fontWeight: 900, color: ACCENT, marginBottom: 10, letterSpacing: '-1px' }}>
-              <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
+              <span style={{ color: ACCENT }}>Kei</span><span style={{ color: C.text }}>ro</span>
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>Welcome to InvoGo</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>Welcome to Keiro</div>
             <div style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.6 }}>Tap <strong style={{ color: C.text }}>+ New</strong> to create your first invoice.</div>
           </div>
         )}

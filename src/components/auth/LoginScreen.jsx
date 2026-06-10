@@ -1,5 +1,5 @@
 /**
- * LoginScreen — clean, minimal auth screen for InvoGo.
+ * LoginScreen — clean, minimal auth screen for Keiro.
  * Matches the dark/light theme from theme.js.
  */
 

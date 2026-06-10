@@ -1,7 +1,7 @@
 {
-  "name": "InvoGo",
-  "short_name": "InvoGo",
-  "description": "Mobile delivery invoice generator",
+  "name": "Keiro",
+  "short_name": "Keiro",
+  "description": "Delivery route invoicing and connection platform for drivers and retailers",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

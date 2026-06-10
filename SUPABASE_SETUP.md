@@ -1,6 +1,6 @@
-# Supabase Setup for InvoiceGo
+# Supabase Setup for Keiro
 
-Complete guide to configuring the Supabase project that backs InvoiceGo.
+Complete guide to configuring the Supabase project that backs Keiro.
 
 ---
 
