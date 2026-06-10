@@ -1,13 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <rect x="0" y="0" width="512" height="512" rx="115" fill="#4A7BF7"/>
-  <g transform="translate(115,115) scale(6.4)">
-    <rect x="8" y="4" width="24" height="32" rx="4" fill="white" fill-opacity="0.22"/>
-    <rect x="8" y="4" width="24" height="32" rx="4" stroke="white" stroke-width="2.2"/>
-    <line x1="14" y1="14" x2="26" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    <line x1="14" y1="20" x2="26" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    <line x1="14" y1="26" x2="20" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="32" cy="34" r="7" fill="#4A7BF7"/>
-    <circle cx="32" cy="34" r="7" stroke="white" stroke-width="1.5"/>
-    <polyline points="28.5,34 31,36.5 35.5,31.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="115" fill="#ffffff"/>
+  <text
+    font-family="Inter, SF Pro Display, -apple-system, system-ui, sans-serif"
+    font-weight="900"
+    font-size="162"
+    letter-spacing="-4"
+    text-anchor="middle"
+    x="256"
+    y="318"
+  >
+    <tspan fill="#0f0f0f">Ke</tspan><tspan fill="#4A7BF7">i</tspan><tspan fill="#0f0f0f">ro</tspan>
+  </text>
 </svg>
