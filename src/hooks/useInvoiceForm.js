@@ -28,7 +28,7 @@ import {
   getPinnedStores,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
-import { buildOrderSuggestions } from '../utils/orderSuggestions';
+import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -260,6 +260,14 @@ export function useInvoiceForm(onGenerated) {
     setItems(prev => [...prev, { id: uid(), name: sug.name, qty: sug.qty, price: sug.price }]);
   }
 
+  // ── Anomaly check ──────────────────────────────────────────────────────────
+  // Non-blocking "double-check this" nudge when the draft total lands far
+  // outside the store's historical average (needs ≥3 prior invoices).
+  const anomaly = useMemo(() => {
+    const total = items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+    return checkInvoiceAnomaly(allInvoices, storeName, total);
+  }, [allInvoices, storeName, items]);
+
   /**
    * Applies edits from the EditItemModal and closes the modal.
    * @param {object} updated - The updated item object (must include `.id`).
@@ -356,6 +364,7 @@ export function useInvoiceForm(onGenerated) {
     editingItem, setEditingItem,
     handleEditSave,
     suggestions, addSuggestedItem,
+    anomaly,
 
     // UI state
     showScanner, setShowScanner,

@@ -54,6 +54,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
     handleScan, addItem,
     items, removeItem,
     suggestions, addSuggestedItem,
+    anomaly,
     editingItem, setEditingItem, handleEditSave,
     showScanner, setShowScanner,
     generating, error,
@@ -403,6 +404,26 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
               rows={3}
             />
           </div>
+
+          {/* Anomaly warning — non-blocking nudge when the total is far off this store's average */}
+          {anomaly && (
+            <div style={{
+              background: dark ? '#1a0a00' : '#fff7ed',
+              border: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
+              borderRadius: 14, padding: '12px 14px',
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: dark ? '#fbbf24' : '#b45309' }}>
+                This invoice (${items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0).toFixed(2)}) is{' '}
+                {anomaly.direction === 'high'
+                  ? `about ${anomaly.ratio.toFixed(1)}× `
+                  : 'well below '}
+                {storeName.trim()}'s usual ~${anomaly.avg.toFixed(2)} (across {anomaly.count} invoices).
+                Double-check the items before generating.
+              </p>
+            </div>
+          )}
 
           <button
             data-tutorial="invoice-generate"
