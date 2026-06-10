@@ -41,16 +41,16 @@ export default function SplashScreen({ onDone }) {
       pointerEvents: phase === 'fading' ? 'none' : 'auto',
     }}>
 
-      {/* ── Logo mark — same SVG as AppLogoSVG exported below ── */}
+      {/* ── Logo mark — Keiro wordmark in a white rounded square ── */}
       <div style={{
         width: 80, height: 80,
         borderRadius: 22,
-        background: ACCENT,
+        background: '#ffffff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: `0 16px 48px ${ACCENT}55`,
         animation: 'splash-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
       }}>
-        <AppLogoSVG size={44} />
+        <KeiroWordmark C={{ text: '#0f0f0f' }} style={{ fontSize: 22 }} />
       </div>
 
       {/* ── Word mark ── */}
