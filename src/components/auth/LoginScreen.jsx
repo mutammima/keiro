@@ -96,7 +96,7 @@ export default function LoginScreen({ onLogin, onGuest }) {
         {/* App identity */}
         <div style={s.identity}>
           <KeiroWordmark C={C} style={{ fontSize: 34 }} />
-          <span style={{ ...s.tagline, color: C.textMuted }}>The bridge for your next order.</span>
+          <span style={{ ...s.tagline, color: C.textMuted }}>Streamlining the way you do business.</span>
         </div>
 
         {/* Info / error banners */}
