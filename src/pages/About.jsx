@@ -69,7 +69,7 @@ export default function About({ onOpenDrawer, onNav }) {
         <div style={{ ...s.hero, background: C.card }}>
           <p style={{ ...s.heroTitle, color: C.text }}>Keiro</p>
           <p style={{ ...s.heroSub, color: C.textMuted }}>
-            The bridge for your next order — connecting drivers and stores in real time so each side sees exactly what the other needs and carries.
+            Streamlining the way drivers and stores work together — see what's needed, show what you carry, and keep every delivery on track.
           </p>
         </div>
 
