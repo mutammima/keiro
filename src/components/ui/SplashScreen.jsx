@@ -71,7 +71,7 @@ export default function SplashScreen({ onDone }) {
           marginTop: 5,
           letterSpacing: 0.3,
         }}>
-          Delivery invoicing, simplified
+          The bridge for your next order.
         </div>
       </div>
 

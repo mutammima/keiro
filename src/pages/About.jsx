@@ -67,11 +67,9 @@ export default function About({ onOpenDrawer, onNav }) {
 
         {/* Hero */}
         <div style={{ ...s.hero, background: C.card }}>
-          <p style={{ ...s.heroTitle }}>
-            <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
-          </p>
+          <p style={{ ...s.heroTitle, color: C.text }}>Keiro</p>
           <p style={{ ...s.heroSub, color: C.textMuted }}>
-            The fastest way to create, track, and share delivery invoices — right from your phone.
+            The bridge for your next order — connecting drivers and stores in real time so each side sees exactly what the other needs and carries.
           </p>
         </div>
 

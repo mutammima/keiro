@@ -12,9 +12,9 @@ App.
 
 ## 1. The service
 
-Keiro is a tool for creating, storing, and sharing delivery invoices and
-related business records (stores, products, payments, and notes). The App is
-provided to help you organize your own business information.
+Keiro is a platform connecting delivery drivers and stores — helping each
+side see what the other needs and carries, and supporting the invoicing and
+record-keeping that goes with those deliveries.
 
 ## 2. Your account
 

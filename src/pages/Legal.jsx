@@ -30,11 +30,11 @@ const PRIVACY = {
 const TERMS = {
   intro: 'These Terms govern your use of Keiro. By using the app, you agree to them. If you do not agree, do not use the app.',
   sections: [
-    { h: 'The service', b: 'Keiro is a tool for creating, storing, and sharing delivery invoices and related business records. It helps you organize your own business information.' },
+    { h: 'The service', b: 'Keiro is a platform connecting delivery drivers and stores — helping each side see what the other needs and carries, and enabling the invoicing and record-keeping that supports those deliveries.' },
     { h: 'Your account', b: 'You are responsible for keeping your credentials secure and for all activity under your account, for providing accurate information, and for using the app in compliance with applicable laws.' },
     { h: 'Your data and content', b: 'You own the business data you enter. You grant us a limited license to store and process it solely to operate the app for you. You are responsible for the accuracy and lawfulness of the invoices you generate and send.' },
     { h: 'Acceptable use', b: 'Do not use the app for unlawful or deceptive purposes, attempt to access data belonging to other users, circumvent security, disrupt the service, or misuse it beyond what the law permits.' },
-    { h: 'Invoices and financial records', b: 'Keiro is a record-keeping and document tool. It does not process payments and does not provide accounting, tax, or financial advice. You are solely responsible for the correctness of your invoices and for meeting your own legal, tax, and accounting obligations.' },
+    { h: 'Invoices and financial records', b: 'Keiro includes tools to generate and share delivery invoices. It does not process payments and does not provide accounting, tax, or financial advice. You are solely responsible for the correctness of your invoices and for meeting your own legal, tax, and accounting obligations.' },
     { h: 'Availability & backups', b: 'The app is provided "as is" and "as available." We do not guarantee it will be uninterrupted, error-free, or that data will never be lost. You are responsible for keeping your own backups of important data.' },
     { h: 'Disclaimer & liability', b: 'To the maximum extent permitted by law, the app is provided without warranties of any kind, and we are not liable for any indirect, incidental, or consequential damages, or for lost profits, revenue, data, or goodwill.' },
     { h: 'Termination', b: 'You may stop using the app anytime. We may suspend or terminate access if you violate these Terms or to protect the app and its users.' },

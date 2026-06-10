@@ -1,7 +1,7 @@
 {
   "name": "Keiro",
   "short_name": "Keiro",
-  "description": "Delivery route invoicing and connection platform for drivers and retailers",
+  "description": "The bridge for your next order — connecting drivers and stores in real time",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
