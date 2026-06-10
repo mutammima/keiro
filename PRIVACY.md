@@ -12,9 +12,9 @@ practices described here.
 
 ## 1. Who we are
 
-Keiro is a mobile-first invoicing application for delivery drivers and small
-businesses. The App lets you create invoices, track payments, and manage store
-and product information.
+Keiro is a mobile-first platform connecting delivery drivers and stores in
+real time — helping each side see what the other needs and carries, and
+supporting the invoicing and payments that come with those deliveries.
 
 If you have questions about this policy, contact: **[your-email@example.com]**
 
