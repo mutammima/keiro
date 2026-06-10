@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { ACCENT, LIGHT, DARK } from '../../theme';
+import KeiroWordmark from './KeiroWordmark';
 
 // Must match the default logic in ThemeContext.jsx (null → dark by default)
 function getSavedDark() {
@@ -61,7 +62,7 @@ export default function SplashScreen({ onDone }) {
           lineHeight: 1,
           fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
         }}>
-          <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
+          <KeiroWordmark C={C} />
         </div>
         <div style={{
           color: C.textMuted,
