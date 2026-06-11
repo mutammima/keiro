@@ -1,5 +1,112 @@
 # Keiro — Claude Instructions
 
+## What is Keiro?
+
+Keiro is a mobile-first PWA that connects delivery drivers and retail store owners. Drivers use it to create and share invoices, track deliveries, and manage their store relationships. Store owners use it to place orders with connected drivers, track deliveries, and view billing from their drivers. The two sides link via invite codes and communicate through a shared connection layer backed by Supabase.
+
+## Tech Stack
+
+| Layer | Choice |
+|-------|--------|
+| UI | React 19 (Vite PWA) |
+| Styling | **Inline styles only** — no Tailwind, no CSS modules, no CSS-in-JS libraries |
+| Backend / Auth / DB | Supabase (Postgres + RLS + auth) |
+| PDF | jsPDF + jspdf-autotable (lazy-loaded at generation time) |
+| Deployment | Vercel |
+| Max content width | 480px (mobile-first, centered on desktop) |
+| Default theme | **Dark mode** |
+
+## Running Locally
+
+```bash
+git clone https://github.com/mutammima/keiro.git
+cd keiro
+npm install
+
+# Create .env.local (never commit this file)
+cp .env.example .env.local
+# Fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from your Supabase project
+
+npm run dev        # → http://localhost:5173
+npm run build      # production build (must pass zero errors before any PR)
+```
+
+## Two Roles and Their Tabs
+
+Every account picks a role on first launch (stored in `inv_user_role`). The top nav shows a different tab strip per role.
+
+**Driver** — `inv_user_role = 'driver'`
+
+| Tab key | What it is |
+|---------|-----------|
+| `home` | Dashboard: today's totals, 7-day chart, pinned stores, top products |
+| `route` | Invoice history + new invoice creation |
+| `stores` | Store map, contact list |
+| `reports` | Today / Week / Month / Year analytics |
+
+**Store Owner** — `inv_user_role = 'store_owner'`
+
+| Tab key | What it is |
+|---------|-----------|
+| `so-home` | Dashboard: outstanding balance, recent orders |
+| `so-orders` | Place + track orders sent to connected drivers |
+| `so-drivers` | Manage driver connections |
+| `so-invoices` | Invoices received from connected drivers (read-only billing) |
+
+## How Styling Works
+
+Every component uses **inline styles only**. Colors come from `src/theme.js` via `ThemeContext`.
+
+```jsx
+import { useTheme } from '../context/ThemeContext';
+import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
+
+export default function MyComponent() {
+  const { dark } = useTheme();
+  const C = dark ? DARK : LIGHT;   // C is your color object for this render
+
+  return (
+    <div style={{ background: C.bg }}>
+      <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, padding: 16 }}>
+        <span style={{ color: C.text, fontWeight: 700 }}>Title</span>
+        <span style={{ color: C.textMuted, fontSize: 12 }}>Subtitle</span>
+      </div>
+      <button style={{ background: ACCENT, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 700 }}>
+        Primary Action
+      </button>
+    </div>
+  );
+}
+
+// Static styles (no theme dependency) live at the BOTTOM of the file:
+const s = {
+  page: { minHeight: '100%', display: 'flex', flexDirection: 'column', overflowX: 'clip' },
+  header: { padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))' },
+};
+```
+
+**Key color tokens:**
+
+| Token | Use |
+|-------|-----|
+| `C.bg` | Page background |
+| `C.card` | Card / surface background |
+| `C.cardBorder` | Card border |
+| `C.text` | Primary text |
+| `C.textSub` | Secondary text |
+| `C.textMuted` | Tertiary / placeholder text |
+| `C.inputBg` / `C.inputBorder` | Form inputs |
+| `C.divider` | Separator lines |
+| `C.danger` | Destructive actions |
+| `ACCENT` | Brand blue (`var(--accent)`, `#4A7BF7`) — use for primary buttons, highlights |
+
+**Rules:**
+- `ACCENT` is a CSS custom property string (`'var(--accent)'`). Works in `style` props. For SVG `fill`/`stroke` hardcode `'#4A7BF7'`.
+- `glassStyle(dark)` — sticky header backdrop blur. Use **only** on sticky/fixed headers.
+- Magic values (days, defaults, storage key names) live in `src/utils/constants.js` — never hardcode them inline.
+
+---
+
 ## Branching & Pull Requests
 
 **Always work on a feature branch, never commit directly to `main`.**
