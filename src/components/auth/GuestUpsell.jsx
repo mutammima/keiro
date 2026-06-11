@@ -18,7 +18,13 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { promptAccount } from '../../utils/guestMode';
 
-export function GuestCapModal({ open, onClose }) {
+export function GuestCapModal({
+  open,
+  onClose,
+  title = "You've reached the limit!",
+  subtitle = 'Create an account to save unlimited entries, back them up, and sync across your devices.',
+  cta = 'Create Free Account',
+}) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   if (!open) return null;
@@ -44,11 +50,10 @@ export function GuestCapModal({ open, onClose }) {
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 800, color: C.text, lineHeight: 1.25 }}>
-          You've reached the limit!
+          {title}
         </div>
         <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.6 }}>
-          Create an account to save unlimited entries, back them up, and sync
-          across your devices.
+          {subtitle}
         </div>
         <button
           onClick={promptAccount}
@@ -58,7 +63,7 @@ export function GuestCapModal({ open, onClose }) {
             marginTop: 4, WebkitTapHighlightColor: 'transparent',
           }}
         >
-          Create Free Account
+          {cta}
         </button>
         <button
           onClick={onClose}

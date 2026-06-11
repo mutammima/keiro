@@ -52,6 +52,13 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
     loadSharedInvoicesFromCloud().then(setShared).catch(() => {});
   }, []);
 
+  // Live-update when the foreground poll refreshes the caches (App dispatches).
+  useEffect(() => {
+    const onRefresh = () => { setShared(getSharedInvoices()); setOrders(getOrders()); };
+    window.addEventListener('inv-data-refresh', onRefresh);
+    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+  }, []);
+
   const invTotal = (inv) => (inv.items || []).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
   const payMeta  = (status) => ({
     label:  STATUS[status]?.label || 'Unpaid',

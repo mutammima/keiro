@@ -143,7 +143,8 @@ export default function Home({ onOpenDrawer, onNav }) {
         flexShrink: 0,
         background: C.bg,
       }}>
-        <button style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.text, padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }} onClick={onOpenDrawer}>☰</button>
+        {/* No ☰ here — the fixed TopNav strip already provides the drawer toggle
+            for tab pages. Rendering one here too produced a double hamburger. */}
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text }}>{bizName}</span>
         <button
           style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}

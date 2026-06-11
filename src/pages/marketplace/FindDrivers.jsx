@@ -14,6 +14,8 @@ import { loadAllListingsFromCloud, getAllListings, productMatches } from '../../
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnections, loadConnectionsFromCloud, requestConnection, getCachedUid } from '../../utils/connectionStorage';
 import { getBusinessName } from '../../utils/storage';
+import { isGuest } from '../../utils/guestMode';
+import { GuestCapModal } from '../../components/auth/GuestUpsell';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -26,6 +28,7 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
   const [orders, setOrders] = useState(() => getOrders());
   const [conns, setConns] = useState(() => getConnections());
   const [connectingId, setConnectingId] = useState(null);
+  const [gate, setGate] = useState(false);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [here, setHere] = useState(null);
@@ -50,6 +53,7 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
   }
 
   async function handleConnect(l) {
+    if (isGuest()) { setGate(true); return; } // a request needs a session to reach the driver
     setConnectingId(l.id);
     await requestConnection('store_owner', { userId: l.userId, name: l.driverName || 'A driver' }, getBusinessName() || '');
     setConns(getConnections());
@@ -215,6 +219,13 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      <GuestCapModal
+        open={gate}
+        onClose={() => setGate(false)}
+        title="Account required"
+        subtitle="You need a free account to connect with drivers. Create one to continue — your local data comes with you."
+      />
     </div>
   );
 }

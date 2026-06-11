@@ -132,6 +132,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
     loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
 
+  // Live-update when the foreground poll refreshes the caches (App dispatches).
+  useEffect(() => {
+    const onRefresh = () => { setConnOrders(getConnectionOrders()); setBridgeRequests(getBridgeRequests()); };
+    window.addEventListener('inv-data-refresh', onRefresh);
+    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+  }, []);
+
   // Open cross-account orders addressed to this driver (pending or accepted).
   const openConnOrders = connOrders.filter(o => o.status === 'pending' || o.status === 'accepted');
 

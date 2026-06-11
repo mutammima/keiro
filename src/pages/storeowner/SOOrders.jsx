@@ -42,6 +42,13 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
     loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
 
+  // Live-update when the foreground poll refreshes the caches (App dispatches).
+  useEffect(() => {
+    const onRefresh = () => { setOrders(getOrders()); setConnOrders(getConnectionOrders()); };
+    window.addEventListener('inv-data-refresh', onRefresh);
+    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+  }, []);
+
   function refresh() { setOrders(getOrders()); setConnOrders(getConnectionOrders()); }
 
   function handleStatus(id, status) {

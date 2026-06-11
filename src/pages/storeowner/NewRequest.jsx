@@ -68,6 +68,8 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
     // Connected driver selected → the order travels to THEIR account over the
     // connection (connection_orders), not into this store's private list.
     if (driverId.startsWith('conn:')) {
+      // A cross-account send needs a session to reach the driver — hard-block guests.
+      if (isGuest()) { setGuestWall(true); return; }
       const conn = conns.find(c => `conn:${c.id}` === driverId);
       if (conn) {
         sendConnectionOrder(conn, {

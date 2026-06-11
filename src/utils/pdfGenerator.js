@@ -1,5 +1,6 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// jsPDF + jspdf-autotable are heavy (~250 kB) and only needed when a PDF is
+// actually generated, so they're dynamically imported inside buildPDF below.
+// Rollup splits them into a lazy chunk, keeping them off the startup bundle.
 
 /**
  * Generates a clean, professional invoice PDF and triggers native share sheet (or download fallback).
@@ -16,6 +17,12 @@ import autoTable from 'jspdf-autotable';
  */
 async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature } = invoice;
+
+  // Lazy-load the PDF engine only at generation time (keeps it off startup).
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
 
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();

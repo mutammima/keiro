@@ -47,10 +47,22 @@ function routeCount() {
   ).length;
 }
 
-/** Store Invoices: shared invoices from drivers received after last seen. */
+/**
+ * Store Invoices: shared invoices that are unread because they're either NEW
+ * (received after last seen) or had a PAYMENT change after last seen (the
+ * driver marked them paid/partial — detected via updated_at advancing past
+ * created_at while the status is no longer 'unpaid'). Counted once per invoice.
+ * The payment half stays dormant until supabase-invoice-updated-at.sql is run.
+ */
 function soInvoicesCount() {
   const seen = lastSeen('so-invoices');
-  return getSharedInvoices().filter(inv => ts(inv.createdAt) > seen).length;
+  return getSharedInvoices().filter(inv => {
+    const created = ts(inv.createdAt);
+    const updated = ts(inv.updatedAt);
+    const isNew           = created > seen;
+    const isPaymentChange = updated > seen && updated > created && (inv.paymentStatus || 'unpaid') !== 'unpaid';
+    return isNew || isPaymentChange;
+  }).length;
 }
 
 /** Store Orders: connection orders delivered (status updated) after last seen. */
