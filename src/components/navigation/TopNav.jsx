@@ -25,7 +25,7 @@ const OWNER_TABS = [
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
 
-export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
+export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {} }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -75,6 +75,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
         {/* Tabs */}
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
+          const count = badges[tab.id] || 0;
           return (
             <button
               key={tab.id}
@@ -86,6 +87,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 5,
                 background: 'none',
                 border: 'none',
                 borderBottom: active ? `2.5px solid ${ACCENT}` : '2.5px solid transparent',
@@ -105,6 +107,15 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
               }}>
                 {tab.label}
               </span>
+              {count > 0 && (
+                <span style={{
+                  minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box',
+                  borderRadius: 8, background: '#ef4444', color: '#fff',
+                  fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center',
+                }}>
+                  {count > 9 ? '9+' : count}
+                </span>
+              )}
             </button>
           );
         })}

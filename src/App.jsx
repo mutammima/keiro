@@ -45,6 +45,8 @@ import MyListings from './pages/marketplace/MyListings';
 import FindDrivers from './pages/marketplace/FindDrivers';
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import { redeemPendingInvite } from './utils/connectionStorage';
+import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
+import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
 import './App.css';
 
 // Tab IDs for each role (connection-first navigation)
@@ -122,6 +124,29 @@ function AppInner({ role, onSwitchRole }) {
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
+
+  // ── Cross-account event badges (tab-strip unread counts) ───────────────────
+  const [badges, setBadges] = useState({});
+  const refreshBadges = useCallback(() => setBadges(computeBadges(role)), [role]);
+
+  // Seed seen-markers on first run, paint instantly from cache, then refresh the
+  // caches that feed badges so counts appear without first visiting the tab.
+  useEffect(() => {
+    ensureBadgesInitialized();
+    refreshBadges();
+    const loads = role === 'store_owner'
+      ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
+      : [loadConnectionOrdersFromCloud()];
+    Promise.allSettled(loads).then(refreshBadges);
+    const onRefresh = () => refreshBadges();
+    window.addEventListener('inv-badges-refresh', onRefresh);
+    return () => window.removeEventListener('inv-badges-refresh', onRefresh);
+  }, [role, refreshBadges]);
+
+  // Opening a badge tab (tap or swipe) marks its events seen → badge clears.
+  useEffect(() => {
+    if (BADGE_KEYS.includes(page)) { markSeen(page); refreshBadges(); }
+  }, [page, refreshBadges]);
 
   // Show WhatsNew only once onboarding is done (or already done on a returning user).
   useEffect(() => {
@@ -448,7 +473,7 @@ function AppInner({ role, onSwitchRole }) {
 
       {/* Hide top nav on overlay pages — they have their own headers */}
       {overlayPage === null && (
-        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} />
       )}
       <OfflineBanner dark={dark} />
       {shouldShowOnboarding && role !== 'store_owner' && (
