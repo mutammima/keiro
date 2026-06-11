@@ -12,6 +12,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { loadAllListingsFromCloud, getAllListings, productMatches } from '../../utils/marketplaceStorage';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getConnections, loadConnectionsFromCloud, requestConnection, getCachedUid } from '../../utils/connectionStorage';
+import { getBusinessName } from '../../utils/storage';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -22,6 +24,8 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
 
   const [listings, setListings] = useState(() => getAllListings());
   const [orders, setOrders] = useState(() => getOrders());
+  const [conns, setConns] = useState(() => getConnections());
+  const [connectingId, setConnectingId] = useState(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [here, setHere] = useState(null);
@@ -32,11 +36,25 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
       .then(([l, o]) => { setListings(l); setOrders(o); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    loadConnectionsFromCloud().then(setConns).catch(() => {});
     getCurrentPosition()
       .then(c => setHere(c))
       .catch(() => {})
       .finally(() => setLocReady(true));
   }, []);
+
+  /** Existing non-declined connection (any state) with this user, or null. */
+  function connWith(userId) {
+    if (!userId) return null;
+    return conns.find(c => c.status !== 'declined' && (c.driverUserId === userId || c.storeUserId === userId)) || null;
+  }
+
+  async function handleConnect(l) {
+    setConnectingId(l.id);
+    await requestConnection('store_owner', { userId: l.userId, name: l.driverName || 'A driver' }, getBusinessName() || '');
+    setConns(getConnections());
+    setConnectingId(null);
+  }
 
   // Miles from the store to a driver, or null when either lacks coords.
   function distOf(listing) {
@@ -159,17 +177,38 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
                 </div>
               )}
 
-              {l.driverPhone && (
-                <div style={{ marginTop: 14 }}>
-                  <a
-                    href={buildWhatsAppUrl(l.driverPhone, `Hi, do you have ${l.productName} available? I'd like to place an order.`)}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{ ...s.accentBtn, display: 'block', textAlign: 'center', textDecoration: 'none' }}
-                  >
-                    Message driver
-                  </a>
-                </div>
-              )}
+              {(() => {
+                const isSelf = l.userId && l.userId === getCachedUid();
+                const conn = connWith(l.userId);
+                return (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                    {!isSelf && (
+                      conn?.status === 'active' ? (
+                        <span style={{ ...s.connectedTag, flex: 1 }}>🔗 Connected</span>
+                      ) : conn ? (
+                        <span style={{ ...s.requestedTag(C), flex: 1 }}>Requested ✓</span>
+                      ) : (
+                        <button
+                          onClick={() => handleConnect(l)}
+                          disabled={connectingId === l.id || !l.userId}
+                          style={{ ...s.outlineBtn, flex: 1, opacity: connectingId === l.id ? 0.6 : 1 }}
+                        >
+                          {connectingId === l.id ? 'Requesting…' : '🔗 Connect'}
+                        </button>
+                      )
+                    )}
+                    {l.driverPhone && (
+                      <a
+                        href={buildWhatsAppUrl(l.driverPhone, `Hi, do you have ${l.productName} available? I'd like to place an order.`)}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ ...s.accentBtn, flex: 1, textAlign: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        Message driver
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -185,5 +224,8 @@ const s = {
   input: { width: '100%', boxSizing: 'border-box', height: 46, fontSize: 16, padding: '0 14px', border: '1px solid', borderRadius: 12, outline: 'none', WebkitAppearance: 'none' },
   iconBtn: (C) => ({ width: 36, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.text, padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1, textAlign: 'left' }),
   accentBtn: { background: ACCENT, border: 'none', color: '#fff', padding: '11px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
+  outlineBtn: { background: 'none', border: `1.5px solid ${ACCENT}`, color: ACCENT, padding: '10px 16px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
+  connectedTag: { fontSize: 13, fontWeight: 700, color: '#2ECC8A', background: 'rgba(46,204,138,0.12)', border: '1px solid rgba(46,204,138,0.3)', borderRadius: 12, padding: '11px 16px', textAlign: 'center' },
+  requestedTag: (C) => ({ fontSize: 13, fontWeight: 700, color: C.textMuted, background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 12, padding: '11px 16px', textAlign: 'center' }),
   knownTag: { fontSize: 11.5, fontWeight: 700, color: '#2ECC8A', background: 'rgba(46,204,138,0.12)', border: '1px solid rgba(46,204,138,0.3)', borderRadius: 8, padding: '4px 10px', display: 'inline-block' },
 };

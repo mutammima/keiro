@@ -1033,6 +1033,65 @@ export async function deleteConnection(id) {
   }
 }
 
+/** The current auth user id (cached), or null. Lets storage layers cache it. */
+export async function whoAmI() {
+  return getCurrentUserId();
+}
+
+/**
+ * Request a connection with a KNOWN counterparty (marketplace flow — their
+ * user id comes from a listing/demand row). Both sides are filled up front;
+ * the row stays 'pending' until the other party accepts. redeemer_name is
+ * pre-filled with the target's display name so both sides render names.
+ */
+export async function requestConnection({ id, inviteCode, inviterRole, inviterName, targetUserId, targetName }) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connections')
+      .insert({
+        id,
+        invite_code:    inviteCode,
+        inviter_role:   inviterRole,
+        inviter_name:   inviterName || '',
+        redeemer_name:  targetName  || '',
+        invited_by:     userId,
+        status:         'pending',
+        driver_user_id: inviterRole === 'driver'      ? userId : targetUserId,
+        store_user_id:  inviterRole === 'store_owner' ? userId : targetUserId,
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Resolve a pending request: 'active' (accept) or 'declined'. Optimistic
+ * concurrency on status = 'pending'; either participant may call per RLS.
+ */
+export async function setConnectionStatus(id, status) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const patch = { status };
+    if (status === 'active') patch.activated_at = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('connections')
+      .update(patch)
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
 // ── Connection orders — cross-account orders over an active connection ────────
 // A connected store places an order; the connected driver receives it. RLS:
 // participants read/update; only the store may insert, and only over a live
