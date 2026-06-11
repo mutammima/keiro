@@ -15,6 +15,7 @@ import {
   loadMyListingsFromCloud, getMyListings,
   productMatches, claimDemand,
 } from '../../utils/marketplaceStorage';
+import { getConnections, loadConnectionsFromCloud, requestConnection, getCachedUid } from '../../utils/connectionStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
@@ -32,16 +33,33 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
   const [here, setHere] = useState(null);       // viewer coords, or null
   const [locReady, setLocReady] = useState(false); // resolved the location attempt
 
+  const [conns, setConns] = useState(() => getConnections());
+  const [connectingId, setConnectingId] = useState(null);
+
   useEffect(() => {
     Promise.all([loadAllDemandFromCloud(), loadMyListingsFromCloud()])
       .then(([d, l]) => { setDemand(d); setMyListings(l); })
       .catch(() => {})
       .finally(() => setLoading(false));
+    loadConnectionsFromCloud().then(setConns).catch(() => {});
     getCurrentPosition()
       .then(c => setHere(c))
       .catch(() => {})
       .finally(() => setLocReady(true));
   }, []);
+
+  /** Existing non-declined connection (any state) with this user, or null. */
+  function connWith(userId) {
+    if (!userId) return null;
+    return conns.find(c => c.status !== 'declined' && (c.driverUserId === userId || c.storeUserId === userId)) || null;
+  }
+
+  async function handleConnect(order) {
+    setConnectingId(order.id);
+    await requestConnection('driver', { userId: order.userId, name: order.storeName || 'A store' }, getBusinessName() || '');
+    setConns(getConnections());
+    setConnectingId(null);
+  }
 
   // Does this order match something I carry?
   function matchesMe(order) {
@@ -168,6 +186,22 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
                 >
                   {busyId === order.id ? 'Accepting…' : 'Accept order'}
                 </button>
+                {(() => {
+                  const isSelf = order.userId && order.userId === getCachedUid();
+                  const conn = connWith(order.userId);
+                  if (isSelf) return null;
+                  if (conn?.status === 'active') return <span style={{ ...s.outlineBtn(C), color: '#2ECC8A', borderColor: 'rgba(46,204,138,0.5)', display: 'flex', alignItems: 'center' }}>🔗</span>;
+                  if (conn) return <span style={{ ...s.outlineBtn(C), color: C.textMuted, borderColor: C.inputBorder, display: 'flex', alignItems: 'center' }}>Requested</span>;
+                  return (
+                    <button
+                      onClick={() => handleConnect(order)}
+                      disabled={connectingId === order.id || !order.userId}
+                      style={{ ...s.outlineBtn(C), color: ACCENT, borderColor: ACCENT, opacity: connectingId === order.id ? 0.6 : 1 }}
+                    >
+                      {connectingId === order.id ? '…' : 'Connect'}
+                    </button>
+                  );
+                })()}
                 {order.storePhone && (
                   <a
                     href={buildWhatsAppUrl(order.storePhone, `Hi, I can supply your order for ${order.quantity}× ${order.productName}.`)}
