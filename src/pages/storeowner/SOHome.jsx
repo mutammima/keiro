@@ -105,13 +105,10 @@ export default function SOHome({ onOpenDrawer, onNav }) {
         display: 'flex', alignItems: 'center', gap: 14,
         flexShrink: 0,
       }}>
-        <button
-          onClick={onOpenDrawer}
-          aria-label="Open menu"
-          style={{ background: 'none', border: 'none', fontSize: 20, color: C.text, cursor: 'pointer', padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }}
-        >
-          ☰
-        </button>
+        {/* No ☰ here — the fixed TopNav strip already provides the drawer toggle
+            for tab pages. A 64px spacer balances the +New button so the title
+            stays centred (matches the SOOrders header pattern). */}
+        <div style={{ width: 64, flexShrink: 0 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Dashboard</span>
         <button
           onClick={() => onNav('so-request')}
