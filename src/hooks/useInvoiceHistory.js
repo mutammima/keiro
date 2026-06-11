@@ -16,9 +16,8 @@ import {
   isStorePinned,
   getBusinessName,
 } from '../utils/storage';
-import { clearSignatures } from '../utils/signatureStorage';
-import { generateAndSharePDF } from '../utils/pdfGenerator';
-import { clearPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
+import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
+import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
 
@@ -68,6 +67,7 @@ export function useInvoiceHistory() {
     Promise.all([
       getInvoices(),
       loadAllPaymentsFromCloud().catch(() => {}),
+      loadAllSignaturesFromCloud().catch(() => {}),
     ]).then(([list]) => {
       if (!cancelled) {
         setInvoices(Array.isArray(list) ? list : []);
@@ -195,8 +195,13 @@ export function useInvoiceHistory() {
       businessPhone: inv.businessPhone || inv.business_phone,
       paymentStatus: inv.paymentStatus || inv.payment_status,
     };
+    normalised.paidAmount = getTotalPaid(normalised.number);
     setSharing(normalised.number); setOpenMenu(null);
-    try { await generateAndSharePDF(normalised); }
+    try {
+      // Lazy-load the PDF stack only when sharing.
+      const { generateAndSharePDF } = await import('../utils/pdfGenerator');
+      await generateAndSharePDF(normalised);
+    }
     catch (e) { console.error(e); }
     finally { setSharing(null); }
   }

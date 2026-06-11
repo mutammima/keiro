@@ -769,14 +769,14 @@ export async function saveInvoicePayment(payment) {
     if (!userId) return { data: null, error: new Error('Not authenticated') };
     const { error } = await supabase
       .from('invoice_payments')
-      .insert({
+      .upsert({
         id:             payment.id,
         user_id:        userId,
         invoice_number: Number(payment.invoiceNumber),
         amount:         Number(payment.amount),
         note:           payment.note || '',
         ts:             payment.ts  || new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
     return { error };
   } catch (err) {
     return { error: err };
@@ -798,6 +798,56 @@ export async function clearInvoicePayments(invoiceNumber) {
       .from('invoice_payments')
       .delete()
       .eq('invoice_number', invoiceNumber);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// ── Invoice Signatures (proof of delivery) ────────────────────────────────────
+
+/** All of the current user's signature rows, for rebuilding the local cache. */
+export async function getAllSignatures() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoice_signatures')
+      .select('*');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Upsert one invoice's signatures (one row per user+invoice). */
+export async function saveSignatureRow({ invoiceNumber, seller, buyer }) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('invoice_signatures')
+      .upsert({
+        user_id:        userId,
+        invoice_number: Number(invoiceNumber),
+        seller:         seller || null,
+        buyer:          buyer  || null,
+        updated_at:     new Date().toISOString(),
+      }, { onConflict: 'user_id,invoice_number' });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+export async function deleteSignatureRow(invoiceNumber) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { error: new Error('Not authenticated') };
+    const { error } = await supabase
+      .from('invoice_signatures')
+      .delete()
+      .eq('user_id', userId)
+      .eq('invoice_number', Number(invoiceNumber));
     return { error };
   } catch (err) {
     return { error: err };

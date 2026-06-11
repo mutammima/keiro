@@ -61,12 +61,6 @@ function tabIndex(tabs, p) {
   return tabs.indexOf(p);
 }
 
-// For non-tab pages that slide up from bottom
-function overlayAnim(tabs, to) {
-  if (tabs.indexOf(to) === -1 && to !== 'invoice-view') return 'page-from-bottom';
-  return 'page-fade';
-}
-
 // ── Offline banner ────────────────────────────────────────────────────────────
 
 function OfflineBanner({ dark }) {
@@ -88,7 +82,7 @@ function OfflineBanner({ dark }) {
       zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
       paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
     }}>
-      You are offline — changes won't save
+      You're offline — changes save on this device and sync when you're back online
     </div>
   );
 }

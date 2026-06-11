@@ -7,9 +7,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
 import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
-import { generateAndSharePDF } from '../utils/pdfGenerator';
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
-import { getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
+import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
@@ -112,8 +111,13 @@ export default function StoreBalance({ storeName, onBack }) {
       businessPhone: inv.businessPhone || inv.business_phone,
       paymentStatus: getStatus(inv),
     };
+    normalised.paidAmount = getTotalPaid(normalised.number);
     setSharing(normalised.number);
-    try { await generateAndSharePDF(normalised, targetTab); } catch { if (targetTab) targetTab.close(); }
+    try {
+      // Lazy-load the PDF stack only when sharing.
+      const { generateAndSharePDF } = await import('../utils/pdfGenerator');
+      await generateAndSharePDF(normalised, targetTab);
+    } catch { if (targetTab) targetTab.close(); }
     finally { setSharing(null); }
   }
 

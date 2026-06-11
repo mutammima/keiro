@@ -36,7 +36,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
     expanded, setExpanded,
     search, setSearch,
     statusFilter, setStatusFilter,
-    visibleOlder, setVisibleOlder,
+    setVisibleOlder,
     openMenu, setOpenMenu,
     sharing, menuRef,
     outstanding, unpaidCount, partialCount, todayCount, overdueCount, allClear,
@@ -551,8 +551,6 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
       </div>
     );
   }
-
-  const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
   return (
     <div style={{ ...s.page, background: C.bg }}>

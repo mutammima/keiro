@@ -47,11 +47,6 @@ export function guestEntryCount() {
   return ENTRY_KEYS.reduce((sum, k) => sum + listLength(k), 0);
 }
 
-/** Entries remaining before the guest hits the cap (never negative). */
-export function guestEntriesRemaining() {
-  return Math.max(0, GUEST_ENTRY_CAP - guestEntryCount());
-}
-
 /**
  * Whether the user may save another entry right now.
  * Always true for signed-in users; gated by the cap for guests.

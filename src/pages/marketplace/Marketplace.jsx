@@ -105,8 +105,6 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
     setBusyId(null);
   }
 
-  const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg, overflowX: 'clip' }}>
 

@@ -8,7 +8,7 @@
 //   • index.html is always fetched network-first (never served stale from cache)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'invoicego-v6';
+const CACHE_NAME = 'invoicego-v7';
 
 const PRECACHE_URLS = [
   '/manifest.json',
@@ -82,12 +82,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else — network-first, cache as fallback
+  // Everything else — network-first, cache as fallback.
+  // IMPORTANT: only cache SAME-ORIGIN, successful responses. Caching every GET
+  // (cross-origin map tiles, the barcode API, Supabase, opaque responses) grew
+  // this cache without bound — on a storage-tight phone iOS would eventually
+  // evict the whole PWA. Cross-origin requests now pass through uncached; only
+  // our own finite set of same-origin assets is ever stored.
+  const sameOrigin = url.origin === self.location.origin;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (sameOrigin && response.ok && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))

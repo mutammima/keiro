@@ -31,9 +31,6 @@ export default function EndOfDay({ onOpenDrawer, onNav, embedded }) {
   const collected = todayInvoices
     .filter(inv => getStatus(inv) === 'paid')
     .reduce((s, inv) => s + subtotalOf(inv), 0);
-  const partial = todayInvoices
-    .filter(inv => getStatus(inv) === 'partial')
-    .reduce((s, inv) => s + subtotalOf(inv), 0);
   const outstanding = total - collected;
 
   const cashTotal = todayInvoices

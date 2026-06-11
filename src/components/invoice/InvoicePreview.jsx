@@ -1,4 +1,4 @@
-import { LIGHT, DARK, ACCENT } from '../../theme';
+import { LIGHT, DARK } from '../../theme';
 
 export default function InvoicePreview({ items, onRemove, onEdit, dark = false }) {
   const C = dark ? DARK : LIGHT;

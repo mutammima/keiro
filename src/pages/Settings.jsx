@@ -4,11 +4,10 @@
  * Sections:
  *  1. Appearance      — light / dark theme
  *  2. Business Info   — name & phone
- *  3. Notifications   — push permission + per-type toggles
- *  4. Security        — active session info, sign out other devices, 2FA
- *  5. Pinned Stores   — manage pinned store chips
- *  6. Backup & Restore
- *  7. Terms & Privacy — alpha disclaimer
+ *  3. Security        — active session info, sign out other devices, 2FA
+ *  4. Pinned Stores   — manage pinned store chips
+ *  5. Backup & Restore
+ *  6. Terms & Privacy — alpha disclaimer
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -20,13 +19,13 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
-import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import AppFooter from '../components/navigation/AppFooter';
-import PinLock, { isPinEnabled, setPin, clearPin } from '../components/settings/PinLock';
+import PinLock, { isPinEnabled, clearPin } from '../components/settings/PinLock';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
 
@@ -45,7 +44,7 @@ const ACCENT_PRESETS = [
 ];
 
 export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole }) {
-  const { dark, toggleDark, accent, setAccent } = useTheme();
+  const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   // ── Business info ──────────────────────────────────────────────────────────
@@ -62,22 +61,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
     if (bizName.trim()) {
       window.dispatchEvent(new CustomEvent('inv-onboarding-settings-saved'));
     }
-  }
-
-  // ── Notifications ──────────────────────────────────────────────────────────
-  const [notifPerm, setNotifPerm] = useState(() =>
-    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
-  );
-  const [notifInvoice,  setNotifInvoice]  = useState(() => lsGet('notif_invoice',  true));
-  const [notifDaily,    setNotifDaily]    = useState(() => lsGet('notif_daily',    false));
-  const [notifOverdue,  setNotifOverdue]  = useState(() => lsGet('notif_overdue',  true));
-
-  function persistNotif(key, val) { lsSet(key, val); }
-
-  async function requestNotifPermission() {
-    if (typeof Notification === 'undefined') return;
-    const result = await Notification.requestPermission();
-    setNotifPerm(result);
   }
 
   // ── Security ───────────────────────────────────────────────────────────────
@@ -138,7 +121,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
   function unpin(name) { togglePinnedStore(name); setPinned(getPinnedStores()); }
 
   // ── Backup ─────────────────────────────────────────────────────────────────
-  const { backupMsg, clearBackupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
+  const { backupMsg, fileInputRef, handleExport, handleImportClick, handleImportFile } = useBackup();
 
   // ── PIN lock ───────────────────────────────────────────────────────────────
   const [pinEnabled, setPinEnabled] = useState(() => isPinEnabled());
@@ -148,8 +131,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
   const [density, setDensity] = useState(() => lsGet('inv_density', 'comfortable'));
 
   // ── Auto-flag / auto-mark ──────────────────────────────────────────────────
-  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', 3));
-  const [autoMarkDays, setAutoMarkDays] = useState(() => lsGet('inv_auto_mark_days', 0)); // 0 = off
+  // Default must match getFlagDays()'s DEFAULT_FLAG_DAYS, or the picker shows a
+  // different threshold than the overdue engine actually uses until first edit.
+  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', DEFAULT_FLAG_DAYS));
 
   // ── Logo upload ────────────────────────────────────────────────────────────
   const [logo, setLogo] = useState(() => { try { return localStorage.getItem('inv_logo_b64') || null; } catch { return null; } });
@@ -343,45 +327,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
           </div>
         </Section>
 
-        {/* ── 3. Notifications ───────────────────────────────────────────── */}
-        <Section title="Notifications" C={C} defaultOpen={false}>
-          {notifPerm === 'unsupported' && (
-            <p style={{ color: C.textMuted, fontSize: 13, margin: '8px 0' }}>
-              Push notifications are not supported in this browser.
-            </p>
-          )}
-          {notifPerm === 'default' && (
-            <>
-              <p style={{ color: C.textMuted, fontSize: 13, margin: '8px 0 12px', lineHeight: 1.5 }}>
-                Enable notifications to get invoice reminders and daily summaries.
-              </p>
-              <button style={{ ...s.primaryBtn, background: ACCENT }} onClick={requestNotifPermission}>
-                Enable Notifications
-              </button>
-            </>
-          )}
-          {notifPerm === 'denied' && (
-            <p style={{ color: C.textMuted, fontSize: 13, margin: '8px 0', lineHeight: 1.5 }}>
-              Notifications are blocked. Go to your browser / phone settings to re-enable them for this site.
-            </p>
-          )}
-          {notifPerm === 'granted' && (
-            <>
-              <Row label="Invoice saved" sub="Notify when an invoice is generated" C={C}>
-                <Toggle on={notifInvoice} onChange={v => { setNotifInvoice(v); persistNotif('notif_invoice', v); }} C={C} dark={dark} />
-              </Row>
-              <Divider C={C} />
-              <Row label="Daily summary" sub="End-of-day revenue & pending recap" C={C}>
-                <Toggle on={notifDaily} onChange={v => { setNotifDaily(v); persistNotif('notif_daily', v); }} C={C} dark={dark} />
-              </Row>
-              <Divider C={C} />
-              <Row label="Overdue invoices" sub="Remind when unpaid invoices are 3+ days old" C={C}>
-                <Toggle on={notifOverdue} onChange={v => { setNotifOverdue(v); persistNotif('notif_overdue', v); }} C={C} dark={dark} />
-              </Row>
-            </>
-          )}
-        </Section>
-
         {/* ── 4. Security ────────────────────────────────────────────────── */}
         <Section title="Security & Permissions" C={C} defaultOpen={false}>
           {/* Active session */}
@@ -504,31 +449,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
                   }}
                 >
                   {d}d
-                </button>
-              ))}
-            </div>
-          </Row>
-          <Divider C={C} />
-          <Row
-            label="Auto-mark paid after"
-            sub={autoMarkDays === 0 ? 'Disabled — never auto-mark as paid' : `Mark as Paid after ${autoMarkDays} days automatically`}
-            C={C}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {[0,7,14,30].map(d => (
-                <button
-                  key={d}
-                  onClick={() => { setAutoMarkDays(d); lsSet('inv_auto_mark_days', d); }}
-                  style={{
-                    height: 30, minWidth: d === 0 ? 40 : 32, padding: '0 8px', borderRadius: 8,
-                    background: autoMarkDays === d ? ACCENT : C.rowBg,
-                    color: autoMarkDays === d ? '#fff' : C.textMuted,
-                    border: `1px solid ${autoMarkDays === d ? 'transparent' : C.divider}`,
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
-                  {d === 0 ? 'Off' : `${d}d`}
                 </button>
               ))}
             </div>
