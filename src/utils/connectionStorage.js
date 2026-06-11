@@ -19,7 +19,7 @@
  *   inv_pending_invite  — string code captured from an invite link, awaiting redeem
  */
 
-import { lsGet, lsSet } from './storage';
+import { lsGet, lsSet, getBusinessName } from './storage';
 import * as db from '../services/db';
 
 // Ambiguity-free alphabet — no I, L, O, 0, 1 so codes are easy to read aloud.
@@ -76,11 +76,13 @@ function mapRow(row) {
     inviteCode:   row.invite_code,
     inviterRole:  row.inviter_role,
     inviterName:  row.inviter_name || '',
+    redeemerName: row.redeemer_name || '',
     driverUserId: row.driver_user_id || null,
     storeUserId:  row.store_user_id  || null,
     status:       row.status,
     invitedBy:    row.invited_by || null,
     createdAt:    row.created_at,
+    activatedAt:  row.activated_at || null,
   };
 }
 
@@ -178,10 +180,12 @@ export async function redeemPendingInvite() {
   const code = getPendingInviteCode();
   if (!code) return { ok: false, reason: 'none' };
 
-  const { data, error } = await db.redeemConnection(code);
+  const { data, error } = await db.redeemConnection(code, getBusinessName() || '');
   if (error || !data) {
-    // "cannot redeem your own invite" is terminal — drop it so it stops retrying.
-    if (error && /own invite/i.test(error.message || '')) clearPendingInvite();
+    // Terminal outcomes — drop the queued code so it stops retrying forever.
+    if (error && /own invite|invite not found|already used/i.test(error.message || '')) {
+      clearPendingInvite();
+    }
     return { ok: false, reason: error ? 'error' : 'pending', error };
   }
 

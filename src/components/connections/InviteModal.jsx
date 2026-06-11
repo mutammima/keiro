@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { getOrCreateInvite, inviteLink } from '../../utils/connectionStorage';
+import { getBusinessName } from '../../utils/storage';
 
 export default function InviteModal({ role, inviterName = '', onClose }) {
   const { dark } = useTheme();
@@ -22,7 +23,8 @@ export default function InviteModal({ role, inviterName = '', onClose }) {
 
   useEffect(() => {
     let alive = true;
-    getOrCreateInvite(role, inviterName).then(c => { if (alive) setConn(c); });
+    // Carry a display name so the other side knows who they connected with.
+    getOrCreateInvite(role, inviterName || getBusinessName() || '').then(c => { if (alive) setConn(c); });
     return () => { alive = false; };
   }, []); // eslint-disable-line
 

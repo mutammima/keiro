@@ -44,9 +44,15 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
   }, []);
 
   const pendingInvites = conns.filter(c => c.status === 'pending');
+  const activeConns    = conns.filter(c => c.status === 'active');
 
   function copyInvite(code) {
     try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
+  }
+
+  /** Display name of the other party on a connection, from the driver's side. */
+  function connStoreName(c) {
+    return (c.inviterRole === 'store_owner' ? c.inviterName : c.redeemerName) || 'Connected store';
   }
 
   // Group invoices by store → outstanding balance, count, last delivery date.
@@ -101,6 +107,24 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
                   <span style={{ flex: 1, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 16, fontWeight: 800, letterSpacing: '0.12em', color: C.text }}>{c.inviteCode}</span>
                   <button onClick={() => copyInvite(c.inviteCode)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Copy</button>
                   <button onClick={() => { cancelInvite(c.id); setConns(getConnections()); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Cancel</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Connected stores (established via invite) */}
+        {activeConns.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Connected stores</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {activeConns.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 15 }}>🔗</span>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connStoreName(c)}</span>
+                  <span style={{ fontSize: 11, color: C.textMuted, flexShrink: 0 }}>
+                    since {new Date(c.activatedAt || c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
                 </div>
               ))}
             </div>

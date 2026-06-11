@@ -997,48 +997,19 @@ export async function createConnection(conn) {
   }
 }
 
-/** Look up a single connection by its invite code (used during redemption). */
-export async function findConnectionByCode(code) {
-  if (!code) return { data: null, error: null };
-  try {
-    const { data, error } = await supabase
-      .from('connections')
-      .select('*')
-      .eq('invite_code', code)
-      .maybeSingle();
-    return { data, error };
-  } catch (err) {
-    return { data: null, error: err };
-  }
-}
-
 /**
- * Redeem an invite code: fill the empty side with the current user and flip the
- * row to 'active'. Optimistic-concurrency on status = 'pending' so a code can't
- * be redeemed twice. Returns the already-active row as a no-op success.
+ * Redeem an invite code via the redeem_connection RPC (security definer).
+ * RLS hides foreign pending rows from direct table reads, so lookup,
+ * validation, and stamping all happen server-side against the exact code.
+ * Returns the now-active row; redeeming an already-joined connection is a
+ * no-op success for its participants.
  */
-export async function redeemConnection(code) {
+export async function redeemConnection(code, redeemerName = '') {
   try {
     const userId = await getCurrentUserId();
     if (!userId) return { data: null, error: new Error('Not authenticated') };
-
-    const { data: conn, error: findErr } = await findConnectionByCode(code);
-    if (findErr) return { data: null, error: findErr };
-    if (!conn)   return { data: null, error: new Error('invite not found') };
-    if (conn.invited_by === userId) return { data: null, error: new Error('cannot redeem your own invite') };
-    if (conn.status === 'active')   return { data: conn, error: null };
-
-    const patch = conn.inviter_role === 'driver'
-      ? { store_user_id:  userId, status: 'active', activated_at: new Date().toISOString() }
-      : { driver_user_id: userId, status: 'active', activated_at: new Date().toISOString() };
-
     const { data, error } = await supabase
-      .from('connections')
-      .update(patch)
-      .eq('id', conn.id)
-      .eq('status', 'pending')
-      .select()
-      .maybeSingle();
+      .rpc('redeem_connection', { p_code: code, p_name: redeemerName });
     return { data, error };
   } catch (err) {
     return { data: null, error: err };
