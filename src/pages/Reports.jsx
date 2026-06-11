@@ -68,7 +68,7 @@ function isToday(dateStr) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function Reports({ onOpenDrawer, onNav }) {
+export default function Reports({ onOpenDrawer, onNav, embedded }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -170,12 +170,14 @@ export default function Reports({ onOpenDrawer, onNav }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ ...s.page, background: C.bg }}>
-      <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
-        <span style={{ ...s.title, color: C.text }}>Reports</span>
-        <div style={{ width: 36 }} />
-      </div>
+    <div style={{ ...s.page, ...(embedded ? { minHeight: '100%' } : null), background: C.bg }}>
+      {!embedded && (
+        <div style={{ ...s.header, ...glassStyle(dark) }}>
+          <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+          <span style={{ ...s.title, color: C.text }}>Reports</span>
+          <div style={{ width: 36 }} />
+        </div>
+      )}
 
       <div style={s.body}>
 

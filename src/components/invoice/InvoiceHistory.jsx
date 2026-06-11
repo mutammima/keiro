@@ -24,7 +24,7 @@ function fmtPaymentDate(iso) {
     + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
+export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const D = useDensity();
@@ -515,7 +515,11 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav }) {
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <div style={{ width: 36 }} />
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
-        <div style={{ width: 36 }} />
+        {onNewInvoice ? (
+          <button onClick={onNewInvoice} style={s.newBtn}>+ New</button>
+        ) : (
+          <div style={{ width: 36 }} />
+        )}
       </div>
 
       <div style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
@@ -725,6 +729,12 @@ const s = {
     WebkitTapHighlightColor: 'transparent', flexShrink: 0,
   },
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
+  newBtn: {
+    flexShrink: 0, height: 32, padding: '0 14px', border: 'none',
+    borderRadius: 16, background: ACCENT, color: '#fff',
+    fontSize: 13, fontWeight: 700, cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
+  },
   body: {
     padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,

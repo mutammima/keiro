@@ -16,7 +16,7 @@ import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
-export default function NewRequest({ onOpenDrawer, onNav }) {
+export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -112,7 +112,11 @@ export default function NewRequest({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 36 }} />
+        {onBack ? (
+          <button onClick={onBack} aria-label="Back" style={{ background: 'none', border: 'none', fontSize: 22, color: C.text, cursor: 'pointer', padding: '3px 4px', WebkitTapHighlightColor: 'transparent', flexShrink: 0 }}>←</button>
+        ) : (
+          <div style={{ width: 36 }} />
+        )}
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>New Request</span>
         <div style={{ width: 36 }} />
       </div>

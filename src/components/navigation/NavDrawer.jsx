@@ -52,6 +52,12 @@ const Icons = {
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
     </svg>
   ),
+  box: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>
+  ),
   settings: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
@@ -77,18 +83,17 @@ const Icons = {
   ),
 };
 
+// Drawer holds only NON-tab destinations. Home / Route / Stores / Reports are
+// tabs for the driver; Home / Orders / Drivers / Invoices are tabs for the owner.
 const NAV_ITEMS_FULL = [
-  { id: 'home',        label: 'Dashboard',   icon: Icons.home },
+  { id: 'products',    label: 'Products',    icon: Icons.box },
+  { id: 'store-map',   label: 'Store Info',  icon: Icons.storemap },
   { id: 'marketplace', label: 'Marketplace', icon: Icons.market },
   { id: 'my-listings', label: 'My Listings', icon: Icons.tag },
-  { id: 'reports',     label: 'Reports',     icon: Icons.reports },
-  { id: 'end-of-day',  label: 'End of Day',  icon: Icons.endofday },
-  { id: 'store-map',   label: 'Store Info',  icon: Icons.storemap },
   { id: 'notes',       label: 'Notes',       icon: Icons.notes },
 ];
 
 const NAV_ITEMS_OWNER = [
-  { id: 'so-home',      label: 'Dashboard',    icon: Icons.home },
   { id: 'find-drivers', label: 'Find Drivers', icon: Icons.market },
   { id: 'so-reports',   label: 'Reports',      icon: Icons.reports },
   { id: 'notes',        label: 'Notes',        icon: Icons.notes },

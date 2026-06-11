@@ -30,7 +30,7 @@ function CameraIcon({ color = '#555', size = 22 }) {
   );
 }
 
-export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
+export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -119,7 +119,11 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav }) {
       <div data-tutorial="invoice-form" style={{ ...s.page, background: C.bg }}>
         {/* Header */}
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <div style={{ width: 36 }} />
+          {onBack ? (
+            <button onClick={onBack} aria-label="Back" style={{ ...s.hamburger, color: C.text }}>←</button>
+          ) : (
+            <div style={{ width: 36 }} />
+          )}
           <div style={s.headerCenter}>
             {editingBiz ? (
               <input

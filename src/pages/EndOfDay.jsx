@@ -10,7 +10,7 @@ import { getInvoices } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
 import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
 
-export default function EndOfDay({ onOpenDrawer, onNav }) {
+export default function EndOfDay({ onOpenDrawer, onNav, embedded }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -55,13 +55,15 @@ export default function EndOfDay({ onOpenDrawer, onNav }) {
   return (
     <div style={{ ...s.page, background: C.bg, color: C.text }}>
       {/* Header */}
-      <div style={{ ...s.header, background: C.bg, borderBottom: `1px solid ${C.divider}` }}>
-        <button style={{ ...s.backBtn, color: C.text }} onClick={() => onNav?.('invoice')}>←</button>
-        <span style={{ fontSize: 17, fontWeight: 700 }}>End of Day</span>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.textMuted }}>
-          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        </span>
-      </div>
+      {!embedded && (
+        <div style={{ ...s.header, background: C.bg, borderBottom: `1px solid ${C.divider}` }}>
+          <button style={{ ...s.backBtn, color: C.text }} onClick={() => onNav?.('route')}>←</button>
+          <span style={{ fontSize: 17, fontWeight: 700 }}>End of Day</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: C.textMuted }}>
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+      )}
 
       <div style={s.scroll}>
         {loading ? (

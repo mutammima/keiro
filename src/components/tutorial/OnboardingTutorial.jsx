@@ -508,7 +508,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     // ══ STEP 3 — Invoices page ════════════════════════════════════════════════
     async function step3() {
       show(3, 'Invoice history', 'Tap an invoice to expand it and update payment status.');
-      navigate('history');
+      navigate('route');
       clearCursor();
       await sleep(400);
       await waitForUser(false);          // ONE pause — then auto-animate
@@ -534,7 +534,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     // ══ STEP 4 — Store balance ════════════════════════════════════════════════
     async function step4() {
       show(4, 'Store balances', 'Tap a store name to see everything they owe you.');
-      navigate('history');
+      navigate('route');
       clearCursor();
       await sleep(400);
       await waitForUser(false);
@@ -555,7 +555,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
       const backBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
-      if (backBtn) { await tap(backBtn); } else { navigate('history'); }
+      if (backBtn) { await tap(backBtn); } else { navigate('route'); }
       await sleep(250);
       clearCursor();
 

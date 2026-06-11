@@ -67,9 +67,14 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 36 }} />
+        <div style={{ width: 64 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Orders</span>
-        <div style={{ width: 36 }} />
+        <button
+          onClick={() => onNav('so-request')}
+          style={{ flexShrink: 0, height: 32, padding: '0 14px', border: 'none', borderRadius: 16, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          + New
+        </button>
       </div>
 
       {/* Filter pills */}
