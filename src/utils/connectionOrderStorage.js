@@ -193,6 +193,7 @@ export async function loadSharedInvoicesFromCloud() {
     notes:         row.notes || '',
     paymentStatus: row.payment_status || 'unpaid',
     createdAt:     row.created_at,
+    updatedAt:     row.updated_at || row.created_at, // may be undefined pre-migration
     items: (row.invoice_items || []).map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
   }));
   lsSet(SHARED_KEY, mapped);
