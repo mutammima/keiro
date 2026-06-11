@@ -13,20 +13,37 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { getOrCreateInvite, inviteLink } from '../../utils/connectionStorage';
 import { getBusinessName } from '../../utils/storage';
+import { isGuest } from '../../utils/guestMode';
+import { GuestCapModal } from '../auth/GuestUpsell';
 
 export default function InviteModal({ role, inviterName = '', onClose }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
+  const guest = isGuest();
   const [conn,   setConn]   = useState(null);
   const [copied, setCopied] = useState('');
 
   useEffect(() => {
+    if (guest) return; // guests can't create a cloud invite — gated below
     let alive = true;
     // Carry a display name so the other side knows who they connected with.
     getOrCreateInvite(role, inviterName || getBusinessName() || '').then(c => { if (alive) setConn(c); });
     return () => { alive = false; };
   }, []); // eslint-disable-line
+
+  // An invite generated without a session never reaches the cloud, so the other
+  // party could never redeem it. Hard-block: show the account gate instead.
+  if (guest) {
+    return (
+      <GuestCapModal
+        open
+        onClose={onClose}
+        title="Account required"
+        subtitle={`You need a free account to invite a ${role === 'driver' ? 'store' : 'driver'} and connect. Your local data comes with you.`}
+      />
+    );
+  }
 
   const code = conn?.inviteCode || '······';
   const link = conn ? inviteLink(conn.inviteCode) : '';

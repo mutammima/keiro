@@ -17,6 +17,8 @@ import {
 } from '../../utils/marketplaceStorage';
 import { getConnections, loadConnectionsFromCloud, requestConnection, getCachedUid } from '../../utils/connectionStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { isGuest } from '../../utils/guestMode';
+import { GuestCapModal } from '../../components/auth/GuestUpsell';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { getCurrentPosition, haversineMiles, formatDistance } from '../../utils/geo';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -35,6 +37,7 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
 
   const [conns, setConns] = useState(() => getConnections());
   const [connectingId, setConnectingId] = useState(null);
+  const [gate, setGate] = useState(false);
 
   useEffect(() => {
     Promise.all([loadAllDemandFromCloud(), loadMyListingsFromCloud()])
@@ -55,6 +58,7 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
   }
 
   async function handleConnect(order) {
+    if (isGuest()) { setGate(true); return; } // a request needs a session to reach the store
     setConnectingId(order.id);
     await requestConnection('driver', { userId: order.userId, name: order.storeName || 'A store' }, getBusinessName() || '');
     setConns(getConnections());
@@ -218,6 +222,13 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      <GuestCapModal
+        open={gate}
+        onClose={() => setGate(false)}
+        title="Account required"
+        subtitle="You need a free account to connect with stores. Create one to continue — your local data comes with you."
+      />
     </div>
   );
 }
