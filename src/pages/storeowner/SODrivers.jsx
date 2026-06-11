@@ -10,6 +10,8 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveDriver, deleteDriver, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
+import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
+import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -20,10 +22,13 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
   const [drivers,       setDrivers]       = useState(() => getDrivers());
   const [showAdd,       setShowAdd]       = useState(false);
+  const [conns,         setConns]         = useState(() => getConnections());
+  const [showInvite,    setShowInvite]    = useState(false);
 
   // Fetch latest from cloud on mount
   useEffect(() => {
     loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
+    loadConnectionsFromCloud().then(setConns).catch(() => {});
   }, []);
   const [expandedId,    setExpandedId]    = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -76,6 +81,23 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };
 
+  const me = getCachedUid();
+  // Code invites have one empty side; both-sides-filled pending rows are requests.
+  const pendingInvites   = conns.filter(c => c.status === 'pending' && (!c.driverUserId || !c.storeUserId));
+  const incomingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && me && c.invitedBy && c.invitedBy !== me);
+  const outgoingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && (!me || !c.invitedBy || c.invitedBy === me));
+  const activeConns      = conns.filter(c => c.status === 'active');
+  function copyInvite(code) {
+    try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
+  }
+  function handleRespond(id, accept) {
+    respondToRequest(id, accept).then(() => setConns(getConnections()));
+  }
+  /** Display name of the other party on a connection, from the store's side. */
+  function connDriverName(c) {
+    return (c.inviterRole === 'driver' ? c.inviterName : c.redeemerName) || 'Connected driver';
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg, overflowX: 'clip' }}>
 
@@ -93,6 +115,88 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
       </div>
 
       <div style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Connect a driver (invite-only) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🔗 Connect a driver</div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+              Invite a driver with a code — they link to you automatically when they join.
+            </div>
+          </div>
+          <button onClick={() => setShowInvite(true)} style={{ flexShrink: 0, height: 34, padding: '0 16px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+            Invite
+          </button>
+        </div>
+
+        {/* Incoming connection requests (from marketplace drivers) */}
+        {incomingRequests.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>🤝 Connection requests</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {incomingRequests.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.inviterName || 'A driver'}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>wants to connect with you</div>
+                  </div>
+                  <button onClick={() => handleRespond(c.id, true)} style={{ flexShrink: 0, height: 32, padding: '0 14px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>Accept</button>
+                  <button onClick={() => handleRespond(c.id, false)} style={{ flexShrink: 0, background: 'none', border: 'none', color: C.textMuted, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Decline</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Requests I sent (awaiting the driver's answer) */}
+        {outgoingRequests.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Requests sent</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {outgoingRequests.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.redeemerName || 'A driver'}</span>
+                  <span style={{ fontSize: 11, color: C.textMuted, flexShrink: 0 }}>pending</span>
+                  <button onClick={() => { cancelInvite(c.id); setConns(getConnections()); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Cancel</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pending invites */}
+        {pendingInvites.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Pending invites</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pendingInvites.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ flex: 1, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 16, fontWeight: 800, letterSpacing: '0.12em', color: C.text }}>{c.inviteCode}</span>
+                  <button onClick={() => copyInvite(c.inviteCode)} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Copy</button>
+                  <button onClick={() => { cancelInvite(c.id); setConns(getConnections()); }} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px', WebkitTapHighlightColor: 'transparent' }}>Cancel</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Connected drivers (established via invite) */}
+        {activeConns.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Connected drivers</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {activeConns.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 15 }}>🔗</span>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connDriverName(c)}</span>
+                  <span style={{ fontSize: 11, color: C.textMuted, flexShrink: 0 }}>
+                    since {new Date(c.activatedAt || c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Add driver form */}
         {showAdd && (
@@ -228,6 +332,8 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      {showInvite && <InviteModal role="store_owner" onClose={() => { setShowInvite(false); setConns(getConnections()); }} />}
 
       {/* Delete confirm modal */}
       {confirmDelete && createPortal(

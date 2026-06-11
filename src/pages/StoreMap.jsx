@@ -203,7 +203,7 @@ function MapPreview({ address, name, dark }) {
     setStatus('loading');
     const query = encodeURIComponent(address);
     fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
-      headers: { 'Accept-Language': 'en', 'User-Agent': 'InvoGo/1.0' },
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'Keiro/1.0' },
     })
       .then(r => r.json())
       .then(data => {

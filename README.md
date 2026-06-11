@@ -1,6 +1,6 @@
-# InvoGo
+# Keiro
 
-Mobile-first delivery invoicing PWA. Create invoices on the go, track what every store owes, and see your daily/weekly/monthly revenue — all from your phone.
+The bridge for your next order. Keiro connects delivery drivers and stores in real time — each side sees what the other needs and carries, with invoicing, payments, and route management built in.
 
 ## Features
 

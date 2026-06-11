@@ -77,7 +77,7 @@ export default function WhatsNew({ onClose }) {
               What's New in v{APP_VERSION}
             </div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              InvoGo just updated
+              Keiro just updated
             </div>
           </div>
         </div>

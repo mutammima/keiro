@@ -1,5 +1,5 @@
 /**
- * guestMode.js — freemium "guest" access for InvoGo.
+ * guestMode.js — freemium "guest" access for Keiro.
  *
  * A guest can use the whole app without an account. Their data lives ONLY in
  * localStorage (cloud writes fail RLS silently for an unauthenticated user),

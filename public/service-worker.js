@@ -1,4 +1,4 @@
-// ── InvoiceGo Service Worker ──────────────────────────────────────────────────
+// ── Keiro Service Worker ──────────────────────────────────────────────────────
 // User-friendly update strategy:
 //   • On install: waits (does NOT skipWaiting) so the new SW sits in "waiting"
 //     state where useAppUpdate.js can detect it and show the banner

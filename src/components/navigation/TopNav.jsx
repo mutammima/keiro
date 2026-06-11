@@ -10,28 +10,28 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 
 const DRIVER_TABS = [
-  { id: 'invoice',    label: 'New',     tutorial: 'tab-new'      },
-  { id: 'history',    label: 'Invoices',tutorial: 'tab-history'  },
-  { id: 'products',   label: 'Products',tutorial: 'tab-products' },
+  { id: 'home',    label: 'Home',    tutorial: null },
+  { id: 'route',   label: 'Route',   tutorial: null },
+  { id: 'stores',  label: 'Stores',  tutorial: null },
+  { id: 'reports', label: 'Reports', tutorial: null },
 ];
 
 const OWNER_TABS = [
-  { id: 'so-request', label: 'Request', tutorial: null },
-  { id: 'so-orders',  label: 'Orders',  tutorial: null },
-  { id: 'so-drivers', label: 'Drivers', tutorial: null },
+  { id: 'so-home',     label: 'Home',     tutorial: null },
+  { id: 'so-orders',   label: 'Orders',   tutorial: null },
+  { id: 'so-drivers',  label: 'Drivers',  tutorial: null },
+  { id: 'so-invoices', label: 'Invoices', tutorial: null },
 ];
 
 export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
 
-export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
+export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {} }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
-  const activeIdx = TABS.findIndex(t =>
-    currentPage === t.id || (t.id === 'invoice' && currentPage === 'invoice-view')
-  );
+  const activeIdx = TABS.findIndex(t => currentPage === t.id);
 
   return (
     <div style={{
@@ -75,6 +75,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
         {/* Tabs */}
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
+          const count = badges[tab.id] || 0;
           return (
             <button
               key={tab.id}
@@ -86,6 +87,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 5,
                 background: 'none',
                 border: 'none',
                 borderBottom: active ? `2.5px solid ${ACCENT}` : '2.5px solid transparent',
@@ -105,6 +107,15 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role }) {
               }}>
                 {tab.label}
               </span>
+              {count > 0 && (
+                <span style={{
+                  minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box',
+                  borderRadius: 8, background: '#ef4444', color: '#fff',
+                  fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center',
+                }}>
+                  {count > 9 ? '9+' : count}
+                </span>
+              )}
             </button>
           );
         })}

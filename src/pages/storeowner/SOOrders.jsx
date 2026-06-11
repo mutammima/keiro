@@ -8,6 +8,7 @@ import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus } from '../../utils/connectionOrderStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 
 const STATUS_META = {
@@ -31,15 +32,24 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
 
   const [filter,        setFilter]        = useState('all');
   const [orders,        setOrders]        = useState(() => getOrders());
+  const [connOrders,    setConnOrders]    = useState(() => getConnectionOrders());
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [expandedId,    setExpandedId]    = useState(null);
 
   // Fetch latest from cloud on mount (syncs localStorage cache too)
   useEffect(() => {
     loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
 
-  function refresh() { setOrders(getOrders()); }
+  // Live-update when the foreground poll refreshes the caches (App dispatches).
+  useEffect(() => {
+    const onRefresh = () => { setOrders(getOrders()); setConnOrders(getConnectionOrders()); };
+    window.addEventListener('inv-data-refresh', onRefresh);
+    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+  }, []);
+
+  function refresh() { setOrders(getOrders()); setConnOrders(getConnectionOrders()); }
 
   function handleStatus(id, status) {
     // When accepting, push a bridge request for the Driver role to pick up
@@ -51,6 +61,11 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
     refresh();
   }
 
+  function handleConnCancel(id) {
+    updateConnectionOrderStatus(id, 'cancelled');
+    refresh();
+  }
+
   function handleDelete() {
     if (!confirmDelete) return;
     deleteOrder(confirmDelete.id);
@@ -58,18 +73,29 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
     refresh();
   }
 
+  // Merge private orders with cross-account connection orders, newest first.
+  const merged = [
+    ...connOrders.map(o => ({ ...o, isConnection: true })),
+    ...orders,
+  ].sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0));
+
   const visible = filter === 'all'
-    ? orders
-    : orders.filter(o => o.status === filter);
+    ? merged
+    : merged.filter(o => o.status === filter);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg }}>
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 36 }} />
+        <div style={{ width: 64 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Orders</span>
-        <div style={{ width: 36 }} />
+        <button
+          onClick={() => onNav('so-request')}
+          style={{ flexShrink: 0, height: 32, padding: '0 14px', border: 'none', borderRadius: 16, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          + New
+        </button>
       </div>
 
       {/* Filter pills */}
@@ -135,7 +161,9 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
                       {formatDate(order.deliveryDate)}
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-                      {order.driverName}
+                      {order.isConnection ? '🔗 ' : ''}{order.driverName}
+                      {order.isConnection && order.status === 'delivered' && order.invoiceNumber != null
+                        ? ` · Invoice #${order.invoiceNumber}` : ''}
                     </div>
                   </div>
                   {/* Status badge */}
@@ -151,7 +179,26 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
               </button>
 
               {/* Expanded actions */}
-              {expanded && (
+              {expanded && order.isConnection && (
+                <div style={{ borderTop: `1px solid ${C.divider}`, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {order.notes && (
+                    <p style={{ width: '100%', fontSize: 12, color: C.textMuted, margin: '0 0 8px', fontStyle: 'italic' }}>
+                      "{order.notes}"
+                    </p>
+                  )}
+                  <p style={{ width: '100%', fontSize: 12, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
+                    Sent to {order.driverName}'s Keiro account — they update the status
+                    as they accept and deliver.
+                  </p>
+                  {order.status === 'pending' && (
+                    <button style={{ ...s.actionBtn(C), color: C.textMuted, borderColor: C.divider }}
+                      onClick={() => { handleConnCancel(order.id); setExpandedId(null); }}>
+                      Cancel Order
+                    </button>
+                  )}
+                </div>
+              )}
+              {expanded && !order.isConnection && (
                 <div style={{ borderTop: `1px solid ${C.divider}`, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {order.notes && (
                     <p style={{ width: '100%', fontSize: 12, color: C.textMuted, margin: '0 0 8px', fontStyle: 'italic' }}>

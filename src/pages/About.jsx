@@ -1,5 +1,5 @@
 /**
- * About — overview of InvoGo's features and how to use them.
+ * About — overview of Keiro's features and how to use them.
  */
 
 import { useTheme } from '../context/ThemeContext';
@@ -15,7 +15,7 @@ const SECTIONS = [
   {
     icon: '▦',
     title: 'Scan Barcodes',
-    body: 'Instead of typing product names by hand, tap the camera icon and scan a barcode. InvoGo looks up the product name automatically and remembers the price for next time.',
+    body: 'Instead of typing product names by hand, tap the camera icon and scan a barcode. Keiro looks up the product name automatically and remembers the price for next time.',
   },
   {
     icon: '≡',
@@ -30,7 +30,7 @@ const SECTIONS = [
   {
     icon: '⬡',
     title: 'Products Catalog',
-    body: 'InvoGo remembers every product you\'ve ever added. Prices auto-fill when you pick a product you\'ve used before, so repeat deliveries are fast.',
+    body: 'Keiro remembers every product you\'ve ever added. Prices auto-fill when you pick a product you\'ve used before, so repeat deliveries are fast.',
   },
   {
     icon: '↑',
@@ -67,11 +67,9 @@ export default function About({ onOpenDrawer, onNav }) {
 
         {/* Hero */}
         <div style={{ ...s.hero, background: C.card }}>
-          <p style={{ ...s.heroTitle }}>
-            <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
-          </p>
+          <p style={{ ...s.heroTitle, color: C.text }}>Keiro</p>
           <p style={{ ...s.heroSub, color: C.textMuted }}>
-            The fastest way to create, track, and share delivery invoices — right from your phone.
+            Streamlining the way drivers and stores work together — see what's needed, show what you carry, and keep every delivery on track.
           </p>
         </div>
 
@@ -89,7 +87,7 @@ export default function About({ onOpenDrawer, onNav }) {
         ))}
 
         {/* Version line */}
-        <p style={{ ...s.version, color: C.textMuted }}>InvoGo v5.9 — Built for delivery drivers.</p>
+        <p style={{ ...s.version, color: C.textMuted }}>Keiro v5.9 — Built for delivery drivers.</p>
 
         <AppFooter onNav={onNav} />
       </div>

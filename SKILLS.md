@@ -1,4 +1,4 @@
-# InvoGo — Claude Operational Playbook
+# Keiro — Claude Operational Playbook
 
 This file captures non-obvious knowledge earned from debugging, building, and refactoring
 this codebase. Read it before starting any session. It is the difference between a slow

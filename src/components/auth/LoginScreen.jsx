@@ -1,11 +1,12 @@
 /**
- * LoginScreen — clean, minimal auth screen for InvoGo.
+ * LoginScreen — clean, minimal auth screen for Keiro.
  * Matches the dark/light theme from theme.js.
  */
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
+import KeiroWordmark from '../ui/KeiroWordmark';
 import { signInWithEmail, signUpWithEmail, signInWithPasskey, isPasskeySupported } from '../../services/auth';
 
 /**
@@ -94,10 +95,8 @@ export default function LoginScreen({ onLogin, onGuest }) {
 
         {/* App identity */}
         <div style={s.identity}>
-          <span style={{ ...s.appName }}>
-            <span style={{ color: ACCENT }}>Invo</span><span style={{ color: C.text }}>Go</span>
-          </span>
-          <span style={{ ...s.tagline, color: C.textMuted }}>Delivery invoices, fast.</span>
+          <KeiroWordmark C={C} style={{ fontSize: 34 }} />
+          <span style={{ ...s.tagline, color: C.textMuted }}>Streamlining the way you do business.</span>
         </div>
 
         {/* Info / error banners */}

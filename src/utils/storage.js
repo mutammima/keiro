@@ -1,5 +1,5 @@
 /**
- * storage.js — centralised data helpers for InvoGo.
+ * storage.js — centralised data helpers for Keiro.
  *
  * Functions that touch cloud data delegate to src/services/db.js.
  * Functions that touch device-only preferences (business name, pinned stores,

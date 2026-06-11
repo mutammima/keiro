@@ -499,7 +499,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
             <div style={{ background: dark ? '#1f1000' : '#fffbeb', border: `1px solid ${dark ? '#2a1800' : '#fde68a'}`, borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
               <div style={{ color: dark ? '#fbbf24' : '#b45309', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>⚠ Alpha / Test Build</div>
               <div style={{ color: dark ? '#d97706' : '#92400e', fontSize: 12, lineHeight: 1.55 }}>
-                InvoGo is an early-stage experimental application. Features may change, data may be reset, and the service may be interrupted at any time without notice. Use at your own risk and always keep an exported backup.
+                Keiro is an early-stage experimental application. Features may change, data may be reset, and the service may be interrupted at any time without notice. Use at your own risk and always keep an exported backup.
               </div>
             </div>
 
@@ -511,15 +511,15 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
               <div style={{ color: C.textMuted, fontSize: 12, lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Terms of Use</div>
-                  InvoGo is provided as-is without any warranty. By using this app you agree not to hold its creators liable for any data loss, inaccuracies in invoices, or business decisions made based on information displayed in the app. You are responsible for the accuracy of all invoice data you enter.
+                  Keiro is provided as-is without any warranty. By using this app you agree not to hold its creators liable for any data loss, inaccuracies in invoices, or business decisions made based on information displayed in the app. You are responsible for the accuracy of all invoice data you enter.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Privacy Policy</div>
-                  InvoGo stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties. We collect minimal usage data. You may delete your account and all associated data at any time by contacting support.
+                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties. We collect minimal usage data. You may delete your account and all associated data at any time by contacting support.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>
-                  Data is retained for the lifetime of your account. If you delete your account, all data is permanently removed within 30 days. Exported backup files are entirely in your control and are not managed by InvoGo.
+                  Data is retained for the lifetime of your account. If you delete your account, all data is permanently removed within 30 days. Exported backup files are entirely in your control and are not managed by Keiro.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Contact</div>

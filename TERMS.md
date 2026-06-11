@@ -2,7 +2,7 @@
 
 **Last updated: June 8, 2026**
 
-These Terms of Service ("Terms") govern your use of InvoGo (the "App"). By
+These Terms of Service ("Terms") govern your use of Keiro (the "App"). By
 using the App, you agree to these Terms. If you do not agree, do not use the
 App.
 
@@ -12,9 +12,9 @@ App.
 
 ## 1. The service
 
-InvoGo is a tool for creating, storing, and sharing delivery invoices and
-related business records (stores, products, payments, and notes). The App is
-provided to help you organize your own business information.
+Keiro is a platform connecting delivery drivers and stores — helping each
+side see what the other needs and carries, and supporting the invoicing and
+record-keeping that goes with those deliveries.
 
 ## 2. Your account
 
@@ -45,7 +45,7 @@ You agree not to:
 
 ## 5. Invoices and financial records
 
-InvoGo is a record-keeping and document-generation tool. It does **not** process
+Keiro is a record-keeping and document-generation tool. It does **not** process
 payments, provide accounting, tax, or financial advice, and is **not** a
 substitute for professional advice. You are solely responsible for the
 correctness of your invoices and for meeting your own legal, tax, and accounting

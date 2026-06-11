@@ -37,18 +37,27 @@ import SOOrders from './pages/storeowner/SOOrders';
 import SODrivers from './pages/storeowner/SODrivers';
 import SOHome from './pages/storeowner/SOHome';
 import SOReports from './pages/storeowner/SOReports';
+import SOInvoices from './pages/storeowner/SOInvoices';
+import DriverReports from './pages/driver/DriverReports';
+import DriverStores from './pages/driver/DriverStores';
 import Marketplace from './pages/marketplace/Marketplace';
 import MyListings from './pages/marketplace/MyListings';
 import FindDrivers from './pages/marketplace/FindDrivers';
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
+import { redeemPendingInvite } from './utils/connectionStorage';
+import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
+import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
+import { isGuest } from './utils/guestMode';
 import './App.css';
 
-// Tab IDs for each role
-const DRIVER_TABS = ['invoice', 'history', 'products'];
-const OWNER_TABS  = ['so-request', 'so-orders', 'so-drivers'];
+// Tab IDs for each role (connection-first navigation)
+const DRIVER_TABS = ['home', 'route', 'stores', 'reports'];
+const OWNER_TABS  = ['so-home', 'so-orders', 'so-drivers', 'so-invoices'];
 
 function tabIndex(tabs, p) {
-  if (p === 'invoice-view') return 0;
+  // invoice-view is a post-generate overlay; the strip is hidden while it shows,
+  // but treat it as the Route tab so the underlying index stays sensible.
+  if (p === 'invoice-view') { const i = tabs.indexOf('route'); return i === -1 ? 0 : i; }
   return tabs.indexOf(p);
 }
 
@@ -91,15 +100,13 @@ function AppInner({ role, onSwitchRole }) {
 
   const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
 
-  // In easy mode skip the dashboard and land straight on New Invoice tab
+  // Dashboards are now tab 0 for both roles — no dashboard overlay on launch.
+  // In easy mode the driver lands on the Route tab (invoice list + "+ New").
   const [page,           setPage]           = useState(() => {
-    if (role === 'store_owner') return 'so-request';
-    return easyMode ? 'invoice' : 'home';
-  });
-  const [overlayPage,    setOverlayPage]    = useState(() => {
     if (role === 'store_owner') return 'so-home';
-    return easyMode ? null : 'home';
+    return easyMode ? 'route' : 'home';
   });
+  const [overlayPage,    setOverlayPage]    = useState(() => null);
   const [overlayClass,   setOverlayClass]   = useState('page-fade');
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
@@ -112,6 +119,57 @@ function AppInner({ role, onSwitchRole }) {
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
+
+  // ── Cross-account event badges (tab-strip unread counts) ───────────────────
+  const [badges, setBadges] = useState({});
+  const refreshBadges = useCallback(() => setBadges(computeBadges(role)), [role]);
+
+  // Seed seen-markers on first run, paint instantly from cache, then refresh the
+  // caches that feed badges so counts appear without first visiting the tab.
+  useEffect(() => {
+    ensureBadgesInitialized();
+    refreshBadges();
+    const loads = role === 'store_owner'
+      ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
+      : [loadConnectionOrdersFromCloud()];
+    Promise.allSettled(loads).then(refreshBadges);
+    const onRefresh = () => refreshBadges();
+    window.addEventListener('inv-badges-refresh', onRefresh);
+    return () => window.removeEventListener('inv-badges-refresh', onRefresh);
+  }, [role, refreshBadges]);
+
+  // Opening a badge tab (tap or swipe) marks its events seen → badge clears.
+  useEffect(() => {
+    if (BADGE_KEYS.includes(page)) { markSeen(page); refreshBadges(); }
+  }, [page, refreshBadges]);
+
+  // ── Lightweight real-time ──────────────────────────────────────────────────
+  // Poll the cross-account tables every 30s while the app is foregrounded and
+  // the user is signed in. Refreshed caches recompute badges and fire
+  // 'inv-data-refresh' so any open cross-account list re-reads. Paused when the
+  // tab is hidden so it stays cheap on Supabase reads and battery. Guests have
+  // no cloud data, so they never poll.
+  useEffect(() => {
+    if (isGuest()) return;
+    let timer = null;
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const loads = role === 'store_owner'
+        ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
+        : [loadConnectionOrdersFromCloud()];
+      await Promise.allSettled(loads);
+      refreshBadges();
+      window.dispatchEvent(new CustomEvent('inv-data-refresh'));
+    };
+    const start = () => { if (!timer) timer = setInterval(tick, 30000); };
+    const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { tick(); start(); } else { stop(); }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+  }, [role, refreshBadges]);
 
   // Show WhatsNew only once onboarding is done (or already done on a returning user).
   useEffect(() => {
@@ -127,8 +185,8 @@ function AppInner({ role, onSwitchRole }) {
     return () => window.removeEventListener('inv-version-update', handler);
   }, []);
 
-  // Tab strip index
-  const [tabIdx, setTabIdx] = useState(0);
+  // Tab strip index — easy-mode driver starts on Route (index 1), else tab 0
+  const [tabIdx, setTabIdx] = useState(() => (role !== 'store_owner' && easyMode ? 1 : 0));
 
   // tabsRef — lets swipe handlers always read the current TABS without re-registering
   const tabsRef = useRef(TABS);
@@ -161,6 +219,13 @@ function AppInner({ role, onSwitchRole }) {
       const d = JSON.parse(localStorage.getItem('inv_density')) || 'comfortable';
       document.body.classList.toggle('density-compact', d === 'compact');
     } catch {}
+  }, []);
+
+  // Redeem a captured invite code once authenticated. AppInner only renders
+  // inside AuthGate, so the user is signed in by the time this runs. Best-effort:
+  // if the cloud isn't reachable the code stays queued and retries next load.
+  useEffect(() => {
+    redeemPendingInvite().catch(() => {});
   }, []);
 
   // Keep document.body, html, and theme-color meta in sync with the app theme.
@@ -362,13 +427,15 @@ function AppInner({ role, onSwitchRole }) {
             }}
           >
             {(role === 'store_owner' ? [
-              <NewRequest  key="so-request" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOOrders    key="so-orders"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SODrivers   key="so-drivers" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ] : [
-              <NewInvoice    key="invoice" onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} />,
-              <InvoiceHistory key="history" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
-              <Products      key="products" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+              <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
+              <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ]).map((child, i) => (
               <div
                 key={i}
@@ -401,8 +468,13 @@ function AppInner({ role, onSwitchRole }) {
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
           )}
-          {overlayPage === 'home'    && <Home    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'so-home'    && <SOHome    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'invoice' && (
+            <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
+          )}
+          {overlayPage === 'so-request' && (
+            <NewRequest onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={goBackFromOverlay} />
+          )}
+          {overlayPage === 'products' && <Products  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'so-reports' && <SOReports onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'marketplace'  && <Marketplace onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'my-listings'  && <MyListings  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -424,21 +496,21 @@ function AppInner({ role, onSwitchRole }) {
 
       {/* Hide top nav on overlay pages — they have their own headers */}
       {overlayPage === null && (
-        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} />
       )}
       <OfflineBanner dark={dark} />
       {shouldShowOnboarding && role !== 'store_owner' && (
         <OnboardingTutorial
           navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('history'); }}
-          onSkip={() => { skipOnboarding(); navigate('history'); }}
+          onComplete={() => { markOnboardingComplete(); navigate('route'); }}
+          onSkip={() => { skipOnboarding(); navigate('route'); }}
         />
       )}
       {shouldShowOnboarding && role === 'store_owner' && (
         <SOOnboardingTutorial
           navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('so-request'); }}
-          onSkip={() => { skipOnboarding(); navigate('so-request'); }}
+          onComplete={() => { markOnboardingComplete(); navigate('so-home'); }}
+          onSkip={() => { skipOnboarding(); navigate('so-home'); }}
         />
       )}
     </div>

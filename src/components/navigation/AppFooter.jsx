@@ -50,7 +50,7 @@ export default function AppFooter({ onNav }) {
           <Pipe C={C} />
           <FooterLink label="About"        onPress={() => onNav?.('about')}    C={C} />
           <Pipe C={C} />
-          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=InvoGo Bug Report', '_blank')} C={C} />
+          <FooterLink label="Report a Bug" onPress={() => window.open('mailto:alomonds@gmail.com?subject=Keiro Bug Report', '_blank')} C={C} />
         </div>
 
         {/* Legal links */}
@@ -60,7 +60,7 @@ export default function AppFooter({ onNav }) {
           <FooterLink label="Terms of Service" onPress={() => onNav?.('terms')} C={C} />
         </div>
 
-        <p style={{ ...s.version, color: C.textLight }}>InvoGo v5.9 · Cloud sync</p>
+        <p style={{ ...s.version, color: C.textLight }}>Keiro v5.9 · Cloud sync</p>
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}

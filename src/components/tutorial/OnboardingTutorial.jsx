@@ -250,7 +250,7 @@ function WelcomeScreen({ dark, accent, onStart, onSkip }) {
           </svg>
         </div>
         <div style={{ fontSize:21, fontWeight:900, letterSpacing:'-0.4px', color: dark ? '#fff' : '#111', marginBottom:8 }}>
-          Welcome to <span style={{ color:accent }}>InvoGo!</span>
+          Welcome to <span style={{ color:accent }}>Keiro!</span>
         </div>
         <div style={{ fontSize:13, color: dark ? 'rgba(255,255,255,0.52)' : 'rgba(0,0,0,0.48)', lineHeight:1.6, marginBottom:24 }}>
           Want a quick tour? We'll show you how everything works in about a minute.
@@ -508,7 +508,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     // ══ STEP 3 — Invoices page ════════════════════════════════════════════════
     async function step3() {
       show(3, 'Invoice history', 'Tap an invoice to expand it and update payment status.');
-      navigate('history');
+      navigate('route');
       clearCursor();
       await sleep(400);
       await waitForUser(false);          // ONE pause — then auto-animate
@@ -534,7 +534,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     // ══ STEP 4 — Store balance ════════════════════════════════════════════════
     async function step4() {
       show(4, 'Store balances', 'Tap a store name to see everything they owe you.');
-      navigate('history');
+      navigate('route');
       clearCursor();
       await sleep(400);
       await waitForUser(false);
@@ -555,7 +555,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
 
       const backBtn = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Back') || b.textContent.includes('←'));
-      if (backBtn) { await tap(backBtn); } else { navigate('history'); }
+      if (backBtn) { await tap(backBtn); } else { navigate('route'); }
       await sleep(250);
       clearCursor();
 
@@ -579,7 +579,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       await sleep(300);
 
       clearCursor();
-      show(5, "You're ready!", 'Tap below to start using InvoGo.');
+      show(5, "You're ready!", 'Tap below to start using Keiro.');
       await waitForUser(true);
     }
 

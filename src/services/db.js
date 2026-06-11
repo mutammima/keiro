@@ -53,14 +53,18 @@ async function noSession() {
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
 export async function getInvoices() {
-  if (await noSession()) return { data: null, error: new Error('no session') };
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
   try {
+    // Explicit owner filter — RLS also lets a store read invoices ADDRESSED to
+    // them (store_user_id), and those must not leak into the own-invoices list.
     const { data, error } = await supabase
       .from('invoices')
       .select(`
         *,
         invoice_items (*)
       `)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) return { data: null, error };
@@ -118,6 +122,9 @@ export async function saveInvoice(invoice) {
         payment_method: invoice.paymentMethod || 'cash',
         payment_status: invoice.paymentStatus || 'unpaid',
         created_at: invoice.createdAt || new Date().toISOString(),
+        // Only include the stamp when the caller resolved one — omitting the
+        // key on a retry/upsert leaves an existing stamp untouched.
+        ...(invoice.storeUserId ? { store_user_id: invoice.storeUserId } : {}),
       }, { onConflict: 'user_id,invoice_number' })
       .select()
       .single();
@@ -992,6 +999,237 @@ export async function claimMarketplaceDemand(id, claimedName) {
       })
       .eq('id', id)
       .eq('status', 'open')          // optimistic-concurrency: only if still open
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+// ── Connections (invite-only driver ↔ store links) ───────────────────────────
+//
+// A connection is created by ONE side as a pending invite carrying a random
+// invite_code. The other side redeems that code, which fills the empty user-id
+// side and flips status to 'active'. See supabase-connections.sql for the RLS.
+
+/** Connections where the current user is the inviter or one of the two sides. */
+export async function getConnections() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connections')
+      .select('*')
+      .or(`invited_by.eq.${userId},driver_user_id.eq.${userId},store_user_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Create a pending invite. The inviter's own side is stamped from the session. */
+export async function createConnection(conn) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connections')
+      .insert({
+        id:             conn.id,
+        invite_code:    conn.inviteCode,
+        inviter_role:   conn.inviterRole,
+        inviter_name:   conn.inviterName || '',
+        invited_by:     userId,
+        status:         'pending',
+        driver_user_id: conn.inviterRole === 'driver'      ? userId : null,
+        store_user_id:  conn.inviterRole === 'store_owner' ? userId : null,
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Redeem an invite code via the redeem_connection RPC (security definer).
+ * RLS hides foreign pending rows from direct table reads, so lookup,
+ * validation, and stamping all happen server-side against the exact code.
+ * Returns the now-active row; redeeming an already-joined connection is a
+ * no-op success for its participants.
+ */
+export async function redeemConnection(code, redeemerName = '') {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .rpc('redeem_connection', { p_code: code, p_name: redeemerName });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Cancel/remove an invite (inviter only, per RLS). */
+export async function deleteConnection(id) {
+  try {
+    const { error } = await supabase.from('connections').delete().eq('id', id);
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+/** The current auth user id (cached), or null. Lets storage layers cache it. */
+export async function whoAmI() {
+  return getCurrentUserId();
+}
+
+/**
+ * Request a connection with a KNOWN counterparty (marketplace flow — their
+ * user id comes from a listing/demand row). Both sides are filled up front;
+ * the row stays 'pending' until the other party accepts. redeemer_name is
+ * pre-filled with the target's display name so both sides render names.
+ */
+export async function requestConnection({ id, inviteCode, inviterRole, inviterName, targetUserId, targetName }) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connections')
+      .insert({
+        id,
+        invite_code:    inviteCode,
+        inviter_role:   inviterRole,
+        inviter_name:   inviterName || '',
+        redeemer_name:  targetName  || '',
+        invited_by:     userId,
+        status:         'pending',
+        driver_user_id: inviterRole === 'driver'      ? userId : targetUserId,
+        store_user_id:  inviterRole === 'store_owner' ? userId : targetUserId,
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Resolve a pending request: 'active' (accept) or 'declined'. Optimistic
+ * concurrency on status = 'pending'; either participant may call per RLS.
+ */
+export async function setConnectionStatus(id, status) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const patch = { status };
+    if (status === 'active') patch.activated_at = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('connections')
+      .update(patch)
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+// ── Connection orders — cross-account orders over an active connection ────────
+// A connected store places an order; the connected driver receives it. RLS:
+// participants read/update; only the store may insert, and only over a live
+// connection that links them to the targeted driver.
+
+/** Orders where the current user is the store or the driver, newest first. */
+export async function getConnectionOrders() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .select('*')
+      .or(`store_user_id.eq.${userId},driver_user_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Insert a new order (store side). The caller must be the store on the row. */
+export async function saveConnectionOrder(o) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .insert({
+        id:             o.id,
+        connection_id:  o.connectionId,
+        store_user_id:  userId,
+        driver_user_id: o.driverUserId,
+        store_name:     o.storeName  || '',
+        driver_name:    o.driverName || '',
+        product_name:   o.productName,
+        quantity:       Number(o.quantity) || 1,
+        price:          Number(o.price)    || 0,
+        delivery_date:  o.deliveryDate || null,
+        notes:          o.notes || '',
+        status:         'pending',
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Invoices ADDRESSED to the current user's store account (stamped with
+ * store_user_id by the driver's app). Read-only by RLS — only the SELECT
+ * policy spans accounts.
+ */
+export async function getSharedInvoices() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        invoice_items (*)
+      `)
+      .eq('store_user_id', userId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Patch an order's status (either party, per RLS) and optionally stamp the
+ * invoice number when the driver delivers.
+ */
+export async function updateConnectionOrder(id, { status, invoiceNumber } = {}) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const patch = { updated_at: new Date().toISOString() };
+    if (status) patch.status = status;
+    if (invoiceNumber != null) patch.invoice_number = invoiceNumber;
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .update(patch)
+      .eq('id', id)
       .select()
       .maybeSingle();
     return { data, error };

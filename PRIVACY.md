@@ -2,8 +2,8 @@
 
 **Last updated: June 8, 2026**
 
-This Privacy Policy explains how InvoGo ("we", "us", the "App") collects, uses,
-and protects information when you use the App. By using InvoGo you agree to the
+This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
+and protects information when you use the App. By using Keiro you agree to the
 practices described here.
 
 > **Note:** This is a starter policy provided as a template. It is not legal
@@ -12,9 +12,9 @@ practices described here.
 
 ## 1. Who we are
 
-InvoGo is a mobile-first invoicing application for delivery drivers and small
-businesses. The App lets you create invoices, track payments, and manage store
-and product information.
+Keiro is a mobile-first platform connecting delivery drivers and stores in
+real time — helping each side see what the other needs and carries, and
+supporting the invoicing and payments that come with those deliveries.
 
 If you have questions about this policy, contact: **[your-email@example.com]**
 
@@ -87,7 +87,7 @@ is 100% secure, and we cannot guarantee absolute security.
 
 ## 9. Children's privacy
 
-InvoGo is not directed to children under 13, and we do not knowingly collect
+Keiro is not directed to children under 13, and we do not knowingly collect
 personal information from them.
 
 ## 10. Changes to this policy

@@ -6,11 +6,28 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
-import { getInvoices, updateInvoicePaymentStatus } from '../utils/storage';
-import { getTotalPaid } from '../utils/paymentStorage';
-import { subtotalOf, getStatus } from '../utils/invoiceUtils';
+import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
+import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
+import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
+
+const MS_DAY = 86400000;
+
+/** Local-midnight Monday of the week containing d. */
+function weekStartOf(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+/** "Jun 2 – Jun 8, 2026" label for the week starting at `start`. */
+function weekLabel(start) {
+  const end = new Date(start.getTime() + 6 * MS_DAY);
+  const a = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const b = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${a} – ${b}`;
+}
 
 export default function StoreBalance({ storeName, onBack }) {
   const { dark } = useTheme();
@@ -20,6 +37,13 @@ export default function StoreBalance({ storeName, onBack }) {
   const [loading, setLoading]   = useState(true);
   const [sharing, setSharing]   = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week…
+  const [, setPayments] = useState(0); // bumped after the payment ledger refreshes
+
+  // Refresh the payment ledger so "received this week" is right on a fresh device.
+  useEffect(() => {
+    loadAllPaymentsFromCloud().then(() => setPayments(v => v + 1)).catch(() => {});
+  }, []);
 
   // Load invoices for this store async
   useEffect(() => {
@@ -42,6 +66,24 @@ export default function StoreBalance({ storeName, onBack }) {
   const lastDelivery = invoices[0]?.date ?? '—';
   const unpaidCount = invoices.filter(i => getStatus(i) === 'unpaid').length;
   const allClear = totalOwed === 0 && invoices.length > 0;
+
+  // ── Weekly statement (Mon–Sun) ───────────────────────────────────────────
+  const weekStart = new Date(weekStartOf(new Date()).getTime() + weekOffset * 7 * MS_DAY);
+  const weekEndMs = weekStart.getTime() + 7 * MS_DAY;
+  const inWeek = (t) => t >= weekStart.getTime() && t < weekEndMs;
+
+  const weekInvoices = invoices.filter(inv => {
+    const t = Date.parse(inv.date || '') || Date.parse(inv.createdAt || inv.created_at || '') || 0;
+    return inWeek(t);
+  });
+  const weekBilled = weekInvoices.reduce((s, i) => s + subtotalOf(i), 0);
+  // Payments logged this week across ALL of this store's invoices — a payment
+  // made this week often settles an invoice billed in an earlier week.
+  const weekReceived = invoices.reduce((sum, inv) =>
+    sum + getPaymentsFor(inv.number || inv.invoice_number)
+      .filter(p => inWeek(Date.parse(p.ts || '') || 0))
+      .reduce((s, p) => s + Number(p.amount), 0)
+  , 0);
 
   // ── Actions ──────────────────────────────────────────────────────────────
   function cycleStatus(number) {
@@ -84,6 +126,31 @@ export default function StoreBalance({ storeName, onBack }) {
     return dark ? STATUS[key]?.dark : STATUS[key]?.light;
   }
 
+  /** Opens WhatsApp with a plain-text statement for the selected week. */
+  function shareStatement() {
+    const invLines = weekInvoices.map(inv => {
+      const n = inv.number || inv.invoice_number;
+      return `#${n} · ${inv.date} · $${subtotalOf(inv).toFixed(2)} (${STATUS[getStatus(inv)]?.label || getStatus(inv)})`;
+    });
+    const biz = getBusinessName();
+    const lines = [
+      `Weekly Statement — ${storeName}`,
+      `Week of ${weekLabel(weekStart)}`,
+      '',
+      ...(invLines.length ? invLines : ['No deliveries this week.']),
+      '',
+      `Deliveries: ${weekInvoices.length}`,
+      `Billed: $${weekBilled.toFixed(2)}`,
+      `Payments received: $${weekReceived.toFixed(2)}`,
+      '',
+      `Outstanding balance: $${totalOwed.toFixed(2)}`,
+      ...(biz ? ['', `— ${biz}`] : []),
+    ];
+    const phoneInv = invoices.find(i => i.storePhone || i.store_phone);
+    const phone = phoneInv ? (phoneInv.storePhone || phoneInv.store_phone) : '';
+    window.open(buildWhatsAppUrl(phone, lines.join('\n')), '_blank');
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ ...s.page, background: C.bg }}>
@@ -119,6 +186,52 @@ export default function StoreBalance({ storeName, onBack }) {
             <span style={s.heroPill}>Last: {lastDelivery}</span>
           </div>
         </div>
+
+        {/* Weekly statement */}
+        {invoices.length > 0 && (
+          <div style={{ ...s.weekCard, background: C.card, borderColor: C.cardBorder }}>
+            <div style={s.weekHead}>
+              <p style={{ ...s.weekTitle, color: C.textMuted }}>Weekly Statement</p>
+              <div style={s.weekNav}>
+                <button
+                  style={{ ...s.weekArrow, color: C.text, background: C.rowBg }}
+                  onClick={() => setWeekOffset(o => o - 1)}
+                  aria-label="Previous week"
+                >‹</button>
+                <button
+                  style={{ ...s.weekArrow, color: C.text, background: C.rowBg, opacity: weekOffset === 0 ? 0.4 : 1 }}
+                  onClick={() => setWeekOffset(o => o + 1)}
+                  disabled={weekOffset === 0}
+                  aria-label="Next week"
+                >›</button>
+              </div>
+            </div>
+            <p style={{ ...s.weekRange, color: C.text }}>
+              {weekLabel(weekStart)}{weekOffset === 0 ? ' · this week' : ''}
+            </p>
+            <div style={s.weekStats}>
+              <div style={s.weekStat}>
+                <span style={{ ...s.weekStatVal, color: C.text }}>{weekInvoices.length}</span>
+                <span style={{ ...s.weekStatLbl, color: C.textMuted }}>Deliveries</span>
+              </div>
+              <div style={s.weekStat}>
+                <span style={{ ...s.weekStatVal, color: C.text }}>${weekBilled.toFixed(2)}</span>
+                <span style={{ ...s.weekStatLbl, color: C.textMuted }}>Billed</span>
+              </div>
+              <div style={s.weekStat}>
+                <span style={{ ...s.weekStatVal, color: weekReceived > 0 ? '#22c55e' : C.text }}>${weekReceived.toFixed(2)}</span>
+                <span style={{ ...s.weekStatLbl, color: C.textMuted }}>Received</span>
+              </div>
+            </div>
+            <button
+              style={{ ...s.weekShareBtn, opacity: weekInvoices.length === 0 && weekReceived === 0 ? 0.5 : 1 }}
+              onClick={shareStatement}
+              disabled={weekInvoices.length === 0 && weekReceived === 0}
+            >
+              Share via WhatsApp
+            </button>
+          </div>
+        )}
 
         {/* Loading / empty / list */}
         {loading ? (
@@ -229,6 +342,32 @@ const s = {
   heroPill: {
     fontSize: 11, fontWeight: 600, padding: '4px 11px',
     borderRadius: 20, background: 'rgba(255,255,255,0.15)',
+  },
+
+  // Weekly statement
+  weekCard: { borderRadius: 18, padding: '16px 18px', border: '1px solid' },
+  weekHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  weekTitle: {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: '0.08em', margin: 0,
+  },
+  weekNav: { display: 'flex', gap: 6 },
+  weekArrow: {
+    width: 32, height: 32, borderRadius: 9, border: 'none',
+    fontSize: 17, fontWeight: 700, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    WebkitTapHighlightColor: 'transparent',
+  },
+  weekRange: { fontSize: 16, fontWeight: 800, margin: '10px 0 14px' },
+  weekStats: { display: 'flex', gap: 8 },
+  weekStat: { flex: 1, display: 'flex', flexDirection: 'column', gap: 2 },
+  weekStatVal: { fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em' },
+  weekStatLbl: { fontSize: 11, fontWeight: 600 },
+  weekShareBtn: {
+    marginTop: 14, width: '100%', height: 44,
+    background: ACCENT, border: 'none', borderRadius: 12,
+    fontSize: 14, fontWeight: 700, color: '#fff',
+    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
 
   // Invoice cards
