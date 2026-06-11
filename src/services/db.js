@@ -53,14 +53,18 @@ async function noSession() {
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
 export async function getInvoices() {
-  if (await noSession()) return { data: null, error: new Error('no session') };
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
   try {
+    // Explicit owner filter — RLS also lets a store read invoices ADDRESSED to
+    // them (store_user_id), and those must not leak into the own-invoices list.
     const { data, error } = await supabase
       .from('invoices')
       .select(`
         *,
         invoice_items (*)
       `)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) return { data: null, error };
@@ -118,6 +122,9 @@ export async function saveInvoice(invoice) {
         payment_method: invoice.paymentMethod || 'cash',
         payment_status: invoice.paymentStatus || 'unpaid',
         created_at: invoice.createdAt || new Date().toISOString(),
+        // Only include the stamp when the caller resolved one — omitting the
+        // key on a retry/upsert leaves an existing stamp untouched.
+        ...(invoice.storeUserId ? { store_user_id: invoice.storeUserId } : {}),
       }, { onConflict: 'user_id,invoice_number' })
       .select()
       .single();
@@ -1070,6 +1077,29 @@ export async function saveConnectionOrder(o) {
       })
       .select()
       .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Invoices ADDRESSED to the current user's store account (stamped with
+ * store_user_id by the driver's app). Read-only by RLS — only the SELECT
+ * policy spans accounts.
+ */
+export async function getSharedInvoices() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        invoice_items (*)
+      `)
+      .eq('store_user_id', userId)
+      .order('created_at', { ascending: false });
     return { data, error };
   } catch (err) {
     return { data: null, error: err };
