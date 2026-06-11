@@ -53,6 +53,8 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
     lastBarcode, productNames,
     handleScan, addItem,
     items, removeItem,
+    suggestions, addSuggestedItem,
+    anomaly,
     editingItem, setEditingItem, handleEditSave,
     showScanner, setShowScanner,
     generating, error,
@@ -297,6 +299,26 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
           {/* Add item */}
           <div data-tutorial="invoice-add-item" className="card-enter-3" style={{ ...s.card, background: C.card, borderColor: C.cardBorder, boxShadow: C.cardShadow }}>
             <p style={{ ...s.sectionLabel, color: C.textMuted }}>Add Item</p>
+
+            {/* Smart order suggestions — frequent items from this store's history */}
+            {suggestions.length > 0 && (
+              <div style={s.pinnedRow}>
+                <span style={{ ...s.pinnedLabel, color: C.textMuted }}>Suggested for {storeName.trim()}</span>
+                <div style={s.chips}>
+                  {suggestions.map(sug => (
+                    <button
+                      key={sug.name.toLowerCase()}
+                      type="button"
+                      onClick={() => addSuggestedItem(sug)}
+                      style={{ ...s.chip, background: C.rowBg, color: C.textSub, border: `1px dashed ${ACCENT}` }}
+                    >
+                      + {sug.name} ×{sug.qty}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={s.productRow}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
@@ -382,6 +404,26 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
               rows={3}
             />
           </div>
+
+          {/* Anomaly warning — non-blocking nudge when the total is far off this store's average */}
+          {anomaly && (
+            <div style={{
+              background: dark ? '#1a0a00' : '#fff7ed',
+              border: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
+              borderRadius: 14, padding: '12px 14px',
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: dark ? '#fbbf24' : '#b45309' }}>
+                This invoice (${items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0).toFixed(2)}) is{' '}
+                {anomaly.direction === 'high'
+                  ? `about ${anomaly.ratio.toFixed(1)}× `
+                  : 'well below '}
+                {storeName.trim()}'s usual ~${anomaly.avg.toFixed(2)} (across {anomaly.count} invoices).
+                Double-check the items before generating.
+              </p>
+            </div>
+          )}
 
           <button
             data-tutorial="invoice-generate"

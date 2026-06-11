@@ -7,9 +7,10 @@
  * async are unchanged.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   getNextInvoiceNumber,
+  getInvoices,
   saveInvoice,
   getProductByBarcode,
   getProductByName,
@@ -27,6 +28,7 @@ import {
   getPinnedStores,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
+import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -89,6 +91,12 @@ export function useInvoiceForm(onGenerated) {
   // Load store names from cloud on mount
   useEffect(() => {
     getStoreNames().then(names => setStoreNames(names || [])).catch(() => {});
+  }, []);
+
+  // Full invoice history — feeds smart order suggestions for the typed store.
+  const [allInvoices, setAllInvoices] = useState([]);
+  useEffect(() => {
+    getInvoices().then(list => setAllInvoices(list || [])).catch(() => {});
   }, []);
 
   // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation)
@@ -237,6 +245,29 @@ export function useInvoiceForm(onGenerated) {
   /** Removes a line item by its unique ID. @param {string} id */
   function removeItem(id) { setItems(prev => prev.filter(i => i.id !== id)); }
 
+  // ── Smart order suggestions ────────────────────────────────────────────────
+  // Frequent items from this store's recent invoices, minus anything already
+  // on the draft. Empty until the typed store name matches a store with ≥2
+  // recent invoices.
+  const suggestions = useMemo(() => {
+    const inDraft = new Set(items.map(i => i.name.trim().toLowerCase()));
+    return buildOrderSuggestions(allInvoices, storeName)
+      .filter(sug => !inDraft.has(sug.name.toLowerCase()));
+  }, [allInvoices, storeName, items]);
+
+  /** One-tap add of a suggested item with its typical qty + last price. */
+  function addSuggestedItem(sug) {
+    setItems(prev => [...prev, { id: uid(), name: sug.name, qty: sug.qty, price: sug.price }]);
+  }
+
+  // ── Anomaly check ──────────────────────────────────────────────────────────
+  // Non-blocking "double-check this" nudge when the draft total lands far
+  // outside the store's historical average (needs ≥3 prior invoices).
+  const anomaly = useMemo(() => {
+    const total = items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+    return checkInvoiceAnomaly(allInvoices, storeName, total);
+  }, [allInvoices, storeName, items]);
+
   /**
    * Applies edits from the EditItemModal and closes the modal.
    * @param {object} updated - The updated item object (must include `.id`).
@@ -332,6 +363,8 @@ export function useInvoiceForm(onGenerated) {
     removeItem,
     editingItem, setEditingItem,
     handleEditSave,
+    suggestions, addSuggestedItem,
+    anomaly,
 
     // UI state
     showScanner, setShowScanner,
