@@ -13,6 +13,7 @@ import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../ho
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
+import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
 
@@ -124,10 +125,46 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
   // Seed from the localStorage cache, then refresh from the cloud (source of
   // truth) so requests created on another device show up here.
   const [bridgeRequests, setBridgeRequests] = useState(() => getBridgeRequests());
+  const [connOrders,     setConnOrders]     = useState(() => getConnectionOrders());
 
   useEffect(() => {
     loadBridgeRequestsFromCloud().then(setBridgeRequests).catch(() => {});
+    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
+
+  // Open cross-account orders addressed to this driver (pending or accepted).
+  const openConnOrders = connOrders.filter(o => o.status === 'pending' || o.status === 'accepted');
+
+  function handleAcceptConnOrder(o) {
+    updateConnectionOrderStatus(o.id, 'accepted');
+    setConnOrders(getConnectionOrders());
+  }
+
+  function handleDeclineConnOrder(o) {
+    updateConnectionOrderStatus(o.id, 'cancelled');
+    setConnOrders(getConnectionOrders());
+  }
+
+  function handleFillFromConnOrder(o) {
+    // Price 0 prompts the driver to set the real sale price unless the store
+    // suggested one. Parking the order id lets handleGenerate flip it to
+    // 'delivered' with the invoice number once the invoice actually saves.
+    const prefill = {
+      storeName: o.storeName || '',
+      notes: o.notes || '',
+      items: [{
+        id:    `co_${Date.now()}`,
+        name:  o.productName,
+        qty:   Number(o.quantity) || 1,
+        price: Number(o.price) || 0,
+      }],
+    };
+    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    if (o.status === 'pending') updateConnectionOrderStatus(o.id, 'accepted');
+    setActiveConnectionOrder(o.id);
+    setConnOrders(getConnectionOrders());
+    onNav('invoice');
+  }
 
   function handleFillFromRequest(req) {
     // Note: price is intentionally omitted so the driver sees "0.00" and is
@@ -523,6 +560,40 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
       </div>
 
       <div style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
+        {/* Cross-account orders from connected stores */}
+        {openConnOrders.length > 0 && (
+          <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
+              🔗 Orders from connected stores ({openConnOrders.length})
+            </p>
+            {openConnOrders.map(o => (
+              <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#1e3a5f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {o.productName} ×{o.quantity}
+                  </div>
+                  <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : '#4a7bbf' }}>
+                    {o.storeName || 'Connected store'}
+                    {o.deliveryDate ? ` · by ${o.deliveryDate}` : ''}
+                    {o.status === 'accepted' ? ' · accepted' : ''}
+                  </div>
+                </div>
+                {o.status === 'pending' && (
+                  <button onClick={() => handleAcceptConnOrder(o)} style={{ flexShrink: 0, height: 34, padding: '0 12px', borderRadius: 9, background: 'none', border: `1.5px solid ${ACCENT}`, color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                    Accept
+                  </button>
+                )}
+                <button onClick={() => handleFillFromConnOrder(o)} style={{ flexShrink: 0, height: 34, padding: '0 14px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                  Fill Invoice
+                </button>
+                <button onClick={() => handleDeclineConnOrder(o)} style={{ flexShrink: 0, background: 'none', border: 'none', color: dark ? 'rgba(255,255,255,0.4)' : '#93c5fd', fontSize: 16, cursor: 'pointer', padding: '0 4px', WebkitTapHighlightColor: 'transparent' }}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Bridge requests — orders pushed from Store Owner role */}
         {bridgeRequests.length > 0 && (
           <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
