@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
+import { getActiveConnections, loadConnectionsFromCloud } from '../../utils/connectionStorage';
+import { sendConnectionOrder } from '../../utils/connectionOrderStorage';
 import { saveMyDemand } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { getCurrentPosition } from '../../utils/geo';
@@ -31,6 +33,7 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
   const [guestWall,     setGuestWall]     = useState(false);
 
   const [drivers, setDrivers] = useState(() => getDrivers());
+  const [conns,   setConns]   = useState(() => getActiveConnections());
 
   // Best-effort store location, stamped on broadcast demand so nearby drivers
   // surface first. Null when the store declines location.
@@ -38,8 +41,14 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
 
   useEffect(() => {
     loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
+    loadConnectionsFromCloud().then(list => setConns((list || []).filter(c => c.status === 'active'))).catch(() => {});
     getCurrentPosition().then(c => { if (c) coords.current = c; }).catch(() => {});
   }, []);
+
+  /** Driver's display name on a connection, from the store's side. */
+  function connDriverName(c) {
+    return (c.inviterRole === 'driver' ? c.inviterName : c.redeemerName) || 'Connected driver';
+  }
 
   function validate() {
     const e = {};
@@ -55,6 +64,30 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
 
     // Guest hard cap: block the save and surface the account-upsell modal.
     if (!canSaveGuestEntry()) { setGuestWall(true); return; }
+
+    // Connected driver selected → the order travels to THEIR account over the
+    // connection (connection_orders), not into this store's private list.
+    if (driverId.startsWith('conn:')) {
+      const conn = conns.find(c => `conn:${c.id}` === driverId);
+      if (conn) {
+        sendConnectionOrder(conn, {
+          productName:  productName.trim(),
+          quantity:     Number(quantity),
+          price:        Number(price) || 0,
+          deliveryDate,
+          notes:        notes.trim(),
+          storeName:    getBusinessName() || 'A store',
+          driverName:   connDriverName(conn),
+        });
+        setSubmitted(true);
+        setTimeout(() => {
+          setProductName(''); setQuantity(''); setPrice(''); setDeliveryDate('');
+          setDriverId(''); setNotes(''); setErrors({}); setSubmitted(false);
+          onNav('so-orders');
+        }, 700);
+        return;
+      }
+    }
 
     const driver = drivers.find(d => d.id === driverId);
     const order = {
@@ -199,7 +232,7 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>Assign a Driver <span style={{ color: C.textMuted, fontWeight: 400, fontSize: 11 }}>optional</span></p>
 
-          {drivers.length === 0 ? (
+          {drivers.length === 0 && conns.length === 0 ? (
             <div style={{ padding: '12px 0' }}>
               <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 10px' }}>
                 No drivers added yet.
@@ -212,16 +245,27 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
               </button>
             </div>
           ) : (
-            <select
-              style={{ ...s.input, ...inp }}
-              value={driverId}
-              onChange={e => setDriverId(e.target.value)}
-            >
-              <option value="">No driver assigned</option>
-              {drivers.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+            <>
+              <select
+                style={{ ...s.input, ...inp }}
+                value={driverId}
+                onChange={e => setDriverId(e.target.value)}
+              >
+                <option value="">No driver assigned</option>
+                {conns.map(c => (
+                  <option key={`conn:${c.id}`} value={`conn:${c.id}`}>🔗 {connDriverName(c)} — connected</option>
+                ))}
+                {drivers.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+              {driverId.startsWith('conn:') && (
+                <p style={{ fontSize: 12, color: C.textMuted, margin: '6px 0 0', lineHeight: 1.5 }}>
+                  This order is sent straight to their Keiro account — you'll see the
+                  status update when they accept and deliver it.
+                </p>
+              )}
+            </>
           )}
         </div>
 
