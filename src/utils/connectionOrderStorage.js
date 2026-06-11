@@ -143,9 +143,15 @@ export function completeActiveConnectionOrder(invoiceNumber) {
 
 /**
  * The connected store account a new invoice should be shared with, or null.
- * Exact when the invoice is being filled from a parked connection order;
- * otherwise a best-effort case-insensitive match of the typed store name
- * against the store-side display name of an active connection.
+ *
+ * Resolution order, strongest signal first:
+ *   1. The parked connection order — its storeUserId came straight from the
+ *      connection, so this is an exact, unambiguous link.
+ *   2. A typed store name that matches EXACTLY ONE active connection by the
+ *      store-side display name. If two connected stores share a name (or none
+ *      match) we return null rather than guess — a wrong stamp would expose the
+ *      driver's invoice to the wrong store account, so we'd rather not share at
+ *      all than share with the wrong party.
  */
 export function resolveConnectedStoreUserId(storeName) {
   const parked = lsGet(ACTIVE_KEY, null);
@@ -155,11 +161,12 @@ export function resolveConnectedStoreUserId(storeName) {
   }
   const target = (storeName || '').trim().toLowerCase();
   if (!target) return null;
-  const conn = getActiveConnections().find(c => {
+  const matches = getActiveConnections().filter(c => {
     const name = (c.inviterRole === 'store_owner' ? c.inviterName : c.redeemerName) || '';
-    return name.trim().toLowerCase() === target;
+    return name.trim().toLowerCase() === target && c.storeUserId;
   });
-  return conn?.storeUserId || null;
+  // Only stamp on an unambiguous single match.
+  return matches.length === 1 ? matches[0].storeUserId : null;
 }
 
 // ── Shared invoices (store side, read-only) ────────────────────────────────────
