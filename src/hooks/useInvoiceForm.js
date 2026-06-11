@@ -29,6 +29,7 @@ import {
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
+import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -314,6 +315,10 @@ export function useInvoiceForm(onGenerated) {
       if (storePhone.trim() || storeAddress.trim()) {
         await saveStoreDetails(storeName.trim(), storePhone.trim(), storeAddress.trim());
       }
+
+      // If this invoice was filled from a connected store's order, flip that
+      // order to 'delivered' with the invoice number so the store sees it.
+      completeActiveConnectionOrder(invoiceNumber);
 
       // Reset form fields
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');

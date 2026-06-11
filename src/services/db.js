@@ -1026,6 +1026,79 @@ export async function deleteConnection(id) {
   }
 }
 
+// ── Connection orders — cross-account orders over an active connection ────────
+// A connected store places an order; the connected driver receives it. RLS:
+// participants read/update; only the store may insert, and only over a live
+// connection that links them to the targeted driver.
+
+/** Orders where the current user is the store or the driver, newest first. */
+export async function getConnectionOrders() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .select('*')
+      .or(`store_user_id.eq.${userId},driver_user_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Insert a new order (store side). The caller must be the store on the row. */
+export async function saveConnectionOrder(o) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .insert({
+        id:             o.id,
+        connection_id:  o.connectionId,
+        store_user_id:  userId,
+        driver_user_id: o.driverUserId,
+        store_name:     o.storeName  || '',
+        driver_name:    o.driverName || '',
+        product_name:   o.productName,
+        quantity:       Number(o.quantity) || 1,
+        price:          Number(o.price)    || 0,
+        delivery_date:  o.deliveryDate || null,
+        notes:          o.notes || '',
+        status:         'pending',
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Patch an order's status (either party, per RLS) and optionally stamp the
+ * invoice number when the driver delivers.
+ */
+export async function updateConnectionOrder(id, { status, invoiceNumber } = {}) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+    const patch = { updated_at: new Date().toISOString() };
+    if (status) patch.status = status;
+    if (invoiceNumber != null) patch.invoice_number = invoiceNumber;
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .update(patch)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
 // ── Business info / settings — kept in localStorage (single-user config) ──────
 // Delegated to storage.js; see getBusinessName / saveBusinessName etc. there.
 

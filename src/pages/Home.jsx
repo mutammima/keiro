@@ -17,6 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { getInvoices, getBusinessName } from '../utils/storage';
 import { getBridgeRequests, loadBridgeRequestsFromCloud } from '../utils/storeOwnerStorage';
+import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../utils/connectionOrderStorage';
 import AppFooter from '../components/navigation/AppFooter';
 import { BarChart } from '../components/dashboard/DashboardCharts';
 import { subtotalOf, getStatus, formatInvoiceDate as dateStr, isOverdue, getFlagDays } from '../utils/invoiceUtils';
@@ -35,9 +36,10 @@ export default function Home({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [invoices, setInvoices] = useState([]);
-  const [requests, setRequests] = useState(() => getBridgeRequests());
-  const [loading,  setLoading]  = useState(true);
+  const [invoices,   setInvoices]   = useState([]);
+  const [requests,   setRequests]   = useState(() => getBridgeRequests());
+  const [connOrders, setConnOrders] = useState(() => getConnectionOrders());
+  const [loading,    setLoading]    = useState(true);
   const bizName = getBusinessName() || 'Keiro';
 
   useEffect(() => {
@@ -46,9 +48,19 @@ export default function Home({ onOpenDrawer, onNav }) {
       setLoading(false);
     });
     loadBridgeRequestsFromCloud().then(setRequests).catch(() => {});
+    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
 
   const flagDays = getFlagDays();
+
+  // Open cross-account orders from connected stores, folded into the same
+  // request-card shape as bridge requests so one surface shows both.
+  const allRequests = [
+    ...connOrders
+      .filter(o => o.status === 'pending' || o.status === 'accepted')
+      .map(o => ({ id: o.id, productName: o.productName, quantity: o.quantity, fromStore: o.storeName || 'Connected store' })),
+    ...requests,
+  ];
 
   // ── Today ─────────────────────────────────────────────────────────────────
   const today          = dateStr(new Date());
@@ -104,9 +116,9 @@ export default function Home({ onOpenDrawer, onNav }) {
         <button onClick={() => onNav('route')} style={s.quickRow(C)}>
           <span style={{ fontSize: 16 }}>📦</span>
           <span style={{ flex: 1, textAlign: 'left' }}>View pending requests</span>
-          {requests.length > 0 && (
+          {allRequests.length > 0 && (
             <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, background: ACCENT, color: '#fff', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              {requests.length}
+              {allRequests.length}
             </span>
           )}
           <span style={{ color: C.textMuted, fontSize: 18 }}>›</span>
@@ -156,7 +168,7 @@ export default function Home({ onOpenDrawer, onNav }) {
             <div className="skeleton-box" style={{ height: 64, borderRadius: 16, background: skelBg }} />
             <div className="skeleton-box" style={{ height: 54, borderRadius: 16, background: skelBg }} />
           </div>
-        ) : (invoices.length === 0 && requests.length === 0) ? (
+        ) : (invoices.length === 0 && allRequests.length === 0) ? (
           /* ── Welcome (brand-new driver) ───────────────────────────────── */
           <>
             <div style={{ textAlign: 'center', padding: '40px 24px 8px' }}>
@@ -195,18 +207,18 @@ export default function Home({ onOpenDrawer, onNav }) {
                 ))}
               </div>
 
-              {/* Incoming store requests */}
-              {requests.length > 0 && (
+              {/* Incoming store requests (bridge + connected-store orders) */}
+              {allRequests.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                  {requests.slice(0, 4).map(req => (
+                  {allRequests.slice(0, 4).map(req => (
                     <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.20)'}` }}>
-                      <span style={{ fontSize: 18, flexShrink: 0 }}>📦</span>
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{req.fromStore ? '🔗' : '📦'}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {req.productName}
                         </div>
                         <div style={{ fontSize: 12, color: C.textMuted, marginTop: 1 }}>
-                          New order request · Qty {req.quantity}
+                          {req.fromStore ? `From ${req.fromStore}` : 'New order request'} · Qty {req.quantity}
                         </div>
                       </div>
                       <button
@@ -217,9 +229,9 @@ export default function Home({ onOpenDrawer, onNav }) {
                       </button>
                     </div>
                   ))}
-                  {requests.length > 4 && (
+                  {allRequests.length > 4 && (
                     <button onClick={() => onNav('route')} style={{ background: 'none', border: 'none', color: ACCENT, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 0', WebkitTapHighlightColor: 'transparent' }}>
-                      View all {requests.length} requests →
+                      View all {allRequests.length} requests →
                     </button>
                   )}
                 </div>
