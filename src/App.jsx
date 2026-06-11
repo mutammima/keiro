@@ -47,6 +47,7 @@ import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import { redeemPendingInvite } from './utils/connectionStorage';
 import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
 import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
+import { isGuest } from './utils/guestMode';
 import './App.css';
 
 // Tab IDs for each role (connection-first navigation)
@@ -147,6 +148,34 @@ function AppInner({ role, onSwitchRole }) {
   useEffect(() => {
     if (BADGE_KEYS.includes(page)) { markSeen(page); refreshBadges(); }
   }, [page, refreshBadges]);
+
+  // ── Lightweight real-time ──────────────────────────────────────────────────
+  // Poll the cross-account tables every 30s while the app is foregrounded and
+  // the user is signed in. Refreshed caches recompute badges and fire
+  // 'inv-data-refresh' so any open cross-account list re-reads. Paused when the
+  // tab is hidden so it stays cheap on Supabase reads and battery. Guests have
+  // no cloud data, so they never poll.
+  useEffect(() => {
+    if (isGuest()) return;
+    let timer = null;
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const loads = role === 'store_owner'
+        ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
+        : [loadConnectionOrdersFromCloud()];
+      await Promise.allSettled(loads);
+      refreshBadges();
+      window.dispatchEvent(new CustomEvent('inv-data-refresh'));
+    };
+    const start = () => { if (!timer) timer = setInterval(tick, 30000); };
+    const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { tick(); start(); } else { stop(); }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+  }, [role, refreshBadges]);
 
   // Show WhatsNew only once onboarding is done (or already done on a returning user).
   useEffect(() => {
