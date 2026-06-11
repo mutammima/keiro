@@ -12,8 +12,9 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getSharedInvoices, loadSharedInvoicesFromCloud } from '../../utils/connectionOrderStorage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -42,11 +43,20 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [orders, setOrders] = useState(() => getOrders());
+  const [orders,     setOrders]     = useState(() => getOrders());
+  const [shared,     setShared]     = useState(() => getSharedInvoices());
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+    loadSharedInvoicesFromCloud().then(setShared).catch(() => {});
   }, []);
+
+  const invTotal = (inv) => (inv.items || []).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+  const payMeta  = (status) => ({
+    label:  STATUS[status]?.label || 'Unpaid',
+    colors: (dark ? STATUS[status]?.dark : STATUS[status]?.light) || {},
+  });
 
   // Only priced orders are billable. Newest first.
   const bills = useMemo(
@@ -61,13 +71,23 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     let billed = 0, outstanding = 0, thisMonth = 0;
-    bills.forEach(b => {
-      billed += b.amount;
-      if (b.status !== 'delivered') outstanding += b.amount;
-      if (orderTime(b) >= monthStart) thisMonth += b.amount;
-    });
+    if (shared.length > 0) {
+      // Real invoices from connected drivers are the source of truth.
+      shared.forEach(inv => {
+        const amt = invTotal(inv);
+        billed += amt;
+        if ((inv.paymentStatus || 'unpaid') !== 'paid') outstanding += amt;
+        if ((Date.parse(inv.createdAt || '') || 0) >= monthStart) thisMonth += amt;
+      });
+    } else {
+      bills.forEach(b => {
+        billed += b.amount;
+        if (b.status !== 'delivered') outstanding += b.amount;
+        if (orderTime(b) >= monthStart) thisMonth += b.amount;
+      });
+    }
     return { billed, outstanding, thisMonth };
-  }, [bills]);
+  }, [bills, shared]); // eslint-disable-line
 
   const statCards = [
     { label: 'Outstanding', value: money(stats.outstanding), color: stats.outstanding > 0 ? C.text : '#22c55e' },
@@ -88,10 +108,10 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
 
         {isGuest() && <GuestBanner />}
 
-        {bills.length === 0 ? (
+        {bills.length === 0 && shared.length === 0 ? (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '32px 18px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 6px' }}>No invoices yet.</p>
-            <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Orders with a price appear here as bills.</p>
+            <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Invoices from your connected drivers appear here automatically.</p>
             <button
               onClick={() => onNav('so-request')}
               style={{ background: ACCENT, border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -111,6 +131,62 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
               ))}
             </div>
 
+            {/* Invoices from connected drivers (read-only, real billing) */}
+            {shared.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, margin: '4px 0 0' }}>
+                  🔗 From your drivers
+                </p>
+                {shared.map(inv => {
+                  const meta = payMeta(inv.paymentStatus);
+                  const isOpen = expandedId === inv.id;
+                  return (
+                    <div key={inv.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, overflow: 'hidden' }}>
+                      <button
+                        onClick={() => setExpandedId(isOpen ? null : inv.id)}
+                        style={{ width: '100%', background: 'none', border: 'none', padding: '12px 14px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                            Invoice #{inv.number}
+                          </div>
+                          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                            {inv.driverName} · {inv.date}{inv.time ? ` · ${inv.time}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{money(invTotal(inv))}</div>
+                          <span style={{ display: 'inline-block', marginTop: 2, fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, background: meta.colors.bg, color: meta.colors.text }}>
+                            {meta.label}
+                          </span>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div style={{ borderTop: `1px solid ${C.divider}`, padding: '10px 14px 12px' }}>
+                          {(inv.items || []).map((item, idx) => (
+                            <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${C.divider}` }}>
+                              <span style={{ flex: 1, fontSize: 13, color: C.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                              <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>{item.qty} × {money(item.price)}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: C.text, minWidth: 56, textAlign: 'right' }}>{money(item.qty * item.price)}</span>
+                            </div>
+                          ))}
+                          {inv.notes && (
+                            <p style={{ fontSize: 12, color: C.textMuted, margin: '8px 0 0', fontStyle: 'italic' }}>"{inv.notes}"</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Order-estimate bills (legacy, same-account orders with a price) */}
+            {bills.length > 0 && shared.length > 0 && (
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, margin: '8px 0 0' }}>
+                Order estimates
+              </p>
+            )}
             {/* Bill list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {bills.map(b => {

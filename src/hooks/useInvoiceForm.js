@@ -29,7 +29,7 @@ import {
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
-import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
+import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -307,6 +307,9 @@ export function useInvoiceForm(onGenerated) {
         paymentMethod,
         paymentStatus: 'unpaid',
         createdAt: new Date().toISOString(),
+        // Share with the connected store account when this invoice came from
+        // their order, or the store name matches an active connection.
+        storeUserId: resolveConnectedStoreUserId(storeName.trim()),
       };
 
       await saveInvoice(invoice);

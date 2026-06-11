@@ -23,6 +23,7 @@
 
 import { lsGet, lsSet } from './storage';
 import { notifySyncError } from './syncNotify';
+import { getActiveConnections } from './connectionStorage';
 import * as db from '../services/db';
 
 const KEY        = 'inv_conn_orders';
@@ -138,4 +139,55 @@ export function completeActiveConnectionOrder(invoiceNumber) {
   if (!parked || !parked.id) return;
   if (Date.now() - (parked.ts || 0) > ACTIVE_TTL_MS) return; // stale — ignore
   updateConnectionOrderStatus(parked.id, 'delivered', { invoiceNumber });
+}
+
+/**
+ * The connected store account a new invoice should be shared with, or null.
+ * Exact when the invoice is being filled from a parked connection order;
+ * otherwise a best-effort case-insensitive match of the typed store name
+ * against the store-side display name of an active connection.
+ */
+export function resolveConnectedStoreUserId(storeName) {
+  const parked = lsGet(ACTIVE_KEY, null);
+  if (parked?.id) {
+    const o = getConnectionOrders().find(x => x.id === parked.id);
+    if (o?.storeUserId) return o.storeUserId;
+  }
+  const target = (storeName || '').trim().toLowerCase();
+  if (!target) return null;
+  const conn = getActiveConnections().find(c => {
+    const name = (c.inviterRole === 'store_owner' ? c.inviterName : c.redeemerName) || '';
+    return name.trim().toLowerCase() === target;
+  });
+  return conn?.storeUserId || null;
+}
+
+// ── Shared invoices (store side, read-only) ────────────────────────────────────
+// Invoices the connected driver stamped with this store's user id. The store
+// can read them (header + items) but never edit — RLS only spans SELECT.
+
+const SHARED_KEY = 'inv_shared_invoices';
+
+export function getSharedInvoices() {
+  return lsGet(SHARED_KEY, []);
+}
+
+/** Pull invoices addressed to this store account; refresh the local cache. */
+export async function loadSharedInvoicesFromCloud() {
+  const { data, error } = await db.getSharedInvoices();
+  if (error || !data) return getSharedInvoices();
+  const mapped = data.map(row => ({
+    id:            row.id,
+    number:        row.invoice_number,
+    driverName:    row.business_name || 'Driver',
+    driverPhone:   row.business_phone || '',
+    date:          row.date,
+    time:          row.time || '',
+    notes:         row.notes || '',
+    paymentStatus: row.payment_status || 'unpaid',
+    createdAt:     row.created_at,
+    items: (row.invoice_items || []).map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
+  }));
+  lsSet(SHARED_KEY, mapped);
+  return mapped;
 }
