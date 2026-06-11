@@ -66,8 +66,101 @@ export function getActiveConnections() {
   return getConnections().filter(c => c.status === 'active');
 }
 
+/**
+ * One-sided pending CODE invites (one user-id side still empty). RLS means
+ * any one-sided pending row we can read is our own. Both-sides-filled pending
+ * rows are connection REQUESTS — see the request selectors below.
+ */
 export function getPendingInvites() {
-  return getConnections().filter(c => c.status === 'pending');
+  return getConnections().filter(c =>
+    c.status === 'pending' && (!c.driverUserId || !c.storeUserId)
+  );
+}
+
+// ── Auth uid cache (request direction needs to know who "me" is) ──────────────
+
+const UID_KEY = 'inv_auth_uid';
+
+export function getCachedUid() {
+  return lsGet(UID_KEY, null);
+}
+
+// ── Connection requests (marketplace flow — counterparty uid known) ───────────
+
+function pendingRequests() {
+  return getConnections().filter(c =>
+    c.status === 'pending' && c.driverUserId && c.storeUserId
+  );
+}
+
+/** Requests someone else sent me — show Accept / Decline. */
+export function getIncomingRequests() {
+  const me = getCachedUid();
+  return pendingRequests().filter(c => me && c.invitedBy && c.invitedBy !== me);
+}
+
+/** Requests I sent that the other party hasn't answered yet. */
+export function getOutgoingRequests() {
+  const me = getCachedUid();
+  return pendingRequests().filter(c => !me || !c.invitedBy || c.invitedBy === me);
+}
+
+/** Any non-declined connection (active, invite, or request) with this user. */
+export function findConnectionWith(targetUserId) {
+  if (!targetUserId) return null;
+  return getConnections().find(c =>
+    c.status !== 'declined' &&
+    (c.driverUserId === targetUserId || c.storeUserId === targetUserId)
+  ) || null;
+}
+
+/**
+ * Request a connection with a known counterparty (from a marketplace row).
+ * Cloud-first: a request that never reaches the cloud is useless, so on
+ * failure the optimistic row is rolled back and null is returned.
+ */
+export async function requestConnection(myRole, target, myName = '') {
+  const existing = findConnectionWith(target.userId);
+  if (existing) return existing;
+
+  const conn = {
+    id:           `conn_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+    inviteCode:   genInviteCode(),
+    inviterRole:  myRole,
+    inviterName:  myName,
+    redeemerName: target.name || '',
+    driverUserId: myRole === 'driver'      ? getCachedUid() : target.userId,
+    storeUserId:  myRole === 'store_owner' ? getCachedUid() : target.userId,
+    status:       'pending',
+    invitedBy:    getCachedUid(),
+    createdAt:    new Date().toISOString(),
+    activatedAt:  null,
+  };
+  upsertLocal(conn);
+
+  const { data, error } = await db.requestConnection({
+    id: conn.id, inviteCode: conn.inviteCode, inviterRole: myRole,
+    inviterName: myName, targetUserId: target.userId, targetName: target.name || '',
+  });
+  if (error || !data) {
+    console.error('requestConnection cloud error', error);
+    lsSet('inv_connections', getConnections().filter(c => c.id !== conn.id));
+    return null;
+  }
+  const mapped = mapRow(data);
+  upsertLocal(mapped);
+  return mapped;
+}
+
+/** Accept ('active') or decline a pending request. Returns true on success. */
+export async function respondToRequest(id, accept) {
+  const { data, error } = await db.setConnectionStatus(id, accept ? 'active' : 'declined');
+  if (error || !data) {
+    console.error('respondToRequest cloud error', error);
+    return false;
+  }
+  upsertLocal(mapRow(data));
+  return true;
 }
 
 function mapRow(row) {
@@ -88,6 +181,9 @@ function mapRow(row) {
 
 /** Pull the user's connections from the cloud and refresh the local cache. */
 export async function loadConnectionsFromCloud() {
+  // Cache the auth uid alongside — request direction (incoming vs outgoing)
+  // needs to know who "me" is without an async call in render code.
+  try { const uid = await db.whoAmI(); if (uid) lsSet('inv_auth_uid', uid); } catch {}
   const { data, error } = await db.getConnections();
   if (error || !data) return getConnections();
   const mapped = data.map(mapRow);
