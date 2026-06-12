@@ -8,9 +8,12 @@
 //   • index.html is always fetched network-first (never served stale from cache)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'invoicego-v7';
+const CACHE_NAME = 'keiro-v8';
 
+// '/' (the app shell) is precached so an installed PWA can cold-start with no
+// network — without it the offline fallback below had nothing to serve.
 const PRECACHE_URLS = [
+  '/',
   '/manifest.json',
 ];
 
@@ -58,11 +61,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Always fetch index.html fresh from the network
+  // Always fetch index.html fresh from the network, but keep the latest good
+  // copy in cache so a cold offline launch still gets an app shell.
   if (url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
-        .catch(() => caches.match('/index.html'))
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put('/', clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/').then((c) => c || caches.match('/index.html')))
     );
     return;
   }
