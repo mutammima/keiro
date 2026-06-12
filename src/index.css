@@ -1,8 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; }
 
-/* Smooth theme transitions — no !important so inline transitions (e.g. drawer slide) aren't overridden */
+/* Smooth theme transitions — no !important so inline transitions (e.g. drawer slide) aren't overridden.
+   Kept short: this applies to EVERY element, so long durations make taps on
+   status badges / filter pills feel laggy and cost a full-tree recalc on
+   mid-range phones during theme changes. */
 *, *::before, *::after {
-  transition: background-color 1s ease, border-color 1s ease, color 0.6s ease;
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.25s ease;
 }
 
 html {
