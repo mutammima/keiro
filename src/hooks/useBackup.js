@@ -36,6 +36,10 @@ const EXCLUDE_KEYS = new Set([
   // Marketplace caches are cloud-sourced, cross-user snapshots — not this user's
   // own data. Backing them up would capture other users' listings / orders.
   'inv_mkt_my_listings', 'inv_mkt_listings', 'inv_mkt_demand',
+  // Cached auth uid of whoever was signed in at export time. Restoring it onto
+  // a different account flips connection requests between incoming/outgoing
+  // until the next cloud refresh re-caches the right uid.
+  'inv_auth_uid',
 ]);
 
 /**
@@ -107,7 +111,12 @@ export function useBackup() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (typeof data !== 'object' || !data['inv_list']) {
+        // A valid backup is any object carrying at least one inv_ key —
+        // requiring inv_list specifically rejected store-owner backups
+        // (no invoices ever created ⇒ no inv_list key in the export).
+        const hasAppData = data && typeof data === 'object' &&
+          Object.keys(data).some(k => k.startsWith('inv_'));
+        if (!hasAppData) {
           setBackupMsg('Invalid backup file.'); return;
         }
         Object.entries(data).forEach(([k, v]) => {
