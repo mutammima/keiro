@@ -35,11 +35,18 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
   const [connOrders,    setConnOrders]    = useState(() => getConnectionOrders());
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [expandedId,    setExpandedId]    = useState(null);
+  // Loading only matters when there's no cached data to paint (fresh device) —
+  // otherwise the cache renders instantly and the cloud refresh lands silently.
+  const [loading, setLoading] = useState(
+    () => getOrders().length === 0 && getConnectionOrders().length === 0
+  );
 
   // Fetch latest from cloud on mount (syncs localStorage cache too)
   useEffect(() => {
-    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
-    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
+    Promise.allSettled([
+      loadOrdersFromCloud().then(list => setOrders(list)),
+      loadConnectionOrdersFromCloud().then(setConnOrders),
+    ]).then(() => setLoading(false));
   }, []);
 
   // Live-update when the foreground poll refreshes the caches (App dispatches).
@@ -126,7 +133,9 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
       {/* List */}
       <div style={{ padding: '8px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {visible.length === 0 ? (
+        {loading && visible.length === 0 ? (
+          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading orders…</p>
+        ) : visible.length === 0 ? (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
             <p style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>No orders yet</p>
             <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 20px' }}>
