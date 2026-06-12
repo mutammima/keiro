@@ -123,7 +123,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
       <div style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Connect a driver (invite-only) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
+        <div data-tutorial="so-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a driver</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>

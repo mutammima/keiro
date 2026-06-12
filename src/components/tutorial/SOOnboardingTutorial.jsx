@@ -1,6 +1,7 @@
 /**
  * SOOnboardingTutorial — Store Owner onboarding.
- * Fluid, non-blocking walkthrough of Request -> Orders -> Drivers.
+ * Fluid walkthrough of Request -> Orders -> Drivers & connections ->
+ * Dashboard -> Invoices.
  *
  * Props:
  *   navigate(page)    -- app navigation
@@ -13,7 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { setTutorialActive } from '../../utils/tutorialState';
 
-const TOTAL     = 5;
+const TOTAL     = 6;
 const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
 const BLOCK_Z   = 9100;
@@ -394,7 +395,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
 
     // == STEP 1 -- New Request ================================================
     async function step1() {
-      show(1, 'Place a delivery request', 'Fill in what you need, pick a date, and your driver gets notified.');
+      show(1, 'Place a delivery request', 'Fill in what you need, pick a date, and assign a driver — connected drivers get it straight in their app.');
       navigate('so-request');
       clearCursor();
       await sleep(400);
@@ -492,12 +493,29 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       await waitForUser(true);
     }
 
-    // == STEP 3 -- Drivers ====================================================
+    // == STEP 3 -- Drivers & connections ======================================
     async function step3() {
-      show(3, 'Manage your drivers', 'Add drivers and list what they carry so you always order from the right person.');
+      show(3, 'Connect your drivers', 'Invite a driver with a code — once linked, your requests go straight to their app and their invoices flow back to you.');
       navigate('so-drivers');
       clearCursor();
       await sleep(500);
+
+      // Point at the invite card without tapping — a real tap would generate
+      // a live invite code.
+      const connectCard = document.querySelector('[data-tutorial="so-connect-card"]');
+      if (connectCard) {
+        const r = connectCard.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+        await moveTo(connectCard);
+        setCursorPulse(true);
+        await sleep(600);
+        setCursorPulse(false);
+      }
+      await waitForUser(false);
+      if (cancelled) return;
+
+      clearCursor();
+      show(3, 'Or keep simple contacts', 'No Keiro account needed — add drivers by name to organise your requests. Watch:');
       await waitForUser(false);
       if (cancelled) return;
 
@@ -523,7 +541,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       }
 
       clearCursor();
-      show(3, 'Driver added!', 'John Smith is in your directory. Assign them when placing a request.');
+      show(3, 'Driver added!', 'John Smith is in your directory. Need a new driver? Browse the Marketplace from the menu.');
       await waitForUser(true);
     }
 
@@ -553,20 +571,33 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
       setRect(null);
       clearCursor();
 
-      show(4, 'Order summary', 'Pending, accepted, and delivered counts — plus your most-ordered products, all in one place.');
+      show(4, 'Order summary', 'Pending, accepted, and delivered counts — plus your most-ordered products. Inventory Pulse flags products due for a reorder based on your rhythm.');
       await waitForUser(true);
     }
 
-    // == STEP 5 -- Done! ======================================================
+    // == STEP 5 -- Invoices ===================================================
     async function step5() {
-      show(5, "You're all set!", "Your first request is in Orders and John Smith is in Drivers. Start ordering!");
+      show(5, 'Billing, in one place', 'Invoices from your connected drivers appear here automatically — items, totals, and live Paid · Unpaid · Partial status.');
+      navigate('so-invoices');
+      clearCursor();
+      await sleep(450);
+      await waitForUser(false);
+      if (cancelled) return;
+
+      show(5, 'Track what you owe', 'Outstanding and monthly totals sit up top, and priced orders show here as bills too — so nothing slips.');
+      await waitForUser(true);
+    }
+
+    // == STEP 6 -- Done! ======================================================
+    async function step6() {
+      show(6, "You're all set!", 'Your first request is in Orders and John Smith is in Drivers. Connect a real driver to unlock automatic ordering and billing.');
       navigate('so-request');
       clearCursor();
       await sleep(300);
       await waitForUser(true);
     }
 
-    const steps = [step1, step2, step3, step4, step5];
+    const steps = [step1, step2, step3, step4, step5, step6];
 
     async function runStep() {
       const fn = steps[stepIdx];
