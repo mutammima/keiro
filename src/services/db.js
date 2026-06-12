@@ -70,11 +70,20 @@ export async function getInvoices() {
     if (error) return { data: null, error };
 
     // Reshape to match existing app shape: { items: [...], number, ... }
+    // Every snake_case column the UI reads gets a camelCase twin so consumers
+    // never need the `inv.storeName || inv.store_name` dance (and the ones
+    // that forgot it — pin toggle, Reports today list — work on cloud rows).
     const shaped = (data || []).map(inv => ({
       ...inv,
       number: inv.invoice_number,
+      storeName: inv.store_name || '',
+      storePhone: inv.store_phone || '',
+      storeAddress: inv.store_address || '',
+      businessName: inv.business_name || '',
+      businessPhone: inv.business_phone || '',
       customerName: inv.customer_name || '',
       paymentMethod: inv.payment_method || 'cash',
+      paymentStatus: inv.payment_status || 'unpaid',
       items: (inv.invoice_items || []).map(item => ({
         id: item.id,
         name: item.name,
