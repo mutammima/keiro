@@ -24,7 +24,6 @@ export default function LoginScreen({ onLogin, onGuest }) {
   function toEmail(u) { return u.trim().toLowerCase() + '@invoicego.app'; }
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
-  const [info, setInfo]         = useState('');
 
   const passkeyAvailable = isPasskeySupported();
 
@@ -39,7 +38,7 @@ export default function LoginScreen({ onLogin, onGuest }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(''); setInfo('');
+    setError('');
     if (!username.trim() || !password) {
       setError('Please enter your username and password.'); return;
     }
@@ -75,7 +74,7 @@ export default function LoginScreen({ onLogin, onGuest }) {
   }
 
   async function handlePasskey() {
-    setError(''); setInfo('');
+    setError('');
     setLoading(true);
     try {
       const { user, error: pkErr } = await signInWithPasskey();
@@ -99,12 +98,7 @@ export default function LoginScreen({ onLogin, onGuest }) {
           <span style={{ ...s.tagline, color: C.textMuted }}>Streamlining the way you do business.</span>
         </div>
 
-        {/* Info / error banners */}
-        {info && (
-          <div style={{ ...s.banner, background: C.successBg, color: C.successText }}>
-            {info}
-          </div>
-        )}
+        {/* Error banner */}
         {error && (
           <div style={{ ...s.banner, background: dark ? '#2d0a0a' : '#fef2f2', color: C.danger }}>
             {error}
@@ -191,7 +185,7 @@ export default function LoginScreen({ onLogin, onGuest }) {
           {' '}
           <button
             style={{ ...s.toggleBtn, color: ACCENT }}
-            onClick={() => { setMode(m => m === 'signin' ? 'signup' : 'signin'); setError(''); setInfo(''); }}
+            onClick={() => { setMode(m => m === 'signin' ? 'signup' : 'signin'); setError(''); }}
           >
             {mode === 'signin' ? 'Create account' : 'Sign in'}
           </button>

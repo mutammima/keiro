@@ -14,6 +14,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
 function uid() { return `mkt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`; }
@@ -54,13 +55,27 @@ export function saveMyListing(listing) {
   const idx = list.findIndex(l => l.id === withId.id);
   if (idx >= 0) list[idx] = withId; else list.unshift(withId);
   lsSet(K_MY_LISTINGS, list);
-  db.saveMarketplaceListing(withId).catch(e => console.error('saveMarketplaceListing cloud error', e));
+  db.saveMarketplaceListing(withId)
+    .then(({ error }) => {
+      if (error) {
+        console.error('saveMarketplaceListing cloud error', error);
+        notifySyncError('Listing saved on this device but never reached the marketplace — stores cannot see it yet. Try saving again online.');
+      }
+    })
+    .catch(e => console.error('saveMarketplaceListing cloud error', e));
   return withId;
 }
 
 export function deleteMyListing(id) {
   lsSet(K_MY_LISTINGS, getMyListings().filter(l => l.id !== id));
-  db.deleteMarketplaceListing(id).catch(e => console.error('deleteMarketplaceListing cloud error', e));
+  db.deleteMarketplaceListing(id)
+    .then(({ error }) => {
+      if (error) {
+        console.error('deleteMarketplaceListing cloud error', error);
+        notifySyncError('Listing removed on this device but is still live in the marketplace — remove it again while online.');
+      }
+    })
+    .catch(e => console.error('deleteMarketplaceListing cloud error', e));
 }
 
 export async function loadMyListingsFromCloud() {
@@ -105,7 +120,14 @@ function mapListingRow(row) {
 
 export function saveMyDemand(demand) {
   const withId = demand.id ? demand : { ...demand, id: uid() };
-  db.saveMarketplaceDemand(withId).catch(e => console.error('saveMarketplaceDemand cloud error', e));
+  db.saveMarketplaceDemand(withId)
+    .then(({ error }) => {
+      if (error) {
+        console.error('saveMarketplaceDemand cloud error', error);
+        notifySyncError('Order broadcast never reached the marketplace — drivers cannot see it. Try again while online.');
+      }
+    })
+    .catch(e => console.error('saveMarketplaceDemand cloud error', e));
   return withId;
 }
 

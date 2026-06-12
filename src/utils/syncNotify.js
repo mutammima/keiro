@@ -12,9 +12,11 @@
 
 export const SYNC_ERROR_EVENT = 'inv-sync-error';
 
-/** Default message for a failed critical cloud write. */
+/** Default message for a failed critical cloud write. Honest about retry:
+ *  there is no background queue — new entries re-sync on the next signed-in
+ *  app load (migration); nothing retries silently in the meantime. */
 export const DEFAULT_SYNC_ERROR_MSG =
-  'Saved on this device but could not sync to the cloud. It will retry when your connection is restored.';
+  'Saved on this device but could not reach the cloud. It will sync the next time you open the app signed in.';
 
 /**
  * Dispatches a sync-error event that the global SyncToast renders.

@@ -13,6 +13,7 @@ import { saveMyDemand } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { getCurrentPosition } from '../../utils/geo';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
+import { isTutorialActive } from '../../utils/tutorialState';
 import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
@@ -109,8 +110,10 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
 
     // No driver assigned → broadcast this order to the marketplace so any driver
     // who carries the product can discover and accept it. Assigning a specific
-    // driver keeps it a private handoff (not published).
-    if (!driverId) {
+    // driver keeps it a private handoff (not published). Tutorial demo requests
+    // must never reach the shared marketplace — every new store owner's tour
+    // would otherwise publish a junk open order that real drivers can claim.
+    if (!driverId && !isTutorialActive()) {
       saveMyDemand({
         id: order.id,
         storeName:   getBusinessName()  || 'A store',

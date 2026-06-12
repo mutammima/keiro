@@ -12,6 +12,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
 // ─── Role ─────────────────────────────────────────────────────────────────────
@@ -69,7 +70,14 @@ export function saveOrder(order) {
   if (idx >= 0) orders[idx] = order;
   else orders.unshift(order);
   lsSet('inv_so_orders', orders);
-  db.saveSOOrder(order).catch(e => console.error('saveSOOrder cloud error', e));
+  db.saveSOOrder(order)
+    .then(({ error }) => {
+      if (error) {
+        console.error('saveSOOrder cloud error', error);
+        notifySyncError('Order saved on this device but could not reach the cloud — other devices will not see it until it syncs.');
+      }
+    })
+    .catch(e => console.error('saveSOOrder cloud error', e));
 }
 
 export function updateOrderStatus(id, status) {
@@ -78,12 +86,16 @@ export function updateOrderStatus(id, status) {
   if (idx < 0) return;
   orders[idx] = { ...orders[idx], status };
   lsSet('inv_so_orders', orders);
-  db.updateSOOrderStatus(id, status).catch(e => console.error('updateSOOrderStatus cloud error', e));
+  db.updateSOOrderStatus(id, status)
+    .then(({ error }) => { if (error) console.error('updateSOOrderStatus cloud error', error); })
+    .catch(e => console.error('updateSOOrderStatus cloud error', e));
 }
 
 export function deleteOrder(id) {
   lsSet('inv_so_orders', getOrders().filter(o => o.id !== id));
-  db.deleteSOOrder(id).catch(e => console.error('deleteSOOrder cloud error', e));
+  db.deleteSOOrder(id)
+    .then(({ error }) => { if (error) console.error('deleteSOOrder cloud error', error); })
+    .catch(e => console.error('deleteSOOrder cloud error', e));
 }
 
 /**
@@ -131,12 +143,16 @@ export function saveDriver(driver) {
   if (idx >= 0) drivers[idx] = driver;
   else drivers.unshift(driver);
   lsSet('inv_so_drivers', drivers);
-  db.saveSODriver(driver).catch(e => console.error('saveSODriver cloud error', e));
+  db.saveSODriver(driver)
+    .then(({ error }) => { if (error) console.error('saveSODriver cloud error', error); })
+    .catch(e => console.error('saveSODriver cloud error', e));
 }
 
 export function deleteDriver(id) {
   lsSet('inv_so_drivers', getDrivers().filter(d => d.id !== id));
-  db.deleteSODriver(id).catch(e => console.error('deleteSODriver cloud error', e));
+  db.deleteSODriver(id)
+    .then(({ error }) => { if (error) console.error('deleteSODriver cloud error', error); })
+    .catch(e => console.error('deleteSODriver cloud error', e));
 }
 
 /**
@@ -186,7 +202,9 @@ export function bridgeOrderToDriver(order) {
   requests.unshift(req);
   lsSet('inv_bridge_requests', requests);
   // …then push to the cloud so the Driver role sees it on any device.
-  db.saveBridgeRequest(req).catch(e => console.error('saveBridgeRequest cloud error', e));
+  db.saveBridgeRequest(req)
+    .then(({ error }) => { if (error) console.error('saveBridgeRequest cloud error', error); })
+    .catch(e => console.error('saveBridgeRequest cloud error', e));
 }
 
 export function getBridgeRequests() {
@@ -218,5 +236,7 @@ export function dismissBridgeRequest(id) {
   // Local-first remove so the dismissal survives offline…
   lsSet('inv_bridge_requests', getBridgeRequests().filter(r => r.id !== id));
   // …then best-effort cloud delete so it doesn't reappear on next sync.
-  db.deleteBridgeRequest(id).catch(e => console.error('deleteBridgeRequest cloud error', e));
+  db.deleteBridgeRequest(id)
+    .then(({ error }) => { if (error) console.error('deleteBridgeRequest cloud error', error); })
+    .catch(e => console.error('deleteBridgeRequest cloud error', e));
 }

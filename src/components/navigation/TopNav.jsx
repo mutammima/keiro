@@ -23,7 +23,7 @@ const OWNER_TABS = [
   { id: 'so-invoices', label: 'Invoices', tutorial: null },
 ];
 
-export const TOP_NAV_HEIGHT = 40; // px, not counting safe-area
+export const TOP_NAV_HEIGHT = 44; // px, not counting safe-area — 44 = minimum comfortable tap target
 
 export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {} }) {
   const { dark } = useTheme();

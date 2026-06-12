@@ -33,9 +33,13 @@ export default function SOReports({ onOpenDrawer, onNav }) {
   const C = dark ? DARK : LIGHT;
 
   const [orders, setOrders] = useState(() => getOrders());
+  const [loading, setLoading] = useState(() => getOrders().length === 0);
 
   useEffect(() => {
-    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+    loadOrdersFromCloud()
+      .then(list => setOrders(list))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const stats = useMemo(() => {
@@ -126,7 +130,9 @@ export default function SOReports({ onOpenDrawer, onNav }) {
 
         {isGuest() && <GuestBanner />}
 
-        {orders.length === 0 ? (
+        {loading && orders.length === 0 ? (
+          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 40 }}>Loading reports…</p>
+        ) : orders.length === 0 ? (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '28px 18px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 14px' }}>No orders yet — reports will appear once you start requesting.</p>
             <button

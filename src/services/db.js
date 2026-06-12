@@ -70,11 +70,20 @@ export async function getInvoices() {
     if (error) return { data: null, error };
 
     // Reshape to match existing app shape: { items: [...], number, ... }
+    // Every snake_case column the UI reads gets a camelCase twin so consumers
+    // never need the `inv.storeName || inv.store_name` dance (and the ones
+    // that forgot it — pin toggle, Reports today list — work on cloud rows).
     const shaped = (data || []).map(inv => ({
       ...inv,
       number: inv.invoice_number,
+      storeName: inv.store_name || '',
+      storePhone: inv.store_phone || '',
+      storeAddress: inv.store_address || '',
+      businessName: inv.business_name || '',
+      businessPhone: inv.business_phone || '',
       customerName: inv.customer_name || '',
       paymentMethod: inv.payment_method || 'cash',
+      paymentStatus: inv.payment_status || 'unpaid',
       items: (inv.invoice_items || []).map(item => ({
         id: item.id,
         name: item.name,
@@ -171,12 +180,18 @@ export async function saveInvoice(invoice) {
  */
 export async function deleteInvoice(number) {
   try {
-    // Delete items first (if no CASCADE defined)
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    // Scope by user_id: RLS also lets this account SELECT invoices ADDRESSED
+    // to it (store_user_id), so an unscoped lookup could match a counterparty
+    // row with the same number and .single() would error, skipping cleanup.
     const { data: invRow } = await supabase
       .from('invoices')
       .select('id')
+      .eq('user_id', userId)
       .eq('invoice_number', number)
-      .single();
+      .maybeSingle();
 
     if (invRow?.id) {
       await supabase.from('invoice_items').delete().eq('invoice_id', invRow.id);
@@ -185,6 +200,7 @@ export async function deleteInvoice(number) {
     const { error } = await supabase
       .from('invoices')
       .delete()
+      .eq('user_id', userId)
       .eq('invoice_number', number);
 
     return { data: null, error };
@@ -201,12 +217,15 @@ export async function deleteInvoice(number) {
  */
 export async function updateInvoicePaymentStatus(number, status) {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('invoices')
       .update({ payment_status: status })
+      .eq('user_id', userId)
       .eq('invoice_number', number)
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   } catch (err) {
@@ -220,9 +239,15 @@ export async function updateInvoicePaymentStatus(number, status) {
  */
 export async function getNextInvoiceNumber() {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: INVOICE_NUMBER_START + 1, error: new Error('no session') };
+    // Scope to OWN invoices: the SELECT policy also exposes invoices addressed
+    // to this account (store_user_id), and without the filter a dual-role user
+    // would adopt their counterparty driver's numbering sequence.
     const { data, error } = await supabase
       .from('invoices')
       .select('invoice_number')
+      .eq('user_id', userId)
       .order('invoice_number', { ascending: false })
       .limit(1);
 

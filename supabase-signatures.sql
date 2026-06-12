@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- InvoGo Invoice Signatures — private, per-user proof-of-delivery storage
+-- Keiro Invoice Signatures — private, per-user proof-of-delivery storage
 --
 -- HOW TO RUN: Supabase Dashboard → SQL Editor → New query → paste this → Run.
 -- Safe to re-run (everything is `if not exists` / `drop policy if exists`).

@@ -202,6 +202,9 @@ export default function Reports({ onOpenDrawer, onNav, embedded }) {
         </div>
 
         {/* Today panel — shown when Today tab is active */}
+        {range === 'today' && loading && (
+          <p style={{ color: C.textMuted, textAlign: 'center', paddingTop: 40 }}>Loading…</p>
+        )}
         {range === 'today' && !loading && (
           <div style={{
             borderRadius: 20,

@@ -80,7 +80,7 @@ export async function saveInvoice(invoice) {
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, using localStorage fallback', error);
-    notifySyncError('Invoice saved on this device but could not sync to the cloud. It will retry when your connection is restored.');
+    notifySyncError('Invoice saved on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
   }
   return { error };
 }
@@ -109,9 +109,14 @@ export async function deleteInvoice(number) {
   // Local-first: remove immediately so the delete survives offline
   const list = lsGet('inv_list', []);
   lsSet('inv_list', list.filter(i => (i.number || i.invoice_number) !== number));
-  // Best-effort cloud delete
+  // Best-effort cloud delete — there is no retry queue, so a failure here
+  // means the cloud copy survives and the invoice reappears on next load.
+  // Tell the user instead of failing silently.
   const { error } = await db.deleteInvoice(number);
-  if (error) console.error('deleteInvoice error', error);
+  if (error) {
+    console.error('deleteInvoice error', error);
+    notifySyncError('Invoice removed on this device but could not be deleted from the cloud — it may reappear after the next sync. Delete it again while online.');
+  }
 }
 
 /**
@@ -130,9 +135,13 @@ export async function updateInvoicePaymentStatus(number, status) {
       : i
   );
   lsSet('inv_list', updated);
-  // Best-effort cloud sync
+  // Best-effort cloud sync — a silent failure here reverts the status on the
+  // next cloud load (and the store side never sees the change), so surface it.
   const { error } = await db.updateInvoicePaymentStatus(number, status);
-  if (error) console.error('updateInvoicePaymentStatus error', error);
+  if (error) {
+    console.error('updateInvoicePaymentStatus error', error);
+    notifySyncError('Payment status changed on this device but could not reach the cloud — other devices keep the old status until you change it again while online.');
+  }
 }
 
 // ─── Product Catalog ──────────────────────────────────────────────────────────

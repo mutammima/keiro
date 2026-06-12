@@ -19,7 +19,7 @@ import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
 import useOnboarding from './hooks/useOnboarding';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
-import TopNav from './components/navigation/TopNav';
+import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
 import StoreMap from './pages/StoreMap';
 import Notes from './pages/Notes';
 import Home from './pages/Home';
@@ -82,7 +82,7 @@ function OfflineBanner({ dark }) {
       zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
       paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
     }}>
-      You're offline — changes save on this device and sync when you're back online
+      You're offline — new invoices and orders save on this device and sync next time you open the app online. Status changes and deletes need a connection to reach other devices.
     </div>
   );
 }
@@ -419,7 +419,7 @@ function AppInner({ role, onSwitchRole }) {
               display: 'flex',
               width: `${TABS.length * 100}%`,
               height: '100%',
-              paddingTop: '40px',
+              paddingTop: `${TOP_NAV_HEIGHT}px`, // must track the fixed TopNav height
               transform: `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
               transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
               willChange: 'transform',

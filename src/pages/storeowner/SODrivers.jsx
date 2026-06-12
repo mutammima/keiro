@@ -24,11 +24,17 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
   const [showAdd,       setShowAdd]       = useState(false);
   const [conns,         setConns]         = useState(() => getConnections());
   const [showInvite,    setShowInvite]    = useState(false);
+  // Loading line only on a fresh device with nothing cached to paint.
+  const [loading, setLoading] = useState(
+    () => getDrivers().length === 0 && getConnections().length === 0
+  );
 
   // Fetch latest from cloud on mount
   useEffect(() => {
-    loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
-    loadConnectionsFromCloud().then(setConns).catch(() => {});
+    Promise.allSettled([
+      loadDriversFromCloud().then(list => setDrivers(list)),
+      loadConnectionsFromCloud().then(setConns),
+    ]).then(() => setLoading(false));
   }, []);
   const [expandedId,    setExpandedId]    = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -217,8 +223,13 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
           </div>
         )}
 
+        {/* First-fetch loading (fresh device) */}
+        {loading && drivers.length === 0 && !showAdd && (
+          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading drivers…</p>
+        )}
+
         {/* Empty state */}
-        {drivers.length === 0 && !showAdd && (
+        {!loading && drivers.length === 0 && !showAdd && (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
             <p style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>No drivers yet</p>
             <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 20px', maxWidth: 260, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>

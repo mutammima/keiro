@@ -46,10 +46,16 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
   const [orders,     setOrders]     = useState(() => getOrders());
   const [shared,     setShared]     = useState(() => getSharedInvoices());
   const [expandedId, setExpandedId] = useState(null);
+  // Show a loading line only on a fresh device (no cached data to paint).
+  const [loading, setLoading] = useState(
+    () => getOrders().length === 0 && getSharedInvoices().length === 0
+  );
 
   useEffect(() => {
-    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
-    loadSharedInvoicesFromCloud().then(setShared).catch(() => {});
+    Promise.allSettled([
+      loadOrdersFromCloud().then(list => setOrders(list)),
+      loadSharedInvoicesFromCloud().then(setShared),
+    ]).then(() => setLoading(false));
   }, []);
 
   // Live-update when the foreground poll refreshes the caches (App dispatches).
@@ -115,7 +121,9 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
 
         {isGuest() && <GuestBanner />}
 
-        {bills.length === 0 && shared.length === 0 ? (
+        {loading && bills.length === 0 && shared.length === 0 ? (
+          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading invoices…</p>
+        ) : bills.length === 0 && shared.length === 0 ? (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '32px 18px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 6px' }}>No invoices yet.</p>
             <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Invoices from your connected drivers appear here automatically.</p>

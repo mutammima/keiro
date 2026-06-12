@@ -103,16 +103,27 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   function handleWhatsApp() {
     const lines = [
       `*Invoice #${invoice.number}*`,
-      `${invoice.date}`,
+      `${invoice.date}${invoice.time ? ` · ${invoice.time}` : ''}`,
       '',
       `*${invoice.businessName || ''}*`,
+      ...(invoice.businessPhone ? [invoice.businessPhone] : []),
       `Bill To: ${invoice.storeName}`,
+      ...(invoice.customerName ? [`Attn: ${invoice.customerName}`] : []),
+      ...(invoice.storeAddress ? [invoice.storeAddress] : []),
       '',
       ...invoice.items.map(i =>
         `${i.name}  ${i.qty} × $${Number(i.price).toFixed(2)} = *$${(i.qty * i.price).toFixed(2)}*`
       ),
       '',
-      `*Total: $${subtotal.toFixed(2)}*`,
+      // With payments logged, show the real remaining balance, not just the total.
+      ...(paid > 0
+        ? [
+            `Subtotal: $${subtotal.toFixed(2)}`,
+            `Paid: -$${paid.toFixed(2)}`,
+            `*Balance Due: $${due.toFixed(2)}*`,
+          ]
+        : [`*Total: $${subtotal.toFixed(2)}*`]),
+      ...(invoice.paymentMethod ? [`Payment: ${invoice.paymentMethod === 'card' ? 'Card' : 'Cash'}`] : []),
       ...(invoice.notes ? [`\nNotes: ${invoice.notes}`] : []),
     ].join('\n');
     window.open(buildWhatsAppUrl(invoice.storePhone, lines), '_blank');

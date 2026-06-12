@@ -52,12 +52,12 @@ export function addPayment(invoiceNumber, amount, note = '') {
     .then(({ error }) => {
       if (error) {
         console.error('saveInvoicePayment cloud error', error);
-        notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+        notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
       }
     })
     .catch(e => {
       console.error('saveInvoicePayment cloud error', e);
-      notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+      notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
     });
   return [...all[key]];
 }
@@ -75,6 +75,12 @@ export function removePayment(invoiceNumber, paymentId) {
     lsSet(KEY, all);
   }
   db.deleteInvoicePayment(paymentId)
+    .then(({ error }) => {
+      if (error) {
+        console.error('deleteInvoicePayment cloud error', error);
+        notifySyncError('Payment removed on this device but not from the cloud — it may reappear after the next sync.');
+      }
+    })
     .catch(e => console.error('deleteInvoicePayment cloud error', e));
 }
 
@@ -96,6 +102,7 @@ export function clearPaymentsFor(invoiceNumber) {
   delete all[String(invoiceNumber)];
   lsSet(KEY, all);
   db.clearInvoicePayments(invoiceNumber)
+    .then(({ error }) => { if (error) console.error('clearInvoicePayments cloud error', error); })
     .catch(e => console.error('clearInvoicePayments cloud error', e));
 }
 

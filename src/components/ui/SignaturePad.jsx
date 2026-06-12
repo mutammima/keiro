@@ -65,6 +65,9 @@ export default function SignaturePad({ label, dark, C, onChange, initialDataUrl 
 
   function endDraw(e) {
     e?.preventDefault();
+    // mouseleave / a bare tap fires this without a stroke — without the guard
+    // a blank PNG would be emitted and auto-saved as a "signature".
+    if (!drawing.current) return;
     drawing.current = false;
     setIsEmpty(false);
     // Emit data URL

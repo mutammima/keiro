@@ -20,6 +20,7 @@
  */
 
 import { lsGet, lsSet, getBusinessName } from './storage';
+import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
 // Ambiguity-free alphabet — no I, L, O, 0, 1 so codes are easy to read aloud.
@@ -226,7 +227,14 @@ export async function getOrCreateInvite(inviterRole, inviterName = '') {
 
 export function cancelInvite(id) {
   lsSet('inv_connections', getConnections().filter(c => c.id !== id));
-  db.deleteConnection(id).catch(e => console.error('deleteConnection cloud error', e));
+  db.deleteConnection(id)
+    .then(({ error }) => {
+      if (error) {
+        console.error('deleteConnection cloud error', error);
+        notifySyncError('Invite cancelled on this device but is still active in the cloud — it can still be redeemed. Cancel it again while online.');
+      }
+    })
+    .catch(e => console.error('deleteConnection cloud error', e));
 }
 
 // ─── Redeem an invite link ───────────────────────────────────────────────────────

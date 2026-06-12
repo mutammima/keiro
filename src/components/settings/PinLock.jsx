@@ -38,45 +38,18 @@ export default function PinLock({ onSuccess, setupMode = false, onCancel }) {
     setTimeout(() => setShake(false), 500);
   }
 
+  // Verify-only entry. Setup mode is handled entirely by pressSetup below —
+  // the old setup branch that lived here was unreachable.
   function press(d) {
-    if (setupMode) {
-      if (phase === 'enter') {
-        const next = digits + d;
-        setDigits(next);
-        if (next.length === 4) {
-          setConfirm('');
-          setPhase('confirm');
-          setDigits('');
-        }
+    const next = digits + d;
+    setDigits(next);
+    if (next.length === 4) {
+      if (verifyPin(next)) {
+        onSuccess?.();
       } else {
-        const next = digits + d;
-        setDigits(next);
-        if (next.length === 4) {
-          if (next === confirm || (phase === 'confirm' && !confirm)) {
-            // First time reaching confirm
-            if (!confirm) { setConfirm(next); setDigits(''); return; }
-            if (next === confirm) {
-              setPin(confirm);
-              onSuccess?.();
-            } else {
-              setError('PINs do not match. Try again.');
-              triggerShake();
-              setDigits(''); setConfirm(''); setPhase('enter');
-            }
-          }
-        }
-      }
-    } else {
-      const next = digits + d;
-      setDigits(next);
-      if (next.length === 4) {
-        if (verifyPin(next)) {
-          onSuccess?.();
-        } else {
-          setError('Incorrect PIN');
-          triggerShake();
-          setTimeout(() => setDigits(''), 400);
-        }
+        setError('Incorrect PIN');
+        triggerShake();
+        setTimeout(() => setDigits(''), 400);
       }
     }
   }

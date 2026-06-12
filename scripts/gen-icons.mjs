@@ -1,5 +1,5 @@
 /**
- * Generates InvoGo PWA icons (192×192 and 512×512).
+ * Generates Keiro PWA icons (192×192 and 512×512).
  *
  * Design:
  *   • Black rounded-square background
