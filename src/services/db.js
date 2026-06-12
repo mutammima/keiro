@@ -180,12 +180,18 @@ export async function saveInvoice(invoice) {
  */
 export async function deleteInvoice(number) {
   try {
-    // Delete items first (if no CASCADE defined)
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
+
+    // Scope by user_id: RLS also lets this account SELECT invoices ADDRESSED
+    // to it (store_user_id), so an unscoped lookup could match a counterparty
+    // row with the same number and .single() would error, skipping cleanup.
     const { data: invRow } = await supabase
       .from('invoices')
       .select('id')
+      .eq('user_id', userId)
       .eq('invoice_number', number)
-      .single();
+      .maybeSingle();
 
     if (invRow?.id) {
       await supabase.from('invoice_items').delete().eq('invoice_id', invRow.id);
@@ -194,6 +200,7 @@ export async function deleteInvoice(number) {
     const { error } = await supabase
       .from('invoices')
       .delete()
+      .eq('user_id', userId)
       .eq('invoice_number', number);
 
     return { data: null, error };
@@ -210,12 +217,15 @@ export async function deleteInvoice(number) {
  */
 export async function updateInvoicePaymentStatus(number, status) {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('Not authenticated') };
     const { data, error } = await supabase
       .from('invoices')
       .update({ payment_status: status })
+      .eq('user_id', userId)
       .eq('invoice_number', number)
       .select()
-      .single();
+      .maybeSingle();
 
     return { data, error };
   } catch (err) {
@@ -229,9 +239,15 @@ export async function updateInvoicePaymentStatus(number, status) {
  */
 export async function getNextInvoiceNumber() {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: INVOICE_NUMBER_START + 1, error: new Error('no session') };
+    // Scope to OWN invoices: the SELECT policy also exposes invoices addressed
+    // to this account (store_user_id), and without the filter a dual-role user
+    // would adopt their counterparty driver's numbering sequence.
     const { data, error } = await supabase
       .from('invoices')
       .select('invoice_number')
+      .eq('user_id', userId)
       .order('invoice_number', { ascending: false })
       .limit(1);
 
