@@ -82,7 +82,7 @@ function OfflineBanner({ dark }) {
       zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
       paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
     }}>
-      You're offline — changes save on this device and sync when you're back online
+      You're offline — new invoices and orders save on this device and sync next time you open the app online. Status changes and deletes need a connection to reach other devices.
     </div>
   );
 }
