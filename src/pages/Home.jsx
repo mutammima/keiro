@@ -114,7 +114,7 @@ export default function Home({ onOpenDrawer, onNav }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
         <button onClick={() => onNav('route')} style={s.quickRow(C)}>
-          <span style={{ fontSize: 16 }}>📦</span>
+          <span style={{ fontSize: 16 }}>▢</span>
           <span style={{ flex: 1, textAlign: 'left' }}>View pending requests</span>
           {allRequests.length > 0 && (
             <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, background: ACCENT, color: '#fff', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -124,7 +124,7 @@ export default function Home({ onOpenDrawer, onNav }) {
           <span style={{ color: C.textMuted, fontSize: 18 }}>›</span>
         </button>
         <button onClick={() => onNav('stores')} style={s.quickRow(C)}>
-          <span style={{ fontSize: 16 }}>🏬</span>
+          <span style={{ fontSize: 16 }}>⌂</span>
           <span style={{ flex: 1, textAlign: 'left' }}>View connected stores</span>
           <span style={{ color: C.textMuted, fontSize: 18 }}>›</span>
         </button>
@@ -213,7 +213,7 @@ export default function Home({ onOpenDrawer, onNav }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                   {allRequests.slice(0, 4).map(req => (
                     <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.20)'}` }}>
-                      <span style={{ fontSize: 18, flexShrink: 0 }}>{req.fromStore ? '🔗' : '📦'}</span>
+                      <span style={{ fontSize: 18, flexShrink: 0, color: ACCENT }}>{req.fromStore ? '⇄' : '▢'}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {req.productName}
@@ -270,7 +270,7 @@ export default function Home({ onOpenDrawer, onNav }) {
                 {/* Best store this week */}
                 {bestStore && bestStore[1] > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, padding: '13px 16px', borderRadius: 14, background: C.card, border: `1px solid ${C.cardBorder}` }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>🏆</span>
+                    <span style={{ fontSize: 18, flexShrink: 0, color: '#f59e0b' }}>★</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.textMuted }}>Best store this week</div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{bestStore[0]}</div>

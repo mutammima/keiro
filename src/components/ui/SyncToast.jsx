@@ -56,7 +56,7 @@ export default function SyncToast() {
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1.3 }} aria-hidden>⚠️</span>
+      <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1.3 }} aria-hidden>⚠</span>
       <span style={{ flex: 1 }}>{msg}</span>
     </div>,
     document.body

@@ -150,7 +150,7 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
             {shared.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, margin: '4px 0 0' }}>
-                  🔗 From your drivers
+                  ⇄ From your drivers
                 </p>
                 {shared.map(inv => {
                   const meta = payMeta(inv.paymentStatus);

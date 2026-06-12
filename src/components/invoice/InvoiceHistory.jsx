@@ -275,7 +275,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
                   {isOverdue && (
-                    <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>💬 Send Reminder</button>
+                    <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
@@ -314,13 +314,13 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                   <span style={{ fontSize: 12, fontWeight: 600, color: C.text, flexShrink: 0, minWidth: 48, textAlign: 'right' }}>${(Number(item.qty) * Number(item.price)).toFixed(2)}</span>
                 </div>
               ))}
-              {inv.notes && <p style={{ fontSize: 11, color: C.textMuted, margin: '6px 0 2px' }}>📝 {inv.notes}</p>}
+              {inv.notes && <p style={{ fontSize: 11, color: C.textMuted, margin: '6px 0 2px' }}>✎ {inv.notes}</p>}
               <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 4 }}>
                 {isOverdue && (
                   <button
                     style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     onClick={() => handleRemind(inv)}
-                  >💬 Remind</button>
+                  >Remind</button>
                 )}
                 <button
                   style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
@@ -405,7 +405,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                     <button style={{ ...s.dropdownItem, color: C.text }}
                       onClick={() => handleRemind(inv)}
                     >
-                      💬 Send Reminder
+                      Send Reminder
                     </button>
                   )}
                   <button style={{ ...s.dropdownItem, color: C.text }}
@@ -492,7 +492,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                   color: '#ef4444', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
                 }}
                 title="Send a payment reminder over WhatsApp"
-              >💬 Remind</button>
+              >Remind</button>
             )}
           </div>
         </div>
@@ -575,7 +575,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
         {openConnOrders.length > 0 && (
           <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
-              🔗 Orders from connected stores ({openConnOrders.length})
+              ⇄ Orders from connected stores ({openConnOrders.length})
             </p>
             {openConnOrders.map(o => (
               <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -609,7 +609,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
         {bridgeRequests.length > 0 && (
           <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
-              📦 New from Store Owner ({bridgeRequests.length})
+              ▢ New from Store Owner ({bridgeRequests.length})
             </p>
             {bridgeRequests.map(req => (
               <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

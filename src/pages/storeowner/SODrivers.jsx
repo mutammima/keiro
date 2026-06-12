@@ -125,7 +125,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
         {/* Connect a driver (invite-only) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🔗 Connect a driver</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a driver</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
               Invite a driver with a code — they link to you automatically when they join.
             </div>
@@ -138,7 +138,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
         {/* Incoming connection requests (from marketplace drivers) */}
         {incomingRequests.length > 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>🤝 Connection requests</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Connection requests</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {incomingRequests.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -193,7 +193,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {activeConns.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 15 }}>🔗</span>
+                  <span style={{ fontSize: 15, color: ACCENT }}>⇄</span>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connDriverName(c)}</span>
                   <span style={{ fontSize: 11, color: C.textMuted, flexShrink: 0 }}>
                     since {new Date(c.activatedAt || c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

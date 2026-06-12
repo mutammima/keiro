@@ -413,7 +413,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
               borderRadius: 14, padding: '12px 14px',
               display: 'flex', gap: 10, alignItems: 'flex-start',
             }}>
-              <span style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
+              <span style={{ fontSize: 16, lineHeight: '20px', color: dark ? '#fbbf24' : '#b45309' }}>⚠</span>
               <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: dark ? '#fbbf24' : '#b45309' }}>
                 This invoice (${items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0).toFixed(2)}) is{' '}
                 {anomaly.direction === 'high'
