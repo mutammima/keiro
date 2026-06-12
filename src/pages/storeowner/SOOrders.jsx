@@ -170,7 +170,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
                       {formatDate(order.deliveryDate)}
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-                      {order.isConnection ? '🔗 ' : ''}{order.driverName}
+                      {order.isConnection ? '⇄ ' : ''}{order.driverName}
                       {order.isConnection && order.status === 'delivered' && order.invoiceNumber != null
                         ? ` · Invoice #${order.invoiceNumber}` : ''}
                     </div>

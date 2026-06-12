@@ -190,7 +190,7 @@ export default function SOHome({ onOpenDrawer, onNav }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                 {restockList.map(p => (
                   <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: dark ? 'rgba(245,158,11,0.10)' : '#fffbeb', border: `1px solid ${dark ? 'rgba(245,158,11,0.30)' : '#fde68a'}` }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>🔄</span>
+                    <span style={{ fontSize: 18, flexShrink: 0, color: '#f59e0b' }}>↻</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                       <div style={{ fontSize: 12, color: '#b45309', marginTop: 1 }}>
@@ -276,12 +276,12 @@ export default function SOHome({ onOpenDrawer, onNav }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
             <button onClick={() => onNav('so-orders')} style={s.quickRow(C)}>
-              <span style={{ fontSize: 16 }}>📋</span>
+              <span style={{ fontSize: 16 }}>≡</span>
               <span style={{ flex: 1, textAlign: 'left' }}>View all orders</span>
               <span style={{ color: C.textMuted, fontSize: 18 }}>›</span>
             </button>
             <button onClick={() => onNav('so-invoices')} style={s.quickRow(C)}>
-              <span style={{ fontSize: 16 }}>🧾</span>
+              <span style={{ fontSize: 16 }}>▤</span>
               <span style={{ flex: 1, textAlign: 'left' }}>View invoices</span>
               <span style={{ color: C.textMuted, fontSize: 18 }}>›</span>
             </button>

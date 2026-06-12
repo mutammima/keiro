@@ -38,7 +38,7 @@ const SECTIONS = [
     body: 'Open any invoice and tap "Share PDF" to send a clean, professional invoice directly from your phone via iMessage, WhatsApp, email, or any other app.',
   },
   {
-    icon: '💬',
+    icon: '✆',
     title: 'Payment Reminders',
     body: 'When an invoice goes overdue, tap Remind to open WhatsApp with a polite, pre-written reminder — the store name, invoice number, days overdue, and the exact balance still owed are all filled in. Just review and hit send.',
   },

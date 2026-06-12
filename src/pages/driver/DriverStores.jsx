@@ -95,7 +95,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
         {/* Connect a store (invite-only) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>🔗 Connect a store</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a store</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
               Invite a store with a code — they link to you automatically when they join.
             </div>
@@ -108,7 +108,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
         {/* Incoming connection requests (from marketplace stores) */}
         {incomingRequests.length > 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>🤝 Connection requests</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Connection requests</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {incomingRequests.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -163,7 +163,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {activeConns.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 15 }}>🔗</span>
+                  <span style={{ fontSize: 15, color: ACCENT }}>⇄</span>
                   <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connStoreName(c)}</span>
                   <span style={{ fontSize: 11, color: C.textMuted, flexShrink: 0 }}>
                     since {new Date(c.activatedAt || c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -179,7 +179,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
           <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: ACCENT }}>
-                📦 {requests.length} pending request{requests.length > 1 ? 's' : ''}
+                ▢ {requests.length} pending request{requests.length > 1 ? 's' : ''}
               </div>
               <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.55)' : '#4a7bbf', marginTop: 2 }}>
                 Stores are waiting on a delivery — fill them into an invoice.

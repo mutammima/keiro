@@ -110,7 +110,7 @@ export default function AppFooter({ onNav }) {
                       display: 'flex', flexDirection: 'column', gap: 10,
                     }}>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <span style={{ fontSize: 20, lineHeight: 1.2 }} aria-hidden="true">⚠️</span>
+                        <span style={{ fontSize: 20, lineHeight: 1.2, color: '#f59e0b' }} aria-hidden="true">⚠</span>
                         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: C.text }}>
                           <strong>You're in guest mode.</strong> Your data is stored only on this device and <strong>cannot be backed up to the cloud</strong>. It will be lost if you clear the app or switch phones — an exported file is your only copy. Create a free account to back up and sync automatically.
                         </p>

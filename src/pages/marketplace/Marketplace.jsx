@@ -192,7 +192,7 @@ export default function Marketplace({ onOpenDrawer, onNav }) {
                   const isSelf = order.userId && order.userId === getCachedUid();
                   const conn = connWith(order.userId);
                   if (isSelf) return null;
-                  if (conn?.status === 'active') return <span style={{ ...s.outlineBtn(C), color: '#2ECC8A', borderColor: 'rgba(46,204,138,0.5)', display: 'flex', alignItems: 'center' }}>🔗</span>;
+                  if (conn?.status === 'active') return <span style={{ ...s.outlineBtn(C), color: '#2ECC8A', borderColor: 'rgba(46,204,138,0.5)', display: 'flex', alignItems: 'center' }}>✓</span>;
                   if (conn) return <span style={{ ...s.outlineBtn(C), color: C.textMuted, borderColor: C.inputBorder, display: 'flex', alignItems: 'center' }}>Requested</span>;
                   return (
                     <button

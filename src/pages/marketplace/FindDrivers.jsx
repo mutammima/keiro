@@ -188,7 +188,7 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
                   <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                     {!isSelf && (
                       conn?.status === 'active' ? (
-                        <span style={{ ...s.connectedTag, flex: 1 }}>🔗 Connected</span>
+                        <span style={{ ...s.connectedTag, flex: 1 }}>✓ Connected</span>
                       ) : conn ? (
                         <span style={{ ...s.requestedTag(C), flex: 1 }}>Requested ✓</span>
                       ) : (
@@ -197,7 +197,7 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
                           disabled={connectingId === l.id || !l.userId}
                           style={{ ...s.outlineBtn, flex: 1, opacity: connectingId === l.id ? 0.6 : 1 }}
                         >
-                          {connectingId === l.id ? 'Requesting…' : '🔗 Connect'}
+                          {connectingId === l.id ? 'Requesting…' : 'Connect'}
                         </button>
                       )
                     )}

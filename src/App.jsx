@@ -26,7 +26,6 @@ import Home from './pages/Home';
 import EndOfDay from './pages/EndOfDay';
 import WhatsNew, { hasSeenWhatsNew } from './components/ui/WhatsNew';
 import PinLock, { isPinEnabled } from './components/settings/PinLock';
-// SectionGuide removed — the OnboardingTutorial covers the same ground
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';

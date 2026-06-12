@@ -258,7 +258,7 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
               >
                 <option value="">No driver assigned</option>
                 {conns.map(c => (
-                  <option key={`conn:${c.id}`} value={`conn:${c.id}`}>🔗 {connDriverName(c)} — connected</option>
+                  <option key={`conn:${c.id}`} value={`conn:${c.id}`}>⇄ {connDriverName(c)} — connected</option>
                 ))}
                 {drivers.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>

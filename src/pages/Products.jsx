@@ -163,7 +163,7 @@ export default function Products({ onOpenDrawer, onNav }) {
                         <div style={s.productRow}>
                           <span style={{ ...s.productName, color: C.text }}>{p.name}</span>
                           {!p.barcode.startsWith('manual_') && (
-                            <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">📷</span>
+                            <span style={{ fontSize: 12, color: C.textMuted }} title="Barcode item">▦</span>
                           )}
                           <div style={s.actions}>
                             <button
