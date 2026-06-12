@@ -105,13 +105,6 @@ html, body, #root { touch-action: pan-y; }
   .skeleton-box { animation: none; }
 }
 
-/* ── Bottom-nav size lock ────────────────────────────────────────── */
-@keyframes dot-slide-in { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
-
-.igo-nav     { height: calc(40px + env(safe-area-inset-bottom)) !important; max-height: calc(40px + env(safe-area-inset-bottom)) !important; overflow: hidden !important; }
-.igo-nav-row { height: 40px !important; max-height: 40px !important; min-height: 0 !important; overflow: hidden !important; }
-.igo-nav-btn { height: 40px !important; max-height: 40px !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; -webkit-appearance: none !important; appearance: none !important; }
-
 /* ── Density: compact mode ─────────────────────────────────────────
  *
  * We apply zoom: 0.9 to the .app-shell div (NOT #root) so the layout

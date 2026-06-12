@@ -187,16 +187,6 @@ const s = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
     marginTop: 8,
   },
-  modeRow: {
-    display: 'flex', borderRadius: 12, padding: 4, gap: 4,
-  },
-  modeBtn: {
-    background: 'none', border: 'none',
-    padding: '8px 24px', borderRadius: 9,
-    fontSize: 14, fontWeight: 500,
-    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-    transition: 'background 0.15s',
-  },
   linkRow: {
     display: 'flex', alignItems: 'center', flexWrap: 'wrap',
     justifyContent: 'center', gap: 8,

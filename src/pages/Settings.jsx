@@ -591,14 +591,6 @@ const s = {
     maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   fieldLabel: { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 },
-  modeRow: { display: 'flex', borderRadius: 12, padding: 4, gap: 4 },
-  modeBtn: {
-    flex: 1, background: 'none', border: 'none',
-    padding: '10px 8px', borderRadius: 9,
-    fontSize: 14, fontWeight: 500,
-    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
-    transition: 'background 0.15s',
-  },
   primaryBtn: {
     width: '100%', height: 48, border: 'none', borderRadius: 14,
     fontSize: 15, fontWeight: 700, color: '#fff',

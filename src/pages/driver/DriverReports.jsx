@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT } from '../../theme';
+import { LIGHT, DARK } from '../../theme';
 import Reports from '../Reports';
 import EndOfDay from '../EndOfDay';
 
