@@ -18,6 +18,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
 
 const MS_DAY = 86400000;
 
@@ -44,11 +45,30 @@ export default function SOHome({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [orders, setOrders] = useState(() => getOrders());
+  const [localOrders, setLocalOrders] = useState(() => getOrders());
+  const [connOrders,  setConnOrders]  = useState(() => getConnectionOrders());
 
   useEffect(() => {
-    loadOrdersFromCloud().then(list => setOrders(list)).catch(() => {});
+    loadOrdersFromCloud().then(list => setLocalOrders(list)).catch(() => {});
+    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
   }, []);
+
+  // Live-update when the foreground poll refreshes the caches (App dispatches).
+  useEffect(() => {
+    const onRefresh = () => { setLocalOrders(getOrders()); setConnOrders(getConnectionOrders()); };
+    window.addEventListener('inv-data-refresh', onRefresh);
+    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+  }, []);
+
+  // Dashboard model = private so_orders + cross-account connection orders.
+  // Connection orders already share the same field names and status values,
+  // so they merge straight in — without this, a store that only orders from
+  // connected drivers saw an empty dashboard and never got restock cues.
+  const orders = useMemo(() =>
+    [...connOrders, ...localOrders]
+      .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0)),
+    [connOrders, localOrders]
+  );
 
   const stats = useMemo(() => ({
     pending:   orders.filter(o => o.status === 'pending').length,
