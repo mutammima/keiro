@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { setTutorialActive } from '../../utils/tutorialState';
 
 const TOTAL     = 5;
 const TOOLTIP_Z = 9200;
@@ -276,8 +277,10 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
 
   useEffect(() => { ensureKeyframes(); }, []);
 
-  // Global click + touch blocker
+  // Global click + touch blocker. Also flags the tutorial as active so the
+  // demo request stays private (no public marketplace broadcast).
   useEffect(() => {
+    setTutorialActive(true);
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
     function blockClicks(e) {
@@ -287,6 +290,7 @@ export default function SOOnboardingTutorial({ navigate, onComplete, onSkip, ski
     }
     document.addEventListener('click', blockClicks, true);
     return () => {
+      setTutorialActive(false);
       document.removeEventListener('touchmove', stopTouch);
       document.removeEventListener('click', blockClicks, true);
     };

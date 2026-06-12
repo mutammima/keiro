@@ -17,6 +17,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
+import { setTutorialActive } from '../../utils/tutorialState';
 
 const TOTAL     = 5;
 const TOOLTIP_Z = 9200;
@@ -310,6 +311,8 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     // set position:fixed on body (which shifts the layout and causes a black
     // gap at the bottom on iOS). The Blocker div + touchmove listener below
     // are enough to prevent unwanted scrolling during the tutorial.
+    // Flag the tutorial active so demo writes never reach shared surfaces.
+    setTutorialActive(true);
     const stopTouch = e => e.preventDefault();
     document.addEventListener('touchmove', stopTouch, { passive: false });
     function blockClicks(e) {
@@ -319,6 +322,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
     }
     document.addEventListener('click', blockClicks, true);
     return () => {
+      setTutorialActive(false);
       document.removeEventListener('touchmove', stopTouch);
       document.removeEventListener('click', blockClicks, true);
     };
