@@ -68,9 +68,10 @@ const s = {
   itemTotal: { fontSize: 14, fontWeight: 700, minWidth: 52, textAlign: 'right' },
   iconBtn: {
     background: 'none', border: 'none', fontSize: 16,
-    cursor: 'pointer', width: 30, height: 30,
+    cursor: 'pointer', width: 42, height: 42,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 15, padding: 0, WebkitTapHighlightColor: 'transparent',
+    borderRadius: 21, padding: 0, margin: '-6px -2px',
+    WebkitTapHighlightColor: 'transparent',
   },
   subtotalBar: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',

@@ -255,8 +255,9 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
             </span>
             {/* Menu */}
             <div style={{ position: 'relative', flexShrink: 0 }} ref={menuOpen ? menuRef : null}>
+              {/* Padded hit area (≥44px) with negative margins so the dense row keeps its height */}
               <button
-                style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '0 2px', WebkitTapHighlightColor: 'transparent' }}
+                style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 12px', margin: '-15px -10px', WebkitTapHighlightColor: 'transparent' }}
                 onClick={e => { e.stopPropagation(); setOpenMenu(menuOpen ? null : inv.number); }}
               >•••</button>
               {menuOpen && (
@@ -287,15 +288,20 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
           {/* Meta row: number + date + status label */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px 8px', gap: 8 }}>
             <span style={{ fontSize: 11, color: C.textMuted }}>#{inv.number} · {inv.date}{inv.time ? ` · ${inv.time}` : ''}</span>
-            <span
+            {/* Real button with a ≥44px hit box (visual chip stays small via negative margin) */}
+            <button
               {...(isFirst ? { 'data-tutorial': 'status-badge-latest' } : {})}
               style={{
-                fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 6,
-                background: colors?.bg, color: colors?.text,
-                marginLeft: 'auto', flexShrink: 0,
+                fontSize: 10, fontWeight: 700, padding: '13px 10px', margin: '-12px -3px', borderRadius: 6,
+                background: 'none', border: 'none', cursor: 'pointer',
+                marginLeft: 'auto', flexShrink: 0, WebkitTapHighlightColor: 'transparent',
               }}
               onClick={() => cycleStatus(inv.number)}
-            >{STATUS[status]?.label}</span>
+            >
+              <span style={{ padding: '1px 7px', borderRadius: 6, background: colors?.bg, color: colors?.text }}>
+                {STATUS[status]?.label}
+              </span>
+            </button>
           </div>
 
           {/* Expanded items (compact) */}
@@ -524,7 +530,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                         <div style={{ fontSize: 11, color: C.textMuted }}>{fmtPaymentDate(p.ts)}</div>
                         {p.note && <div style={{ fontSize: 11, color: C.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.note}</div>}
                       </div>
-                      <button onClick={() => handleRemovePayment(inv.number, p.id)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '2px 4px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>×</button>
+                      <button onClick={() => handleRemovePayment(inv.number, p.id)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 13px', margin: '-13px -9px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>×</button>
                     </div>
                   ))}
                   <button
@@ -591,7 +597,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
                 <button onClick={() => handleFillFromConnOrder(o)} style={{ flexShrink: 0, height: 34, padding: '0 14px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
                   Fill Invoice
                 </button>
-                <button onClick={() => handleDeclineConnOrder(o)} style={{ flexShrink: 0, background: 'none', border: 'none', color: dark ? 'rgba(255,255,255,0.4)' : '#93c5fd', fontSize: 16, cursor: 'pointer', padding: '0 4px', WebkitTapHighlightColor: 'transparent' }}>
+                <button onClick={() => handleDeclineConnOrder(o)} style={{ flexShrink: 0, background: 'none', border: 'none', color: dark ? 'rgba(255,255,255,0.4)' : '#93c5fd', fontSize: 16, cursor: 'pointer', padding: '14px 12px', margin: '-14px -8px', WebkitTapHighlightColor: 'transparent' }}>
                   ×
                 </button>
               </div>
