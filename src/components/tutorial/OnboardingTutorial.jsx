@@ -19,7 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
 import { setTutorialActive } from '../../utils/tutorialState';
 
-const TOTAL     = 5;
+const TOTAL     = 6;
 const TOOLTIP_Z = 9200;
 const CURSOR_Z  = 9300;
 const BLOCK_Z   = 9100; // invisible blocking layer
@@ -531,7 +531,7 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       await sleep(200);
 
       clearCursor();
-      show(3, 'Got it!', 'Track Unpaid · Paid · Partial for every invoice.');
+      show(3, 'Got it!', 'Track Unpaid · Paid · Partial and log partial payments. Overdue invoices get a Remind button — a pre-written WhatsApp nudge with the balance filled in.');
       await waitForUser(true);
     }
 
@@ -583,11 +583,41 @@ export default function OnboardingTutorial({ navigate, onComplete, onSkip, skipW
       await sleep(300);
 
       clearCursor();
-      show(5, "You're ready!", 'Tap below to start using Keiro.');
+      show(5, 'Catalogue ready!', 'Prices auto-fill the next time you add these products to an invoice.');
       await waitForUser(true);
     }
 
-    const steps = [step1, step2, step3, step4, step5];
+    // ══ STEP 6 — Connect stores ═══════════════════════════════════════════════
+    async function step6() {
+      show(6, 'Connect your stores', 'Invite a store with a code or link — they link to you automatically when they join Keiro.');
+      navigate('stores');
+      clearCursor();
+      await sleep(450);
+
+      // Point at the invite card without tapping — a real tap would generate
+      // a live invite code.
+      const connectCard = document.querySelector('[data-tutorial="stores-connect-card"]');
+      if (connectCard) {
+        const r = connectCard.getBoundingClientRect();
+        setRect({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+        await moveTo(connectCard);
+        setCursorPulse(true);
+        await sleep(600);
+        setCursorPulse(false);
+      }
+      await waitForUser(false);
+      if (cancelled) return;
+
+      show(6, 'Their orders come to you', 'A connected store can order from their own app — it lands in your Route tab, one tap from becoming an invoice. They see your invoices and payment status live.');
+      await waitForUser(false);
+      if (cancelled) return;
+
+      clearCursor();
+      show(6, "You're ready!", 'Invite your first store anytime from Stores — or just start invoicing.');
+      await waitForUser(true);
+    }
+
+    const steps = [step1, step2, step3, step4, step5, step6];
 
     async function runStep() {
       const fn = steps[stepIdx];

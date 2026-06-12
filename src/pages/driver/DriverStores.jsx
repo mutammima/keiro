@@ -93,7 +93,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
       <div style={s.body}>
 
         {/* Connect a store (invite-only) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
+        <div data-tutorial="stores-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a store</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>

@@ -273,10 +273,13 @@ column missing, 42P01 = table missing, `[]` = OK).
 
 ## Onboarding Tutorial
 
-- `src/components/tutorial/OnboardingTutorial.jsx` — 5-step animated tutorial with a cursor and spotlight overlay
+- `src/components/tutorial/OnboardingTutorial.jsx` — 6-step animated driver tutorial with a floating cursor
+- `src/components/tutorial/SOOnboardingTutorial.jsx` — 6-step store owner variant
 - Completion tracked in `localStorage` key `inv_onboarding_complete`
 - Skip is always available; steps auto-advance via simulated user actions
-- Step sequence: Welcome → New Invoice → Invoice History → Store Map → Products
+- Driver sequence: Welcome → Business info → Create invoice → History & payments → Store balances → Products → Connect stores
+- Store owner sequence: Welcome → New request → Orders → Drivers & connections → Dashboard → Invoices → Finish
+- Connection steps point at the invite cards without tapping (a real tap would create a live invite code); `setTutorialActive` keeps demo writes off shared surfaces
 - To re-trigger for testing: `localStorage.removeItem('inv_onboarding_complete')`
 
 ## iOS / Safari Gotchas
