@@ -52,12 +52,12 @@ export function addPayment(invoiceNumber, amount, note = '') {
     .then(({ error }) => {
       if (error) {
         console.error('saveInvoicePayment cloud error', error);
-        notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+        notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
       }
     })
     .catch(e => {
       console.error('saveInvoicePayment cloud error', e);
-      notifySyncError('Payment logged on this device but could not sync to the cloud. It will retry when your connection is restored.');
+      notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
     });
   return [...all[key]];
 }
