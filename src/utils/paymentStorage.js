@@ -75,6 +75,12 @@ export function removePayment(invoiceNumber, paymentId) {
     lsSet(KEY, all);
   }
   db.deleteInvoicePayment(paymentId)
+    .then(({ error }) => {
+      if (error) {
+        console.error('deleteInvoicePayment cloud error', error);
+        notifySyncError('Payment removed on this device but not from the cloud — it may reappear after the next sync.');
+      }
+    })
     .catch(e => console.error('deleteInvoicePayment cloud error', e));
 }
 
@@ -96,6 +102,7 @@ export function clearPaymentsFor(invoiceNumber) {
   delete all[String(invoiceNumber)];
   lsSet(KEY, all);
   db.clearInvoicePayments(invoiceNumber)
+    .then(({ error }) => { if (error) console.error('clearInvoicePayments cloud error', error); })
     .catch(e => console.error('clearInvoicePayments cloud error', e));
 }
 
