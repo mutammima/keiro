@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { useBackup } from '../../hooks/useBackup';
@@ -64,7 +65,10 @@ export default function AppFooter({ onNav }) {
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}
-      {modal && (
+      {/* Portaled to body: tab pages live inside the transformed swipe strip,
+          which would otherwise become this fixed sheet's containing block and
+          lay it out against the 4×-wide strip instead of the viewport. */}
+      {modal && createPortal(
         <div style={s.overlay} onClick={() => { setModal(null); clearBackupMsg(); }}>
           <div style={{ ...s.sheet, background: C.card }} onClick={e => e.stopPropagation()}>
             <div style={{ ...s.sheetHandle, background: C.divider }} />
@@ -153,7 +157,8 @@ export default function AppFooter({ onNav }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
