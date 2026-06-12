@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
+import KeiroWordmark from '../ui/KeiroWordmark';
 
 function TruckIcon() {
   return (
@@ -65,10 +66,7 @@ export default function RoleSelector({ onSelect }) {
 
       {/* Wordmark */}
       <div style={{ marginBottom: 36, textAlign: 'center' }}>
-        <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-1.5px', lineHeight: 1 }}>
-          <span style={{ color: ACCENT }}>Invo</span>
-          <span style={{ color: C.text }}>Go</span>
-        </div>
+        <KeiroWordmark C={C} style={{ fontSize: 30 }} />
       </div>
 
       <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 8px', textAlign: 'center', letterSpacing: '-0.3px' }}>
