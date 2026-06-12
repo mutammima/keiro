@@ -47,10 +47,17 @@ export default function SOHome({ onOpenDrawer, onNav }) {
 
   const [localOrders, setLocalOrders] = useState(() => getOrders());
   const [connOrders,  setConnOrders]  = useState(() => getConnectionOrders());
+  // Only block the UI with a skeleton when there is no cached data to show —
+  // a returning device paints instantly from localStorage instead.
+  const [loading, setLoading] = useState(
+    () => getOrders().length === 0 && getConnectionOrders().length === 0
+  );
 
   useEffect(() => {
-    loadOrdersFromCloud().then(list => setLocalOrders(list)).catch(() => {});
-    loadConnectionOrdersFromCloud().then(setConnOrders).catch(() => {});
+    Promise.allSettled([
+      loadOrdersFromCloud().then(list => setLocalOrders(list)),
+      loadConnectionOrdersFromCloud().then(setConnOrders),
+    ]).then(() => setLoading(false));
   }, []);
 
   // Live-update when the foreground poll refreshes the caches (App dispatches).
@@ -140,6 +147,16 @@ export default function SOHome({ onOpenDrawer, onNav }) {
 
       <div style={{ padding: '16px 16px 48px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+        {loading ? (
+          /* ── Loading skeleton — first cloud fetch on a fresh device ──────── */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="skeleton-box" style={{ height: 72, borderRadius: 14, background: dark ? '#1d1d1f' : '#e9e7e3' }} />
+            <div className="skeleton-box" style={{ height: 150, borderRadius: 18, background: dark ? '#1d1d1f' : '#e9e7e3' }} />
+            <div className="skeleton-box" style={{ height: 64, borderRadius: 16, background: dark ? '#1d1d1f' : '#e9e7e3' }} />
+            <div className="skeleton-box" style={{ height: 54, borderRadius: 16, background: dark ? '#1d1d1f' : '#e9e7e3' }} />
+          </div>
+        ) : (
+        <>
         {/* Status strip */}
         <div style={{ display: 'flex', borderRadius: 14, border: `1px solid ${C.cardBorder}`, background: C.card, overflow: 'hidden' }}>
           {statCards.map((item, i) => (
@@ -270,6 +287,8 @@ export default function SOHome({ onOpenDrawer, onNav }) {
             </button>
           </div>
         </div>
+        </>
+        )}
 
       </div>
     </div>
