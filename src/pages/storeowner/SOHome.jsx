@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
+import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 const MS_DAY = 86400000;
 
@@ -113,6 +114,9 @@ export default function SOHome({ onOpenDrawer, onNav }) {
   const recentInventory  = useMemo(() => [...inventory].sort((a, b) => b.lastTime - a.lastTime).slice(0, 5), [inventory]);
   const restockList      = useMemo(() => inventory.filter(p => p.suggest).sort((a, b) => b.daysSince - a.daysSince), [inventory]);
 
+  // Layer 2 + checklist — when a restock suggestion appears, point at the card.
+  useEffect(() => { if (restockList.length > 0) { triggerTip('o-restock-card'); markAction('so_restock'); } }, [restockList.length]);
+
   const recent = orders.slice(0, 5);
 
   const statCards = [
@@ -170,7 +174,7 @@ export default function SOHome({ onOpenDrawer, onNav }) {
         {/* ── 1. Inventory Pulse ───────────────────────────────────────────── */}
         {inventory.length === 0 ? (
           <div>
-            <p style={s.sectionLabel(C)}>Inventory Pulse</p>
+            <p data-tip="so-restock" style={s.sectionLabel(C)}>Inventory Pulse</p>
             <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '24px 18px', textAlign: 'center' }}>
               <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 12px' }}>No orders yet — your restock rhythm will appear here.</p>
               <button
@@ -183,13 +187,13 @@ export default function SOHome({ onOpenDrawer, onNav }) {
           </div>
         ) : (
           <div>
-            <p style={s.sectionLabel(C)}>Inventory Pulse</p>
+            <p data-tip="so-restock" style={s.sectionLabel(C)}>Inventory Pulse</p>
 
             {/* Restock suggestions */}
             {restockList.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                {restockList.map(p => (
-                  <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: dark ? 'rgba(245,158,11,0.10)' : '#fffbeb', border: `1px solid ${dark ? 'rgba(245,158,11,0.30)' : '#fde68a'}` }}>
+                {restockList.map((p, ri) => (
+                  <div key={p.name} data-tip={ri === 0 ? 'so-restock-card' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: dark ? 'rgba(245,158,11,0.10)' : '#fffbeb', border: `1px solid ${dark ? 'rgba(245,158,11,0.30)' : '#fde68a'}` }}>
                     <span style={{ fontSize: 18, flexShrink: 0, color: '#f59e0b' }}>↻</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>

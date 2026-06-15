@@ -39,6 +39,7 @@ export default function DriverReports({ onOpenDrawer, onNav }) {
             return (
               <button
                 key={id}
+                data-tip={id === 'endofday' ? 'reports-eod' : undefined}
                 onClick={() => setSeg(id)}
                 style={{
                   flex: 1, height: 36, border: 'none', borderRadius: 9,

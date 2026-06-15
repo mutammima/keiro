@@ -13,6 +13,7 @@ import { getDrivers, saveDriver, deleteDriver, loadDriversFromCloud } from '../.
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
+import { markAction } from '../../utils/tutorialProgress';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
@@ -93,6 +94,10 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
   const incomingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && me && c.invitedBy && c.invitedBy !== me);
   const outgoingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && (!me || !c.invitedBy || c.invitedBy === me));
   const activeConns      = conns.filter(c => c.status === 'active');
+
+  // Checklist: an active driver connection counts as "Connect with a driver".
+  useEffect(() => { if (activeConns.length > 0) markAction('connected'); }, [activeConns.length]);
+
   function copyInvite(code) {
     try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
   }
@@ -120,7 +125,7 @@ export default function SODrivers({ onOpenDrawer, onNav }) {
         </button>
       </div>
 
-      <div style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div data-tip="so-drivers-list" style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Connect a driver (invite-only) */}
         <div data-tutorial="so-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>

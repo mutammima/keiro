@@ -28,6 +28,10 @@ import AppFooter from '../components/navigation/AppFooter';
 import PinLock, { isPinEnabled, clearPin } from '../components/settings/PinLock';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
+import { lazy, Suspense } from 'react';
+import { triggerTip } from '../utils/tutorialProgress';
+
+const HelpChecklist = lazy(() => import('../components/tutorial/HelpChecklist'));
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 const ACCENT_PRESETS = [
@@ -43,9 +47,14 @@ const ACCENT_PRESETS = [
   '#64748B', // slate
 ];
 
-export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole }) {
+export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, onReplayTutorial }) {
   const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
+
+  const role = (() => { try { return localStorage.getItem('inv_user_role') || 'driver'; } catch { return 'driver'; } })();
+
+  // Layer 2 — first time Settings opens, point at the business-info field.
+  useEffect(() => { triggerTip('settings-biz'); }, []);
 
   // ── Business info ──────────────────────────────────────────────────────────
   const [bizName,  setBizName]  = useState(() => getBusinessName()  || DEFAULT_BUSINESS_NAME);
@@ -221,6 +230,17 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
           </div>
         </Section>
 
+        {/* ── Help & Tutorial ────────────────────────────────────────────── */}
+        <Section title="Help & Tutorial" C={C} defaultOpen={false}>
+          <Suspense fallback={null}>
+            <HelpChecklist
+              role={role}
+              onNav={(p) => onNav?.(p)}
+              onReplay={() => onReplayTutorial?.()}
+            />
+          </Suspense>
+        </Section>
+
         {/* ── 1. Appearance ──────────────────────────────────────────────── */}
         <Section title="Appearance" C={C} defaultOpen>
           <div style={{ paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -294,7 +314,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole })
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Name</label>
-              <input data-tutorial="settings-biz-name" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder={DEFAULT_BUSINESS_NAME} />
+              <input data-tutorial="settings-biz-name" data-tip="settings-biz" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder={DEFAULT_BUSINESS_NAME} />
             </div>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Phone</label>

@@ -15,6 +15,7 @@ import { getOrCreateInvite, inviteLink } from '../../utils/connectionStorage';
 import { getBusinessName } from '../../utils/storage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestCapModal } from '../auth/GuestUpsell';
+import { triggerTip } from '../../utils/tutorialProgress';
 
 export default function InviteModal({ role, inviterName = '', onClose }) {
   const { dark } = useTheme();
@@ -29,6 +30,7 @@ export default function InviteModal({ role, inviterName = '', onClose }) {
     let alive = true;
     // Carry a display name so the other side knows who they connected with.
     getOrCreateInvite(role, inviterName || getBusinessName() || '').then(c => { if (alive) setConn(c); });
+    triggerTip('o-invite'); // explains the invite link (store owner only; manager filters)
     return () => { alive = false; };
   }, []); // eslint-disable-line
 
@@ -82,7 +84,7 @@ export default function InviteModal({ role, inviterName = '', onClose }) {
         </p>
 
         {/* Code */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 14, background: dark ? '#0d1a3a' : '#eef3ff', border: `1px solid ${dark ? '#1a2f5a' : '#c7d8ff'}` }}>
+        <div data-tip="invite-link" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 14, background: dark ? '#0d1a3a' : '#eef3ff', border: `1px solid ${dark ? '#1a2f5a' : '#c7d8ff'}` }}>
           <span style={{ flex: 1, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 26, fontWeight: 800, letterSpacing: '0.16em', color: C.text }}>{code}</span>
           <button onClick={() => copy(code, 'code')} style={{ ...s.smallBtn, background: ACCENT, color: '#fff' }}>
             {copied === 'code' ? 'Copied' : 'Copy'}

@@ -271,16 +271,17 @@ column missing, 42P01 = table missing, `[]` = OK).
 - `useAppUpdate.js` detects SW waiting state
 - `UpdateBanner.jsx` shows "Update now / Later" when either fires
 
-## Onboarding Tutorial
+## Onboarding / Tutorial System
 
-- `src/components/tutorial/OnboardingTutorial.jsx` — 6-step animated driver tutorial with a floating cursor
-- `src/components/tutorial/SOOnboardingTutorial.jsx` — 6-step store owner variant
-- Completion tracked in `localStorage` key `inv_onboarding_complete`
-- Skip is always available; steps auto-advance via simulated user actions
-- Driver sequence: Welcome → Business info → Create invoice → History & payments → Store balances → Products → Connect stores
-- Store owner sequence: Welcome → New request → Orders → Drivers & connections → Dashboard → Invoices → Finish
-- Connection steps point at the invite cards without tapping (a real tap would create a live invite code); `setTutorialActive` keeps demo writes off shared surfaces
-- To re-trigger for testing: `localStorage.removeItem('inv_onboarding_complete')`
+Three layers, all under `src/components/tutorial/` with state in `src/utils/tutorialProgress.js`:
+
+1. **Quick Start** (`QuickStart.jsx`) — 4-step, role-aware, spotlight-based. RoleSelector is step 1; this runs steps 2–4: spotlight the work tab (Route / Orders) → spotlight + New → confetti success. Skip from step 2 on. Lazy-loaded in `App.jsx`; first-run gated by `useOnboarding` (`inv_onboarding_complete`), replayable from the drawer ("How it Works") and Settings → Help. On finish (driver) a pulse dot appears on the Home tab.
+2. **Contextual tips** (`TipManager.jsx` + `FeatureTip.jsx`) — one-time hints fired by `triggerTip(id)` from feature sites. The manager shows one at a time, only after the quick start is done, only for the current role, only once (`inv_tip_<id>`). Registry: `TIPS` in `tutorialProgress.js`.
+3. **Feature checklist** (`HelpChecklist.jsx`, in Settings → Help) — auto-ticks as features are used. Reads `inv_act_<id>` flags set by `markAction(id)` and by the milestone bridge (`installMilestoneBridge` maps the app's existing `inv-onboarding-*` events to actions). Registry: `getChecklist(role)`.
+
+Shared primitives: `useElementRect.js` (rAF rect tracking + scroll-into-view + give-up), `TutorialTooltip.jsx` (viewport-flipping card, 375px-safe), `Spotlight.jsx` (4-panel dim with a click-through hole, portaled), `Confetti.jsx`. Keyframes live in `index.css` (`tut-*`).
+
+All state keys are `inv_`-prefixed so backup/restore captures them automatically. To re-trigger first-run: `localStorage.removeItem('inv_onboarding_complete')` (clear `inv_tip_*` / `inv_act_*` to reset tips/checklist).
 
 ## iOS / Safari Gotchas
 

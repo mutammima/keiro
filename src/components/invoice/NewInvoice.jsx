@@ -3,7 +3,7 @@
  * All business logic lives in useInvoiceForm; this component is pure UI.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AutofillInput from '../ui/AutofillInput';
 import BarcodeScanner from '../ui/BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
@@ -16,6 +16,7 @@ import { useInvoiceForm } from '../../hooks/useInvoiceForm';
 import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
+import { triggerTip } from '../../utils/tutorialProgress';
 
 /** Small red asterisk for required fields. */
 const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
@@ -111,6 +112,9 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
       next.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
+
+  // Layer 2 — first time the invoice form opens, point at the barcode scanner.
+  useEffect(() => { triggerTip('d-barcode'); }, []);
 
   return (
     <>
@@ -320,12 +324,12 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
             )}
 
             <div style={s.productRow}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div data-tip="product-name" style={{ flex: 1, minWidth: 0 }} onFocusCapture={() => triggerTip('d-autofill')}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
                   value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
                   enterKeyHint="next" onKeyDown={focusNext} />
               </div>
-              <button style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
+              <button data-tip="barcode" style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
                 onClick={() => setShowScanner(true)} type="button">
                 <CameraIcon color={dark ? '#ffffff' : '#555'} />
               </button>

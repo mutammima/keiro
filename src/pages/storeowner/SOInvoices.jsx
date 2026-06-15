@@ -18,6 +18,7 @@ import { getSharedInvoices, loadSharedInvoicesFromCloud } from '../../utils/conn
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
+import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 const STATUS_META = {
   delivered: { label: 'Received',    color: '#22c55e' },
@@ -64,6 +65,10 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
     window.addEventListener('inv-data-refresh', onRefresh);
     return () => window.removeEventListener('inv-data-refresh', onRefresh);
   }, []);
+
+  // Layer 2 — once a driver has set a payment status, explain the status badge.
+  const hasPaymentStatus = shared.some(inv => (inv.paymentStatus || 'unpaid') !== 'unpaid');
+  useEffect(() => { if (hasPaymentStatus) triggerTip('o-payment-status'); }, [hasPaymentStatus]);
 
   const invTotal = (inv) => (inv.items || []).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
   const payMeta  = (status) => ({
@@ -117,7 +122,7 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={s.body}>
+      <div data-tip="so-invoices-list" style={s.body}>
 
         {isGuest() && <GuestBanner />}
 
@@ -152,13 +157,13 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
                 <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, margin: '4px 0 0' }}>
                   ⇄ From your drivers
                 </p>
-                {shared.map(inv => {
+                {shared.map((inv, sIdx) => {
                   const meta = payMeta(inv.paymentStatus);
                   const isOpen = expandedId === inv.id;
                   return (
                     <div key={inv.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, overflow: 'hidden' }}>
                       <button
-                        onClick={() => setExpandedId(isOpen ? null : inv.id)}
+                        onClick={() => { if (!isOpen) markAction('so_view_invoice'); setExpandedId(isOpen ? null : inv.id); }}
                         style={{ width: '100%', background: 'none', border: 'none', padding: '12px 14px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -171,7 +176,7 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{money(invTotal(inv))}</div>
-                          <span style={{ display: 'inline-block', marginTop: 2, fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, background: meta.colors.bg, color: meta.colors.text }}>
+                          <span data-tip={sIdx === 0 ? 'so-payment-status' : undefined} style={{ display: 'inline-block', marginTop: 2, fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, background: meta.colors.bg, color: meta.colors.text }}>
                             {meta.label}
                           </span>
                         </div>
