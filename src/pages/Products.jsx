@@ -87,7 +87,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <div style={{ width: 36 }} />
+        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? 'Cancel' : '+ Add'}
@@ -225,6 +225,11 @@ const s = {
     display: 'flex', alignItems: 'center', gap: 14,
   },
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
+  hamburger: {
+    background: 'none', border: 'none', fontSize: 22,
+    cursor: 'pointer', padding: '3px 4px', width: 36,
+    WebkitTapHighlightColor: 'transparent',
+  },
   addBtn: {
     background: ACCENT, border: 'none', color: '#fff',
     fontWeight: 600, fontSize: 13, padding: '7px 16px',
