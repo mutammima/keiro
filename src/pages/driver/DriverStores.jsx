@@ -18,6 +18,7 @@ import { getBridgeRequests, loadBridgeRequestsFromCloud } from '../../utils/stor
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
+import { markAction } from '../../utils/tutorialProgress';
 
 function lastDateOf(a, b) {
   const ta = Date.parse(a || '') || 0;
@@ -49,6 +50,9 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
   const incomingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && me && c.invitedBy && c.invitedBy !== me);
   const outgoingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && (!me || !c.invitedBy || c.invitedBy === me));
   const activeConns      = conns.filter(c => c.status === 'active');
+
+  // Checklist: an active store connection counts as "Connect with a store".
+  useEffect(() => { if (activeConns.length > 0) markAction('connected'); }, [activeConns.length]);
 
   function copyInvite(code) {
     try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
@@ -158,7 +162,7 @@ export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
 
         {/* Connected stores (established via invite) */}
         {activeConns.length > 0 && (
-          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
+          <div data-tip="stores-list" style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '12px 14px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.textMuted, marginBottom: 8 }}>Connected stores</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {activeConns.map(c => (

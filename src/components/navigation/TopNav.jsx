@@ -25,7 +25,7 @@ const OWNER_TABS = [
 
 export const TOP_NAV_HEIGHT = 44; // px, not counting safe-area — 44 = minimum comfortable tap target
 
-export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {} }) {
+export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {}, pulse = {} }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -76,10 +76,12 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
         {TABS.map((tab, idx) => {
           const active = activeIdx === idx;
           const count = badges[tab.id] || 0;
+          const pulsing = !!pulse[tab.id];
           return (
             <button
               key={tab.id}
               data-tutorial={tab.tutorial}
+              data-qs-tab={tab.id}
               onClick={() => onNav(tab.id)}
               style={{
                 flex: 1,
@@ -107,6 +109,16 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
               }}>
                 {tab.label}
               </span>
+              {pulsing && (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 7, height: 7, borderRadius: 4, background: ACCENT, flexShrink: 0,
+                    '--tut-glow': 'rgba(74,123,247,0.5)',
+                    animation: 'tut-pulse 1.4s ease-in-out infinite',
+                  }}
+                />
+              )}
               {count > 0 && (
                 <span style={{
                   minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box',

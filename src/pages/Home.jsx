@@ -245,7 +245,7 @@ export default function Home({ onOpenDrawer, onNav }) {
                 <div style={s.sectionLabel(C)}>This Week</div>
 
                 {/* Revenue bar chart */}
-                <div style={{ borderRadius: 18, background: C.card, border: `1px solid ${C.cardBorder}`, padding: '16px 16px 10px' }}>
+                <div data-tip="home-chart" style={{ borderRadius: 18, background: C.card, border: `1px solid ${C.cardBorder}`, padding: '16px 16px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Revenue</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: weekTotal > 0 ? ACCENT : C.textMuted }}>{money(weekTotal)}</span>

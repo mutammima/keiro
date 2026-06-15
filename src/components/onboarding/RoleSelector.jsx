@@ -64,9 +64,12 @@ export default function RoleSelector({ onSelect }) {
       boxSizing: 'border-box',
     }}>
 
-      {/* Wordmark */}
-      <div style={{ marginBottom: 36, textAlign: 'center' }}>
+      {/* Wordmark + one-line explainer (Step 1 of onboarding) */}
+      <div style={{ marginBottom: 28, textAlign: 'center' }}>
         <KeiroWordmark C={C} style={{ fontSize: 30 }} />
+        <p style={{ fontSize: 13, color: C.textMuted, margin: '12px auto 0', maxWidth: 300, lineHeight: 1.5 }}>
+          Keiro connects delivery drivers and the stores they supply — invoices, orders, and payments in one place.
+        </p>
       </div>
 
       <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 8px', textAlign: 'center', letterSpacing: '-0.3px' }}>

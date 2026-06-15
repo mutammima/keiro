@@ -12,6 +12,7 @@ import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
+import { markAction } from '../../utils/tutorialProgress';
 
 const STATUS_META = {
   pending:   { label: 'Pending',   color: '#f59e0b' },
@@ -40,6 +41,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
       .then(list => setOrders(list))
       .catch(() => {})
       .finally(() => setLoading(false));
+    markAction('so_history'); // checklist: viewed delivery/order history
   }, []);
 
   const stats = useMemo(() => {

@@ -14,6 +14,7 @@ import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { getCurrentPosition } from '../../utils/geo';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
 import { isTutorialActive } from '../../utils/tutorialState';
+import { markAction } from '../../utils/tutorialProgress';
 import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
@@ -82,6 +83,7 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
           storeName:    getBusinessName() || 'A store',
           driverName:   connDriverName(conn),
         });
+        markAction('so_request'); // checklist: requested from a connected driver
         setSubmitted(true);
         setTimeout(() => {
           setProductName(''); setQuantity(''); setPrice(''); setDeliveryDate('');

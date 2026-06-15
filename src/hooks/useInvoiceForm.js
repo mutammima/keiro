@@ -32,6 +32,7 @@ import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSugges
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { markAction } from '../utils/tutorialProgress';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -199,6 +200,7 @@ export function useInvoiceForm(onGenerated) {
    */
   const handleScan = useCallback(async (barcode) => {
     setLastBarcode(barcode);
+    markAction('barcode');
 
     // 1. Check cloud catalog first
     const cached = await getProductByBarcode(barcode);

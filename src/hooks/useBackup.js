@@ -4,6 +4,7 @@
  */
 
 import { useRef, useState } from 'react';
+import { markAction } from '../utils/tutorialProgress';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,10 @@ import { useRef, useState } from 'react';
  *              inv_business_name, inv_business_phone
  * Settings:    inv_dark_mode, inv_accent_color, inv_density, inv_easy_mode,
  *              inv_auto_flag_days, inv_auto_mark_days, inv_user_role, inv_pin,
- *              inv_onboarding_complete, inv_tutorial_seen
+ *              inv_onboarding_complete
+ * Tutorial:    inv_tip_<id> (contextual tip seen), inv_act_<id> (feature
+ *              discovered, drives the checklist), inv_pulse_home, inv_seen_<tab>
+ *              — all swept automatically by collectBackupKeys (inv_ prefix).
  */
 
 /**
@@ -94,6 +98,7 @@ export function useBackup() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     setBackupMsg('Backup downloaded.');
     setTimeout(() => setBackupMsg(''), 3000);
+    markAction('backup');
   }
 
   /** Programmatically opens the hidden file input for restore. */

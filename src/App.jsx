@@ -1,5 +1,5 @@
 // v4 — Supabase auth + cloud DB, offline banner, page transitions + arrow nav tabs
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LIGHT, DARK } from './theme';
 import NavDrawer from './components/navigation/NavDrawer';
@@ -14,9 +14,12 @@ import Legal from './pages/Legal';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-import OnboardingTutorial from './components/tutorial/OnboardingTutorial';
-import SOOnboardingTutorial from './components/tutorial/SOOnboardingTutorial';
+// Tutorial system (Layer 1 quick start + Layer 2 contextual tips) — lazy so it
+// never weighs on first paint.
+const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
+const TipManager = lazy(() => import('./components/tutorial/TipManager'));
 import useOnboarding from './hooks/useOnboarding';
+import { installMilestoneBridge, isHomePulse, setHomePulse, triggerTip } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
@@ -110,7 +113,8 @@ function AppInner({ role, onSwitchRole }) {
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
   const [selectedStore,  setSelectedStore]  = useState(null);
-  const [showTutorial,   setShowTutorial]   = useState(false);
+  const [showQuickStart, setShowQuickStart] = useState(false); // replay from Settings/drawer
+  const [homePulse,      setHomePulseState] = useState(() => isHomePulse());
   // WhatsNew starts hidden — only shown after onboarding is complete so the
   // two overlays never fight each other and block all interaction.
   const [showWhatsNew,   setShowWhatsNew]   = useState(false);
@@ -184,6 +188,28 @@ function AppInner({ role, onSwitchRole }) {
     return () => window.removeEventListener('inv-version-update', handler);
   }, []);
 
+  // Bridge the app's existing milestone events onto checklist flags (once).
+  useEffect(() => { installMilestoneBridge(); }, []);
+
+  // Clear the post-quick-start Home pulse once the user actually opens Home.
+  useEffect(() => {
+    if (page === 'home' && homePulse) { setHomePulse(false); setHomePulseState(false); }
+  }, [page, homePulse]);
+
+  // Layer 2 — fire the "first visit to this tab" contextual tips. triggerTip is
+  // a no-op until the quick start is done and is deduped by the TipManager, so
+  // it's safe to call on every tab change.
+  useEffect(() => {
+    if (overlayPage !== null) return;
+    const TAB_TIP = {
+      route: 'd-route-history', home: 'd-home-chart', stores: 'd-stores', reports: 'd-reports-eod',
+      'so-orders': 'o-orders-list', 'so-invoices': 'o-invoices-list',
+      'so-drivers': 'o-drivers-list', 'so-home': 'o-home-restock',
+    };
+    const id = TAB_TIP[page];
+    if (id) triggerTip(id);
+  }, [page, overlayPage]);
+
   // Tab strip index — easy-mode driver starts on Route (index 1), else tab 0
   const [tabIdx, setTabIdx] = useState(() => (role !== 'store_owner' && easyMode ? 1 : 0));
 
@@ -250,6 +276,20 @@ function AppInner({ role, onSwitchRole }) {
     setOverlayPage(null);
     setPage(tabsRef.current[tabIdx]);
   }
+
+  // ── Quick Start finish (shared by first-run and replay) ─────────────────────
+  const isFirstRunQuickStart = shouldShowOnboarding;
+  function finishQuickStart(skipped) {
+    if (isFirstRunQuickStart) {
+      skipped ? skipOnboarding() : markOnboardingComplete();
+      // Pulse the Home tab afterward to point the driver at their dashboard.
+      if (!skipped && role !== 'store_owner') { setHomePulse(true); setHomePulseState(true); }
+      navigate(role === 'store_owner' ? 'so-orders' : 'route');
+    } else {
+      setShowQuickStart(false);
+    }
+  }
+  const quickStartVisible = shouldShowOnboarding || showQuickStart;
 
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
   //
@@ -365,22 +405,6 @@ function AppInner({ role, onSwitchRole }) {
       }}
     >
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
-      {showTutorial && role === 'store_owner' && (
-        <SOOnboardingTutorial
-          navigate={navigate}
-          skipWelcome
-          onComplete={() => setShowTutorial(false)}
-          onSkip={() => setShowTutorial(false)}
-        />
-      )}
-      {showTutorial && role !== 'store_owner' && (
-        <OnboardingTutorial
-          navigate={navigate}
-          skipWelcome
-          onComplete={() => setShowTutorial(false)}
-          onSkip={() => setShowTutorial(false)}
-        />
-      )}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
           onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
@@ -392,7 +416,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={() => setShowTutorial(true)}
+        onTutorial={() => setShowQuickStart(true)}
         role={role}
         onSwitchRole={onSwitchRole}
       />
@@ -483,7 +507,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -495,23 +519,25 @@ function AppInner({ role, onSwitchRole }) {
 
       {/* Hide top nav on overlay pages — they have their own headers */}
       {overlayPage === null && (
-        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} pulse={homePulse ? { home: true } : {}} />
       )}
       <OfflineBanner dark={dark} />
-      {shouldShowOnboarding && role !== 'store_owner' && (
-        <OnboardingTutorial
-          navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('route'); }}
-          onSkip={() => { skipOnboarding(); navigate('route'); }}
-        />
+
+      {/* ── Tutorial system ──────────────────────────────────────────────────── */}
+      {quickStartVisible && (
+        <Suspense fallback={null}>
+          <QuickStart
+            role={role}
+            onComplete={() => finishQuickStart(false)}
+            onSkip={() => finishQuickStart(true)}
+          />
+        </Suspense>
       )}
-      {shouldShowOnboarding && role === 'store_owner' && (
-        <SOOnboardingTutorial
-          navigate={navigate}
-          onComplete={() => { markOnboardingComplete(); navigate('so-home'); }}
-          onSkip={() => { skipOnboarding(); navigate('so-home'); }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {/* Pause tips while any other onboarding surface is up (quick start or
+            What's New) so only one thing ever shows at a time. */}
+        <TipManager role={role} paused={quickStartVisible || showWhatsNew} />
+      </Suspense>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus } from '../../utils/connectionOrderStorage';
 import AppFooter from '../../components/navigation/AppFooter';
+import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 const STATUS_META = {
   pending:   { label: 'Pending',   color: '#f59e0b', bg: { light: '#fffbeb', dark: '#1f1000' } },
@@ -90,6 +91,16 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
     ? merged
     : merged.filter(o => o.status === filter);
 
+  // Anchors for the first connection order / first delivered-with-invoice order.
+  const firstConnIdx      = visible.findIndex(o => o.isConnection);
+  const firstDeliveredIdx = visible.findIndex(o => o.isConnection && o.status === 'delivered' && o.invoiceNumber != null);
+
+  // Layer 2 + checklist signals.
+  const hasConnOrder = merged.some(o => o.isConnection);
+  const hasDelivered = merged.some(o => o.status === 'delivered');
+  useEffect(() => { if (hasConnOrder) triggerTip('o-order-status'); }, [hasConnOrder]);
+  useEffect(() => { if (hasDelivered) { triggerTip('o-order-delivered'); markAction('so_delivered'); } }, [hasDelivered]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg }}>
 
@@ -98,6 +109,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
         <div style={{ width: 64 }} />
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Orders</span>
         <button
+          data-qs="new-request"
           onClick={() => onNav('so-request')}
           style={{ flexShrink: 0, height: 32, padding: '0 14px', border: 'none', borderRadius: 16, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
         >
@@ -131,7 +143,7 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
       </div>
 
       {/* List */}
-      <div style={{ padding: '8px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div data-tip="so-orders-list" style={{ padding: '8px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {loading && visible.length === 0 ? (
           <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading orders…</p>
@@ -171,17 +183,21 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
                       {order.isConnection ? '⇄ ' : ''}{order.driverName}
-                      {order.isConnection && order.status === 'delivered' && order.invoiceNumber != null
-                        ? ` · Invoice #${order.invoiceNumber}` : ''}
+                      {order.isConnection && order.status === 'delivered' && order.invoiceNumber != null && (
+                        <span data-tip={orderIdx === firstDeliveredIdx ? 'so-invoice-number' : undefined}> · Invoice #{order.invoiceNumber}</span>
+                      )}
                     </div>
                   </div>
                   {/* Status badge */}
-                  <div style={{
-                    padding: '4px 10px', borderRadius: 10,
-                    background: meta.bg[dark ? 'dark' : 'light'],
-                    fontSize: 11, fontWeight: 700, color: meta.color,
-                    flexShrink: 0,
-                  }}>
+                  <div
+                    data-tip={order.isConnection && orderIdx === firstConnIdx ? 'so-order-status' : undefined}
+                    style={{
+                      padding: '4px 10px', borderRadius: 10,
+                      background: meta.bg[dark ? 'dark' : 'light'],
+                      fontSize: 11, fontWeight: 700, color: meta.color,
+                      flexShrink: 0,
+                    }}
+                  >
                     {meta.label}
                   </div>
                 </div>

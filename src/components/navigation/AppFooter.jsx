@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { useBackup } from '../../hooks/useBackup';
 import { isGuest, promptAccount } from '../../utils/guestMode';
+import { triggerTip } from '../../utils/tutorialProgress';
 
 const WHATS_NEW = [
   { v: '5.9', notes: ['Overdue payment reminders — one-tap WhatsApp', 'Reliable cloud sync with on-screen sync alerts', 'Privacy Policy & Terms added'] },
@@ -47,7 +48,7 @@ export default function AppFooter({ onNav }) {
           <Pipe C={C} />
           <FooterLink label="Roadmap"      onPress={() => setModal('roadmap')} C={C} />
           <Pipe C={C} />
-          <FooterLink label="Backup"       onPress={() => setModal('backup')}  C={C} accent />
+          <FooterLink label="Backup"       onPress={() => { setModal('backup'); triggerTip('backup-export'); }}  C={C} accent />
           <Pipe C={C} />
           <FooterLink label="About"        onPress={() => onNav?.('about')}    C={C} />
           <Pipe C={C} />
@@ -128,7 +129,7 @@ export default function AppFooter({ onNav }) {
                     Your data lives only on this device. Export a backup file regularly and keep it somewhere safe — your email, iCloud, Google Drive, etc. If you ever lose your data, restore from that file.
                   </p>
 
-                  <button style={{ ...s.backupBtn, background: ACCENT, color: '#fff' }} onClick={handleExport}>
+                  <button data-tip="backup-export" style={{ ...s.backupBtn, background: ACCENT, color: '#fff' }} onClick={handleExport}>
                     Export backup
                   </button>
 

@@ -16,6 +16,7 @@ import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } 
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
+import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
 function fmtPaymentDate(iso) {
@@ -118,6 +119,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
       businessName:  bizName,
     });
     setOpenMenu(null);
+    markAction('reminder');
     window.open(url, '_blank');
   }
 
@@ -141,6 +143,14 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
 
   // Open cross-account orders addressed to this driver (pending or accepted).
   const openConnOrders = connOrders.filter(o => o.status === 'pending' || o.status === 'accepted');
+
+  // ── Contextual tip triggers (Layer 2) ─────────────────────────────────────
+  // First card expansion → explain the action buttons.
+  useEffect(() => { if (expanded != null) triggerTip('d-invoice-actions'); }, [expanded]);
+  // An overdue invoice exists → point at the reminder action.
+  useEffect(() => { if (overdueCount > 0) triggerTip('d-overdue'); }, [overdueCount]);
+  // A connected store's order arrived → explain the Fill Invoice flow.
+  useEffect(() => { if (openConnOrders.length > 0) triggerTip('d-conn-order'); }, [openConnOrders.length]);
 
   function handleAcceptConnOrder(o) {
     updateConnectionOrderStatus(o.id, 'accepted');
@@ -170,6 +180,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
     if (o.status === 'pending') updateConnectionOrderStatus(o.id, 'accepted');
     setActiveConnectionOrder(o.id);
     setConnOrders(getConnectionOrders());
+    markAction('filled_order');
     onNav('invoice');
   }
 
@@ -484,6 +495,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
             )}
             {isOverdue && (
               <button
+                data-tip="overdue"
                 onClick={() => handleRemind(inv)}
                 style={{
                   fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20,
@@ -543,7 +555,7 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
               );
             })()}
 
-            <div style={{ ...s.expandedActions, borderTopColor: C.divider }}>
+            <div data-tip="invoice-actions" style={{ ...s.expandedActions, borderTopColor: C.divider }}>
               <button
                 style={{ ...s.shareBtn, opacity: sharing === inv.number ? 0.6 : 1 }}
                 onClick={() => handleShare(inv)}
@@ -564,16 +576,16 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
         <div style={{ width: 36 }} />
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         {onNewInvoice ? (
-          <button onClick={onNewInvoice} style={s.newBtn}>+ New</button>
+          <button data-qs="new-invoice" onClick={onNewInvoice} style={s.newBtn}>+ New</button>
         ) : (
           <div style={{ width: 36 }} />
         )}
       </div>
 
-      <div style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
+      <div data-tip="route-history" style={{ ...s.body, padding: D.bodyPad, gap: D.cardGap + 2 }}>
         {/* Cross-account orders from connected stores */}
         {openConnOrders.length > 0 && (
-          <div style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div data-tip="conn-orders" style={{ background: dark ? '#0a1a3a' : '#eff6ff', border: `1px solid ${dark ? 'rgba(74,123,247,0.25)' : 'rgba(74,123,247,0.2)'}`, borderRadius: 16, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: ACCENT }}>
               ⇄ Orders from connected stores ({openConnOrders.length})
             </p>
