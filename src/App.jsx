@@ -14,10 +14,11 @@ import Legal from './pages/Legal';
 import Profile from './pages/Profile';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-// Tutorial system (Layer 1 quick start + Layer 2 contextual tips) — lazy so it
-// never weighs on first paint.
-const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
-const TipManager = lazy(() => import('./components/tutorial/TipManager'));
+// Tutorial system (Layer 1 quick start + Layer 2 contextual tips + Layer 4
+// guided walkthroughs) — lazy so none weigh on first paint.
+const QuickStart        = lazy(() => import('./components/tutorial/QuickStart'));
+const TipManager        = lazy(() => import('./components/tutorial/TipManager'));
+const WalkthroughRunner = lazy(() => import('./components/tutorial/WalkthroughRunner'));
 import useOnboarding from './hooks/useOnboarding';
 import { installMilestoneBridge, isHomePulse, setHomePulse, triggerTip } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
@@ -114,6 +115,7 @@ function AppInner({ role, onSwitchRole }) {
   const [currentInvoice, setCurrentInvoice] = useState(null);
   const [selectedStore,  setSelectedStore]  = useState(null);
   const [showQuickStart, setShowQuickStart] = useState(false); // replay from Settings/drawer
+  const [walkthroughId,  setWalkthroughId]  = useState(null);  // active guided walkthrough id
   const [homePulse,      setHomePulseState] = useState(() => isHomePulse());
   // WhatsNew starts hidden — only shown after onboarding is complete so the
   // two overlays never fight each other and block all interaction.
@@ -546,7 +548,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} onStartWalkthrough={id => { goBackFromOverlay(); setWalkthroughId(id); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -573,10 +575,20 @@ function AppInner({ role, onSwitchRole }) {
         </Suspense>
       )}
       <Suspense fallback={null}>
-        {/* Pause tips while any other onboarding surface is up (quick start or
-            What's New) so only one thing ever shows at a time. */}
-        <TipManager role={role} paused={quickStartVisible || showWhatsNew} />
+        {/* Pause tips while any other onboarding surface is up (quick start,
+            What's New, or a guided walkthrough) so only one thing shows at once. */}
+        <TipManager role={role} paused={quickStartVisible || showWhatsNew || !!walkthroughId} />
       </Suspense>
+
+      {/* Layer 4 — guided walkthroughs */}
+      {walkthroughId && (
+        <Suspense fallback={null}>
+          <WalkthroughRunner
+            walkthroughId={walkthroughId}
+            onClose={() => setWalkthroughId(null)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

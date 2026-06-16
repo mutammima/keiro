@@ -16,7 +16,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { getChecklist, PROGRESS_EVENT } from '../../utils/tutorialProgress';
 
-export default function HelpChecklist({ role, onNav, onReplay }) {
+export default function HelpChecklist({ role, onNav, onReplay, onStartWalkthrough }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -81,12 +81,28 @@ export default function HelpChecklist({ role, onNav, onReplay }) {
               {isOpen && (
                 <div style={{ padding: '0 14px 12px 48px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: C.textSub }}>{item.desc}</p>
-                  {!item.done && (
+                  {!item.done && item.walkthrough && (
+                    <button
+                      onClick={() => onStartWalkthrough?.(item.walkthrough)}
+                      style={{ alignSelf: 'flex-start', height: 36, padding: '0 16px', borderRadius: 10, border: 'none', background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      Start Walkthrough →
+                    </button>
+                  )}
+                  {!item.done && !item.walkthrough && item.page && (
                     <button
                       onClick={() => onNav?.(item.page)}
                       style={{ alignSelf: 'flex-start', height: 36, padding: '0 16px', borderRadius: 10, border: 'none', background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     >
                       Take me there →
+                    </button>
+                  )}
+                  {item.done && item.walkthrough && (
+                    <button
+                      onClick={() => onStartWalkthrough?.(item.walkthrough)}
+                      style={{ alignSelf: 'flex-start', height: 36, padding: '0 16px', borderRadius: 10, border: `1px solid ${C.divider}`, background: 'transparent', color: C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      Replay →
                     </button>
                   )}
                 </div>

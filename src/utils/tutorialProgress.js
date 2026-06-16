@@ -21,6 +21,10 @@ const TIP_PREFIX   = 'inv_tip_';
 const ACTION_PREFIX = 'inv_act_';
 const HOME_PULSE_KEY = 'inv_pulse_home';
 
+// Guided walkthrough persistence (step resume + completion)
+const WT_STEP_PREFIX = 'inv_wt_step_';   // inv_wt_step_<id> = last completed step index
+const WT_DONE_PREFIX = 'inv_wt_done_';   // inv_wt_done_<id> = '1' when fully complete
+
 // ── Events ──────────────────────────────────────────────────────────────────
 /** Fired by triggerTip(id); TipManager listens and decides whether to show it. */
 export const TIP_TRIGGER_EVENT = 'inv-tip-trigger';
@@ -46,6 +50,30 @@ export function isQuickStartDone() {
 // ── Home pulse (post-quick-start nudge toward the dashboard) ──────────────────
 export function setHomePulse(on) { on ? setFlag(HOME_PULSE_KEY) : clearFlag(HOME_PULSE_KEY); }
 export function isHomePulse()    { return getFlag(HOME_PULSE_KEY); }
+
+// ── Guided walkthrough state ──────────────────────────────────────────────────
+/** Returns the last-completed step index (-1 = not started, null = not found). */
+export function getWalkthroughStep(id) {
+  try {
+    const v = localStorage.getItem(WT_STEP_PREFIX + id);
+    return v === null ? null : parseInt(v, 10);
+  } catch { return null; }
+}
+/** Persist step so the user can resume. stepIndex = last COMPLETED step (0-based). */
+export function setWalkthroughStep(id, stepIndex) {
+  try { localStorage.setItem(WT_STEP_PREFIX + id, String(stepIndex)); } catch {}
+}
+export function clearWalkthroughStep(id) {
+  try { localStorage.removeItem(WT_STEP_PREFIX + id); } catch {}
+}
+export function isWalkthroughDone(id) {
+  try { return localStorage.getItem(WT_DONE_PREFIX + id) === '1'; } catch { return false; }
+}
+export function setWalkthroughDone(id) {
+  try { localStorage.setItem(WT_DONE_PREFIX + id, '1'); } catch {}
+  clearWalkthroughStep(id);
+  emitProgress();
+}
 
 // ── Tips ────────────────────────────────────────────────────────────────────
 export function hasSeenTip(id) { return getFlag(TIP_PREFIX + id); }
@@ -155,9 +183,10 @@ export const TIPS = {
 // ── Feature discovery checklist registry ──────────────────────────────────────
 // page: where "Take me there" navigates (tab id or overlay id understood by App.navigate)
 const DRIVER_CHECKLIST = [
+  { id: 'wt_driver_invoice', label: 'Complete the invoice walkthrough',              page: null,          desc: 'A hands-on guided tour: create a real invoice, mark it paid, and share it.', walkthrough: 'driver_invoice' },
   { id: 'invoice_created', label: 'Create your first invoice',                       page: 'invoice',     desc: 'Tap + New on the Route tab to build and generate an invoice.' },
   { id: 'barcode',         label: 'Scan a barcode to add a product',                 page: 'invoice',     desc: 'On the invoice form, tap the camera button to scan a product barcode.' },
-  { id: 'marked_paid',     label: 'Mark an invoice as paid',                         page: 'route',       desc: 'Tap an invoice’s status badge to cycle it to Paid.' },
+  { id: 'marked_paid',     label: 'Mark an invoice as paid',                         page: 'route',       desc: 'Tap an invoice\'s status badge to cycle it to Paid.' },
   { id: 'reminder',        label: 'Send a WhatsApp payment reminder',                page: 'route',       desc: 'On an overdue invoice, tap Remind to open a pre-written WhatsApp message.' },
   { id: 'shared_pdf',      label: 'Generate and share a PDF invoice',                page: 'route',       desc: 'Open any invoice and tap Share or Download PDF.' },
   { id: 'biz_name',        label: 'Add your business name in Settings',              page: 'settings',    desc: 'Your business name and phone appear on every invoice.' },
@@ -170,6 +199,7 @@ const DRIVER_CHECKLIST = [
 ];
 
 const OWNER_CHECKLIST = [
+  { id: 'wt_so_request',   label: 'Complete the delivery request walkthrough',       page: null,          desc: 'A hands-on guided tour: place a real delivery request and track it to delivery.', walkthrough: 'so_request' },
   { id: 'so_request',      label: 'Request a delivery from a connected driver',      page: 'so-request',  desc: 'Tap + New on the Orders tab and assign a connected driver.' },
   { id: 'so_delivered',    label: 'Track an order from pending to delivered',        page: 'so-orders',   desc: 'Watch an order move through pending, accepted, and delivered.' },
   { id: 'so_view_invoice', label: 'View a driver-generated invoice',                 page: 'so-invoices', desc: 'Open an invoice your connected driver generated for you.' },
@@ -186,5 +216,10 @@ const OWNER_CHECKLIST = [
  */
 export function getChecklist(role) {
   const items = role === 'store_owner' ? OWNER_CHECKLIST : DRIVER_CHECKLIST;
-  return items.map(it => ({ ...it, done: hasDoneAction(it.id) }));
+  return items.map(it => ({
+    ...it,
+    done: it.walkthrough
+      ? isWalkthroughDone(it.walkthrough)
+      : hasDoneAction(it.id),
+  }));
 }
