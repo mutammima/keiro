@@ -40,7 +40,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SOInvoices({ onOpenDrawer, onNav }) {
+export default function SOInvoices({ onOpenDrawer, onNav, onStartWalkthrough }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -117,9 +117,14 @@ export default function SOInvoices({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <div style={{ width: 36 }} />
+        <button
+          onClick={() => onStartWalkthrough?.('so_request')}
+          style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: `1px solid ${C.divider}`, background: 'none', color: C.textMuted, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          ?
+        </button>
         <span style={{ ...s.title, color: C.text }}>Invoices</span>
-        <div style={{ width: 36 }} />
+        <div style={{ width: 30 }} />
       </div>
 
       <div data-tip="so-invoices-list" style={s.body}>
