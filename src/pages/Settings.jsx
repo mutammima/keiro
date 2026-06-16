@@ -51,7 +51,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const role = (() => { try { return localStorage.getItem('inv_user_role') || 'driver'; } catch { return 'driver'; } })();
+  const role = (() => { try { return JSON.parse(localStorage.getItem('inv_user_role')) || 'driver'; } catch { return 'driver'; } })();
 
   // Layer 2 — first time Settings opens, point at the business-info field.
   useEffect(() => { triggerTip('settings-biz'); }, []);
