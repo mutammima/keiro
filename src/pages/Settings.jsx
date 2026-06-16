@@ -29,7 +29,7 @@ import PinLock, { isPinEnabled, clearPin } from '../components/settings/PinLock'
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
 import { lazy, Suspense } from 'react';
-import { triggerTip } from '../utils/tutorialProgress';
+import { triggerTip, isWalkthroughDone } from '../utils/tutorialProgress';
 
 const HelpChecklist = lazy(() => import('../components/tutorial/HelpChecklist'));
 
@@ -47,7 +47,7 @@ const ACCENT_PRESETS = [
   '#64748B', // slate
 ];
 
-export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, onReplayTutorial }) {
+export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, onReplayTutorial, onStartWalkthrough }) {
   const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -232,11 +232,31 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
 
         {/* ── Help & Tutorial ────────────────────────────────────────────── */}
         <Section title="Help & Tutorial" C={C} defaultOpen={false}>
+          {/* Walkthrough cards — role-specific */}
+          {role === 'driver' && (
+            <WalkthroughCard
+              title="Create and manage an invoice"
+              desc="A hands-on guided tour: build a real invoice, mark it paid, and learn every action button."
+              walkthroughId="driver_invoice"
+              onStart={() => onStartWalkthrough?.('driver_invoice')}
+              C={C} dark={dark}
+            />
+          )}
+          {role === 'store_owner' && (
+            <WalkthroughCard
+              title="Place and track a delivery request"
+              desc="A hands-on guided tour: send a real order to a driver and track it from pending to delivered."
+              walkthroughId="so_request"
+              onStart={() => onStartWalkthrough?.('so_request')}
+              C={C} dark={dark}
+            />
+          )}
           <Suspense fallback={null}>
             <HelpChecklist
               role={role}
               onNav={(p) => onNav?.(p)}
               onReplay={() => onReplayTutorial?.()}
+              onStartWalkthrough={onStartWalkthrough}
             />
           </Suspense>
         </Section>
@@ -592,6 +612,30 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
         </div>,
         document.body
       )}
+    </div>
+  );
+}
+
+// ── Walkthrough card ──────────────────────────────────────────────────────────
+function WalkthroughCard({ title, desc, walkthroughId, onStart, C, dark }) {
+  const done = isWalkthroughDone(walkthroughId);
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3 }}>{title}</div>
+          <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>{desc}</div>
+        </div>
+        {done && (
+          <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 900, marginTop: 2 }}>✓</span>
+        )}
+      </div>
+      <button
+        onClick={onStart}
+        style={{ alignSelf: 'flex-start', height: 34, padding: '0 14px', border: done ? `1px solid ${C.divider}` : 'none', borderRadius: 10, background: done ? 'transparent' : ACCENT, color: done ? C.textMuted : '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        {done ? 'Replay' : 'Start Walkthrough'}
+      </button>
     </div>
   );
 }
