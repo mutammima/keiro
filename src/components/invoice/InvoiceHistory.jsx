@@ -26,7 +26,7 @@ function fmtPaymentDate(iso) {
     + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onNewInvoice }) {
+export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onNewInvoice, onStartWalkthrough }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const D = useDensity();
@@ -573,12 +573,17 @@ export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onN
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <div style={{ width: 36 }} />
+        <button
+          onClick={() => onStartWalkthrough?.('driver_invoice')}
+          style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: `1px solid ${C.divider}`, background: 'none', color: C.textMuted, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          ?
+        </button>
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         {onNewInvoice ? (
           <button data-qs="new-invoice" onClick={onNewInvoice} style={s.newBtn}>+ New</button>
         ) : (
-          <div style={{ width: 36 }} />
+          <div style={{ width: 30 }} />
         )}
       </div>
 

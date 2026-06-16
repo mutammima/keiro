@@ -492,12 +492,12 @@ function AppInner({ role, onSwitchRole }) {
           >
             {(role === 'store_owner' ? [
               <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onStartWalkthrough={id => setWalkthroughId(id)} />,
               <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onStartWalkthrough={id => setWalkthroughId(id)} />,
             ] : [
               <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} onStartWalkthrough={id => setWalkthroughId(id)} />,
               <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
               <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ]).map((child, i) => (

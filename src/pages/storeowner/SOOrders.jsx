@@ -27,7 +27,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SOOrders({ onOpenDrawer, onNav }) {
+export default function SOOrders({ onOpenDrawer, onNav, onStartWalkthrough }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -106,7 +106,12 @@ export default function SOOrders({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 64 }} />
+        <button
+          onClick={() => onStartWalkthrough?.('so_request')}
+          style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: `1px solid ${C.divider}`, background: 'none', color: C.textMuted, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          ?
+        </button>
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Orders</span>
         <button
           data-qs="new-request"
