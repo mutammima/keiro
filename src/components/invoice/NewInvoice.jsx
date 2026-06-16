@@ -365,7 +365,7 @@ export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack })
               </div>
             )}
             {error && <p style={{ ...s.error, color: C.danger }}>{error}</p>}
-            <button style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub }} onClick={addItem} type="button">
+            <button data-tutorial="invoice-add-item-btn" style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub }} onClick={addItem} type="button">
               + Add Item
             </button>
           </div>
