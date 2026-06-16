@@ -1,5 +1,5 @@
 // v4 — Supabase auth + cloud DB, offline banner, page transitions + arrow nav tabs
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LIGHT, DARK } from './theme';
 import NavDrawer from './components/navigation/NavDrawer';
@@ -312,6 +312,31 @@ function AppInner({ role, onSwitchRole }) {
   const [dragOffset, setDragOffset] = useState(0);
   const [swiping,    setSwiping]    = useState(false);
 
+  // Measured wrapper width in px. The tab strip is positioned entirely in px
+  // (each slide = stripW, translate = -tabIdx * stripW) rather than with a
+  // percentage-of-a-400%-wide-strip transform. The old dual-percentage basis
+  // (child width 25% of a 400% strip + translateX(calc(-N% ...))) let iOS Safari
+  // round the slide boundary and the translate independently, leaving a few-px
+  // seam of the adjacent tab. One measured px value keeps them perfectly aligned.
+  // 0 until first layout — falls back to the percentage layout for that one frame.
+  const [stripW, setStripW] = useState(0);
+  useLayoutEffect(() => {
+    const el = swipeWrapperRef.current;
+    if (!el) return;
+    const measure = () => setStripW(el.clientWidth);
+    measure(); // synchronous, pre-paint — no flash of the fallback layout
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [overlayPage]); // wrapper remounts when an overlay closes — re-measure then
+
+  // Belt-and-suspenders to the onScroll guard below: clear any stray horizontal
+  // scroll on the wrapper before each paint after a tab change, so a navigation
+  // never lands on a frame where a leftover scrollLeft has shifted the strip.
+  useLayoutEffect(() => {
+    if (swipeWrapperRef.current) swipeWrapperRef.current.scrollLeft = 0;
+  }, [tabIdx, stripW, overlayPage]);
+
   // Keep refs in sync with latest state/callbacks
   useEffect(() => { tabIdxRef.current    = tabIdx;    }, [tabIdx]);
   useEffect(() => { overlayPageRef.current = overlayPage; }, [overlayPage]);
@@ -428,6 +453,18 @@ function AppInner({ role, onSwitchRole }) {
       {isTabPage && (
         <div
           ref={swipeWrapperRef}
+          // The strip is N× wider than this clip box, so the browser treats the
+          // box as horizontally scrollable even with overflow:hidden. iOS Safari
+          // then scrolls it sideways on its own — focusing an input inside a tab,
+          // VoiceOver moving focus, or rubber-banding all leave a stray scrollLeft
+          // that shifts every tab over and reveals the neighbour as a sliver.
+          // Snap any such scroll straight back to 0 (scroll events don't bubble,
+          // so this only ever fires for the wrapper's own scroll, never the tabs'
+          // vertical scroll).
+          onScroll={(e) => {
+            if (e.currentTarget.scrollLeft !== 0) e.currentTarget.scrollLeft = 0;
+            if (e.currentTarget.scrollTop  !== 0) e.currentTarget.scrollTop  = 0;
+          }}
           style={{
             position: 'absolute', inset: 0,
             overflow: 'hidden',
@@ -440,10 +477,12 @@ function AppInner({ role, onSwitchRole }) {
           <div
             style={{
               display: 'flex',
-              width: `${TABS.length * 100}%`,
+              width: stripW ? `${TABS.length * stripW}px` : `${TABS.length * 100}%`,
               height: '100%',
               paddingTop: `${TOP_NAV_HEIGHT}px`, // must track the fixed TopNav height
-              transform: `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
+              transform: stripW
+                ? `translateX(${-tabIdx * stripW + dragOffset}px)`
+                : `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
               transition: swiping ? 'none' : 'transform 0.38s cubic-bezier(0.32,0.72,0,1)',
               willChange: 'transform',
               boxSizing: 'border-box',
@@ -464,7 +503,7 @@ function AppInner({ role, onSwitchRole }) {
                 key={i}
                 data-scroll-container="tab"
                 style={{
-                  width: `${100 / TABS.length}%`,
+                  width: stripW ? `${stripW}px` : `${100 / TABS.length}%`,
                   height: '100%',
                   overflowY: 'auto',
                   overflowX: 'hidden',
