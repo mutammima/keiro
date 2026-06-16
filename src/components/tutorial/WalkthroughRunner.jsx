@@ -89,6 +89,12 @@ const DRIVER_INVOICE_STEPS = [
   },
   {
     type: 'tap',
+    selector: '[data-tutorial="invoice-add-item-btn"]',
+    title: 'Add the item',
+    body: 'Tap + Add Item to add this product to your invoice. You can add as many items as you need.',
+  },
+  {
+    type: 'tap',
     selector: '[data-tutorial="invoice-generate"]',
     title: 'Generate the invoice',
     body: 'When you are ready, tap Generate to save the invoice. This is real — it will be saved to your account.',
