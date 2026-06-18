@@ -61,3 +61,7 @@ textarea {
 @keyframes tut-blink    { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 @keyframes tut-confetti { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(86vh) rotate(620deg); opacity: 0.9; } }
 @keyframes tut-pop      { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+/* Auto-demo cursor: a click ripple and the cursor's first appearance. */
+@keyframes tut-ripple     { 0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.55; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+@keyframes tut-cursor-in  { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes tut-progress   { from { transform: scaleX(0); } to { transform: scaleX(1); } }

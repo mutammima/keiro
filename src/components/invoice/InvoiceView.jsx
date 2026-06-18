@@ -166,7 +166,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
+        <button data-tutorial="invoice-view-back" style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ ...s.title, color: C.text }}>{getBusinessName() || DEFAULT_BUSINESS_NAME}</span>
           <span style={{ fontSize: 12, color: C.textMuted }}>Invoice #{invoice.number}</span>
