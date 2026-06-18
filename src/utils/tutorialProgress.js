@@ -183,7 +183,7 @@ export const TIPS = {
 // ── Feature discovery checklist registry ──────────────────────────────────────
 // page: where "Take me there" navigates (tab id or overlay id understood by App.navigate)
 const DRIVER_CHECKLIST = [
-  { id: 'wt_driver_invoice', label: 'Complete the invoice walkthrough',              page: null,          desc: 'A hands-on guided tour: create a real invoice, mark it paid, and share it.', walkthrough: 'driver_invoice' },
+  { id: 'wt_driver_invoice', label: 'Complete the invoice walkthrough',              page: null,          desc: 'A self-running demo: watch a real invoice get created, marked paid, and shared.', walkthrough: 'driver_invoice' },
   { id: 'invoice_created', label: 'Create your first invoice',                       page: 'invoice',     desc: 'Tap + New on the Route tab to build and generate an invoice.' },
   { id: 'barcode',         label: 'Scan a barcode to add a product',                 page: 'invoice',     desc: 'On the invoice form, tap the camera button to scan a product barcode.' },
   { id: 'marked_paid',     label: 'Mark an invoice as paid',                         page: 'route',       desc: 'Tap an invoice\'s status badge to cycle it to Paid.' },
@@ -199,7 +199,7 @@ const DRIVER_CHECKLIST = [
 ];
 
 const OWNER_CHECKLIST = [
-  { id: 'wt_so_request',   label: 'Complete the delivery request walkthrough',       page: null,          desc: 'A hands-on guided tour: place a real delivery request and track it to delivery.', walkthrough: 'so_request' },
+  { id: 'wt_so_request',   label: 'Complete the delivery request walkthrough',       page: null,          desc: 'A self-running demo: watch a real delivery request get placed and tracked to delivery.', walkthrough: 'so_request' },
   { id: 'so_request',      label: 'Request a delivery from a connected driver',      page: 'so-request',  desc: 'Tap + New on the Orders tab and assign a connected driver.' },
   { id: 'so_delivered',    label: 'Track an order from pending to delivered',        page: 'so-orders',   desc: 'Watch an order move through pending, accepted, and delivered.' },
   { id: 'so_view_invoice', label: 'View a driver-generated invoice',                 page: 'so-invoices', desc: 'Open an invoice your connected driver generated for you.' },

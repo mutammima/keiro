@@ -236,7 +236,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           {role === 'driver' && (
             <WalkthroughCard
               title="Create and manage an invoice"
-              desc="A hands-on guided tour: build a real invoice, mark it paid, and learn every action button."
+              desc="A self-running demo: watch a real invoice get built and marked paid, with every action button explained."
               walkthroughId="driver_invoice"
               onStart={() => onStartWalkthrough?.('driver_invoice')}
               C={C} dark={dark}
@@ -245,7 +245,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           {role === 'store_owner' && (
             <WalkthroughCard
               title="Place and track a delivery request"
-              desc="A hands-on guided tour: send a real order to a driver and track it from pending to delivered."
+              desc="A self-running demo: watch a real order get sent to a driver and tracked from pending to delivered."
               walkthroughId="so_request"
               onStart={() => onStartWalkthrough?.('so_request')}
               C={C} dark={dark}
