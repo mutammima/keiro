@@ -15,24 +15,10 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useElementRect } from './useElementRect';
 import TutorialTooltip from './TutorialTooltip';
+import DimPanels from './DimPanels';
 
 const Z = 9000;
-const PAD = 8;       // breathing room around the highlighted element
 const DIM = 'rgba(0,0,0,0.66)';
-
-function Panel({ style }) {
-  const block = e => { e.stopPropagation(); };
-  const blockTouch = e => { e.preventDefault(); e.stopPropagation(); };
-  return (
-    <div
-      onClick={block}
-      onMouseDown={block}
-      onTouchStart={block}
-      onTouchMove={blockTouch}
-      style={{ position: 'fixed', background: DIM, zIndex: Z, touchAction: 'none', ...style }}
-    />
-  );
-}
 
 export default function Spotlight({ targetSelector, onTargetTap, title, desc, stepNumber, total, canSkip, onSkip, dark, accent }) {
   const { rect } = useElementRect(targetSelector, { active: true });
@@ -60,30 +46,9 @@ export default function Spotlight({ targetSelector, onTargetTap, title, desc, st
 
   return createPortal(
     <>
-      {/* Dim — full screen until the target resolves, then a hole around it */}
-      {!rect ? (
-        <Panel style={{ inset: 0 }} />
-      ) : (
-        <>
-          <Panel style={{ left: 0, top: 0, width: '100%', height: Math.max(0, rect.top - PAD) }} />
-          <Panel style={{ left: 0, top: rect.bottom + PAD, width: '100%', height: Math.max(0, vh - rect.bottom - PAD) }} />
-          <Panel style={{ left: 0, top: Math.max(0, rect.top - PAD), width: Math.max(0, rect.left - PAD), height: rect.height + PAD * 2 }} />
-          <Panel style={{ left: rect.right + PAD, top: Math.max(0, rect.top - PAD), width: Math.max(0, vw - rect.right - PAD), height: rect.height + PAD * 2 }} />
-          {/* Highlight ring around the hole (pointer-events none so the tap passes through) */}
-          <div
-            aria-hidden
-            style={{
-              position: 'fixed',
-              left: rect.left - PAD, top: rect.top - PAD,
-              width: rect.width + PAD * 2, height: rect.height + PAD * 2,
-              border: `2px solid ${accent}`, borderRadius: 12,
-              zIndex: Z + 1, pointerEvents: 'none',
-              '--tut-glow': `${accent}73`,
-              animation: 'tut-pulse 1.6s ease-in-out infinite',
-            }}
-          />
-        </>
-      )}
+      {/* Dim — full screen until the target resolves, then a hole around it.
+          Blocking panels: only the highlighted element shows through + stays tappable. */}
+      <DimPanels rect={rect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} blockTaps />
 
       {/* Top chrome — Skip (left) + progress (right) */}
       <div style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: 0, right: 0, zIndex: Z + 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>

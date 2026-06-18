@@ -31,6 +31,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useElementRect } from './useElementRect';
 import TutorialTooltip from './TutorialTooltip';
+import DimPanels from './DimPanels';
 import Confetti from './Confetti';
 import {
   getWalkthroughStep, setWalkthroughStep,
@@ -69,7 +70,6 @@ function removeDemoRecords(walkthroughId, before) {
 // ── Layout / timing constants ───────────────────────────────────────────────
 const Z   = 9200;
 const DIM = 'rgba(0,0,0,0.68)';
-const PAD = 8;
 
 const MOVE_MS    = 780;   // cursor glide duration (must match the CSS transition)
 const PRESS_MS   = 230;   // press-down hold before the click registers
@@ -419,11 +419,6 @@ function DemoCursor({ x, y, down, pressKey, hidden, label, accent }) {
   );
 }
 
-// ── Dim panel (purely visual; the engine clicks programmatically) ───────────
-function Panel({ style }) {
-  return <div style={{ position: 'fixed', background: DIM, zIndex: Z, pointerEvents: 'none', ...style }} />;
-}
-
 // ── Boot splash — a brief branded loader while the demo gets ready ───────────
 function WalkthroughBoot({ dark, accent }) {
   const C = dark ? DARK : LIGHT;
@@ -462,27 +457,8 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingN
 
   return createPortal(
     <>
-      {/* Dim panels around the target (or a full dim while it is off-screen) */}
-      {!rect ? (
-        <Panel style={{ inset: 0 }} />
-      ) : (
-        <>
-          <Panel style={{ left: 0, top: 0, width: '100%', height: Math.max(0, rect.top - PAD) }} />
-          <Panel style={{ left: 0, top: rect.bottom + PAD, width: '100%', height: Math.max(0, vh - rect.bottom - PAD) }} />
-          <Panel style={{ left: 0, top: Math.max(0, rect.top - PAD), width: Math.max(0, rect.left - PAD), height: rect.height + PAD * 2 }} />
-          <Panel style={{ left: rect.right + PAD, top: Math.max(0, rect.top - PAD), width: Math.max(0, vw - rect.right - PAD), height: rect.height + PAD * 2 }} />
-          <div
-            aria-hidden
-            style={{
-              position: 'fixed', left: rect.left - PAD, top: rect.top - PAD,
-              width: rect.width + PAD * 2, height: rect.height + PAD * 2,
-              border: `2px solid ${accent}`, borderRadius: 12, zIndex: Z + 1,
-              pointerEvents: 'none', '--tut-glow': `${accent}73`,
-              animation: 'tut-pulse 1.6s ease-in-out infinite',
-            }}
-          />
-        </>
-      )}
+      {/* Dim panels around the target (non-blocking — the engine drives the UI) */}
+      <DimPanels rect={rect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} />
 
       {/* While waiting on Next, swallow taps so the user can't poke the real
           UI behind the spotlight. Sits below the tooltip + Skip bar so both
