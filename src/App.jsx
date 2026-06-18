@@ -239,6 +239,14 @@ function AppInner({ role, onSwitchRole }) {
     setDrawerOpen(false);
   }, []); // eslint-disable-line
 
+  // Launch a guided walkthrough from anywhere. Always route to the role's home
+  // tab first so the demo has the tab strip to drive — starting it from an
+  // overlay (Settings, Profile, …) would otherwise leave it stuck on that page.
+  function startWalkthrough(id) {
+    navigate(role === 'store_owner' ? 'so-home' : 'home');
+    setWalkthroughId(id);
+  }
+
   // Apply density class on mount + sync body background so any sub-pixel
   // gap between #root and the physical screen edges matches the app theme.
   useEffect(() => {
@@ -443,7 +451,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={() => setWalkthroughId(role === 'store_owner' ? 'so_request' : 'driver_invoice')}
+        onTutorial={() => startWalkthrough(role === 'store_owner' ? 'so_request' : 'driver_invoice')}
         role={role}
         onSwitchRole={onSwitchRole}
       />
@@ -548,7 +556,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} onStartWalkthrough={id => { goBackFromOverlay(); setWalkthroughId(id); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} onStartWalkthrough={startWalkthrough} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}

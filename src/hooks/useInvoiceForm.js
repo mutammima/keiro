@@ -32,6 +32,7 @@ import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSugges
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
 import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { isTutorialActive } from '../utils/tutorialState';
 import { markAction } from '../utils/tutorialProgress';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -291,7 +292,9 @@ export function useInvoiceForm(onGenerated) {
     if (items.length === 0) return setError('Add at least one item.');
 
     // Guest hard cap: block the save and surface the account-upsell modal.
-    if (!canSaveGuestEntry()) { setGuestWall(true); return; }
+    // The walkthrough is exempt — it creates a demo invoice that it removes
+    // afterward, so a capped guest can still complete the tutorial.
+    if (!isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
 
     setGenerating(true);
     try {
