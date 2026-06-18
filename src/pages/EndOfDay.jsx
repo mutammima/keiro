@@ -199,7 +199,7 @@ const s = {
   scroll: {
     flex: 1,
     overflowY: 'auto',
-    overflowX: 'hidden',
+    overflowX: 'clip',
     paddingBottom: 80,
   },
   summaryGrid: {
