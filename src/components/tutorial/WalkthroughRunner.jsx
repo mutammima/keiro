@@ -43,12 +43,11 @@ const Z   = 9200;
 const DIM = 'rgba(0,0,0,0.68)';
 const PAD = 8;
 
-const MOVE_MS    = 620;   // cursor glide duration (must match the CSS transition)
-const PRESS_MS   = 150;   // press-down hold before the click registers
-const PER_CHAR   = 58;    // delay between typed characters
-const POST_TYPE  = 460;   // pause after a field is filled
-const POST_CLICK = 540;   // pause after a click with no explicit settle signal
-const MODAL_MS   = 2800;  // how long an auto-advancing modal stays up
+const MOVE_MS    = 780;   // cursor glide duration (must match the CSS transition)
+const PRESS_MS   = 230;   // press-down hold before the click registers
+const PER_CHAR   = 85;    // delay between typed characters
+const POST_TYPE  = 560;   // pause after a field is filled, before the Next gate
+const POST_CLICK = 660;   // pause after a click with no explicit settle signal
 
 // ── Demo data (kept obviously sample-like) ──────────────────────────────────
 const futureDate = (days) => {
@@ -391,7 +390,7 @@ function Panel({ style }) {
 }
 
 // ── Spotlight stage (panels + glow + narration; no advance listeners) ───────
-function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, stalled, dark, accent }) {
+function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingNext, onNext, stalled, dark, accent }) {
   const { rect } = useElementRect(step.selector, { active: !!step.selector });
 
   const vw = typeof window !== 'undefined' ? window.innerWidth : 375;
@@ -402,6 +401,16 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, stalled, 
       {step.title}
     </div>
   );
+
+  // Once the cursor has finished its action, the step waits on a Next tap.
+  const footer = awaitingNext ? (
+    <button
+      onClick={onNext}
+      style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 12, border: 'none', background: accent, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', boxShadow: `0 4px 14px ${accent}55` }}
+    >
+      {step.nextLabel || 'Next'}
+    </button>
+  ) : null;
 
   return createPortal(
     <>
@@ -427,6 +436,13 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, stalled, 
         </>
       )}
 
+      {/* While waiting on Next, swallow taps so the user can't poke the real
+          UI behind the spotlight. Sits below the tooltip + Skip bar so both
+          stay clickable. */}
+      {awaitingNext && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: Z + 1, background: 'transparent' }} />
+      )}
+
       {/* Exit / step counter bar */}
       <div style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: 0, right: 0, zIndex: Z + 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
         <button onClick={onExit} style={{ pointerEvents: 'auto', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', backdropFilter: 'blur(6px)' }}>
@@ -449,7 +465,7 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, stalled, 
         </div>
       )}
 
-      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} z={Z + 2}>
+      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2}>
         {step.body}
       </TutorialTooltip>
     </>,
@@ -458,7 +474,7 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, stalled, 
 }
 
 // ── Centered modal (intro / between steps / success) ────────────────────────
-function WalkthroughModal({ step, stepNumber, total, onContinue, onExit, canExit, auto, dark, accent }) {
+function WalkthroughModal({ step, stepNumber, total, onContinue, onExit, canExit, dark, accent }) {
   const bg   = dark ? '#1d1d22' : '#ffffff';
   const text = dark ? '#fff' : '#111';
   const sub  = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
@@ -496,13 +512,6 @@ function WalkthroughModal({ step, stepNumber, total, onContinue, onExit, canExit
         >
           {step.cta || 'Continue'}
         </button>
-
-        {/* Auto-advance progress bar */}
-        {auto && (
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-            <div key={stepNumber} style={{ height: '100%', background: accent, transformOrigin: 'left', animation: `tut-progress ${MODAL_MS}ms linear forwards` }} />
-          </div>
-        )}
       </div>
     </div>,
     document.body
@@ -587,6 +596,9 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
   });
   const [showExitSheet, setShowExitSheet] = useState(false);
   const [stalled, setStalled] = useState(false);
+  // After an action step finishes its cursor work it waits here for the user
+  // to tap Next, so they control the pace and can read each step.
+  const [awaitingNext, setAwaitingNext] = useState(false);
 
   // Cursor state (driven by the engine, rendered persistently so it glides)
   const vw = typeof window !== 'undefined' ? window.innerWidth : 375;
@@ -622,6 +634,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
     if (!step) return;
     setWalkthroughStep(walkthroughId, stepIndex);
     setStalled(false);
+    setAwaitingNext(false);
 
     let cancelled = false;
     const timers = [];
@@ -637,8 +650,8 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
       return () => { cancelled = true; timers.forEach(clearTimeout); };
     }
     if (step.kind === 'modal') {
+      // Modals wait for the user to tap Continue — no auto-advance.
       setChidden(true); setClabel(null);
-      (async () => { await wait(MODAL_MS); if (!cancelled) advance(); })();
       return () => { cancelled = true; timers.forEach(clearTimeout); };
     }
 
@@ -695,10 +708,11 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
           await wait(step.settleMs || POST_CLICK);
         }
       } else if (step.kind === 'highlight') {
-        await wait(step.holdMs || 2200);
+        await wait(420);
       }
 
-      if (!cancelled) advance();
+      // Every action step ends on a manual gate so the user sets the pace.
+      if (!cancelled) setAwaitingNext(true);
     })();
 
     return () => { cancelled = true; timers.forEach(clearTimeout); };
@@ -712,6 +726,11 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
       onClose();
       return;
     }
+    advance();
+  }
+
+  function handleNext() {
+    setAwaitingNext(false);
     advance();
   }
 
@@ -761,7 +780,6 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
           onContinue={handleContinue}
           onExit={() => setShowExitSheet(true)}
           canExit={step.kind === 'modal'}
-          auto={step.kind === 'modal'}
           dark={dark}
           accent={accent}
         />
@@ -773,6 +791,8 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
           total={total}
           onExit={() => setShowExitSheet(true)}
           onSkipStep={advance}
+          awaitingNext={awaitingNext}
+          onNext={handleNext}
           stalled={stalled}
           dark={dark}
           accent={accent}
