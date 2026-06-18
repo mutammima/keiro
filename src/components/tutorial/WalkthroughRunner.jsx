@@ -295,6 +295,13 @@ const SO_REQUEST_STEPS = [
   },
 ];
 
+// Steps the demo auto-advances through without a Next tap. The navigation into
+// the form and the whole fill-and-create sequence flow as one grouped section,
+// so the user is not tapping Next for every field — only to start, to dismiss
+// the result modals, and through the post-create "how to manage it" steps.
+[1, 2, 3, 4, 5, 6, 7, 8, 9, 11].forEach((i) => { if (DRIVER_INVOICE_STEPS[i]) DRIVER_INVOICE_STEPS[i].flow = true; });
+[1, 2, 3, 4, 5, 7].forEach((i) => { if (SO_REQUEST_STEPS[i]) SO_REQUEST_STEPS[i].flow = true; });
+
 const WALKTHROUGHS = {
   driver_invoice: DRIVER_INVOICE_STEPS,
   so_request:     SO_REQUEST_STEPS,
@@ -484,8 +491,8 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingN
         <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: Z + 1, background: 'transparent' }} />
       )}
 
-      {/* Exit / step counter bar */}
-      <div style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: 0, right: 0, zIndex: Z + 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
+      {/* Exit / step counter bar — anchored to the bottom */}
+      <div style={{ position: 'fixed', bottom: 'max(12px, env(safe-area-inset-bottom))', left: 0, right: 0, zIndex: Z + 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
         <button onClick={onExit} style={{ pointerEvents: 'auto', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', backdropFilter: 'blur(6px)' }}>
           Skip
         </button>
@@ -494,9 +501,9 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingN
         </span>
       </div>
 
-      {/* Stalled nudge — the target never appeared; let the user move on */}
+      {/* Stalled nudge — the target never appeared; sits above the bottom bar */}
       {stalled && (
-        <div style={{ position: 'fixed', bottom: 'max(32px, env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)', zIndex: Z + 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <div style={{ position: 'fixed', bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 56px)', left: '50%', transform: 'translateX(-50%)', zIndex: Z + 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           <div style={{ background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: 14, padding: '10px 18px', fontSize: 13, textAlign: 'center', backdropFilter: 'blur(6px)' }}>
             Could not find the next step on screen.
           </div>
@@ -527,7 +534,7 @@ function WalkthroughModal({ step, stepNumber, total, onContinue, onExit, canExit
       {(isSuccess || step.confetti) && <Confetti />}
 
       {!isSuccess && (
-        <div style={{ position: 'absolute', top: 'max(12px, env(safe-area-inset-top))', left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', bottom: 'max(12px, env(safe-area-inset-bottom))', left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
           {canExit ? (
             <button onClick={onExit} style={{ pointerEvents: 'auto', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', backdropFilter: 'blur(6px)' }}>Skip</button>
           ) : <span />}
@@ -767,8 +774,9 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
         await wait(420);
       }
 
-      // Every action step ends on a manual gate so the user sets the pace.
-      if (!cancelled) setAwaitingNext(true);
+      // Grouped form-fill/navigation steps flow on their own; standalone
+      // teaching steps wait for a Next tap so the user can read them.
+      if (!cancelled) { if (step.flow) advance(); else setAwaitingNext(true); }
     })();
 
     return () => { cancelled = true; timers.forEach(clearTimeout); };
