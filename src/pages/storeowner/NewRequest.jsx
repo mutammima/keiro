@@ -65,7 +65,9 @@ export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
 
     // Guest hard cap: block the save and surface the account-upsell modal.
-    if (!canSaveGuestEntry()) { setGuestWall(true); return; }
+    // The walkthrough is exempt — it creates a demo order that it removes
+    // afterward, so a capped guest can still complete the tutorial.
+    if (!isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
 
     // Connected driver selected → the order travels to THEIR account over the
     // connection (connection_orders), not into this store's private list.

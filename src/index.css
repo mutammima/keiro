@@ -64,3 +64,4 @@ textarea {
 /* Auto-demo cursor: a click ripple and the cursor's first appearance. */
 @keyframes tut-ripple     { 0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.55; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
 @keyframes tut-cursor-in  { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes tut-spin       { to { transform: rotate(360deg); } }

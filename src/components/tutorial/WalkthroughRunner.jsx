@@ -37,6 +37,34 @@ import {
   clearWalkthroughStep, setWalkthroughDone, isWalkthroughDone,
 } from '../../utils/tutorialProgress';
 import { setTutorialActive } from '../../utils/tutorialState';
+import { LIGHT, DARK } from '../../theme';
+import { isGuest, canSaveGuestEntry } from '../../utils/guestMode';
+import { deleteInvoice } from '../../utils/storage';
+import { deleteOrder } from '../../utils/storeOwnerStorage';
+
+// ── Guest demo cleanup ───────────────────────────────────────────────────────
+// A guest already at the entry cap can still run the walkthrough: the cap is
+// bypassed while it is active (isTutorialActive in the form save paths), and the
+// demo record it creates is removed when the walkthrough ends, so it never
+// counts against the 5-entry guest limit.
+function readList(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function snapshotDemoIds(walkthroughId) {
+  if (walkthroughId === 'so_request') return new Set(readList('inv_so_orders').map((o) => o.id));
+  return new Set(readList('inv_list').map((i) => i.number ?? i.invoice_number));
+}
+function removeDemoRecords(walkthroughId, before) {
+  if (walkthroughId === 'so_request') {
+    readList('inv_so_orders').forEach((o) => { if (!before.has(o.id)) deleteOrder(o.id); });
+  } else {
+    readList('inv_list').forEach((i) => {
+      const n = i.number ?? i.invoice_number;
+      if (!before.has(n)) deleteInvoice(n);
+    });
+  }
+}
 
 // ── Layout / timing constants ───────────────────────────────────────────────
 const Z   = 9200;
@@ -389,6 +417,19 @@ function Panel({ style }) {
   return <div style={{ position: 'fixed', background: DIM, zIndex: Z, pointerEvents: 'none', ...style }} />;
 }
 
+// ── Boot splash — a brief branded loader while the demo gets ready ───────────
+function WalkthroughBoot({ dark, accent }) {
+  const C = dark ? DARK : LIGHT;
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: Z + 20, background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, animation: 'tut-fadein 0.2s ease both' }}>
+      <div style={{ width: 46, height: 46, borderRadius: '50%', border: `3px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)'}`, borderTopColor: accent, animation: 'tut-spin 0.8s linear infinite' }} />
+      <div style={{ color: C.text, fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em' }}>Setting up your walkthrough</div>
+      <div style={{ color: C.textMuted, fontSize: 13 }}>One moment…</div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Spotlight stage (panels + glow + narration; no advance listeners) ───────
 function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingNext, onNext, stalled, dark, accent }) {
   const { rect } = useElementRect(step.selector, { active: !!step.selector });
@@ -610,11 +651,26 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
   const [clabel, setClabel] = useState(null);
   const [pressKey, setPressKey] = useState(0);
 
-  // Suppress TipManager + marketplace broadcast while running
+  // A guest already at the entry cap: the demo record is created (cap bypassed
+  // while the walkthrough is active) and removed again when it ends.
+  const [cappedGuest] = useState(() => isGuest() && !canSaveGuestEntry());
+  // A brief branded splash while we route to home and the demo gets ready.
+  const [booting, setBooting] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setBooting(false), 1100);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Suppress TipManager + marketplace broadcast while running. For a capped
+  // guest, snapshot existing records so the demo one can be removed on exit.
   useEffect(() => {
     setTutorialActive(true);
-    return () => setTutorialActive(false);
-  }, []);
+    const before = cappedGuest ? snapshotDemoIds(walkthroughId) : null;
+    return () => {
+      setTutorialActive(false);
+      if (before) removeDemoRecords(walkthroughId, before);
+    };
+  }, []); // eslint-disable-line
 
   const advance = useCallback(() => {
     setStepIndex((i) => {
@@ -629,7 +685,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
 
   // ── The auto-driver engine ──────────────────────────────────────────────
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || booting) return;
     const step = steps[stepIndex];
     if (!step) return;
     setWalkthroughStep(walkthroughId, stepIndex);
@@ -716,7 +772,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
     })();
 
     return () => { cancelled = true; timers.forEach(clearTimeout); };
-  }, [stepIndex, isPaused, steps, walkthroughId, advance]);
+  }, [stepIndex, isPaused, booting, steps, walkthroughId, advance]);
 
   function handleContinue() {
     const step = steps[stepIndex];
@@ -734,7 +790,9 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
     advance();
   }
 
-  // ── Overlays that pause the engine ──────────────────────────────────────
+  // ── Boot splash, then overlays that pause the engine ────────────────────
+  if (booting) return <WalkthroughBoot dark={dark} accent={accent} />;
+
   if (showResume) {
     return (
       <ResumePrompt
@@ -764,6 +822,11 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
   const isModal = step.kind === 'intro' || step.kind === 'modal' || step.kind === 'success';
   const shownStep = stepIndex + 1;
 
+  // A capped guest's intro promises the demo will run without saving anything.
+  const displayStep = (cappedGuest && step.kind === 'intro')
+    ? { ...step, body: 'You have reached the 5-entry guest limit, so this demo runs without saving anything — nothing here counts against your limit. Create a free account to keep what you make. Tap Play demo to watch how it works.' }
+    : step;
+
   return (
     <>
       {/* Persistent cursor — only visible during action steps */}
@@ -774,7 +837,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
 
       {isModal ? (
         <WalkthroughModal
-          step={step}
+          step={displayStep}
           stepNumber={shownStep}
           total={total}
           onContinue={handleContinue}
