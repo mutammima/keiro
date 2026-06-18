@@ -443,7 +443,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={() => setShowQuickStart(true)}
+        onTutorial={() => setWalkthroughId(role === 'store_owner' ? 'so_request' : 'driver_invoice')}
         role={role}
         onSwitchRole={onSwitchRole}
       />
@@ -492,12 +492,12 @@ function AppInner({ role, onSwitchRole }) {
           >
             {(role === 'store_owner' ? [
               <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onStartWalkthrough={id => setWalkthroughId(id)} />,
+              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
               <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onStartWalkthrough={id => setWalkthroughId(id)} />,
+              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ] : [
               <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} onStartWalkthrough={id => setWalkthroughId(id)} />,
+              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
               <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
               <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
             ]).map((child, i) => (
