@@ -31,7 +31,7 @@ function CameraIcon({ color = '#555', size = 22 }) {
   );
 }
 
-export default function NewInvoice({ onOpenDrawer, onGenerated, onNav, onBack }) {
+export default function NewInvoice({ onGenerated, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

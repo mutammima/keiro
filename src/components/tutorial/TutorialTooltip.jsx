@@ -20,7 +20,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 const MARGIN = 12; // min gap from screen edge
 const GAP    = 12; // gap between target and card
 
-export default function TutorialTooltip({ rect, dark, accent, children, footer, header, z = 1 }) {
+export default function TutorialTooltip({ rect, dark, children, footer, header, z = 1 }) {
   const cardRef = useRef(null);
   const [size, setSize] = useState(null); // { w, h } measured after paint
 

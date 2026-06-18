@@ -16,7 +16,7 @@ import { ACCENT } from '../../theme';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
-export function Toggle({ on, onChange, C, dark }) {
+export function Toggle({ on, onChange, dark }) {
   return (
     <button
       onClick={() => onChange(!on)}

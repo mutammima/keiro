@@ -17,7 +17,7 @@ import { markAction } from '../../utils/tutorialProgress';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
-export default function SODrivers({ onOpenDrawer, onNav }) {
+export default function SODrivers({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -380,8 +380,8 @@ const s = {
   input: { width: '100%', boxSizing: 'border-box', height: 46, fontSize: 16, padding: '0 14px', border: '1px solid', borderRadius: 12, outline: 'none', WebkitAppearance: 'none', marginBottom: 4 },
   iconBtn: (C) => ({ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.text, padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }),
   accentBtn: { background: ACCENT, border: 'none', color: '#fff', padding: '11px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
-  outlineBtn: (C) => ({ background: 'none', border: '1.5px solid', borderRadius: 10, padding: '7px 14px', fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
+  outlineBtn: () => ({ background: 'none', border: '1.5px solid', borderRadius: 10, padding: '7px 14px', fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
   overlay: { position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modal: (C) => ({ width: '100%', maxWidth: 340, borderRadius: 18, border: `1px solid ${C.cardBorder}`, background: C.card, padding: '22px 20px 18px', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }),
-  modalBtn: (C) => ({ flex: 1, height: 46, borderRadius: 12, border: '1px solid', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
+  modalBtn: () => ({ flex: 1, height: 46, borderRadius: 12, border: '1px solid', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
 };

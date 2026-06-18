@@ -42,7 +42,7 @@ function formatDate(iso) {
 
 const ago = (days) => (days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`);
 
-export default function SOHome({ onOpenDrawer, onNav }) {
+export default function SOHome({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

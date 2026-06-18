@@ -26,7 +26,7 @@ function lastDateOf(a, b) {
   return tb > ta ? b : a;
 }
 
-export default function DriverStores({ onOpenDrawer, onNav, onSelectStore }) {
+export default function DriverStores({ onNav, onSelectStore }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

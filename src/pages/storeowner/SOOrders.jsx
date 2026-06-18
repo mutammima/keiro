@@ -27,7 +27,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SOOrders({ onOpenDrawer, onNav }) {
+export default function SOOrders({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -293,7 +293,7 @@ const s = {
     padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
-  actionBtn: (C) => ({
+  actionBtn: () => ({
     background: 'none', border: '1.5px solid', borderRadius: 10,
     padding: '7px 14px', fontSize: 12, fontWeight: 700,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
@@ -308,7 +308,7 @@ const s = {
     border: `1px solid ${C.cardBorder}`, background: C.card,
     padding: '22px 20px 18px', boxShadow: '0 16px 48px rgba(0,0,0,0.35)',
   }),
-  modalBtn: (C) => ({
+  modalBtn: () => ({
     flex: 1, height: 46, borderRadius: 12, border: '1px solid',
     fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   }),

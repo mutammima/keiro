@@ -42,7 +42,6 @@ export default function useVersionCheck() {
         if (!res.ok) return;
         const { version } = await res.json();
         if (version && version !== LOCAL_VERSION) {
-          console.log(`[Keiro] Version mismatch: local=${LOCAL_VERSION} remote=${version}. Prompting user.`);
           notified = true;
           // Let the UI handle it — no auto-reload
           window.dispatchEvent(new CustomEvent('inv-version-update', { detail: { version } }));

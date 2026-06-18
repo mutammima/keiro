@@ -32,7 +32,7 @@ const money = (n) => '$' + (Number(n) || 0).toFixed(2);
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function Home({ onOpenDrawer, onNav }) {
+export default function Home({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -153,7 +153,7 @@ export default function Home({ onOpenDrawer, onNav }) {
       </div>
 
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 88, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', paddingBottom: 88, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
         {isGuest() && (
           <div style={{ margin: '14px 16px 0' }}>
