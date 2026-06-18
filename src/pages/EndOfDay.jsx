@@ -11,7 +11,7 @@ import AppFooter from '../components/navigation/AppFooter';
 import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
 import { markAction } from '../utils/tutorialProgress';
 
-export default function EndOfDay({ onOpenDrawer, onNav, embedded }) {
+export default function EndOfDay({ onNav, embedded }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

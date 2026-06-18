@@ -43,7 +43,7 @@ function openMaps(address, name) {
 // ── Swipeable row ─────────────────────────────────────────────────────────────
 const REVEAL = 80; // px to reveal the edit button
 
-function SwipeRow({ children, onEdit, dark, C }) {
+function SwipeRow({ children, onEdit, C }) {
   const [offsetX, setOffsetX] = useState(0);
   const [animating, setAnimating] = useState(false);
   const startX  = useRef(null);
@@ -125,7 +125,7 @@ function SwipeRow({ children, onEdit, dark, C }) {
 }
 
 // ── Edit modal ─────────────────────────────────────────────────────────────────
-function EditSheet({ store, C, dark, onSave, onClose }) {
+function EditSheet({ store, C, onSave, onClose }) {
   const [address, setAddress] = useState(store.address || '');
   const [phone,   setPhone]   = useState(store.phone   || '');
   const inp = { background: C.inputBg, borderColor: C.inputBorder, color: C.text };

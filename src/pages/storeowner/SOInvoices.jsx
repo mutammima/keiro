@@ -40,7 +40,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function SOInvoices({ onOpenDrawer, onNav }) {
+export default function SOInvoices({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

@@ -20,7 +20,7 @@ import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
-export default function NewRequest({ onOpenDrawer, onNav, onBack }) {
+export default function NewRequest({ onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

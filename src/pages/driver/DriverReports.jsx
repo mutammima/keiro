@@ -18,7 +18,7 @@ const SEGMENTS = [
   { id: 'endofday',  label: 'End of Day' },
 ];
 
-export default function DriverReports({ onOpenDrawer, onNav }) {
+export default function DriverReports({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 

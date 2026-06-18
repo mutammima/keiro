@@ -617,7 +617,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
 }
 
 // ── Walkthrough card ──────────────────────────────────────────────────────────
-function WalkthroughCard({ title, desc, walkthroughId, onStart, C, dark }) {
+function WalkthroughCard({ title, desc, walkthroughId, onStart, C }) {
   const done = isWalkthroughDone(walkthroughId);
   return (
     <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>

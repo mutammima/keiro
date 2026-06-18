@@ -16,7 +16,7 @@ import {
   productMatches, claimDemand,
 } from '../../utils/marketplaceStorage';
 import { getConnections, loadConnectionsFromCloud, requestConnection, getCachedUid } from '../../utils/connectionStorage';
-import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { getBusinessName } from '../../utils/storage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestCapModal } from '../../components/auth/GuestUpsell';
 import { buildWhatsAppUrl } from '../../utils/invoiceUtils';
@@ -260,6 +260,6 @@ const s = {
   card: (C) => ({ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 18, padding: '16px 18px' }),
   iconBtn: (C) => ({ width: 36, background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.text, padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1, textAlign: 'left' }),
   accentBtn: { background: ACCENT, border: 'none', color: '#fff', padding: '11px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
-  outlineBtn: (C) => ({ background: 'none', border: '1.5px solid', borderRadius: 12, padding: '11px 16px', fontWeight: 700, fontSize: 14, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
+  outlineBtn: () => ({ background: 'none', border: '1.5px solid', borderRadius: 12, padding: '11px 16px', fontWeight: 700, fontSize: 14, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }),
   matchTag: { flexShrink: 0, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#fff', background: ACCENT, borderRadius: 8, padding: '4px 8px' },
 };

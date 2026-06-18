@@ -26,7 +26,7 @@ function fmtPaymentDate(iso) {
     + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function InvoiceHistory({ onOpenDrawer, onSelectStore, onNav, onNewInvoice }) {
+export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const D = useDensity();

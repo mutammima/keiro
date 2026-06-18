@@ -32,7 +32,7 @@ const money = (n) => '$' + (Number(n) || 0).toFixed(2);
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function Home({ onOpenDrawer, onNav }) {
+export default function Home({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
