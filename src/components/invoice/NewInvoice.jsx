@@ -3,9 +3,8 @@
  * All business logic lives in useInvoiceForm; this component is pure UI.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import AutofillInput from '../ui/AutofillInput';
-import BarcodeScanner from '../ui/BarcodeScanner';
 import InvoicePreview from './InvoicePreview';
 import LiveInvoicePreview from './LiveInvoicePreview';
 import EditItemModal from './EditItemModal';
@@ -17,6 +16,10 @@ import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 import { triggerTip } from '../../utils/tutorialProgress';
+
+// Lazy-loaded so html5-qrcode (the heavy scanner dependency) is split into its
+// own chunk and only fetched when the user actually taps the scan button.
+const BarcodeScanner = lazy(() => import('../ui/BarcodeScanner'));
 
 /** Small red asterisk for required fields. */
 const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
@@ -118,7 +121,16 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
 
   return (
     <>
-      {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+      {showScanner && (
+        <Suspense fallback={
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+            <span aria-hidden style={{ width: 38, height: 38, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'tut-spin 0.8s linear infinite' }} />
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Loading scanner…</span>
+          </div>
+        }>
+          <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
+        </Suspense>
+      )}
       {editingItem && <EditItemModal item={editingItem} onSave={handleEditSave} onClose={() => setEditingItem(null)} />}
       <GuestCapModal open={guestWall} onClose={() => setGuestWall(false)} />
 
