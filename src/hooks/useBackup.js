@@ -26,6 +26,13 @@ import { markAction } from '../utils/tutorialProgress';
  * Tutorial:    inv_tip_<id> (contextual tip seen), inv_act_<id> (feature
  *              discovered, drives the checklist), inv_pulse_home, inv_seen_<tab>
  *              — all swept automatically by collectBackupKeys (inv_ prefix).
+ * Sync:        inv_sync_queue (offline retry outbox) is also swept automatically
+ *              so pending cloud writes survive a backup. EDGE CASE: backing up
+ *              mid-queue then restoring on another device could replay the same
+ *              actions twice — harmless here because every queued op is an
+ *              idempotent upsert/delete, but worth knowing. Restoring mid-queue
+ *              is unusual; the queue normally drains within seconds of going
+ *              back online.
  */
 
 /**

@@ -22,7 +22,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
-import { notifySyncError } from './syncNotify';
+import { enqueueSync } from './syncQueue';
 import { getActiveConnections } from './connectionStorage';
 import * as db from '../services/db';
 
@@ -98,8 +98,8 @@ export async function sendConnectionOrder(conn, { productName, quantity, price, 
   upsertLocal(order);
   const { error } = await db.saveConnectionOrder(order);
   if (error) {
-    console.error('saveConnectionOrder cloud error', error);
-    notifySyncError('Order saved on this device but has not reached your driver yet. It will not be visible to them until you are back online and signed in.');
+    console.error('saveConnectionOrder cloud error, queued for retry', error);
+    enqueueSync({ type: 'save_connection_order', payload: { order } });
   }
   return order;
 }
@@ -118,8 +118,8 @@ export function updateConnectionOrderStatus(id, status, { invoiceNumber } = {}) 
     lsSet(KEY, list);
   }
   db.updateConnectionOrder(id, { status, invoiceNumber })
-    .then(({ error }) => { if (error) console.error('updateConnectionOrder cloud error', error); })
-    .catch(e => console.error('updateConnectionOrder cloud error', e));
+    .then(({ error }) => { if (error) { console.error('updateConnectionOrder cloud error, queued for retry', error); enqueueSync({ type: 'update_connection_order', payload: { id, status, invoiceNumber } }); } })
+    .catch(e => { console.error('updateConnectionOrder cloud error, queued for retry', e); enqueueSync({ type: 'update_connection_order', payload: { id, status, invoiceNumber } }); });
 }
 
 // ── Invoice hand-off (driver side) ─────────────────────────────────────────────
