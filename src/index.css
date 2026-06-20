@@ -38,9 +38,13 @@ input:focus, textarea:focus {
   outline: none;
 }
 
-button:active {
-  opacity: 0.8;
-}
+/* ── Tap / press feedback ────────────────────────────────────────────────────
+   Tappable elements set WebkitTapHighlightColor:transparent (native highlight
+   removed), so we supply our own: a fast, subtle scale + dim on press that eases
+   back on release. transform/opacity only — GPU-composited, no layout, never
+   blocks the tap (~120ms). Buttons with their own inline `transition` keep it. */
+button { transition: transform 0.12s ease, opacity 0.12s ease; }
+button:active { transform: scale(0.97); opacity: 0.9; }
 
 /* Remove number input spinners */
 input[type=number]::-webkit-outer-spin-button,
@@ -65,3 +69,20 @@ textarea {
 @keyframes tut-ripple     { 0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.55; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
 @keyframes tut-cursor-in  { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
 @keyframes tut-spin       { to { transform: rotate(360deg); } }
+
+/* ── Spotlight dim panels: glide between tutorial targets instead of snapping ──
+   Applied to DimPanels' panels + highlight ring (className="tut-dim-panel").
+   Only runs on the infrequent tutorial-step change, not a hot path. */
+.tut-dim-panel {
+  transition: left 0.28s cubic-bezier(0.22,1,0.36,1), top 0.28s cubic-bezier(0.22,1,0.36,1),
+              width 0.28s cubic-bezier(0.22,1,0.36,1), height 0.28s cubic-bezier(0.22,1,0.36,1);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────────
+   Collapse the new press + spotlight motion to instant state changes.
+   (App.css already neutralises the page/card/skeleton animations.) */
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+  button:active { transform: none; opacity: 0.8; }
+  .tut-dim-panel { transition: none; }
+}
