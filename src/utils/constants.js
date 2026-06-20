@@ -90,6 +90,12 @@ export const EVENTS = {
   DATA_REFRESH:   'inv-data-refresh',    // foreground poll refreshed the caches
   VERSION_UPDATE: 'inv-version-update',  // a newer build is available
   DENSITY_CHANGE: 'inv-density-change',  // display density setting changed
+  // Onboarding/tutorial milestones — dispatched by feature sites, consumed by the
+  // milestone bridge (tutorialProgress) and walkthrough settle steps.
+  ONBOARDING_INVOICE_CREATED: 'inv-onboarding-invoice-created',
+  ONBOARDING_INVOICE_PAID:    'inv-onboarding-invoice-paid',
+  ONBOARDING_SETTINGS_SAVED:  'inv-onboarding-settings-saved',
+  ONBOARDING_STORE_VIEWED:    'inv-onboarding-store-viewed',
 };
 
 // ── Overdue / time ──────────────────────────────────────────────────────────

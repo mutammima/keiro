@@ -382,7 +382,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
               <button
                 {...(isFirst ? { 'data-tutorial': 'store-name-link' } : {})}
                 style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent('inv-onboarding-store-viewed')); }}
+                onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_STORE_VIEWED)); }}
               >
                 {inv.storeName || inv.store_name}
               </button>

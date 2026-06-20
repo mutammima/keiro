@@ -33,7 +33,7 @@ import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
 import DimPanels from './DimPanels';
 import Confetti from './Confetti';
-import { STORAGE_KEYS, MS_PER_DAY } from '../../utils/constants';
+import { STORAGE_KEYS, MS_PER_DAY, EVENTS } from '../../utils/constants';
 import {
   getWalkthroughStep, setWalkthroughStep,
   clearWalkthroughStep, setWalkthroughDone, isWalkthroughDone,
@@ -153,7 +153,7 @@ const DRIVER_INVOICE_STEPS = [
     selector: '[data-tutorial="invoice-generate"]',
     title: 'Generate the invoice',
     body: 'Generate saves the invoice to your account.',
-    settleEvent: 'inv-onboarding-invoice-created',
+    settleEvent: EVENTS.ONBOARDING_INVOICE_CREATED,
   },
   {
     kind: 'modal',
@@ -181,7 +181,7 @@ const DRIVER_INVOICE_STEPS = [
     selector: '[data-tutorial="status-badge-latest"]',
     title: 'Mark it paid',
     body: 'Tapping the status badge cycles the payment status. One tap marks this invoice Paid.',
-    settleEvent: 'inv-onboarding-invoice-paid',
+    settleEvent: EVENTS.ONBOARDING_INVOICE_PAID,
   },
   {
     kind: 'highlight',

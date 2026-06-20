@@ -14,7 +14,7 @@
  * STORAGE_KEYS.ONBOARDING_DONE = 'true' convention of plain string flags), so
  * they survive JSON-free round-trips through export/import untouched.
  */
-import { STORAGE_KEYS } from './constants';
+import { STORAGE_KEYS, EVENTS } from './constants';
 
 // ── Keys ────────────────────────────────────────────────────────────────────
 const QS_DONE_KEY  = STORAGE_KEYS.ONBOARDING_DONE; // reuse the existing onboarding flag
@@ -111,10 +111,10 @@ function emitProgress() {
 // saved, store balance viewed). Map them straight onto checklist action flags so
 // those four items tick without re-instrumenting their call sites.
 const MILESTONE_MAP = {
-  'inv-onboarding-invoice-created': 'invoice_created',
-  'inv-onboarding-invoice-paid':    'marked_paid',
-  'inv-onboarding-settings-saved':  'biz_name',
-  'inv-onboarding-store-viewed':    'store_balance',
+  [EVENTS.ONBOARDING_INVOICE_CREATED]: 'invoice_created',
+  [EVENTS.ONBOARDING_INVOICE_PAID]:    'marked_paid',
+  [EVENTS.ONBOARDING_SETTINGS_SAVED]:  'biz_name',
+  [EVENTS.ONBOARDING_STORE_VIEWED]:    'store_balance',
 };
 
 let bridgeInstalled = false;
