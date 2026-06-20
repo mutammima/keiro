@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus } from '../../utils/connectionOrderStorage';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
@@ -72,6 +72,14 @@ export default function SOOrders({ onNav }) {
   function handleConnCancel(id) {
     updateConnectionOrderStatus(id, 'cancelled');
     refresh();
+  }
+
+  // Prefill the New Request form from a past order and jump to it (user reviews
+  // + taps Send themselves — this is a shortcut, not an automatic reorder).
+  function handleReorder(order) {
+    stageReorder(order);
+    setExpandedId(null);
+    onNav('so-request');
   }
 
   function handleDelete() {
@@ -215,6 +223,10 @@ export default function SOOrders({ onNav }) {
                     Sent to {order.driverName}'s Keiro account — they update the status
                     as they accept and deliver.
                   </p>
+                  <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
+                    onClick={() => handleReorder(order)}>
+                    Reorder
+                  </button>
                   {order.status === 'pending' && (
                     <button style={{ ...s.actionBtn(C), color: C.textMuted, borderColor: C.divider }}
                       onClick={() => { handleConnCancel(order.id); setExpandedId(null); }}>
@@ -230,6 +242,10 @@ export default function SOOrders({ onNav }) {
                       "{order.notes}"
                     </p>
                   )}
+                  <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
+                    onClick={() => handleReorder(order)}>
+                    Reorder
+                  </button>
                   {order.status !== 'delivered' && order.status !== 'cancelled' && (
                     <button style={{ ...s.actionBtn(C), color: '#22c55e', borderColor: '#22c55e' }}
                       onClick={() => { handleStatus(order.id, 'delivered'); setExpandedId(null); }}>

@@ -102,6 +102,27 @@ export function deleteOrder(id) {
 }
 
 /**
+ * Stages a reorder: writes the New Request form prefill (product, quantity,
+ * price, driver, original notes) for a previous order, then the caller navigates
+ * to 'so-request'. NewRequest reads & clears `inv_prefill` on mount (same
+ * transient-prefill pattern as the invoice Duplicate flow). A connection order
+ * maps to its `conn:<id>` driver option; a local order keeps its driver id.
+ * @param {object} order - a previous order (connection or local).
+ */
+export function stageReorder(order) {
+  if (!order) return;
+  const driverId = order.connectionId ? `conn:${order.connectionId}` : (order.driverId || '');
+  lsSet('inv_prefill', {
+    reorder: true,
+    productName: order.productName || '',
+    quantity: order.quantity,
+    price: order.price,
+    driverId,
+    notes: order.notes || '',
+  });
+}
+
+/**
  * Fetches all orders from Supabase, syncs them to localStorage, and returns the list.
  * Components call this in a useEffect on mount.
  * @returns {Promise<StoreOrder[]>}
