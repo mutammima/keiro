@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle, statusColors } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
@@ -16,6 +16,7 @@ import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } 
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
+import { EVENTS } from '../../utils/constants';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -137,8 +138,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
     const onRefresh = () => { setConnOrders(getConnectionOrders()); setBridgeRequests(getBridgeRequests()); };
-    window.addEventListener('inv-data-refresh', onRefresh);
-    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+    window.addEventListener(EVENTS.DATA_REFRESH, onRefresh);
+    return () => window.removeEventListener(EVENTS.DATA_REFRESH, onRefresh);
   }, []);
 
   // Open cross-account orders addressed to this driver (pending or accepted).
@@ -213,11 +214,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     setBridgeRequests(getBridgeRequests());
   }
 
-  // ── Helper: resolve STATUS color tokens for the current theme ─────────────
-  function sc(status) {
-    const key = status || 'unpaid';
-    return dark ? STATUS[key]?.dark : STATUS[key]?.light;
-  }
+  // Payment-status chip colors → shared statusColors() in theme.js
 
   // Read auto-flag threshold once so per-card overdue checks don't each hit
   // localStorage. Overdue detection itself is shared via invoiceUtils.
@@ -229,7 +226,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     const isOpen  = expanded === inv.number;
     const pinned  = isStorePinned(inv.storeName || inv.store_name);
     const status  = inv.paymentStatus || inv.payment_status || 'unpaid';
-    const colors  = sc(status);
+    const colors  = statusColors(status, dark);
     const menuOpen = openMenu === inv.number;
 
     // Overdue: unpaid/partial and older than the auto-flag threshold
@@ -557,7 +554,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
 
             {/* Payment log */}
             {(() => {
-              const payments = getPaymentsFor(inv.number); // eslint-disable-line
+              const payments = getPaymentsFor(inv.number);
               void paymentsVer; // depend on version to re-read after mutations
               const paid      = payments.reduce((s, p) => s + Number(p.amount), 0);
               const remaining = Math.max(0, total - paid);

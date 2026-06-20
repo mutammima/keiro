@@ -95,3 +95,27 @@ export function buildWhatsAppUrl(phone, text) {
   const encoded = encodeURIComponent(text);
   return digits ? `https://wa.me/${digits}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 }
+
+/**
+ * Currency string with thousands separators, e.g. 1234.5 → "$1,234.50".
+ * Previously duplicated as a local `money()` in SOInvoices and SOReports.
+ * (Home keeps a separator-less `toFixed` variant — see note there.)
+ * @param {number|string} n
+ * @returns {string}
+ */
+export function formatMoney(n) {
+  return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Short date from a stored ISO order/delivery date ("YYYY-MM-DD" → "Jun 2, 2025").
+ * Parsed at local midnight so the day never drifts across timezones. Previously
+ * duplicated verbatim as a local `formatDate(iso)` in SOOrders and SOInvoices.
+ * @param {string} iso
+ * @returns {string}
+ */
+export function formatOrderDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}

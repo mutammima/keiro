@@ -53,6 +53,18 @@ export const DEFAULT_BUSINESS_NAME = 'J&Y Distributions';
 /** Invoice numbers start counting up from here, so the first issued is 1001. */
 export const INVOICE_NUMBER_START = 1000;
 
+// ── Custom DOM events ───────────────────────────────────────────────────────
+// window CustomEvent names shared between a dispatcher and its listeners in
+// different modules. Centralised so a rename can't drift between the two sides.
+// (Single-file events — and the onboarding/tutorial milestone bridge — keep
+// their inline names.) Sync toasts use SYNC_OK_EVENT/SYNC_ERROR_EVENT in
+// syncNotify.js, which are already centralised there.
+export const EVENTS = {
+  DATA_REFRESH:   'inv-data-refresh',    // foreground poll refreshed the caches
+  VERSION_UPDATE: 'inv-version-update',  // a newer build is available
+  DENSITY_CHANGE: 'inv-density-change',  // display density setting changed
+};
+
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;

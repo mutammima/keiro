@@ -4,9 +4,10 @@
  * Comfortable (default): normal card padding, 16px store name, generous spacing.
  * Compact: tighter padding, 14px store name, smaller gaps — fits more rows on screen.
  *
- * Reacts to 'inv-density-change' window events dispatched by Settings.
+ * Reacts to EVENTS.DENSITY_CHANGE window events dispatched by Settings.
  */
 import { useState, useEffect } from 'react';
+import { EVENTS } from '../utils/constants';
 
 function readDensity() {
   try {
@@ -20,8 +21,8 @@ export function useDensity() {
 
   useEffect(() => {
     function onDensityChange() { setMode(readDensity()); }
-    window.addEventListener('inv-density-change', onDensityChange);
-    return () => window.removeEventListener('inv-density-change', onDensityChange);
+    window.addEventListener(EVENTS.DENSITY_CHANGE, onDensityChange);
+    return () => window.removeEventListener(EVENTS.DENSITY_CHANGE, onDensityChange);
   }, []);
 
   const compact = mode === 'compact';

@@ -58,8 +58,8 @@ export function canSaveGuestEntry() {
 /**
  * Leave guest mode and hand the user to the auth screen so they can create an
  * account / sign in. Their local data is preserved and will migrate on sign-up.
- * AuthGate renders LoginScreen whenever there is no session and no guest flag,
- * so clearing the flag + reloading lands them on the sign-up screen.
+ * AuthGate renders the onboarding/auth flow whenever there is no session and no
+ * guest flag, so clearing the flag + reloading lands them on the sign-up screen.
  */
 export function promptAccount() {
   exitGuest();

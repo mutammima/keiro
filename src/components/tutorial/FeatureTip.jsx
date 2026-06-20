@@ -13,7 +13,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { useElementRect } from './useElementRect';
+import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
 
 // Above the app's modals (z 9000) so a tip can point at content inside one
