@@ -29,7 +29,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { useElementRect } from './useElementRect';
+import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
 import DimPanels from './DimPanels';
 import Confetti from './Confetti';
