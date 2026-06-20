@@ -193,6 +193,7 @@ export async function saveProductBarcode(barcode, name, price) {
     const catalog = lsGet('inv_catalog', {});
     catalog[barcode] = { name, lastPrice: Number(price) };
     lsSet('inv_catalog', catalog);
+    enqueueSync({ type: 'save_product', payload: { barcode, name, price } });
   }
 }
 
@@ -223,6 +224,7 @@ export async function updateProduct(barcode, name, price) {
     const catalog = lsGet('inv_catalog', {});
     catalog[barcode] = { name, lastPrice: Number(price) };
     lsSet('inv_catalog', catalog);
+    enqueueSync({ type: 'update_product', payload: { barcode, name, price } });
   }
 }
 
@@ -239,9 +241,12 @@ export async function deleteProduct(barcode) {
   delete catalog[barcode];
   lsSet('inv_catalog', catalog);
 
-  // Best-effort cloud delete; log but don't re-throw.
+  // Best-effort cloud delete; log + queue for retry on failure.
   const { error } = await db.deleteProduct(barcode);
-  if (error) console.error('deleteProduct remote error', error);
+  if (error) {
+    console.error('deleteProduct remote error, queued for retry', error);
+    enqueueSync({ type: 'delete_product', payload: { barcode } });
+  }
 }
 
 /**
@@ -283,6 +288,7 @@ export async function saveStoreName(name) {
     const stores = lsGet('inv_stores', []);
     if (!stores.includes(name.trim())) stores.unshift(name.trim());
     lsSet('inv_stores', stores);
+    enqueueSync({ type: 'save_store_name', payload: { name } });
   }
 }
 
@@ -310,7 +316,10 @@ export async function getStorePhone(storeName) {
  */
 export async function saveStorePhone(storeName, phone) {
   const { error } = await db.saveStorePhone(storeName, phone);
-  if (error) console.error('saveStorePhone error', error);
+  if (error) {
+    console.error('saveStorePhone error, queued for retry', error);
+    enqueueSync({ type: 'save_store_phone', payload: { storeName, phone } });
+  }
 }
 
 // ─── Store Addresses ──────────────────────────────────────────────────────────
@@ -337,7 +346,10 @@ export async function getStoreAddress(storeName) {
  */
 export async function saveStoreAddress(storeName, address) {
   const { error } = await db.saveStoreAddress(storeName, address);
-  if (error) console.error('saveStoreAddress error', error);
+  if (error) {
+    console.error('saveStoreAddress error, queued for retry', error);
+    enqueueSync({ type: 'save_store_address', payload: { storeName, address } });
+  }
 }
 
 // ─── Store Details (combined phone + address) ────────────────────────────────
@@ -368,7 +380,10 @@ export async function getStoreDetails(storeName) {
  */
 export async function saveStoreDetails(storeName, phone, address) {
   const { error } = await db.saveStoreDetails(storeName, phone, address);
-  if (error) console.error('saveStoreDetails error', error);
+  if (error) {
+    console.error('saveStoreDetails error, queued for retry', error);
+    enqueueSync({ type: 'save_store_details', payload: { storeName, phone, address } });
+  }
 }
 
 // ─── Pinned Stores — localStorage (UI preference) ────────────────────────────

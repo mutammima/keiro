@@ -106,8 +106,8 @@ export function clearPaymentsFor(invoiceNumber) {
   delete all[String(invoiceNumber)];
   lsSet(KEY, all);
   db.clearInvoicePayments(invoiceNumber)
-    .then(({ error }) => { if (error) console.error('clearInvoicePayments cloud error', error); })
-    .catch(e => console.error('clearInvoicePayments cloud error', e));
+    .then(({ error }) => { if (error) { console.error('clearInvoicePayments cloud error, queued for retry', error); enqueueSync({ type: 'clear_payments', payload: { number: invoiceNumber } }); } })
+    .catch(e => { console.error('clearInvoicePayments cloud error, queued for retry', e); enqueueSync({ type: 'clear_payments', payload: { number: invoiceNumber } }); });
 }
 
 /**

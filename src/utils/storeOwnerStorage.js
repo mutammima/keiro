@@ -168,15 +168,15 @@ export function saveDriver(driver) {
   else drivers.unshift(driver);
   lsSet('inv_so_drivers', drivers);
   db.saveSODriver(driver)
-    .then(({ error }) => { if (error) console.error('saveSODriver cloud error', error); })
-    .catch(e => console.error('saveSODriver cloud error', e));
+    .then(({ error }) => { if (error) { console.error('saveSODriver cloud error, queued for retry', error); enqueueSync({ type: 'save_driver', payload: { driver } }); } })
+    .catch(e => { console.error('saveSODriver cloud error, queued for retry', e); enqueueSync({ type: 'save_driver', payload: { driver } }); });
 }
 
 export function deleteDriver(id) {
   lsSet('inv_so_drivers', getDrivers().filter(d => d.id !== id));
   db.deleteSODriver(id)
-    .then(({ error }) => { if (error) console.error('deleteSODriver cloud error', error); })
-    .catch(e => console.error('deleteSODriver cloud error', e));
+    .then(({ error }) => { if (error) { console.error('deleteSODriver cloud error, queued for retry', error); enqueueSync({ type: 'delete_driver', payload: { id } }); } })
+    .catch(e => { console.error('deleteSODriver cloud error, queued for retry', e); enqueueSync({ type: 'delete_driver', payload: { id } }); });
 }
 
 /**
@@ -227,8 +227,8 @@ export function bridgeOrderToDriver(order) {
   lsSet('inv_bridge_requests', requests);
   // …then push to the cloud so the Driver role sees it on any device.
   db.saveBridgeRequest(req)
-    .then(({ error }) => { if (error) console.error('saveBridgeRequest cloud error', error); })
-    .catch(e => console.error('saveBridgeRequest cloud error', e));
+    .then(({ error }) => { if (error) { console.error('saveBridgeRequest cloud error, queued for retry', error); enqueueSync({ type: 'save_bridge', payload: { req } }); } })
+    .catch(e => { console.error('saveBridgeRequest cloud error, queued for retry', e); enqueueSync({ type: 'save_bridge', payload: { req } }); });
 }
 
 export function getBridgeRequests() {
@@ -261,6 +261,6 @@ export function dismissBridgeRequest(id) {
   lsSet('inv_bridge_requests', getBridgeRequests().filter(r => r.id !== id));
   // …then best-effort cloud delete so it doesn't reappear on next sync.
   db.deleteBridgeRequest(id)
-    .then(({ error }) => { if (error) console.error('deleteBridgeRequest cloud error', error); })
-    .catch(e => console.error('deleteBridgeRequest cloud error', e));
+    .then(({ error }) => { if (error) { console.error('deleteBridgeRequest cloud error, queued for retry', error); enqueueSync({ type: 'delete_bridge', payload: { id } }); } })
+    .catch(e => { console.error('deleteBridgeRequest cloud error, queued for retry', e); enqueueSync({ type: 'delete_bridge', payload: { id } }); });
 }
