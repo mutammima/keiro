@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle, statusColors } from '../theme';
+import { MS_PER_DAY as MS_DAY } from '../utils/constants';
 import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
 import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
@@ -13,7 +14,7 @@ import { triggerTip } from '../utils/tutorialProgress';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
-const MS_DAY = 86400000;
+// MS_DAY → shared MS_PER_DAY in constants (aliased on the import above).
 
 /** Local-midnight Monday of the week containing d. */
 function weekStartOf(d) {

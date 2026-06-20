@@ -1,6 +1,6 @@
 /**
  * useVersionCheck — polls /version.json every 30 seconds, bypassing the SW cache.
- * When a newer version is detected it dispatches 'inv-version-update' so the UI
+ * When a newer version is detected it dispatches EVENTS.VERSION_UPDATE so the UI
  * can show a prompt. The user decides when to reload — nothing happens automatically.
  *
  * LOCAL_VERSION is injected at build time by vite.config.js as __APP_VERSION__
@@ -14,6 +14,7 @@
  */
 
 import { useEffect } from 'react';
+import { EVENTS } from '../utils/constants';
 
 // Injected by vite.config.js at build time — unique git hash per deploy
 // eslint-disable-next-line no-undef
@@ -44,7 +45,7 @@ export default function useVersionCheck() {
         if (version && version !== LOCAL_VERSION) {
           notified = true;
           // Let the UI handle it — no auto-reload
-          window.dispatchEvent(new CustomEvent('inv-version-update', { detail: { version } }));
+          window.dispatchEvent(new CustomEvent(EVENTS.VERSION_UPDATE, { detail: { version } }));
         }
       } catch {
         // Offline — silently ignore

@@ -34,6 +34,7 @@ import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
+import { EVENTS } from './utils/constants';
 // Store Owner role
 import RoleSelector from './components/onboarding/RoleSelector';
 import NewRequest from './pages/storeowner/NewRequest';
@@ -124,7 +125,7 @@ function AppInner({ role, onSwitchRole }) {
   const { updateAvailable, applyUpdate }    = useAppUpdate();
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
-  useVersionCheck(); // fires 'inv-version-update' event when server has a newer build
+  useVersionCheck(); // fires EVENTS.VERSION_UPDATE event when server has a newer build
 
   // ── Cross-account event badges (tab-strip unread counts) ───────────────────
   const [badges, setBadges] = useState({});
@@ -152,7 +153,7 @@ function AppInner({ role, onSwitchRole }) {
   // ── Lightweight real-time ──────────────────────────────────────────────────
   // Poll the cross-account tables every 30s while the app is foregrounded and
   // the user is signed in. Refreshed caches recompute badges and fire
-  // 'inv-data-refresh' so any open cross-account list re-reads. Paused when the
+  // EVENTS.DATA_REFRESH so any open cross-account list re-reads. Paused when the
   // tab is hidden so it stays cheap on Supabase reads and battery. Guests have
   // no cloud data, so they never poll.
   useEffect(() => {
@@ -165,7 +166,7 @@ function AppInner({ role, onSwitchRole }) {
         : [loadConnectionOrdersFromCloud()];
       await Promise.allSettled(loads);
       refreshBadges();
-      window.dispatchEvent(new CustomEvent('inv-data-refresh'));
+      window.dispatchEvent(new CustomEvent(EVENTS.DATA_REFRESH));
     };
     const start = () => { if (!timer) timer = setInterval(tick, 30000); };
     const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
@@ -187,8 +188,8 @@ function AppInner({ role, onSwitchRole }) {
   // Listen for version-check update signal and surface it to the user
   useEffect(() => {
     const handler = () => setVersionUpdateAvailable(true);
-    window.addEventListener('inv-version-update', handler);
-    return () => window.removeEventListener('inv-version-update', handler);
+    window.addEventListener(EVENTS.VERSION_UPDATE, handler);
+    return () => window.removeEventListener(EVENTS.VERSION_UPDATE, handler);
   }, []);
 
   // Bridge the app's existing milestone events onto checklist flags (once).

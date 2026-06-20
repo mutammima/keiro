@@ -16,6 +16,7 @@ import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } 
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
+import { EVENTS } from '../../utils/constants';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -137,8 +138,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
     const onRefresh = () => { setConnOrders(getConnectionOrders()); setBridgeRequests(getBridgeRequests()); };
-    window.addEventListener('inv-data-refresh', onRefresh);
-    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+    window.addEventListener(EVENTS.DATA_REFRESH, onRefresh);
+    return () => window.removeEventListener(EVENTS.DATA_REFRESH, onRefresh);
   }, []);
 
   // Open cross-account orders addressed to this driver (pending or accepted).

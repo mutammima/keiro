@@ -33,6 +33,7 @@ import { useElementRect } from './useElementRect';
 import TutorialTooltip from './TutorialTooltip';
 import DimPanels from './DimPanels';
 import Confetti from './Confetti';
+import { MS_PER_DAY } from '../../utils/constants';
 import {
   getWalkthroughStep, setWalkthroughStep,
   clearWalkthroughStep, setWalkthroughDone, isWalkthroughDone,
@@ -79,7 +80,7 @@ const POST_CLICK = 660;   // pause after a click with no explicit settle signal
 
 // ── Demo data (kept obviously sample-like) ──────────────────────────────────
 const futureDate = (days) => {
-  const d = new Date(Date.now() + days * 86400000);
+  const d = new Date(Date.now() + days * MS_PER_DAY);
   return d.toISOString().slice(0, 10);
 };
 

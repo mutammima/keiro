@@ -19,7 +19,7 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
-import { DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS } from '../utils/constants';
+import { DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -310,7 +310,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                       setDensity(d);
                       lsSet('inv_density', d);
                       document.body.classList.toggle('density-compact', d === 'compact');
-                      window.dispatchEvent(new Event('inv-density-change'));
+                      window.dispatchEvent(new Event(EVENTS.DENSITY_CHANGE));
                     }}
                     style={{
                       height: 30, padding: '0 12px', borderRadius: 8,

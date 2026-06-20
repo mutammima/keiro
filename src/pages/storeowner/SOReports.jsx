@@ -14,10 +14,10 @@ import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import { markAction } from '../../utils/tutorialProgress';
 import { formatMoney as money } from '../../utils/invoiceUtils';
+import { MS_PER_DAY as DAY_MS } from '../../utils/constants';
 
 // Order status meta → shared ORDER_STATUS in theme.js
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+// DAY_MS → shared MS_PER_DAY in constants (aliased on the import above).
 
 function orderTime(o) {
   // Prefer createdAt; fall back to the delivery date.

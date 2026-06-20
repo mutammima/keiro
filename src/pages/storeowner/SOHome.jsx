@@ -17,11 +17,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
+import { MS_PER_DAY as MS_DAY, EVENTS } from '../../utils/constants';
 import { getOrders, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
-const MS_DAY = 86400000;
+// MS_DAY → shared MS_PER_DAY in constants (aliased on the import above).
 
 // Order status meta → shared ORDER_STATUS in theme.js
 
@@ -59,8 +60,8 @@ export default function SOHome({ onNav }) {
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
     const onRefresh = () => { setLocalOrders(getOrders()); setConnOrders(getConnectionOrders()); };
-    window.addEventListener('inv-data-refresh', onRefresh);
-    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+    window.addEventListener(EVENTS.DATA_REFRESH, onRefresh);
+    return () => window.removeEventListener(EVENTS.DATA_REFRESH, onRefresh);
   }, []);
 
   // Dashboard model = private so_orders + cross-account connection orders.

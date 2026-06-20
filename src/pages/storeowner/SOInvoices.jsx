@@ -21,6 +21,7 @@ import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 import { formatMoney as money, formatOrderDate as formatDate } from '../../utils/invoiceUtils';
+import { EVENTS } from '../../utils/constants';
 
 // Intentionally NOT the shared theme `ORDER_STATUS`: this is the billing view,
 // so order states are relabelled from a payment angle ("Received" / "Awaiting").
@@ -63,8 +64,8 @@ export default function SOInvoices({ onNav }) {
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
     const onRefresh = () => { setShared(getSharedInvoices()); setOrders(getOrders()); setConnOrders(getConnectionOrders()); };
-    window.addEventListener('inv-data-refresh', onRefresh);
-    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+    window.addEventListener(EVENTS.DATA_REFRESH, onRefresh);
+    return () => window.removeEventListener(EVENTS.DATA_REFRESH, onRefresh);
   }, []);
 
   // Map delivered connection orders by their invoice number, so a shared invoice

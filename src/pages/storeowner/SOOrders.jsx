@@ -13,6 +13,7 @@ import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 import { formatOrderDate as formatDate } from '../../utils/invoiceUtils';
+import { EVENTS } from '../../utils/constants';
 
 // Order status meta → shared ORDER_STATUS in theme.js
 // formatDate → formatOrderDate in invoiceUtils (aliased above).
@@ -46,8 +47,8 @@ export default function SOOrders({ onNav }) {
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
     const onRefresh = () => { setOrders(getOrders()); setConnOrders(getConnectionOrders()); };
-    window.addEventListener('inv-data-refresh', onRefresh);
-    return () => window.removeEventListener('inv-data-refresh', onRefresh);
+    window.addEventListener(EVENTS.DATA_REFRESH, onRefresh);
+    return () => window.removeEventListener(EVENTS.DATA_REFRESH, onRefresh);
   }, []);
 
   function refresh() { setOrders(getOrders()); setConnOrders(getConnectionOrders()); }
