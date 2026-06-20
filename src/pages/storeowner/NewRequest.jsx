@@ -33,6 +33,10 @@ export default function NewRequest({ onNav, onBack }) {
   const [errors,        setErrors]        = useState({});
   const [submitted,     setSubmitted]     = useState(false);
   const [guestWall,     setGuestWall]     = useState(false);
+  // Reorder prefill: original notes are staged but NOT copied unless the user
+  // opts in via the "Copy notes from original" toggle (per spec).
+  const [originalNotes, setOriginalNotes] = useState('');
+  const [copyNotes,     setCopyNotes]     = useState(false);
 
   const [drivers, setDrivers] = useState(() => getDrivers());
   const [conns,   setConns]   = useState(() => getActiveConnections());
@@ -45,6 +49,23 @@ export default function NewRequest({ onNav, onBack }) {
     loadDriversFromCloud().then(list => setDrivers(list)).catch(() => {});
     loadConnectionsFromCloud().then(list => setConns((list || []).filter(c => c.status === 'active'))).catch(() => {});
     getCurrentPosition().then(c => { if (c) coords.current = c; }).catch(() => {});
+  }, []);
+
+  // Reorder prefill — written by stageReorder() before navigating here. Only
+  // consume entries flagged `reorder` (leave any driver-invoice prefill alone).
+  useEffect(() => {
+    let p;
+    try { p = JSON.parse(localStorage.getItem('inv_prefill') || 'null'); } catch { p = null; }
+    if (!p || !p.reorder) return;
+    try { localStorage.removeItem('inv_prefill'); } catch { /* ignore */ }
+    if (p.productName) setProductName(p.productName);
+    if (p.quantity != null) setQuantity(String(p.quantity));
+    if (p.price != null && p.price !== '') setPrice(String(p.price));
+    if (p.driverId) setDriverId(p.driverId);
+    // Fresh delivery date defaulting to tomorrow (user can change it).
+    const t = new Date(); t.setDate(t.getDate() + 1);
+    setDeliveryDate(t.toISOString().slice(0, 10));
+    if (p.notes) setOriginalNotes(p.notes);
   }, []);
 
   /** Driver's display name on a connection, from the store's side. */
@@ -281,6 +302,28 @@ export default function NewRequest({ onNav, onBack }) {
         {/* Notes */}
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>Notes <span style={{ color: C.textMuted, fontWeight: 400, fontSize: 11 }}>optional</span></p>
+          {originalNotes && (
+            <button
+              type="button"
+              onClick={() => { const next = !copyNotes; setCopyNotes(next); setNotes(next ? originalNotes : ''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 44,
+                background: 'none', border: 'none', padding: '4px 0 10px', cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent', textAlign: 'left',
+              }}
+            >
+              <span style={{
+                width: 38, height: 22, borderRadius: 11, flexShrink: 0, position: 'relative',
+                background: copyNotes ? ACCENT : C.inputBorder, transition: 'background 0.2s',
+              }}>
+                <span style={{
+                  position: 'absolute', top: 2, left: copyNotes ? 18 : 2, width: 18, height: 18,
+                  borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                }} />
+              </span>
+              <span style={{ fontSize: 13, color: C.textSub }}>Copy notes from original</span>
+            </button>
+          )}
           <textarea
             style={{ ...s.input, ...inp, height: 80, padding: '10px 14px', resize: 'none', lineHeight: 1.5 }}
             placeholder="Any special instructions..."

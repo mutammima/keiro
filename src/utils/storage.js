@@ -10,7 +10,7 @@
  */
 
 import * as db from '../services/db';
-import { notifySyncError } from './syncNotify';
+import { enqueueSync } from './syncQueue';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
@@ -79,8 +79,8 @@ export async function saveInvoice(invoice) {
   lsSet('inv_list', list);
 
   if (error) {
-    console.warn('saveInvoice: cloud save failed, using localStorage fallback', error);
-    notifySyncError('Invoice saved on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
+    console.warn('saveInvoice: cloud save failed, queued for retry', error);
+    enqueueSync({ type: 'save_invoice', payload: { invoice } });
   }
   return { error };
 }
@@ -114,8 +114,8 @@ export async function deleteInvoice(number) {
   // Tell the user instead of failing silently.
   const { error } = await db.deleteInvoice(number);
   if (error) {
-    console.error('deleteInvoice error', error);
-    notifySyncError('Invoice removed on this device but could not be deleted from the cloud — it may reappear after the next sync. Delete it again while online.');
+    console.error('deleteInvoice cloud error, queued for retry', error);
+    enqueueSync({ type: 'delete_invoice', payload: { number } });
   }
 }
 
@@ -139,8 +139,8 @@ export async function updateInvoicePaymentStatus(number, status) {
   // next cloud load (and the store side never sees the change), so surface it.
   const { error } = await db.updateInvoicePaymentStatus(number, status);
   if (error) {
-    console.error('updateInvoicePaymentStatus error', error);
-    notifySyncError('Payment status changed on this device but could not reach the cloud — other devices keep the old status until you change it again while online.');
+    console.error('updateInvoicePaymentStatus cloud error, queued for retry', error);
+    enqueueSync({ type: 'update_payment_status', payload: { number, status } });
   }
 }
 

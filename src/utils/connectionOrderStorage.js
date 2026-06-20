@@ -22,7 +22,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
-import { notifySyncError } from './syncNotify';
+import { enqueueSync } from './syncQueue';
 import { getActiveConnections } from './connectionStorage';
 import * as db from '../services/db';
 
@@ -59,6 +59,9 @@ function mapRow(row) {
     notes:         row.notes || '',
     status:        row.status,
     invoiceNumber: row.invoice_number ?? null,
+    receivedConfirmed: !!row.received_confirmed,
+    receivedQuantity:  row.received_quantity ?? null,
+    receivingNotes:    row.receiving_notes || '',
     createdAt:     row.created_at,
     updatedAt:     row.updated_at,
   };
@@ -98,8 +101,8 @@ export async function sendConnectionOrder(conn, { productName, quantity, price, 
   upsertLocal(order);
   const { error } = await db.saveConnectionOrder(order);
   if (error) {
-    console.error('saveConnectionOrder cloud error', error);
-    notifySyncError('Order saved on this device but has not reached your driver yet. It will not be visible to them until you are back online and signed in.');
+    console.error('saveConnectionOrder cloud error, queued for retry', error);
+    enqueueSync({ type: 'save_connection_order', payload: { order } });
   }
   return order;
 }
@@ -118,8 +121,31 @@ export function updateConnectionOrderStatus(id, status, { invoiceNumber } = {}) 
     lsSet(KEY, list);
   }
   db.updateConnectionOrder(id, { status, invoiceNumber })
-    .then(({ error }) => { if (error) console.error('updateConnectionOrder cloud error', error); })
-    .catch(e => console.error('updateConnectionOrder cloud error', e));
+    .then(({ error }) => { if (error) { console.error('updateConnectionOrder cloud error, queued for retry', error); enqueueSync({ type: 'update_connection_order', payload: { id, status, invoiceNumber } }); } })
+    .catch(e => { console.error('updateConnectionOrder cloud error, queued for retry', e); enqueueSync({ type: 'update_connection_order', payload: { id, status, invoiceNumber } }); });
+}
+
+/**
+ * Store owner confirms the quantity actually received for a delivered order.
+ * Additive — does not touch status. Local-first, then best-effort cloud (queued
+ * for retry on failure). See supabase-receiving-confirmation.sql.
+ * @param {string} id
+ * @param {{ receivedQuantity?: number, receivingNotes?: string }} info
+ */
+export function confirmReceiving(id, { receivedQuantity, receivingNotes } = {}) {
+  const list = getConnectionOrders();
+  const idx = list.findIndex(o => o.id === id);
+  const qty = receivedQuantity != null ? Number(receivedQuantity)
+    : (idx >= 0 ? list[idx].quantity : null);
+  const notes = receivingNotes || '';
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], receivedConfirmed: true, receivedQuantity: qty, receivingNotes: notes, updatedAt: new Date().toISOString() };
+    lsSet(KEY, list);
+  }
+  const payload = { id, receivedConfirmed: true, receivedQuantity: qty, receivingNotes: notes };
+  db.updateConnectionOrder(id, payload)
+    .then(({ error }) => { if (error) { console.error('confirmReceiving cloud error, queued for retry', error); enqueueSync({ type: 'update_connection_order', payload }); } })
+    .catch(e => { console.error('confirmReceiving cloud error, queued for retry', e); enqueueSync({ type: 'update_connection_order', payload }); });
 }
 
 // ── Invoice hand-off (driver side) ─────────────────────────────────────────────

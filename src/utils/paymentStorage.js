@@ -13,7 +13,7 @@
 
 import { lsGet, lsSet } from './storage';
 import * as db from '../services/db';
-import { notifySyncError } from './syncNotify';
+import { enqueueSync } from './syncQueue';
 
 const KEY = 'inv_payments';
 
@@ -48,16 +48,17 @@ export function addPayment(invoiceNumber, amount, note = '') {
   lsSet(KEY, all);
   // Background cloud sync — surface a failure to the user since payments are
   // money records. db helpers return { error }; also guard against throws.
-  db.saveInvoicePayment({ ...payment, invoiceNumber: Number(invoiceNumber) })
+  const cloudPayment = { ...payment, invoiceNumber: Number(invoiceNumber) };
+  db.saveInvoicePayment(cloudPayment)
     .then(({ error }) => {
       if (error) {
-        console.error('saveInvoicePayment cloud error', error);
-        notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
+        console.error('saveInvoicePayment cloud error, queued for retry', error);
+        enqueueSync({ type: 'save_payment', payload: { payment: cloudPayment } });
       }
     })
     .catch(e => {
-      console.error('saveInvoicePayment cloud error', e);
-      notifySyncError('Payment logged on this device but could not reach the cloud. It will sync the next time you open the app signed in.');
+      console.error('saveInvoicePayment cloud error, queued for retry', e);
+      enqueueSync({ type: 'save_payment', payload: { payment: cloudPayment } });
     });
   return [...all[key]];
 }
@@ -77,11 +78,14 @@ export function removePayment(invoiceNumber, paymentId) {
   db.deleteInvoicePayment(paymentId)
     .then(({ error }) => {
       if (error) {
-        console.error('deleteInvoicePayment cloud error', error);
-        notifySyncError('Payment removed on this device but not from the cloud — it may reappear after the next sync.');
+        console.error('deleteInvoicePayment cloud error, queued for retry', error);
+        enqueueSync({ type: 'delete_payment', payload: { paymentId } });
       }
     })
-    .catch(e => console.error('deleteInvoicePayment cloud error', e));
+    .catch(e => {
+      console.error('deleteInvoicePayment cloud error, queued for retry', e);
+      enqueueSync({ type: 'delete_payment', payload: { paymentId } });
+    });
 }
 
 /**

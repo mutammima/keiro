@@ -12,7 +12,7 @@
  */
 
 import { lsGet, lsSet } from './storage';
-import { notifySyncError } from './syncNotify';
+import { enqueueSync } from './syncQueue';
 import * as db from '../services/db';
 
 // ─── Role ─────────────────────────────────────────────────────────────────────
@@ -73,11 +73,14 @@ export function saveOrder(order) {
   db.saveSOOrder(order)
     .then(({ error }) => {
       if (error) {
-        console.error('saveSOOrder cloud error', error);
-        notifySyncError('Order saved on this device but could not reach the cloud — other devices will not see it until it syncs.');
+        console.error('saveSOOrder cloud error, queued for retry', error);
+        enqueueSync({ type: 'save_order', payload: { order } });
       }
     })
-    .catch(e => console.error('saveSOOrder cloud error', e));
+    .catch(e => {
+      console.error('saveSOOrder cloud error, queued for retry', e);
+      enqueueSync({ type: 'save_order', payload: { order } });
+    });
 }
 
 export function updateOrderStatus(id, status) {
@@ -87,15 +90,36 @@ export function updateOrderStatus(id, status) {
   orders[idx] = { ...orders[idx], status };
   lsSet('inv_so_orders', orders);
   db.updateSOOrderStatus(id, status)
-    .then(({ error }) => { if (error) console.error('updateSOOrderStatus cloud error', error); })
-    .catch(e => console.error('updateSOOrderStatus cloud error', e));
+    .then(({ error }) => { if (error) { console.error('updateSOOrderStatus cloud error, queued for retry', error); enqueueSync({ type: 'update_order_status', payload: { id, status } }); } })
+    .catch(e => { console.error('updateSOOrderStatus cloud error, queued for retry', e); enqueueSync({ type: 'update_order_status', payload: { id, status } }); });
 }
 
 export function deleteOrder(id) {
   lsSet('inv_so_orders', getOrders().filter(o => o.id !== id));
   db.deleteSOOrder(id)
-    .then(({ error }) => { if (error) console.error('deleteSOOrder cloud error', error); })
-    .catch(e => console.error('deleteSOOrder cloud error', e));
+    .then(({ error }) => { if (error) { console.error('deleteSOOrder cloud error, queued for retry', error); enqueueSync({ type: 'delete_order', payload: { id } }); } })
+    .catch(e => { console.error('deleteSOOrder cloud error, queued for retry', e); enqueueSync({ type: 'delete_order', payload: { id } }); });
+}
+
+/**
+ * Stages a reorder: writes the New Request form prefill (product, quantity,
+ * price, driver, original notes) for a previous order, then the caller navigates
+ * to 'so-request'. NewRequest reads & clears `inv_prefill` on mount (same
+ * transient-prefill pattern as the invoice Duplicate flow). A connection order
+ * maps to its `conn:<id>` driver option; a local order keeps its driver id.
+ * @param {object} order - a previous order (connection or local).
+ */
+export function stageReorder(order) {
+  if (!order) return;
+  const driverId = order.connectionId ? `conn:${order.connectionId}` : (order.driverId || '');
+  lsSet('inv_prefill', {
+    reorder: true,
+    productName: order.productName || '',
+    quantity: order.quantity,
+    price: order.price,
+    driverId,
+    notes: order.notes || '',
+  });
 }
 
 /**

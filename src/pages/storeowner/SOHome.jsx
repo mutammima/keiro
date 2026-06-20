@@ -17,7 +17,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
-import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
+import { getOrders, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
@@ -202,8 +202,8 @@ export default function SOHome({ onNav }) {
                       </div>
                     </div>
                     <button
-                      onClick={() => onNav('so-request')}
-                      style={{ flexShrink: 0, height: 32, padding: '0 14px', border: 'none', borderRadius: 9, background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                      onClick={() => { const last = orders.find(o => o.productName === p.name); if (last) stageReorder(last); onNav('so-request'); }}
+                      style={{ flexShrink: 0, minHeight: 44, height: 44, padding: '0 14px', border: 'none', borderRadius: 9, background: '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                     >
                       Reorder
                     </button>

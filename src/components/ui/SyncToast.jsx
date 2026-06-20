@@ -1,36 +1,53 @@
 /**
- * SyncToast — global toast that surfaces failed critical cloud writes.
+ * SyncToast — global toast for the cloud-sync state.
  *
- * Listens for the `inv-sync-error` CustomEvent (see utils/syncNotify.js) and
- * shows a brief, non-blocking banner so the user knows their data saved locally
- * but did not reach the cloud. Auto-dismisses; tap to close early.
+ * Listens for two CustomEvents (see utils/syncNotify.js):
+ *   • inv-sync-error → amber: a write saved locally but did not reach the cloud,
+ *     or the retry queue gave up on an action.
+ *   • inv-sync-ok    → green: the offline retry queue successfully drained
+ *     pending changes ("Synced N pending changes").
+ * Brief, non-blocking, auto-dismisses; tap to close early.
  */
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { SYNC_ERROR_EVENT } from '../../utils/syncNotify';
+import { SYNC_ERROR_EVENT, SYNC_OK_EVENT } from '../../utils/syncNotify';
 
 export default function SyncToast() {
   const { dark } = useTheme();
-  const [msg, setMsg] = useState(null);
+  const [toast, setToast] = useState(null); // { kind: 'error' | 'ok', message }
 
   useEffect(() => {
     let timer;
-    function handler(e) {
-      setMsg(e.detail?.message || 'Could not sync to the cloud.');
-      clearTimeout(timer);
-      timer = setTimeout(() => setMsg(null), 6000);
+    function show(kind, fallback) {
+      return (e) => {
+        setToast({ kind, message: e.detail?.message || fallback });
+        clearTimeout(timer);
+        timer = setTimeout(() => setToast(null), kind === 'ok' ? 4000 : 6000);
+      };
     }
-    window.addEventListener(SYNC_ERROR_EVENT, handler);
-    return () => { window.removeEventListener(SYNC_ERROR_EVENT, handler); clearTimeout(timer); };
+    const onError = show('error', 'Could not sync to the cloud.');
+    const onOk    = show('ok', 'Synced pending changes.');
+    window.addEventListener(SYNC_ERROR_EVENT, onError);
+    window.addEventListener(SYNC_OK_EVENT, onOk);
+    return () => {
+      window.removeEventListener(SYNC_ERROR_EVENT, onError);
+      window.removeEventListener(SYNC_OK_EVENT, onOk);
+      clearTimeout(timer);
+    };
   }, []);
 
-  if (!msg) return null;
+  if (!toast) return null;
+
+  const ok = toast.kind === 'ok';
+  const palette = ok
+    ? { bg: dark ? '#0D2B20' : '#f0fdf4', fg: dark ? '#2ECC8A' : '#16a34a', border: dark ? '#13402f' : '#bbf7d0', icon: '✓' }
+    : { bg: dark ? '#2a1500' : '#fff7ed', fg: dark ? '#fbbf24' : '#b45309', border: dark ? '#3a2000' : '#fed7aa', icon: '⚠' };
 
   return createPortal(
     <div
-      onClick={() => setMsg(null)}
+      onClick={() => setToast(null)}
       style={{
         position: 'fixed',
         top: 'max(12px, env(safe-area-inset-top))',
@@ -45,9 +62,9 @@ export default function SyncToast() {
         gap: 10,
         padding: '12px 14px',
         borderRadius: 14,
-        background: dark ? '#2a1500' : '#fff7ed',
-        color: dark ? '#fbbf24' : '#b45309',
-        border: `1px solid ${dark ? '#3a2000' : '#fed7aa'}`,
+        background: palette.bg,
+        color: palette.fg,
+        border: `1px solid ${palette.border}`,
         boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
         fontSize: 13,
         fontWeight: 500,
@@ -56,8 +73,8 @@ export default function SyncToast() {
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1.3 }} aria-hidden>⚠</span>
-      <span style={{ flex: 1 }}>{msg}</span>
+      <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1.3 }} aria-hidden>{palette.icon}</span>
+      <span style={{ flex: 1 }}>{toast.message}</span>
     </div>,
     document.body
   );
