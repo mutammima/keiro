@@ -39,6 +39,23 @@ const HANDLERS = {
   delete_order:            (p) => db.deleteSOOrder(p.id),
   save_connection_order:   (p) => db.saveConnectionOrder(p.order),
   update_connection_order: (p) => db.updateConnectionOrder(p.id, { status: p.status, invoiceNumber: p.invoiceNumber, receivedConfirmed: p.receivedConfirmed, receivedQuantity: p.receivedQuantity, receivingNotes: p.receivingNotes }),
+  // Catalog + store details
+  save_product:            (p) => db.saveProductBarcode(p.barcode, p.name, p.price),
+  update_product:          (p) => db.updateProduct(p.barcode, p.name, p.price),
+  delete_product:          (p) => db.deleteProduct(p.barcode),
+  save_store_name:         (p) => db.saveStoreName(p.name),
+  save_store_phone:        (p) => db.saveStorePhone(p.storeName, p.phone),
+  save_store_address:      (p) => db.saveStoreAddress(p.storeName, p.address),
+  save_store_details:      (p) => db.saveStoreDetails(p.storeName, p.phone, p.address),
+  clear_payments:          (p) => db.clearInvoicePayments(p.number),
+  // SO drivers + bridge requests
+  save_driver:             (p) => db.saveSODriver(p.driver),
+  delete_driver:           (p) => db.deleteSODriver(p.id),
+  save_bridge:             (p) => db.saveBridgeRequest(p.req),
+  delete_bridge:           (p) => db.deleteBridgeRequest(p.id),
+  // NOTE: clearAllProducts (an unscoped bulk wipe) is intentionally NOT queued —
+  // replaying it after the user re-adds products would delete them, breaking the
+  // upsert/delete-only convergence guarantee this queue relies on.
 };
 
 function read() {
