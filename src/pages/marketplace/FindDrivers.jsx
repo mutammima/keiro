@@ -70,7 +70,6 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
     const set = new Set();
     orders.forEach(o => { if (o.driverName && o.driverName !== 'Unassigned') set.add(o.driverName.trim().toLowerCase()); });
     return set;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
 
   // Product chips from the store's own recent orders for one-tap searching.

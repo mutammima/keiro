@@ -115,7 +115,7 @@ export default function SOInvoices({ onNav }) {
       });
     }
     return { billed, outstanding, thisMonth };
-  }, [bills, shared]); // eslint-disable-line
+  }, [bills, shared]);
 
   const statCards = [
     { label: 'Outstanding', value: money(stats.outstanding), color: stats.outstanding > 0 ? C.text : '#22c55e' },

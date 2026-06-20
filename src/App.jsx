@@ -239,7 +239,7 @@ function AppInner({ role, onSwitchRole }) {
       setPage(p);
     }
     setDrawerOpen(false);
-  }, []); // eslint-disable-line
+  }, []);
 
   // Launch a guided walkthrough from anywhere. Always route to the role's home
   // tab first so the demo has the tab strip to drive — starting it from an

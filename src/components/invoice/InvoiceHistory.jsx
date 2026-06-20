@@ -554,7 +554,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
 
             {/* Payment log */}
             {(() => {
-              const payments = getPaymentsFor(inv.number); // eslint-disable-line
+              const payments = getPaymentsFor(inv.number);
               void paymentsVer; // depend on version to re-read after mutations
               const paid      = payments.reduce((s, p) => s + Number(p.amount), 0);
               const remaining = Math.max(0, total - paid);

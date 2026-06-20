@@ -116,7 +116,7 @@ export function useInvoiceForm(onGenerated) {
       if (p.notes)        setNotes(p.notes);
       if (Array.isArray(p.items) && p.items.length) setItems(p.items);
     } catch {}
-  }, []); // eslint-disable-line
+  }, []);
 
   // ── Add-item form state ──────────────────────────────────────────────────
 
