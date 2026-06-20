@@ -220,8 +220,14 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // localStorage. Overdue detection itself is shared via invoiceUtils.
   const flagDays = getFlagDays();
 
-  // ── Invoice Card ──────────────────────────────────────────────────────────
-  function InvoiceCard({ inv, isFirst }) {
+  // ── Invoice card ──────────────────────────────────────────────────────────
+  // A render HELPER, not a child component. Defining a component inside this
+  // parent gives it a new function identity on every render, which makes React
+  // unmount + remount every card whenever the parent re-renders (e.g. on each
+  // search keystroke). Calling it as a plain function inlines its elements into
+  // the parent's tree instead, so cards reconcile by key with no remount. It is
+  // hook-free, so calling it in a loop is safe. (Each return sets its own key.)
+  function renderInvoiceCard(inv, isFirst) {
     const total   = subtotalOf(inv);
     const isOpen  = expanded === inv.number;
     const pinned  = isStorePinned(inv.storeName || inv.store_name);
@@ -251,7 +257,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     // ── COMPACT card: lean 2-line row, total + status inline, no sub-card ──────
     if (D.compact) {
       return (
-        <div style={{
+        <div key={inv.number} style={{
           background: C.card,
           borderRadius: 12,
           border: `1px solid ${isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder}`,
@@ -372,6 +378,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     // ── COMFORTABLE card: full layout with nested sub-card ───────────────────
     return (
       <div
+        key={inv.number}
         {...(isFirst ? { 'data-tutorial': 'invoice-latest' } : {})}
         style={{ ...s.card, background: C.card, borderColor: isOverdue ? (dark ? 'rgba(239,68,68,0.4)' : '#fca5a5') : C.cardBorder, borderRadius: D.cardRadius }}
       >
@@ -757,7 +764,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             {todayInvoices.length > 0 && (
               <>
                 <p style={{ ...s.groupLabel, color: C.textMuted }}>Today</p>
-                {todayInvoices.map((inv, i) => <InvoiceCard key={inv.number} inv={inv} isFirst={i === 0} />)}
+                {todayInvoices.map((inv, i) => renderInvoiceCard(inv, i === 0))}
               </>
             )}
 
@@ -767,7 +774,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 {todayInvoices.length > 0 && (
                   <p style={{ ...s.groupLabel, color: C.textMuted, marginTop: 6 }}>Earlier</p>
                 )}
-                {visibleOlderList.map((inv, i) => <InvoiceCard key={inv.number} inv={inv} isFirst={todayInvoices.length === 0 && i === 0} />)}
+                {visibleOlderList.map((inv, i) => renderInvoiceCard(inv, todayInvoices.length === 0 && i === 0))}
               </>
             )}
 
