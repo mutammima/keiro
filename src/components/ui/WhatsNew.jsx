@@ -5,6 +5,7 @@
 
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
+import { STORAGE_KEYS } from '../../utils/constants';
 
 export const APP_VERSION = '5.9';
 
@@ -16,7 +17,7 @@ const CHANGELOG = [
   'Stronger backups — exports now include every part of your data, including payments and signatures',
 ];
 
-const SEEN_KEY = `inv_whats_new_seen_${APP_VERSION}`;
+const SEEN_KEY = `${STORAGE_KEYS.WHATS_NEW_SEEN_PREFIX}${APP_VERSION}`;
 
 export function hasSeenWhatsNew() {
   return !!localStorage.getItem(SEEN_KEY);

@@ -12,13 +12,14 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { STORAGE_KEYS } from './constants';
 import { enqueueSync } from './syncQueue';
 import * as db from '../services/db';
 
 // ─── Role ─────────────────────────────────────────────────────────────────────
 
 export function setRole(role) {
-  lsSet('inv_user_role', role);
+  lsSet(STORAGE_KEYS.USER_ROLE, role);
 }
 
 /**
@@ -29,16 +30,16 @@ export function setRole(role) {
  * - Otherwise: return null → show the RoleSelector.
  */
 export function resolveStartupRole() {
-  const saved = localStorage.getItem('inv_user_role');
+  const saved = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
   if (saved !== null) {
     try { return JSON.parse(saved); } catch { return 'driver'; }
   }
   // Existing driver user — has invoice data or completed onboarding
   const isExistingUser =
-    localStorage.getItem('inv_onboarding_complete') ||
-    localStorage.getItem('inv_list');
+    localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE) ||
+    localStorage.getItem(STORAGE_KEYS.LIST);
   if (isExistingUser) {
-    lsSet('inv_user_role', 'driver');
+    lsSet(STORAGE_KEYS.USER_ROLE, 'driver');
     return 'driver';
   }
   return null; // brand-new user — needs to pick a role
@@ -61,7 +62,7 @@ export function resolveStartupRole() {
 // }
 
 export function getOrders() {
-  return lsGet('inv_so_orders', []);
+  return lsGet(STORAGE_KEYS.SO_ORDERS, []);
 }
 
 export function saveOrder(order) {
@@ -69,7 +70,7 @@ export function saveOrder(order) {
   const idx = orders.findIndex(o => o.id === order.id);
   if (idx >= 0) orders[idx] = order;
   else orders.unshift(order);
-  lsSet('inv_so_orders', orders);
+  lsSet(STORAGE_KEYS.SO_ORDERS, orders);
   db.saveSOOrder(order)
     .then(({ error }) => {
       if (error) {
@@ -88,14 +89,14 @@ export function updateOrderStatus(id, status) {
   const idx = orders.findIndex(o => o.id === id);
   if (idx < 0) return;
   orders[idx] = { ...orders[idx], status };
-  lsSet('inv_so_orders', orders);
+  lsSet(STORAGE_KEYS.SO_ORDERS, orders);
   db.updateSOOrderStatus(id, status)
     .then(({ error }) => { if (error) { console.error('updateSOOrderStatus cloud error, queued for retry', error); enqueueSync({ type: 'update_order_status', payload: { id, status } }); } })
     .catch(e => { console.error('updateSOOrderStatus cloud error, queued for retry', e); enqueueSync({ type: 'update_order_status', payload: { id, status } }); });
 }
 
 export function deleteOrder(id) {
-  lsSet('inv_so_orders', getOrders().filter(o => o.id !== id));
+  lsSet(STORAGE_KEYS.SO_ORDERS, getOrders().filter(o => o.id !== id));
   db.deleteSOOrder(id)
     .then(({ error }) => { if (error) { console.error('deleteSOOrder cloud error, queued for retry', error); enqueueSync({ type: 'delete_order', payload: { id } }); } })
     .catch(e => { console.error('deleteSOOrder cloud error, queued for retry', e); enqueueSync({ type: 'delete_order', payload: { id } }); });
@@ -112,7 +113,7 @@ export function deleteOrder(id) {
 export function stageReorder(order) {
   if (!order) return;
   const driverId = order.connectionId ? `conn:${order.connectionId}` : (order.driverId || '');
-  lsSet('inv_prefill', {
+  lsSet(STORAGE_KEYS.PREFILL, {
     reorder: true,
     productName: order.productName || '',
     quantity: order.quantity,
@@ -143,7 +144,7 @@ export async function loadOrdersFromCloud() {
     notes:        row.notes       || '',
     createdAt:    row.created_at,
   }));
-  lsSet('inv_so_orders', orders);
+  lsSet(STORAGE_KEYS.SO_ORDERS, orders);
   return orders;
 }
 
@@ -158,7 +159,7 @@ export async function loadOrdersFromCloud() {
 // }
 
 export function getDrivers() {
-  return lsGet('inv_so_drivers', []);
+  return lsGet(STORAGE_KEYS.SO_DRIVERS, []);
 }
 
 export function saveDriver(driver) {
@@ -166,14 +167,14 @@ export function saveDriver(driver) {
   const idx = drivers.findIndex(d => d.id === driver.id);
   if (idx >= 0) drivers[idx] = driver;
   else drivers.unshift(driver);
-  lsSet('inv_so_drivers', drivers);
+  lsSet(STORAGE_KEYS.SO_DRIVERS, drivers);
   db.saveSODriver(driver)
     .then(({ error }) => { if (error) { console.error('saveSODriver cloud error, queued for retry', error); enqueueSync({ type: 'save_driver', payload: { driver } }); } })
     .catch(e => { console.error('saveSODriver cloud error, queued for retry', e); enqueueSync({ type: 'save_driver', payload: { driver } }); });
 }
 
 export function deleteDriver(id) {
-  lsSet('inv_so_drivers', getDrivers().filter(d => d.id !== id));
+  lsSet(STORAGE_KEYS.SO_DRIVERS, getDrivers().filter(d => d.id !== id));
   db.deleteSODriver(id)
     .then(({ error }) => { if (error) { console.error('deleteSODriver cloud error, queued for retry', error); enqueueSync({ type: 'delete_driver', payload: { id } }); } })
     .catch(e => { console.error('deleteSODriver cloud error, queued for retry', e); enqueueSync({ type: 'delete_driver', payload: { id } }); });
@@ -192,7 +193,7 @@ export async function loadDriversFromCloud() {
     phone:     row.phone     || '',
     inventory: Array.isArray(row.inventory) ? row.inventory : [],
   }));
-  lsSet('inv_so_drivers', drivers);
+  lsSet(STORAGE_KEYS.SO_DRIVERS, drivers);
   return drivers;
 }
 
@@ -222,9 +223,9 @@ export function bridgeOrderToDriver(order) {
     bridgedAt: new Date().toISOString(),
   };
   // Local-first so the request survives offline / same-device immediately…
-  const requests = lsGet('inv_bridge_requests', []);
+  const requests = lsGet(STORAGE_KEYS.BRIDGE_REQUESTS, []);
   requests.unshift(req);
-  lsSet('inv_bridge_requests', requests);
+  lsSet(STORAGE_KEYS.BRIDGE_REQUESTS, requests);
   // …then push to the cloud so the Driver role sees it on any device.
   db.saveBridgeRequest(req)
     .then(({ error }) => { if (error) { console.error('saveBridgeRequest cloud error, queued for retry', error); enqueueSync({ type: 'save_bridge', payload: { req } }); } })
@@ -232,7 +233,7 @@ export function bridgeOrderToDriver(order) {
 }
 
 export function getBridgeRequests() {
-  return lsGet('inv_bridge_requests', []);
+  return lsGet(STORAGE_KEYS.BRIDGE_REQUESTS, []);
 }
 
 /**
@@ -252,13 +253,13 @@ export async function loadBridgeRequestsFromCloud() {
     orderId:     row.order_id  || '',
     bridgedAt:   row.created_at,
   }));
-  lsSet('inv_bridge_requests', requests);
+  lsSet(STORAGE_KEYS.BRIDGE_REQUESTS, requests);
   return requests;
 }
 
 export function dismissBridgeRequest(id) {
   // Local-first remove so the dismissal survives offline…
-  lsSet('inv_bridge_requests', getBridgeRequests().filter(r => r.id !== id));
+  lsSet(STORAGE_KEYS.BRIDGE_REQUESTS, getBridgeRequests().filter(r => r.id !== id));
   // …then best-effort cloud delete so it doesn't reappear on next sync.
   db.deleteBridgeRequest(id)
     .then(({ error }) => { if (error) { console.error('deleteBridgeRequest cloud error, queued for retry', error); enqueueSync({ type: 'delete_bridge', payload: { id } }); } })

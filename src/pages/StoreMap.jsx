@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import { getInvoices, getPinnedStores, togglePinnedStore, saveStoreDetails, lsGet } from '../utils/storage';
@@ -13,9 +14,9 @@ import { getInvoices, getPinnedStores, togglePinnedStore, saveStoreDetails, lsGe
 // ── Shared store overrides — reads from the same keys as the main app ──────────
 // Falls back to legacy inv_store_overrides for data written before this fix.
 function loadOverrides() {
-  const phones = lsGet('inv_store_phones', {});
-  const addrs  = lsGet('inv_store_addrs',  {});
-  const legacy = (() => { try { return JSON.parse(localStorage.getItem('inv_store_overrides')) || {}; } catch { return {}; } })();
+  const phones = lsGet(STORAGE_KEYS.STORE_PHONES, {});
+  const addrs  = lsGet(STORAGE_KEYS.STORE_ADDRS,  {});
+  const legacy = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.STORE_OVERRIDES)) || {}; } catch { return {}; } })();
   // Merge: main app keys take precedence over legacy key
   const all = {};
   for (const [name, val] of Object.entries(legacy)) {

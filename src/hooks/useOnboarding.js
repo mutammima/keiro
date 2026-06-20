@@ -1,11 +1,12 @@
 /**
  * useOnboarding — tracks whether the user has completed the onboarding tutorial.
- * localStorage key: 'inv_onboarding_complete'
+ * localStorage key: STORAGE_KEYS.ONBOARDING_DONE
  */
 
 import { useState } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 
-const LS_KEY = 'inv_onboarding_complete';
+const LS_KEY = STORAGE_KEYS.ONBOARDING_DONE;
 
 function hasCompleted() {
   try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }

@@ -30,7 +30,7 @@ import {
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, EVENTS } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 import { isTutorialActive } from '../utils/tutorialState';
 import { markAction } from '../utils/tutorialProgress';
@@ -105,9 +105,9 @@ export function useInvoiceForm(onGenerated) {
   // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('inv_prefill');
+      const raw = localStorage.getItem(STORAGE_KEYS.PREFILL);
       if (!raw) return;
-      localStorage.removeItem('inv_prefill');
+      localStorage.removeItem(STORAGE_KEYS.PREFILL);
       const p = JSON.parse(raw);
       if (p.storeName)    setStoreName(p.storeName);
       if (p.storePhone)   setStorePhone(p.storePhone);
@@ -332,7 +332,7 @@ export function useInvoiceForm(onGenerated) {
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');
       setDate(todayString()); setTime(nowTimeString()); setNotes(''); setPaymentMethod('cash');
       onGenerated(invoice);
-      window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-created'));
+      window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_INVOICE_CREATED));
     } catch (err) {
       console.error(err);
       setError('Something went wrong. Please try again.');

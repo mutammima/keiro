@@ -5,13 +5,14 @@
  */
 
 import { useEffect, useState } from 'react';
+import { STORAGE_KEYS } from '../../utils/constants';
 import { LIGHT, DARK } from '../../theme';
 import KeiroWordmark from './KeiroWordmark';
 
 // Must match the default logic in ThemeContext.jsx (null → dark by default)
 function getSavedDark() {
   try {
-    const saved = localStorage.getItem('inv_dark_mode');
+    const saved = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
     return saved === null ? true : saved === 'true';
   } catch { return true; }
 }

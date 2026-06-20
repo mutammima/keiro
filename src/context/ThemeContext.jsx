@@ -5,6 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const ThemeContext = createContext({ dark: false, toggleDark: () => {}, accent: '#4A7BF7', setAccent: () => {} });
 
@@ -24,13 +25,13 @@ export function applyAccent(color) {
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(() => {
     try {
-      const saved = localStorage.getItem('inv_dark_mode');
+      const saved = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
       return saved === null ? true : saved === 'true'; // default dark
     } catch { return true; }
   });
 
   const [accent, setAccentState] = useState(() => {
-    try { return localStorage.getItem('inv_accent_color') || DEFAULT_ACCENT; } catch { return DEFAULT_ACCENT; }
+    try { return localStorage.getItem(STORAGE_KEYS.ACCENT_COLOR) || DEFAULT_ACCENT; } catch { return DEFAULT_ACCENT; }
   });
 
   // Apply on mount and whenever values change
@@ -40,14 +41,14 @@ export function ThemeProvider({ children }) {
   function toggleDark() {
     setDark(d => {
       const next = !d;
-      try { localStorage.setItem('inv_dark_mode', String(next)); } catch {}
+      try { localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(next)); } catch {}
       return next;
     });
   }
 
   function setAccent(color) {
     setAccentState(color);
-    try { localStorage.setItem('inv_accent_color', color); } catch {}
+    try { localStorage.setItem(STORAGE_KEYS.ACCENT_COLOR, color); } catch {}
     applyAccent(color);
   }
 

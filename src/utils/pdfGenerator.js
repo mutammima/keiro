@@ -15,6 +15,7 @@
  * @param {string} invoice.time
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
+import { STORAGE_KEYS } from './constants';
 async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0 } = invoice;
 
@@ -36,7 +37,7 @@ async function buildPDF(invoice) {
 
   // ── Logo or Business Name ────────────────────────────────────────────────
   let headerBottomY = 82;
-  const logob64 = (() => { try { return localStorage.getItem('inv_logo_b64'); } catch { return null; } })();
+  const logob64 = (() => { try { return localStorage.getItem(STORAGE_KEYS.LOGO_B64); } catch { return null; } })();
 
   if (logob64) {
     // Draw logo centered; max 160×48 pts

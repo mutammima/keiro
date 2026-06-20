@@ -21,10 +21,11 @@
  */
 
 import * as db from '../services/db';
+import { STORAGE_KEYS } from './constants';
 import { isGuest } from './guestMode';
 import { notifySyncError, notifySyncSuccess } from './syncNotify';
 
-const KEY = 'inv_sync_queue';
+const KEY = STORAGE_KEYS.SYNC_QUEUE;
 const MAX_RETRIES = 5;
 
 // ── Each action type maps to the db.* call that performs it ───────────────────

@@ -11,19 +11,20 @@
  *   inv_pulse_home            — show the post-quick-start pulse dot on the Home tab
  *
  * Flags are stored as the raw string '1' (matching the app's existing
- * 'inv_onboarding_complete' = 'true' convention of plain string flags), so
+ * STORAGE_KEYS.ONBOARDING_DONE = 'true' convention of plain string flags), so
  * they survive JSON-free round-trips through export/import untouched.
  */
+import { STORAGE_KEYS, EVENTS } from './constants';
 
 // ── Keys ────────────────────────────────────────────────────────────────────
-const QS_DONE_KEY  = 'inv_onboarding_complete'; // reuse the existing onboarding flag
-const TIP_PREFIX   = 'inv_tip_';
-const ACTION_PREFIX = 'inv_act_';
-const HOME_PULSE_KEY = 'inv_pulse_home';
+const QS_DONE_KEY  = STORAGE_KEYS.ONBOARDING_DONE; // reuse the existing onboarding flag
+const TIP_PREFIX   = STORAGE_KEYS.TIP_PREFIX;
+const ACTION_PREFIX = STORAGE_KEYS.ACT_PREFIX;
+const HOME_PULSE_KEY = STORAGE_KEYS.PULSE_HOME;
 
 // Guided walkthrough persistence (step resume + completion)
-const WT_STEP_PREFIX = 'inv_wt_step_';   // inv_wt_step_<id> = last completed step index
-const WT_DONE_PREFIX = 'inv_wt_done_';   // inv_wt_done_<id> = '1' when fully complete
+const WT_STEP_PREFIX = STORAGE_KEYS.WT_STEP_PREFIX;   // inv_wt_step_<id> = last completed step index
+const WT_DONE_PREFIX = STORAGE_KEYS.WT_DONE_PREFIX;   // inv_wt_done_<id> = '1' when fully complete
 
 // ── Events ──────────────────────────────────────────────────────────────────
 /** Fired by triggerTip(id); TipManager listens and decides whether to show it. */
@@ -110,10 +111,10 @@ function emitProgress() {
 // saved, store balance viewed). Map them straight onto checklist action flags so
 // those four items tick without re-instrumenting their call sites.
 const MILESTONE_MAP = {
-  'inv-onboarding-invoice-created': 'invoice_created',
-  'inv-onboarding-invoice-paid':    'marked_paid',
-  'inv-onboarding-settings-saved':  'biz_name',
-  'inv-onboarding-store-viewed':    'store_balance',
+  [EVENTS.ONBOARDING_INVOICE_CREATED]: 'invoice_created',
+  [EVENTS.ONBOARDING_INVOICE_PAID]:    'marked_paid',
+  [EVENTS.ONBOARDING_SETTINGS_SAVED]:  'biz_name',
+  [EVENTS.ONBOARDING_STORE_VIEWED]:    'store_balance',
 };
 
 let bridgeInstalled = false;

@@ -1,7 +1,7 @@
 /**
  * paymentStorage.js — per-invoice payment log.
  *
- * Payments are stored in localStorage under 'inv_payments':
+ * Payments are stored in localStorage under STORAGE_KEYS.PAYMENTS:
  *   { [invoiceNumber]: Payment[] }
  *
  * Payment shape:
@@ -12,10 +12,11 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { STORAGE_KEYS } from './constants';
 import * as db from '../services/db';
 import { enqueueSync } from './syncQueue';
 
-const KEY = 'inv_payments';
+const KEY = STORAGE_KEYS.PAYMENTS;
 
 /**
  * Returns all logged payments for a given invoice, newest first.

@@ -16,7 +16,7 @@ import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } 
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
-import { EVENTS } from '../../utils/constants';
+import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -94,7 +94,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         price: item.price,
       })),
     };
-    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
     setOpenMenu(null);
     onNav('invoice');
   }
@@ -182,7 +182,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         price: Number(o.price) || 0,
       }],
     };
-    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
     if (o.status === 'pending') updateConnectionOrderStatus(o.id, 'accepted');
     setActiveConnectionOrder(o.id);
     setConnOrders(getConnectionOrders());
@@ -203,7 +203,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         price: 0,
       }],
     };
-    localStorage.setItem('inv_prefill', JSON.stringify(prefill));
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
     dismissBridgeRequest(req.id);
     setBridgeRequests(getBridgeRequests());
     onNav('invoice');
@@ -382,7 +382,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
               <button
                 {...(isFirst ? { 'data-tutorial': 'store-name-link' } : {})}
                 style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent('inv-onboarding-store-viewed')); }}
+                onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_STORE_VIEWED)); }}
               >
                 {inv.storeName || inv.store_name}
               </button>

@@ -18,7 +18,7 @@ import {
 } from '../utils/storage';
 import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
-import { DEFAULT_BUSINESS_NAME } from '../utils/constants';
+import { DEFAULT_BUSINESS_NAME, EVENTS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
 import { markAction } from '../utils/tutorialProgress';
 
@@ -150,7 +150,7 @@ export function useInvoiceHistory() {
       (i.number || i.invoice_number) === number ? { ...i, paymentStatus: next, payment_status: next } : i
     ));
     setOpenMenu(null);
-    if (next === 'paid') window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-paid'));
+    if (next === 'paid') window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_INVOICE_PAID));
   }
 
   /**
@@ -164,7 +164,7 @@ export function useInvoiceHistory() {
       (i.number || i.invoice_number) === number ? { ...i, paymentStatus: status, payment_status: status } : i
     ));
     setOpenMenu(null);
-    if (status === 'paid') window.dispatchEvent(new CustomEvent('inv-onboarding-invoice-paid'));
+    if (status === 'paid') window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_INVOICE_PAID));
   }
 
   /**

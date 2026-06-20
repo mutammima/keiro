@@ -4,23 +4,24 @@
  */
 
 import { useState } from 'react';
+import { STORAGE_KEYS } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK } from '../../theme';
 
 export function isPinEnabled() {
-  return !!localStorage.getItem('inv_pin');
+  return !!localStorage.getItem(STORAGE_KEYS.PIN);
 }
 
 export function verifyPin(pin) {
-  return localStorage.getItem('inv_pin') === pin;
+  return localStorage.getItem(STORAGE_KEYS.PIN) === pin;
 }
 
 export function setPin(pin) {
-  localStorage.setItem('inv_pin', pin);
+  localStorage.setItem(STORAGE_KEYS.PIN, pin);
 }
 
 export function clearPin() {
-  localStorage.removeItem('inv_pin');
+  localStorage.removeItem(STORAGE_KEYS.PIN);
 }
 
 /** Full-screen PIN entry. onSuccess called when correct PIN entered. */

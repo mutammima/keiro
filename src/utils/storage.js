@@ -73,10 +73,10 @@ export async function saveInvoice(invoice) {
   // local copy always matches what we attempted to persist (including
   // customerName and paymentMethod). On error this is the offline fallback;
   // on success it keeps the cache in sync with the cloud.
-  const list = lsGet('inv_list', []);
+  const list = lsGet(STORAGE_KEYS.LIST, []);
   const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
   if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
-  lsSet('inv_list', list);
+  lsSet(STORAGE_KEYS.LIST, list);
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, queued for retry', error);
@@ -94,7 +94,7 @@ export async function getInvoices() {
   const { data, error } = await db.getInvoices();
   if (error || !data) {
     console.warn('getInvoices falling back to localStorage', error);
-    return lsGet('inv_list', []);
+    return lsGet(STORAGE_KEYS.LIST, []);
   }
   return data;
 }
@@ -107,8 +107,8 @@ export async function getInvoices() {
  */
 export async function deleteInvoice(number) {
   // Local-first: remove immediately so the delete survives offline
-  const list = lsGet('inv_list', []);
-  lsSet('inv_list', list.filter(i => (i.number || i.invoice_number) !== number));
+  const list = lsGet(STORAGE_KEYS.LIST, []);
+  lsSet(STORAGE_KEYS.LIST, list.filter(i => (i.number || i.invoice_number) !== number));
   // Best-effort cloud delete — there is no retry queue, so a failure here
   // means the cloud copy survives and the invoice reappears on next load.
   // Tell the user instead of failing silently.
@@ -128,13 +128,13 @@ export async function deleteInvoice(number) {
  */
 export async function updateInvoicePaymentStatus(number, status) {
   // Local-first: update the cache so the change survives offline
-  const list = lsGet('inv_list', []);
+  const list = lsGet(STORAGE_KEYS.LIST, []);
   const updated = list.map(i =>
     (i.number || i.invoice_number) === number
       ? { ...i, paymentStatus: status, payment_status: status }
       : i
   );
-  lsSet('inv_list', updated);
+  lsSet(STORAGE_KEYS.LIST, updated);
   // Best-effort cloud sync — a silent failure here reverts the status on the
   // next cloud load (and the store side never sees the change), so surface it.
   const { error } = await db.updateInvoicePaymentStatus(number, status);
@@ -156,7 +156,7 @@ export async function getProductByBarcode(barcode) {
   const { data, error } = await db.getProductByBarcode(barcode);
   if (error) {
     // offline fallback
-    const catalog = lsGet('inv_catalog', {});
+    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
     return catalog[barcode] || null;
   }
   return data;
@@ -172,7 +172,7 @@ export async function getProductByName(name) {
   const { data, error } = await db.getProductByName(name);
   if (error) {
     // offline fallback
-    const catalog = lsGet('inv_catalog', {});
+    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
     const lower = name.trim().toLowerCase();
     return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
   }
@@ -190,9 +190,9 @@ export async function saveProductBarcode(barcode, name, price) {
   const { error } = await db.saveProductBarcode(barcode, name, price);
   if (error) {
     console.warn('saveProductBarcode: cloud save failed, using localStorage fallback', error);
-    const catalog = lsGet('inv_catalog', {});
+    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
     catalog[barcode] = { name, lastPrice: Number(price) };
-    lsSet('inv_catalog', catalog);
+    lsSet(STORAGE_KEYS.CATALOG, catalog);
     enqueueSync({ type: 'save_product', payload: { barcode, name, price } });
   }
 }
@@ -206,7 +206,7 @@ export async function getAllProducts() {
   const { data, error } = await db.getAllProducts();
   if (error || !data) {
     console.warn('getAllProducts falling back to localStorage', error);
-    return lsGet('inv_catalog', {});
+    return lsGet(STORAGE_KEYS.CATALOG, {});
   }
   return data;
 }
@@ -221,9 +221,9 @@ export async function getAllProducts() {
 export async function updateProduct(barcode, name, price) {
   const { error } = await db.updateProduct(barcode, name, price);
   if (error) {
-    const catalog = lsGet('inv_catalog', {});
+    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
     catalog[barcode] = { name, lastPrice: Number(price) };
-    lsSet('inv_catalog', catalog);
+    lsSet(STORAGE_KEYS.CATALOG, catalog);
     enqueueSync({ type: 'update_product', payload: { barcode, name, price } });
   }
 }
@@ -237,9 +237,9 @@ export async function deleteProduct(barcode) {
   // Always remove from localStorage first (local source of truth).
   // Supabase delete may silently no-op when unauthenticated (RLS) so we
   // cannot rely on an error to trigger the local delete.
-  const catalog = lsGet('inv_catalog', {});
+  const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
   delete catalog[barcode];
-  lsSet('inv_catalog', catalog);
+  lsSet(STORAGE_KEYS.CATALOG, catalog);
 
   // Best-effort cloud delete; log + queue for retry on failure.
   const { error } = await db.deleteProduct(barcode);
@@ -256,7 +256,7 @@ export async function deleteProduct(barcode) {
 export async function clearAllProducts() {
   const { error } = await db.clearAllProducts();
   if (error) console.error('clearAllProducts error', error);
-  lsSet('inv_product_names', []);
+  lsSet(STORAGE_KEYS.PRODUCT_NAMES, []);
 }
 
 // ─── Store Names ──────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ export async function getStoreNames() {
   const { data, error } = await db.getStoreNames();
   if (error || !data) {
     console.warn('getStoreNames falling back to localStorage', error);
-    return lsGet('inv_stores', []);
+    return lsGet(STORAGE_KEYS.STORES, []);
   }
   return data;
 }
@@ -285,9 +285,9 @@ export async function saveStoreName(name) {
   const { error } = await db.saveStoreName(name);
   if (error) {
     console.warn('saveStoreName: cloud save failed, using localStorage fallback', error);
-    const stores = lsGet('inv_stores', []);
+    const stores = lsGet(STORAGE_KEYS.STORES, []);
     if (!stores.includes(name.trim())) stores.unshift(name.trim());
-    lsSet('inv_stores', stores);
+    lsSet(STORAGE_KEYS.STORES, stores);
     enqueueSync({ type: 'save_store_name', payload: { name } });
   }
 }
@@ -302,7 +302,7 @@ export async function saveStoreName(name) {
 export async function getStorePhone(storeName) {
   const { data, error } = await db.getStorePhone(storeName);
   if (error) {
-    const phones = lsGet('inv_store_phones', {});
+    const phones = lsGet(STORAGE_KEYS.STORE_PHONES, {});
     return phones[storeName?.trim()] || '';
   }
   return data;
@@ -332,7 +332,7 @@ export async function saveStorePhone(storeName, phone) {
 export async function getStoreAddress(storeName) {
   const { data, error } = await db.getStoreAddress(storeName);
   if (error) {
-    const addrs = lsGet('inv_store_addrs', {});
+    const addrs = lsGet(STORAGE_KEYS.STORE_ADDRS, {});
     return addrs[storeName?.trim()] || '';
   }
   return data;
@@ -363,8 +363,8 @@ export async function saveStoreAddress(storeName, address) {
 export async function getStoreDetails(storeName) {
   const { data, error } = await db.getStoreDetails(storeName);
   if (error) {
-    const phones = lsGet('inv_store_phones', {});
-    const addrs  = lsGet('inv_store_addrs',  {});
+    const phones = lsGet(STORAGE_KEYS.STORE_PHONES, {});
+    const addrs  = lsGet(STORAGE_KEYS.STORE_ADDRS,  {});
     const key    = storeName?.trim();
     return { phone: phones[key] || '', address: addrs[key] || '' };
   }

@@ -14,8 +14,9 @@
  */
 
 import * as db from '../services/db';
+import { STORAGE_KEYS } from './constants';
 
-const PREFIX = 'inv_sig_';
+const PREFIX = STORAGE_KEYS.SIG_PREFIX;
 
 /**
  * Returns the stored signatures for an invoice, or nulls if none saved.

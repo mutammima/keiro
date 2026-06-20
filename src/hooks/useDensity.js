@@ -7,11 +7,11 @@
  * Reacts to EVENTS.DENSITY_CHANGE window events dispatched by Settings.
  */
 import { useState, useEffect } from 'react';
-import { EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS } from '../utils/constants';
 
 function readDensity() {
   try {
-    const raw = localStorage.getItem('inv_density');
+    const raw = localStorage.getItem(STORAGE_KEYS.DENSITY);
     return (raw === 'compact' || raw === '"compact"') ? 'compact' : 'comfortable';
   } catch { return 'comfortable'; }
 }
