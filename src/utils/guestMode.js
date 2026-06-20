@@ -14,14 +14,15 @@
  * Guest state is a single localStorage flag (inv_guest_mode). It is cleared the
  * moment a real session is established (see AuthGate.handleLogin → exitGuest()).
  */
+import { STORAGE_KEYS } from './constants';
 
-const GUEST_KEY = 'inv_guest_mode';
+const GUEST_KEY = STORAGE_KEYS.GUEST_MODE;
 
 /** Max number of saved entries a guest may keep before an account is required. */
 export const GUEST_ENTRY_CAP = 5;
 
 /** localStorage lists that count toward a guest's saved-entry total. */
-const ENTRY_KEYS = ['inv_list', 'inv_so_orders'];
+const ENTRY_KEYS = [STORAGE_KEYS.LIST, STORAGE_KEYS.SO_ORDERS];
 
 export function isGuest() {
   try { return localStorage.getItem(GUEST_KEY) === 'true'; } catch { return false; }

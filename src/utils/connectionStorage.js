@@ -20,6 +20,7 @@
  */
 
 import { lsGet, lsSet, getBusinessName } from './storage';
+import { STORAGE_KEYS } from './constants';
 import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
@@ -54,13 +55,13 @@ export function inviteLink(code) {
 // }
 
 export function getConnections() {
-  return lsGet('inv_connections', []);
+  return lsGet(STORAGE_KEYS.CONNECTIONS, []);
 }
 
 function upsertLocal(conn) {
   const list = getConnections().filter(c => c.id !== conn.id);
   list.unshift(conn);
-  lsSet('inv_connections', list);
+  lsSet(STORAGE_KEYS.CONNECTIONS, list);
 }
 
 export function getActiveConnections() {
@@ -80,7 +81,7 @@ export function getPendingInvites() {
 
 // ── Auth uid cache (request direction needs to know who "me" is) ──────────────
 
-const UID_KEY = 'inv_auth_uid';
+const UID_KEY = STORAGE_KEYS.AUTH_UID;
 
 export function getCachedUid() {
   return lsGet(UID_KEY, null);
@@ -145,7 +146,7 @@ export async function requestConnection(myRole, target, myName = '') {
   });
   if (error || !data) {
     console.error('requestConnection cloud error', error);
-    lsSet('inv_connections', getConnections().filter(c => c.id !== conn.id));
+    lsSet(STORAGE_KEYS.CONNECTIONS, getConnections().filter(c => c.id !== conn.id));
     return null;
   }
   const mapped = mapRow(data);
@@ -184,11 +185,11 @@ function mapRow(row) {
 export async function loadConnectionsFromCloud() {
   // Cache the auth uid alongside — request direction (incoming vs outgoing)
   // needs to know who "me" is without an async call in render code.
-  try { const uid = await db.whoAmI(); if (uid) lsSet('inv_auth_uid', uid); } catch {}
+  try { const uid = await db.whoAmI(); if (uid) lsSet(STORAGE_KEYS.AUTH_UID, uid); } catch {}
   const { data, error } = await db.getConnections();
   if (error || !data) return getConnections();
   const mapped = data.map(mapRow);
-  lsSet('inv_connections', mapped);
+  lsSet(STORAGE_KEYS.CONNECTIONS, mapped);
   return mapped;
 }
 
@@ -226,7 +227,7 @@ export async function getOrCreateInvite(inviterRole, inviterName = '') {
 }
 
 export function cancelInvite(id) {
-  lsSet('inv_connections', getConnections().filter(c => c.id !== id));
+  lsSet(STORAGE_KEYS.CONNECTIONS, getConnections().filter(c => c.id !== id));
   db.deleteConnection(id)
     .then(({ error }) => {
       if (error) {
@@ -255,7 +256,7 @@ export function captureInviteFromUrl() {
     if (!code) return null;
     code = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
     if (!code) return null;
-    lsSet('inv_pending_invite', code);
+    lsSet(STORAGE_KEYS.PENDING_INVITE, code);
     url.searchParams.delete('invite');
     if (url.hash.includes('invite=')) url.hash = '';
     window.history.replaceState({}, '', url.pathname + url.search + url.hash);
@@ -266,11 +267,11 @@ export function captureInviteFromUrl() {
 }
 
 export function getPendingInviteCode() {
-  return lsGet('inv_pending_invite', null);
+  return lsGet(STORAGE_KEYS.PENDING_INVITE, null);
 }
 
 export function clearPendingInvite() {
-  try { localStorage.removeItem('inv_pending_invite'); } catch {}
+  try { localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE); } catch {}
 }
 
 /**

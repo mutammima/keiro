@@ -34,7 +34,7 @@ import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
-import { EVENTS } from './utils/constants';
+import { STORAGE_KEYS, EVENTS } from './utils/constants';
 // Store Owner role
 import RoleSelector from './components/onboarding/RoleSelector';
 import NewRequest from './pages/storeowner/NewRequest';
@@ -95,7 +95,7 @@ function OfflineBanner({ dark }) {
 // ── Main app ──────────────────────────────────────────────────────────────────
 
 function isEasyMode() {
-  try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
 }
 
 function AppInner({ role, onSwitchRole }) {
@@ -253,7 +253,7 @@ function AppInner({ role, onSwitchRole }) {
   // gap between #root and the physical screen edges matches the app theme.
   useEffect(() => {
     try {
-      const d = JSON.parse(localStorage.getItem('inv_density')) || 'comfortable';
+      const d = JSON.parse(localStorage.getItem(STORAGE_KEYS.DENSITY)) || 'comfortable';
       document.body.classList.toggle('density-compact', d === 'compact');
     } catch {}
   }, []);

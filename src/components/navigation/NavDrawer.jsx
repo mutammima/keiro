@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { STORAGE_KEYS } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { signOut } from '../../services/auth';
@@ -93,7 +94,7 @@ const NAV_ITEMS_EASY = [];
 const SETTINGS_ITEM = { id: 'settings', label: 'Settings', icon: Icons.settings };
 
 function isEasyMode() {
-  try { return JSON.parse(localStorage.getItem('inv_easy_mode')); } catch { return false; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
 }
 
 export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole }) {

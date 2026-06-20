@@ -16,14 +16,15 @@
  */
 
 import * as db from './db';
+import { STORAGE_KEYS } from '../utils/constants';
 
 // Legacy boolean flag (pre-timestamp scheme). Still read for backward-compat:
 // a device that only has the old flag is treated as "never migrated under the
 // new scheme", triggering one idempotent full re-sync that also captures any
 // guest data created after the original migration.
-const LEGACY_FLAG = 'inv_migrated';
+const LEGACY_FLAG = STORAGE_KEYS.MIGRATED;
 // New scheme: ISO timestamp of the last fully-successful migration.
-const MIGRATED_AT = 'inv_migrated_at';
+const MIGRATED_AT = STORAGE_KEYS.MIGRATED_AT;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -94,10 +95,10 @@ export async function runMigrationIfNeeded() {
   const lastMs   = getLastMigratedAt();     // epoch-ms or null
   const isPartial = lastMs !== null;        // false on first/legacy migration
 
-  const allInvoices = lsGet('inv_list', []);
-  const allOrders   = lsGet('inv_so_orders', []);
-  const allDrivers  = lsGet('inv_so_drivers', []);
-  const allPayments = lsGet('inv_payments', {}); // { [invoiceNumber]: Payment[] }
+  const allInvoices = lsGet(STORAGE_KEYS.LIST, []);
+  const allOrders   = lsGet(STORAGE_KEYS.SO_ORDERS, []);
+  const allDrivers  = lsGet(STORAGE_KEYS.SO_DRIVERS, []);
+  const allPayments = lsGet(STORAGE_KEYS.PAYMENTS, {}); // { [invoiceNumber]: Payment[] }
 
   // On a partial run, only take entries created after the last migration.
   // On a first run, take everything. Entries missing a parseable createdAt are
@@ -134,12 +135,12 @@ export async function runMigrationIfNeeded() {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (!key || !key.startsWith('inv_sig_')) continue;
+      if (!key || !key.startsWith(STORAGE_KEYS.SIG_PREFIX)) continue;
       const sig = lsGet(key, null);
       if (!sig || (!sig.seller && !sig.buyer)) continue;
       if (!isNewTs(sig.updatedAt)) continue;
       signatureList.push({
-        invoiceNumber: Number(key.slice('inv_sig_'.length)),
+        invoiceNumber: Number(key.slice(STORAGE_KEYS.SIG_PREFIX.length)),
         seller: sig.seller || null,
         buyer:  sig.buyer  || null,
       });
@@ -220,7 +221,7 @@ export async function runMigrationIfNeeded() {
   // These have no per-row timestamp; only sync them on a first run or alongside
   // new invoices (see `migrateCatalog`). Upserts make this duplicate-free.
   if (migrateCatalog) {
-    const catalog = lsGet('inv_catalog', {});
+    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
     for (const [barcode, product] of Object.entries(catalog)) {
       try {
         const { error } = await db.saveProductBarcode(barcode, product.name, product.lastPrice || 0);
@@ -235,9 +236,9 @@ export async function runMigrationIfNeeded() {
     }
 
     // ── Migrate stores (names + phones + addresses) ─────────────────────────
-    const storeNames  = lsGet('inv_stores', []);
-    const storePhones = lsGet('inv_store_phones', {});
-    const storeAddrs  = lsGet('inv_store_addrs', {});
+    const storeNames  = lsGet(STORAGE_KEYS.STORES, []);
+    const storePhones = lsGet(STORAGE_KEYS.STORE_PHONES, {});
+    const storeAddrs  = lsGet(STORAGE_KEYS.STORE_ADDRS, {});
 
     for (const name of storeNames) {
       try {

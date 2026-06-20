@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { STORAGE_KEYS } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getDrivers, saveOrder, loadDriversFromCloud } from '../../utils/storeOwnerStorage';
@@ -55,9 +56,9 @@ export default function NewRequest({ onNav, onBack }) {
   // consume entries flagged `reorder` (leave any driver-invoice prefill alone).
   useEffect(() => {
     let p;
-    try { p = JSON.parse(localStorage.getItem('inv_prefill') || 'null'); } catch { p = null; }
+    try { p = JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFILL) || 'null'); } catch { p = null; }
     if (!p || !p.reorder) return;
-    try { localStorage.removeItem('inv_prefill'); } catch { /* ignore */ }
+    try { localStorage.removeItem(STORAGE_KEYS.PREFILL); } catch { /* ignore */ }
     if (p.productName) setProductName(p.productName);
     if (p.quantity != null) setQuantity(String(p.quantity));
     if (p.price != null && p.price !== '') setPrice(String(p.price));

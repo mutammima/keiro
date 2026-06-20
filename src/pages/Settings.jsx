@@ -19,7 +19,7 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
-import { DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -51,7 +51,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const role = (() => { try { return JSON.parse(localStorage.getItem('inv_user_role')) || 'driver'; } catch { return 'driver'; } })();
+  const role = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_ROLE)) || 'driver'; } catch { return 'driver'; } })();
 
   // Layer 2 — first time Settings opens, point at the business-info field.
   useEffect(() => { triggerTip('settings-biz'); }, []);
@@ -137,15 +137,15 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   const [pinModal, setPinModal] = useState(null); // 'setup' | 'disable' | null
 
   // ── Density ────────────────────────────────────────────────────────────────
-  const [density, setDensity] = useState(() => lsGet('inv_density', 'comfortable'));
+  const [density, setDensity] = useState(() => lsGet(STORAGE_KEYS.DENSITY, 'comfortable'));
 
   // ── Auto-flag / auto-mark ──────────────────────────────────────────────────
   // Default must match getFlagDays()'s DEFAULT_FLAG_DAYS, or the picker shows a
   // different threshold than the overdue engine actually uses until first edit.
-  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet('inv_auto_flag_days', DEFAULT_FLAG_DAYS));
+  const [autoFlagDays, setAutoFlagDays] = useState(() => lsGet(STORAGE_KEYS.AUTO_FLAG_DAYS, DEFAULT_FLAG_DAYS));
 
   // ── Logo upload ────────────────────────────────────────────────────────────
-  const [logo, setLogo] = useState(() => { try { return localStorage.getItem('inv_logo_b64') || null; } catch { return null; } });
+  const [logo, setLogo] = useState(() => { try { return localStorage.getItem(STORAGE_KEYS.LOGO_B64) || null; } catch { return null; } });
   const logoInputRef = useRef(null);
 
   function handleLogoFile(e) {
@@ -154,14 +154,14 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     const reader = new FileReader();
     reader.onload = ev => {
       const b64 = ev.target.result;
-      localStorage.setItem('inv_logo_b64', b64);
+      localStorage.setItem(STORAGE_KEYS.LOGO_B64, b64);
       setLogo(b64);
     };
     reader.readAsDataURL(file);
   }
 
   function removeLogo() {
-    localStorage.removeItem('inv_logo_b64');
+    localStorage.removeItem(STORAGE_KEYS.LOGO_B64);
     setLogo(null);
   }
 
@@ -169,7 +169,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
 
   // Get the current role to know which one to switch TO
-  const currentRole = (() => { try { return JSON.parse(localStorage.getItem('inv_user_role')); } catch { return 'driver'; } })();
+  const currentRole = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_ROLE)); } catch { return 'driver'; } })();
   const nextRole    = currentRole === 'store_owner' ? 'driver' : 'store_owner';
   const nextLabel   = nextRole === 'store_owner' ? 'Store Owner' : 'Delivery Driver';
 
@@ -177,7 +177,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     if (onSwitchRole) {
       onSwitchRole(nextRole);   // instant — no reload
     } else {
-      localStorage.removeItem('inv_user_role');
+      localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
       window.location.reload(); // fallback (should never happen)
     }
   }
@@ -222,8 +222,8 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
               </div>
               <Toggle
-                on={lsGet('inv_easy_mode', false)}
-                onChange={v => { lsSet('inv_easy_mode', v); window.location.reload(); }}
+                on={lsGet(STORAGE_KEYS.EASY_MODE, false)}
+                onChange={v => { lsSet(STORAGE_KEYS.EASY_MODE, v); window.location.reload(); }}
                 C={C} dark={dark}
               />
             </div>
@@ -308,7 +308,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                     key={d}
                     onClick={() => {
                       setDensity(d);
-                      lsSet('inv_density', d);
+                      lsSet(STORAGE_KEYS.DENSITY, d);
                       document.body.classList.toggle('density-compact', d === 'compact');
                       window.dispatchEvent(new Event(EVENTS.DENSITY_CHANGE));
                     }}
@@ -478,7 +478,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
               {[1,3,7,14,30].map(d => (
                 <button
                   key={d}
-                  onClick={() => { setAutoFlagDays(d); lsSet('inv_auto_flag_days', d); }}
+                  onClick={() => { setAutoFlagDays(d); lsSet(STORAGE_KEYS.AUTO_FLAG_DAYS, d); }}
                   style={{
                     height: 30, minWidth: 32, padding: '0 8px', borderRadius: 8,
                     background: autoFlagDays === d ? ACCENT : C.rowBg,

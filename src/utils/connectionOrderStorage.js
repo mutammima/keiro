@@ -22,12 +22,13 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { STORAGE_KEYS } from './constants';
 import { enqueueSync } from './syncQueue';
 import { getActiveConnections } from './connectionStorage';
 import * as db from '../services/db';
 
-const KEY        = 'inv_conn_orders';
-const ACTIVE_KEY = 'inv_conn_order_active';
+const KEY        = STORAGE_KEYS.CONN_ORDERS;
+const ACTIVE_KEY = STORAGE_KEYS.CONN_ORDER_ACTIVE;
 
 // An order parked behind ACTIVE_KEY goes stale after 30 minutes — if the
 // driver abandons the prefilled invoice, a later unrelated invoice must not
@@ -199,7 +200,7 @@ export function resolveConnectedStoreUserId(storeName) {
 // Invoices the connected driver stamped with this store's user id. The store
 // can read them (header + items) but never edit — RLS only spans SELECT.
 
-const SHARED_KEY = 'inv_shared_invoices';
+const SHARED_KEY = STORAGE_KEYS.SHARED_INVOICES;
 
 export function getSharedInvoices() {
   return lsGet(SHARED_KEY, []);

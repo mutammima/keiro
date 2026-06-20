@@ -33,7 +33,7 @@ import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
 import DimPanels from './DimPanels';
 import Confetti from './Confetti';
-import { MS_PER_DAY } from '../../utils/constants';
+import { STORAGE_KEYS, MS_PER_DAY } from '../../utils/constants';
 import {
   getWalkthroughStep, setWalkthroughStep,
   clearWalkthroughStep, setWalkthroughDone, isWalkthroughDone,
@@ -54,14 +54,14 @@ function readList(key) {
   catch { return []; }
 }
 function snapshotDemoIds(walkthroughId) {
-  if (walkthroughId === 'so_request') return new Set(readList('inv_so_orders').map((o) => o.id));
-  return new Set(readList('inv_list').map((i) => i.number ?? i.invoice_number));
+  if (walkthroughId === 'so_request') return new Set(readList(STORAGE_KEYS.SO_ORDERS).map((o) => o.id));
+  return new Set(readList(STORAGE_KEYS.LIST).map((i) => i.number ?? i.invoice_number));
 }
 function removeDemoRecords(walkthroughId, before) {
   if (walkthroughId === 'so_request') {
-    readList('inv_so_orders').forEach((o) => { if (!before.has(o.id)) deleteOrder(o.id); });
+    readList(STORAGE_KEYS.SO_ORDERS).forEach((o) => { if (!before.has(o.id)) deleteOrder(o.id); });
   } else {
-    readList('inv_list').forEach((i) => {
+    readList(STORAGE_KEYS.LIST).forEach((i) => {
       const n = i.number ?? i.invoice_number;
       if (!before.has(n)) deleteInvoice(n);
     });

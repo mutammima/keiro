@@ -3,10 +3,11 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 
-const STORAGE_KEY = 'inv_notes';
+const STORAGE_KEY = STORAGE_KEYS.NOTES;
 
 function loadNotes() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }

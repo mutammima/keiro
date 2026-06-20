@@ -4,6 +4,7 @@
  */
 
 import { useRef, useState } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 import { markAction } from '../utils/tutorialProgress';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -43,14 +44,14 @@ import { markAction } from '../utils/tutorialProgress';
  *    local data
  */
 const EXCLUDE_KEYS = new Set([
-  'inv_prefill', 'inv_migrated', 'inv_migrated_at',
+  STORAGE_KEYS.PREFILL, STORAGE_KEYS.MIGRATED, STORAGE_KEYS.MIGRATED_AT,
   // Marketplace caches are cloud-sourced, cross-user snapshots — not this user's
   // own data. Backing them up would capture other users' listings / orders.
-  'inv_mkt_my_listings', 'inv_mkt_listings', 'inv_mkt_demand',
+  STORAGE_KEYS.MKT_MY_LISTINGS, STORAGE_KEYS.MKT_LISTINGS, STORAGE_KEYS.MKT_DEMAND,
   // Cached auth uid of whoever was signed in at export time. Restoring it onto
   // a different account flips connection requests between incoming/outgoing
   // until the next cloud refresh re-caches the right uid.
-  'inv_auth_uid',
+  STORAGE_KEYS.AUTH_UID,
 ]);
 
 /**

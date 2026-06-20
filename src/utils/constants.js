@@ -43,6 +43,33 @@ export const STORAGE_KEYS = {
   TUTORIAL_SEEN:    'inv_tutorial_seen',
   MIGRATED:         'inv_migrated',
   MIGRATED_AT:      'inv_migrated_at',
+  // Connections / cross-account
+  CONNECTIONS:        'inv_connections',
+  PENDING_INVITE:     'inv_pending_invite',
+  CONN_ORDERS:        'inv_conn_orders',
+  CONN_ORDER_ACTIVE:  'inv_conn_order_active',
+  SHARED_INVOICES:    'inv_shared_invoices',
+  // Marketplace (excluded from backup — see useBackup)
+  MKT_LISTINGS:       'inv_mkt_listings',
+  MKT_MY_LISTINGS:    'inv_mkt_my_listings',
+  MKT_DEMAND:         'inv_mkt_demand',
+  // Infra / misc
+  SYNC_QUEUE:         'inv_sync_queue',
+  GUEST_MODE:         'inv_guest_mode',
+  AUTH_UID:           'inv_auth_uid',
+  PLAN:               'inv_plan',
+  PULSE_HOME:         'inv_pulse_home',
+  // Dynamic-key PREFIXES — always suffixed with an id, e.g. `${SIG_PREFIX}${id}`.
+  SIG_PREFIX:            'inv_sig_',
+  TIP_PREFIX:            'inv_tip_',
+  ACT_PREFIX:            'inv_act_',
+  SEEN_PREFIX:           'inv_seen_',
+  WT_STEP_PREFIX:        'inv_wt_step_',
+  WT_DONE_PREFIX:        'inv_wt_done_',
+  WHATS_NEW_SEEN_PREFIX: 'inv_whats_new_seen_',
+  // NOTE: the auth onboarding flow (AuthGate/OnboardingFlow) uses a separate
+  // 'inv_onboarding_done' flag, distinct from ONBOARDING_DONE above. It is left
+  // inline in those files (auth carve-out) and intentionally not referenced here.
 };
 
 // ── Business defaults ───────────────────────────────────────────────────────

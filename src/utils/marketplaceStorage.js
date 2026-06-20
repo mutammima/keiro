@@ -14,15 +14,16 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { STORAGE_KEYS } from './constants';
 import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
 function uid() { return `mkt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`; }
 
 // Cache keys (all inv_-prefixed to stay in namespace)
-const K_MY_LISTINGS = 'inv_mkt_my_listings'; // this user's own published listings
-const K_ALL_LISTINGS = 'inv_mkt_listings';   // cross-user snapshot for the store feed
-const K_ALL_DEMAND   = 'inv_mkt_demand';     // cross-user snapshot for the driver feed
+const K_MY_LISTINGS = STORAGE_KEYS.MKT_MY_LISTINGS; // this user's own published listings
+const K_ALL_LISTINGS = STORAGE_KEYS.MKT_LISTINGS;   // cross-user snapshot for the store feed
+const K_ALL_DEMAND   = STORAGE_KEYS.MKT_DEMAND;     // cross-user snapshot for the driver feed
 
 // ── Matching ────────────────────────────────────────────────────────────────
 

@@ -13,9 +13,10 @@
  */
 
 import { lsGet, lsSet } from './storage';
+import { STORAGE_KEYS } from './constants';
 import { getConnectionOrders, getSharedInvoices } from './connectionOrderStorage';
 
-const SEEN_PREFIX = 'inv_seen_';
+const SEEN_PREFIX = STORAGE_KEYS.SEEN_PREFIX;
 
 // Badge keys ARE tab page ids, so App can map counts straight onto TopNav.
 export const BADGE_KEYS = ['route', 'so-invoices', 'so-orders'];
