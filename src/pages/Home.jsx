@@ -12,7 +12,7 @@
  * skeleton shows while the first invoice fetch resolves.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { getInvoices, getBusinessName } from '../utils/storage';
@@ -57,48 +57,59 @@ export default function Home({ onNav }) {
   const flagDays = getFlagDays();
 
   // Open cross-account orders from connected stores, folded into the same
-  // request-card shape as bridge requests so one surface shows both.
-  const allRequests = [
+  // request-card shape as bridge requests so one surface shows both. Memoized so
+  // a theme toggle / unrelated re-render doesn't rebuild the array reference.
+  const allRequests = useMemo(() => [
     ...connOrders
       .filter(o => o.status === 'pending' || o.status === 'accepted')
       .map(o => ({ id: o.id, productName: o.productName, quantity: o.quantity, fromStore: o.storeName || 'Connected store' })),
     ...requests,
-  ];
+  ], [connOrders, requests]);
 
-  // ── Today ─────────────────────────────────────────────────────────────────
-  const today          = dateStr(new Date());
-  const todayInvoices   = invoices.filter(inv => inv.date === today);
-  const todayRevenue     = todayInvoices.reduce((s, inv) => s + subtotalOf(inv), 0);
-  const todayDeliveries  = todayInvoices.length;
-  const pendingInvoices  = invoices.filter(inv => getStatus(inv) !== 'paid').length;
+  // All invoice-derived dashboard numbers in one memo — recomputed only when the
+  // invoices (or the overdue threshold) change, not on every render. `bars` keeps
+  // a stable reference so the memoized BarChart can skip re-rendering.
+  const {
+    todayRevenue, todayDeliveries, pendingInvoices,
+    bars, weekTotal, weekPaid, weekUnpaid, weekOverdue, bestStore,
+  } = useMemo(() => {
+    // ── Today ──
+    const today           = dateStr(new Date());
+    const todayInvoices   = invoices.filter(inv => inv.date === today);
+    const todayRevenue    = todayInvoices.reduce((s, inv) => s + subtotalOf(inv), 0);
+    const todayDeliveries = todayInvoices.length;
+    const pendingInvoices = invoices.filter(inv => getStatus(inv) !== 'paid').length;
 
-  // ── This week (last 7 days incl. today) ─────────────────────────────────────
-  const last7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return { ds: dateStr(d), label: DAY_LABELS[d.getDay()], isToday: i === 6 };
-  });
-  const weekSet      = new Set(last7.map(d => d.ds));
-  const weekInvoices = invoices.filter(inv => weekSet.has(inv.date));
+    // ── This week (last 7 days incl. today) ──
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return { ds: dateStr(d), label: DAY_LABELS[d.getDay()], isToday: i === 6 };
+    });
+    const weekSet      = new Set(last7.map(d => d.ds));
+    const weekInvoices = invoices.filter(inv => weekSet.has(inv.date));
 
-  const bars = last7.map(d => ({
-    label: d.label,
-    total: weekInvoices.filter(inv => inv.date === d.ds).reduce((s, inv) => s + subtotalOf(inv), 0),
-    isToday: d.isToday,
-  }));
-  const weekTotal = bars.reduce((s, b) => s + b.total, 0);
+    const bars = last7.map(d => ({
+      label: d.label,
+      total: weekInvoices.filter(inv => inv.date === d.ds).reduce((s, inv) => s + subtotalOf(inv), 0),
+      isToday: d.isToday,
+    }));
+    const weekTotal = bars.reduce((s, b) => s + b.total, 0);
 
-  const weekPaid    = weekInvoices.filter(inv => getStatus(inv) === 'paid').length;
-  const weekUnpaid  = weekInvoices.filter(inv => getStatus(inv) !== 'paid').length;
-  const weekOverdue = weekInvoices.filter(inv => isOverdue(inv, flagDays)).length;
+    const weekPaid    = weekInvoices.filter(inv => getStatus(inv) === 'paid').length;
+    const weekUnpaid  = weekInvoices.filter(inv => getStatus(inv) !== 'paid').length;
+    const weekOverdue = weekInvoices.filter(inv => isOverdue(inv, flagDays)).length;
 
-  const weekByStore = {};
-  weekInvoices.forEach(inv => {
-    const sn = inv.storeName || inv.store_name;
-    if (!sn) return;
-    weekByStore[sn] = (weekByStore[sn] || 0) + subtotalOf(inv);
-  });
-  const bestStore = Object.entries(weekByStore).sort((a, b) => b[1] - a[1])[0]; // [name, total] | undefined
+    const weekByStore = {};
+    weekInvoices.forEach(inv => {
+      const sn = inv.storeName || inv.store_name;
+      if (!sn) return;
+      weekByStore[sn] = (weekByStore[sn] || 0) + subtotalOf(inv);
+    });
+    const bestStore = Object.entries(weekByStore).sort((a, b) => b[1] - a[1])[0]; // [name, total] | undefined
+
+    return { todayRevenue, todayDeliveries, pendingInvoices, bars, weekTotal, weekPaid, weekUnpaid, weekOverdue, bestStore };
+  }, [invoices, flagDays]);
 
   const skelBg = dark ? '#1d1d1f' : '#e9e7e3';
 

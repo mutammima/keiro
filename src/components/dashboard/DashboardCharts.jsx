@@ -12,6 +12,7 @@
  *   PRODUCT_COLORS — palette array for cycling product bar colors
  */
 
+import { memo } from 'react';
 import { ACCENT } from '../../theme';
 
 // ─── Palette (cycle through for top-product bars) ─────────────────────────────
@@ -24,7 +25,7 @@ export const PRODUCT_COLORS = ['#4A7BF7', '#22c55e', '#f59e0b', '#8b5cf6', '#06b
 //   days  — array of 7 objects: { label: string, total: number, isToday: boolean }
 //   dark  — boolean (controls ghost-bar and label colours)
 
-export function BarChart({ days, dark }) {
+export const BarChart = memo(function BarChart({ days, dark }) {
   const maxVal = Math.max(...days.map(d => d.total), 0.01);
   const CHART_H = 68;
   const SLOT_W  = 34;
@@ -73,7 +74,7 @@ export function BarChart({ days, dark }) {
       })}
     </svg>
   );
-}
+});
 
 // ─── Collection Donut Ring ────────────────────────────────────────────────────
 //
