@@ -20,7 +20,10 @@ import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
+import { formatMoney as money, formatOrderDate as formatDate } from '../../utils/invoiceUtils';
 
+// Intentionally NOT the shared theme `ORDER_STATUS`: this is the billing view,
+// so order states are relabelled from a payment angle ("Received" / "Awaiting").
 const STATUS_META = {
   delivered: { label: 'Received',    color: '#22c55e' },
   accepted:  { label: 'Awaiting',    color: ACCENT    },
@@ -28,17 +31,11 @@ const STATUS_META = {
   cancelled: { label: 'Cancelled',   color: '#6b7280' },
 };
 
-const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// money + formatDate are imported (aliased) from invoiceUtils above.
 
 function orderTime(o) {
   const t = Date.parse(o.createdAt || '') || Date.parse((o.deliveryDate || '') + 'T00:00:00');
   return isNaN(t) ? 0 : t;
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function SOInvoices({ onNav }) {

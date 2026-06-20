@@ -85,3 +85,26 @@ export const STATUS = {
   unpaid:  { label: 'Unpaid',  light: { bg: '#fef2f2', text: '#dc2626' }, dark: { bg: '#2d0a0a', text: '#f87171' } },
   partial: { label: 'Partial', light: { bg: '#fffbeb', text: '#b45309' }, dark: { bg: '#1f1000', text: '#fbbf24' } },
 };
+
+// ── Order status (Store Owner orders) ────────────────────────────────────────
+// Shared meta for the four order states. Previously duplicated as a local
+// STATUS_META in SOHome / SOReports / SOOrders. The `bg` pairs are only used by
+// SOOrders' cards; the other screens read just label/color. SOInvoices keeps its
+// own billing-specific labels ("Received" / "Awaiting") on purpose.
+export const ORDER_STATUS = {
+  pending:   { label: 'Pending',   color: '#f59e0b', bg: { light: '#fffbeb', dark: '#1f1000' } },
+  accepted:  { label: 'Accepted',  color: ACCENT,    bg: { light: '#eff6ff', dark: '#0a1a3a' } },
+  delivered: { label: 'Delivered', color: '#22c55e', bg: { light: '#f0fdf4', dark: '#0D2B20' } },
+  cancelled: { label: 'Cancelled', color: '#6b7280', bg: { light: '#f3f4f6', dark: '#1a1a1a' } },
+};
+
+/**
+ * Payment-status chip colors for the current theme. Previously duplicated as a
+ * local `sc(status)` in InvoiceHistory / EndOfDay / StoreBalance.
+ * @param {string} status - 'paid' | 'unpaid' | 'partial' (falsy → 'unpaid')
+ * @param {boolean} dark
+ */
+export function statusColors(status, dark) {
+  const key = status || 'unpaid';
+  return dark ? STATUS[key]?.dark : STATUS[key]?.light;
+}

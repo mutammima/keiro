@@ -28,6 +28,9 @@ import KeiroWordmark from '../components/ui/KeiroWordmark';
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+// NOTE: deliberately a separator-less `toFixed` format (e.g. "$1234.50"), unlike
+// the shared formatMoney() ("$1,234.50"). Left as-is to avoid changing the
+// dashboard's displayed numbers; see structural-cleanup notes.
 const money = (n) => '$' + (Number(n) || 0).toFixed(2);
 
 // ─── Main component ───────────────────────────────────────────────────────────

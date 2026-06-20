@@ -8,18 +8,14 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import { markAction } from '../../utils/tutorialProgress';
+import { formatMoney as money } from '../../utils/invoiceUtils';
 
-const STATUS_META = {
-  pending:   { label: 'Pending',   color: '#f59e0b' },
-  accepted:  { label: 'Accepted',  color: ACCENT    },
-  delivered: { label: 'Delivered', color: '#22c55e' },
-  cancelled: { label: 'Cancelled', color: '#6b7280' },
-};
+// Order status meta → shared ORDER_STATUS in theme.js
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -90,8 +86,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
 
   const maxTrend = Math.max(1, ...trend.map(d => d.count));
 
-  const money = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
+  // money → shared formatMoney in invoiceUtils (aliased on the import above).
   const statCards = [
     { label: 'Total Spend',   value: money(stats.totalSpend), color: '#22c55e' },
     { label: 'Spent This Mo.', value: money(stats.monthSpend), color: ACCENT    },
@@ -181,7 +176,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
             <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 18, padding: '16px 18px' }}>
               <p style={s.sectionLabel(C)}>By Status</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(STATUS_META).map(([key, meta]) => {
+                {Object.entries(ORDER_STATUS).map(([key, meta]) => {
                   const count = stats.byStatus[key] || 0;
                   const pct = stats.total ? Math.round((count / stats.total) * 100) : 0;
                   return (

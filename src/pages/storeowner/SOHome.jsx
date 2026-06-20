@@ -16,19 +16,14 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
 import { getOrders, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 const MS_DAY = 86400000;
 
-const STATUS_META = {
-  pending:   { label: 'Pending',   color: '#f59e0b' },
-  accepted:  { label: 'Accepted',  color: ACCENT    },
-  delivered: { label: 'Delivered', color: '#22c55e' },
-  cancelled: { label: 'Cancelled', color: '#6b7280' },
-};
+// Order status meta → shared ORDER_STATUS in theme.js
 
 function orderTime(o) {
   return Date.parse(o.createdAt || '') || Date.parse((o.deliveryDate || '') + 'T00:00:00') || 0;
@@ -247,7 +242,7 @@ export default function SOHome({ onNav }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recent.map(order => {
-                const meta = STATUS_META[order.status] || STATUS_META.pending;
+                const meta = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
                 return (
                   <div key={order.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>

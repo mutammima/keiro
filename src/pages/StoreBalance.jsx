@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../theme';
+import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle, statusColors } from '../theme';
 import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
 import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
@@ -125,10 +125,7 @@ export default function StoreBalance({ storeName, onBack }) {
     finally { setSharing(null); }
   }
 
-  function sc(status) {
-    const key = status || 'unpaid';
-    return dark ? STATUS[key]?.dark : STATUS[key]?.light;
-  }
+  // Payment-status chip colors → shared statusColors() in theme.js
 
   /** Opens WhatsApp with a plain-text statement for the selected week. */
   function shareStatement() {
@@ -249,7 +246,7 @@ export default function StoreBalance({ storeName, onBack }) {
         ) : invoices.map(inv => {
           const invNum   = inv.number || inv.invoice_number;
           const total    = subtotalOf(inv);
-          const colors   = sc(getStatus(inv));
+          const colors   = statusColors(getStatus(inv), dark);
           const isOpen   = expanded === invNum;
 
           return (

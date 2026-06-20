@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, GRADIENT, STATUS, glassStyle, statusColors } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
@@ -213,11 +213,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     setBridgeRequests(getBridgeRequests());
   }
 
-  // ── Helper: resolve STATUS color tokens for the current theme ─────────────
-  function sc(status) {
-    const key = status || 'unpaid';
-    return dark ? STATUS[key]?.dark : STATUS[key]?.light;
-  }
+  // Payment-status chip colors → shared statusColors() in theme.js
 
   // Read auto-flag threshold once so per-card overdue checks don't each hit
   // localStorage. Overdue detection itself is shared via invoiceUtils.
@@ -229,7 +225,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     const isOpen  = expanded === inv.number;
     const pinned  = isStorePinned(inv.storeName || inv.store_name);
     const status  = inv.paymentStatus || inv.payment_status || 'unpaid';
-    const colors  = sc(status);
+    const colors  = statusColors(status, dark);
     const menuOpen = openMenu === inv.number;
 
     // Overdue: unpaid/partial and older than the auto-flag threshold

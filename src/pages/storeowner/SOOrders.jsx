@@ -6,27 +6,18 @@
 import { useState, useEffect } from 'react';
 import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
+import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
 import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, confirmReceiving } from '../../utils/connectionOrderStorage';
 import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
+import { formatOrderDate as formatDate } from '../../utils/invoiceUtils';
 
-const STATUS_META = {
-  pending:   { label: 'Pending',   color: '#f59e0b', bg: { light: '#fffbeb', dark: '#1f1000' } },
-  accepted:  { label: 'Accepted',  color: ACCENT,    bg: { light: '#eff6ff', dark: '#0a1a3a' } },
-  delivered: { label: 'Delivered', color: '#22c55e', bg: { light: '#f0fdf4', dark: '#0D2B20' } },
-  cancelled: { label: 'Cancelled', color: '#6b7280', bg: { light: '#f3f4f6', dark: '#1a1a1a' } },
-};
+// Order status meta → shared ORDER_STATUS in theme.js
+// formatDate → formatOrderDate in invoiceUtils (aliased above).
 
 const FILTERS = ['all', 'pending', 'accepted', 'delivered', 'cancelled'];
-
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export default function SOOrders({ onNav }) {
   const { dark } = useTheme();
@@ -146,7 +137,7 @@ export default function SOOrders({ onNav }) {
                 textTransform: 'capitalize',
               }}
             >
-              {f === 'all' ? 'All' : STATUS_META[f]?.label}
+              {f === 'all' ? 'All' : ORDER_STATUS[f]?.label}
             </button>
           );
         })}
@@ -168,7 +159,7 @@ export default function SOOrders({ onNav }) {
             )}
           </div>
         ) : visible.map((order, orderIdx) => {
-          const meta = STATUS_META[order.status] || STATUS_META.pending;
+          const meta = ORDER_STATUS[order.status] || ORDER_STATUS.pending;
           const expanded = expandedId === order.id;
           return (
             <div

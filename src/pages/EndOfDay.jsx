@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { LIGHT, DARK, ACCENT, STATUS } from '../theme';
+import { LIGHT, DARK, ACCENT, statusColors } from '../theme';
 import { getInvoices } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
 import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
@@ -46,10 +46,7 @@ export default function EndOfDay({ onNav, embedded }) {
   const unpaidCount  = todayInvoices.filter(i => getStatus(i) === 'unpaid').length;
   const partialCount = todayInvoices.filter(i => getStatus(i) === 'partial').length;
 
-  function sc(status) {
-    const key = status || 'unpaid';
-    return dark ? STATUS[key]?.dark : STATUS[key]?.light;
-  }
+  // Payment-status chip colors → shared statusColors() in theme.js
 
   return (
     <div style={{ ...s.page, background: C.bg, color: C.text }}>
@@ -91,7 +88,7 @@ export default function EndOfDay({ onNav, embedded }) {
                 { label: 'Unpaid',  count: unpaidCount,  status: 'unpaid' },
                 { label: 'Partial', count: partialCount, status: 'partial' },
               ].filter(r => r.count > 0).map(row => {
-                const colors = sc(row.status);
+                const colors = statusColors(row.status, dark);
                 return (
                   <div key={row.status} style={s.breakdownRow}>
                     <div style={{ ...s.statusDot, background: colors?.text || '#999' }} />
@@ -131,7 +128,7 @@ export default function EndOfDay({ onNav, embedded }) {
               {todayInvoices.map(inv => {
                 const total  = subtotalOf(inv);
                 const st     = getStatus(inv);
-                const colors = sc(st);
+                const colors = statusColors(st, dark);
                 return (
                   <div key={inv.number || inv.invoice_number} style={{ ...s.invRow, background: C.card, borderColor: C.cardBorder }}>
                     <div style={{ flex: 1 }}>
