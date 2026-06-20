@@ -38,7 +38,7 @@ const HANDLERS = {
   update_order_status:     (p) => db.updateSOOrderStatus(p.id, p.status),
   delete_order:            (p) => db.deleteSOOrder(p.id),
   save_connection_order:   (p) => db.saveConnectionOrder(p.order),
-  update_connection_order: (p) => db.updateConnectionOrder(p.id, { status: p.status, invoiceNumber: p.invoiceNumber }),
+  update_connection_order: (p) => db.updateConnectionOrder(p.id, { status: p.status, invoiceNumber: p.invoiceNumber, receivedConfirmed: p.receivedConfirmed, receivedQuantity: p.receivedQuantity, receivingNotes: p.receivingNotes }),
 };
 
 function read() {

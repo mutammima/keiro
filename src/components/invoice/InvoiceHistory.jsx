@@ -144,6 +144,11 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // Open cross-account orders addressed to this driver (pending or accepted).
   const openConnOrders = connOrders.filter(o => o.status === 'pending' || o.status === 'accepted');
 
+  // Receiving confirmation lookup: invoiceNumber → connection order, so a driver
+  // invoice can surface the store's confirmed receipt (and any discrepancy).
+  const orderByInvoice = {};
+  connOrders.forEach(o => { if (o.invoiceNumber != null) orderByInvoice[o.invoiceNumber] = o; });
+
   // ── Contextual tip triggers (Layer 2) ─────────────────────────────────────
   // First card expansion → explain the action buttons.
   useEffect(() => { if (expanded != null) triggerTip('d-invoice-actions'); }, [expanded]);
@@ -230,6 +235,22 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     // Overdue: unpaid/partial and older than the auto-flag threshold
     const isOverdue = isInvoiceOverdue(inv, flagDays);
 
+    // Store-side receiving confirmation for this invoice (cross-account orders).
+    const recvOrder       = orderByInvoice[inv.number];
+    const recvConfirmed   = !!(recvOrder && recvOrder.receivedConfirmed);
+    const recvDiscrepancy = recvConfirmed && recvOrder.receivedQuantity != null && recvOrder.receivedQuantity !== recvOrder.quantity;
+    // Expanded receipt detail (shared by both card layouts).
+    const receivingDetail = recvConfirmed ? (
+      <div style={{ marginTop: 6, padding: recvDiscrepancy ? '6px 8px' : 0, borderRadius: 8, background: recvDiscrepancy ? (dark ? 'rgba(245,158,11,0.12)' : '#fffbeb') : 'transparent', border: recvDiscrepancy ? '1px solid #f59e0b' : 'none' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: recvDiscrepancy ? '#f59e0b' : '#22c55e' }}>
+          {recvDiscrepancy ? `⚑ Store received ${recvOrder.receivedQuantity} of ${recvOrder.quantity}` : '✓ Receipt confirmed by store'}
+        </span>
+        {recvDiscrepancy && recvOrder.receivingNotes && (
+          <p style={{ fontSize: 11, color: C.textMuted, margin: '4px 0 0', fontStyle: 'italic' }}>"{recvOrder.receivingNotes}"</p>
+        )}
+      </div>
+    ) : null;
+
     // ── COMPACT card: lean 2-line row, total + status inline, no sub-card ──────
     if (D.compact) {
       return (
@@ -299,6 +320,11 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
           {/* Meta row: number + date + status label */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px 8px', gap: 8 }}>
             <span style={{ fontSize: 11, color: C.textMuted }}>#{inv.number} · {inv.date}{inv.time ? ` · ${inv.time}` : ''}</span>
+            {recvConfirmed && (
+              <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, color: recvDiscrepancy ? '#f59e0b' : '#22c55e' }}>
+                {recvDiscrepancy ? '⚑ Discrepancy' : '✓ Received'}
+              </span>
+            )}
             {/* Real button with a ≥44px hit box (visual chip stays small via negative margin) */}
             <button
               {...(isFirst ? { 'data-tutorial': 'status-badge-latest' } : {})}
@@ -326,6 +352,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 </div>
               ))}
               {inv.notes && <p style={{ fontSize: 11, color: C.textMuted, margin: '6px 0 2px' }}>✎ {inv.notes}</p>}
+              {receivingDetail}
               <div style={{ display: 'flex', gap: 6, marginTop: 6, marginBottom: 4 }}>
                 {isOverdue && (
                   <button
@@ -375,6 +402,11 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             </div>
             <span style={{ ...s.cardMeta, fontSize: D.metaSize, color: C.textMuted }}>
               #{inv.number}  ·  {inv.date}{inv.time ? `  ·  ${inv.time}` : ''}
+              {recvConfirmed && (
+                <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: recvDiscrepancy ? '#f59e0b' : '#22c55e' }}>
+                  {recvDiscrepancy ? '⚑ Discrepancy' : '✓ Received'}
+                </span>
+              )}
             </span>
           </div>
           <div style={s.cardActions}>
@@ -517,6 +549,10 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 <span style={{ ...s.notesLabel, color: C.textMuted }}>Notes</span>
                 <p style={{ ...s.notesText, color: C.textSub }}>{inv.notes}</p>
               </div>
+            )}
+
+            {receivingDetail && (
+              <div style={{ padding: '8px 14px 0' }}>{receivingDetail}</div>
             )}
 
             {/* Payment log */}

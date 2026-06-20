@@ -8,7 +8,8 @@ import { createPortal as portal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
-import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus } from '../../utils/connectionOrderStorage';
+import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, confirmReceiving } from '../../utils/connectionOrderStorage';
+import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
@@ -35,6 +36,7 @@ export default function SOOrders({ onNav }) {
   const [orders,        setOrders]        = useState(() => getOrders());
   const [connOrders,    setConnOrders]    = useState(() => getConnectionOrders());
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmReceipt, setConfirmReceipt] = useState(null); // order awaiting receipt confirmation
   const [expandedId,    setExpandedId]    = useState(null);
   // Loading only matters when there's no cached data to paint (fresh device) —
   // otherwise the cache renders instantly and the cloud refresh lands silently.
@@ -195,6 +197,15 @@ export default function SOOrders({ onNav }) {
                         <span data-tip={orderIdx === firstDeliveredIdx ? 'so-invoice-number' : undefined}> · Invoice #{order.invoiceNumber}</span>
                       )}
                     </div>
+                    {order.isConnection && order.receivedConfirmed && (
+                      order.receivedQuantity != null && order.receivedQuantity !== order.quantity ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 5, fontSize: 11, fontWeight: 700, color: '#f59e0b', background: dark ? 'rgba(245,158,11,0.12)' : '#fffbeb', border: '1px solid #f59e0b', borderRadius: 8, padding: '2px 8px' }}>
+                          ⚑ Discrepancy noted · received {order.receivedQuantity} of {order.quantity}
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-block', marginTop: 5, fontSize: 11, fontWeight: 700, color: '#22c55e' }}>✓ Receipt confirmed</span>
+                      )
+                    )}
                   </div>
                   {/* Status badge */}
                   <div
@@ -223,6 +234,12 @@ export default function SOOrders({ onNav }) {
                     Sent to {order.driverName}'s Keiro account — they update the status
                     as they accept and deliver.
                   </p>
+                  {order.status === 'delivered' && !order.receivedConfirmed && (
+                    <button style={{ ...s.actionBtn(C), background: ACCENT, color: '#fff', borderColor: ACCENT }}
+                      onClick={() => setConfirmReceipt(order)}>
+                      Confirm Receipt
+                    </button>
+                  )}
                   <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
                     onClick={() => handleReorder(order)}>
                     Reorder
@@ -276,6 +293,20 @@ export default function SOOrders({ onNav }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      {/* Receiving confirmation sheet */}
+      {confirmReceipt && (
+        <ReceivingSheet
+          order={confirmReceipt}
+          onConfirm={({ receivedQuantity, receivingNotes }) => {
+            confirmReceiving(confirmReceipt.id, { receivedQuantity, receivingNotes });
+            setConfirmReceipt(null);
+            setExpandedId(null);
+            refresh();
+          }}
+          onClose={() => setConfirmReceipt(null)}
+        />
+      )}
 
       {/* Delete confirm modal */}
       {confirmDelete && portal(

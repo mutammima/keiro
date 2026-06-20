@@ -14,7 +14,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
-import { getSharedInvoices, loadSharedInvoicesFromCloud } from '../../utils/connectionOrderStorage';
+import { getSharedInvoices, loadSharedInvoicesFromCloud, getConnectionOrders, loadConnectionOrdersFromCloud, confirmReceiving } from '../../utils/connectionOrderStorage';
+import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
@@ -46,6 +47,8 @@ export default function SOInvoices({ onNav }) {
 
   const [orders,     setOrders]     = useState(() => getOrders());
   const [shared,     setShared]     = useState(() => getSharedInvoices());
+  const [connOrders, setConnOrders] = useState(() => getConnectionOrders());
+  const [confirmReceipt, setConfirmReceipt] = useState(null); // order awaiting receipt confirmation
   const [expandedId, setExpandedId] = useState(null);
   // Show a loading line only on a fresh device (no cached data to paint).
   const [loading, setLoading] = useState(
@@ -56,15 +59,24 @@ export default function SOInvoices({ onNav }) {
     Promise.allSettled([
       loadOrdersFromCloud().then(list => setOrders(list)),
       loadSharedInvoicesFromCloud().then(setShared),
+      loadConnectionOrdersFromCloud().then(setConnOrders),
     ]).then(() => setLoading(false));
   }, []);
 
   // Live-update when the foreground poll refreshes the caches (App dispatches).
   useEffect(() => {
-    const onRefresh = () => { setShared(getSharedInvoices()); setOrders(getOrders()); };
+    const onRefresh = () => { setShared(getSharedInvoices()); setOrders(getOrders()); setConnOrders(getConnectionOrders()); };
     window.addEventListener('inv-data-refresh', onRefresh);
     return () => window.removeEventListener('inv-data-refresh', onRefresh);
   }, []);
+
+  // Map delivered connection orders by their invoice number, so a shared invoice
+  // can surface (and confirm) its receiving state. One order ↔ one invoice.
+  const orderByInvoice = useMemo(() => {
+    const m = {};
+    connOrders.forEach(o => { if (o.invoiceNumber != null) m[o.invoiceNumber] = o; });
+    return m;
+  }, [connOrders]);
 
   // Layer 2 — once a driver has set a payment status, explain the status badge.
   const hasPaymentStatus = shared.some(inv => (inv.paymentStatus || 'unpaid') !== 'unpaid');
@@ -173,6 +185,14 @@ export default function SOInvoices({ onNav }) {
                           <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
                             {inv.driverName} · {inv.date}{inv.time ? ` · ${inv.time}` : ''}
                           </div>
+                          {(() => {
+                            const o = orderByInvoice[inv.number];
+                            if (!o || !o.receivedConfirmed) return null;
+                            const disc = o.receivedQuantity != null && o.receivedQuantity !== o.quantity;
+                            return disc
+                              ? <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>⚑ Discrepancy · received {o.receivedQuantity} of {o.quantity}</div>
+                              : <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: '#22c55e' }}>✓ Receipt confirmed</div>;
+                          })()}
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                           <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{money(invTotal(inv))}</div>
@@ -193,6 +213,18 @@ export default function SOInvoices({ onNav }) {
                           {inv.notes && (
                             <p style={{ fontSize: 12, color: C.textMuted, margin: '8px 0 0', fontStyle: 'italic' }}>"{inv.notes}"</p>
                           )}
+                          {(() => {
+                            const o = orderByInvoice[inv.number];
+                            if (!o || o.status !== 'delivered' || o.receivedConfirmed) return null;
+                            return (
+                              <button
+                                onClick={() => setConfirmReceipt(o)}
+                                style={{ marginTop: 10, width: '100%', minHeight: 44, height: 44, border: 'none', borderRadius: 12, background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                              >
+                                Confirm Receipt
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -237,6 +269,20 @@ export default function SOInvoices({ onNav }) {
 
         <AppFooter onNav={onNav} />
       </div>
+
+      {/* Receiving confirmation sheet */}
+      {confirmReceipt && (
+        <ReceivingSheet
+          order={confirmReceipt}
+          onConfirm={({ receivedQuantity, receivingNotes }) => {
+            confirmReceiving(confirmReceipt.id, { receivedQuantity, receivingNotes });
+            setConfirmReceipt(null);
+            setExpandedId(null);
+            setConnOrders(getConnectionOrders());
+          }}
+          onClose={() => setConfirmReceipt(null)}
+        />
+      )}
     </div>
   );
 }

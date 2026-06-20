@@ -1244,13 +1244,17 @@ export async function getSharedInvoices() {
  * Patch an order's status (either party, per RLS) and optionally stamp the
  * invoice number when the driver delivers.
  */
-export async function updateConnectionOrder(id, { status, invoiceNumber } = {}) {
+export async function updateConnectionOrder(id, { status, invoiceNumber, receivedConfirmed, receivedQuantity, receivingNotes } = {}) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) return { data: null, error: new Error('Not authenticated') };
     const patch = { updated_at: new Date().toISOString() };
     if (status) patch.status = status;
     if (invoiceNumber != null) patch.invoice_number = invoiceNumber;
+    // Receiving confirmation (see supabase-receiving-confirmation.sql)
+    if (receivedConfirmed != null) patch.received_confirmed = receivedConfirmed;
+    if (receivedQuantity != null)  patch.received_quantity = receivedQuantity;
+    if (receivingNotes != null)    patch.receiving_notes = receivingNotes;
     const { data, error } = await supabase
       .from('connection_orders')
       .update(patch)
