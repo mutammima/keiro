@@ -106,3 +106,11 @@ export const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * invoice is flagged overdue, when the user hasn't configured a threshold.
  */
 export const DEFAULT_FLAG_DAYS = 7;
+
+// ── Interaction timing ───────────────────────────────────────────────────────
+/**
+ * Debounce (ms) for the product/store-name autofill lookups in useInvoiceForm.
+ * Each lookup is a cloud query, so we wait for a typing pause instead of firing
+ * one per keystroke. The input setState stays immediate (no input lag).
+ */
+export const AUTOFILL_DEBOUNCE_MS = 250;

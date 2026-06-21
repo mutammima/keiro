@@ -30,7 +30,7 @@ import {
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, EVENTS, AUTOFILL_DEBOUNCE_MS } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 import { isTutorialActive } from '../utils/tutorialState';
 import { markAction } from '../utils/tutorialProgress';
@@ -73,6 +73,11 @@ export function useInvoiceForm(onGenerated) {
 
   // Ref to track the latest store name so stale async phone/address lookups don't overwrite.
   const latestStoreNameRef = useRef('');
+  // Debounce timers for the autofill cloud lookups — one query per typing pause,
+  // not per keystroke. Cleared on unmount so a late timer can't setState after.
+  const storeLookupTimer   = useRef(null);
+  const productLookupTimer = useRef(null);
+  useEffect(() => () => { clearTimeout(storeLookupTimer.current); clearTimeout(productLookupTimer.current); }, []);
 
   // ── Store / customer state ───────────────────────────────────────────────
   const [storeName, setStoreName]         = useState('');
@@ -131,15 +136,18 @@ export function useInvoiceForm(onGenerated) {
    */
   function handleProductNameChange(val) {
     latestProductNameRef.current = val;
-    setProductName(val);
-    // Async lookup — only auto-fill when price field is currently empty
-    // and the product name hasn't changed since we fired the request.
-    getProductByName(val).then(saved => {
-      if (latestProductNameRef.current !== val) return; // stale — ignore
-      if (saved && saved.lastPrice > 0) {
-        setPrice(String(saved.lastPrice));
-      }
-    }).catch(() => {});
+    setProductName(val); // immediate — controlled input, no lag
+    // Debounced cloud lookup: fires once after the user pauses, not per keystroke.
+    // Still guarded by the ref so a stale response never overwrites a newer name.
+    clearTimeout(productLookupTimer.current);
+    productLookupTimer.current = setTimeout(() => {
+      getProductByName(val).then(saved => {
+        if (latestProductNameRef.current !== val) return; // stale — ignore
+        if (saved && saved.lastPrice > 0) {
+          setPrice(String(saved.lastPrice));
+        }
+      }).catch(() => {});
+    }, AUTOFILL_DEBOUNCE_MS);
   }
 
   const [productName, setProductName] = useState('');
@@ -183,15 +191,18 @@ export function useInvoiceForm(onGenerated) {
    */
   function handleStoreNameChange(val) {
     latestStoreNameRef.current = val;
-    setStoreName(val);
-    if (val?.trim()) {
-      // Single combined query instead of two separate calls
+    setStoreName(val); // immediate — controlled input, no lag
+    clearTimeout(storeLookupTimer.current);
+    if (!val?.trim()) return;
+    // Debounced cloud lookup (one combined phone+address query) after a typing
+    // pause; the ref guard still discards a stale response for an older name.
+    storeLookupTimer.current = setTimeout(() => {
       getStoreDetails(val).then(({ phone, address }) => {
         if (latestStoreNameRef.current !== val) return; // stale — ignore
         if (phone)   setStorePhone(phone);
         if (address) setStoreAddress(address);
       }).catch(() => {});
-    }
+    }, AUTOFILL_DEBOUNCE_MS);
   }
 
   /**
