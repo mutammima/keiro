@@ -20,7 +20,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 const MARGIN = 12; // min gap from screen edge
 const GAP    = 12; // gap between target and card
 
-export default function TutorialTooltip({ rect, dark, children, footer, header, z = 1 }) {
+export default function TutorialTooltip({ rect, dark, children, footer, header, z = 1, compact = false }) {
   const cardRef = useRef(null);
   const [size, setSize] = useState(null); // { w, h } measured after paint
 
@@ -33,7 +33,7 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const width = Math.min(vw - MARGIN * 2, 340);
+  const width = Math.min(vw - MARGIN * 2, compact ? 290 : 340);
 
   // Horizontal: center on target (or screen), clamp on-screen.
   const targetCx = rect ? rect.left + rect.width / 2 : vw / 2;
@@ -76,8 +76,8 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
         top, left, width,
         zIndex: z,
         background: bg,
-        borderRadius: 18,
-        padding: '16px 18px 14px',
+        borderRadius: compact ? 14 : 18,
+        padding: compact ? '12px 14px 11px' : '16px 18px 14px',
         boxShadow: '0 18px 50px rgba(0,0,0,0.5)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         visibility: size ? 'visible' : 'hidden',
@@ -102,7 +102,7 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
         />
       )}
       {header}
-      <div style={{ fontSize: 14, lineHeight: 1.55, color: dark ? 'rgba(255,255,255,0.82)' : 'rgba(0,0,0,0.72)' }}>
+      <div style={{ fontSize: compact ? 13 : 14, lineHeight: compact ? 1.45 : 1.55, color: dark ? 'rgba(255,255,255,0.82)' : 'rgba(0,0,0,0.72)' }}>
         {children}
       </div>
       {footer}

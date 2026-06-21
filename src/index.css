@@ -85,4 +85,9 @@ textarea {
   button { transition: none; }
   button:active { transform: none; opacity: 0.8; }
   .tut-dim-panel { transition: none; }
+  /* Walkthrough cursor: still appears at each correct position, but jumps there
+     instead of gliding, and skips the click pulse. (!important overrides the
+     inline transition/animation set on the cursor.) */
+  .tut-demo-cursor { transition: none !important; }
+  .tut-demo-cursor * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
 }
