@@ -31,7 +31,6 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
-import DimPanels from './DimPanels';
 import Confetti from './Confetti';
 import { STORAGE_KEYS, MS_PER_DAY, EVENTS } from '../../utils/constants';
 import {
@@ -70,9 +69,8 @@ function removeDemoRecords(walkthroughId, before) {
 
 // ── Layout / timing constants ───────────────────────────────────────────────
 const Z   = 9200;
-const DIM = 'rgba(0,0,0,0.68)';
 
-const MOVE_MS    = 780;   // cursor glide duration (must match the CSS transition)
+const MOVE_MS    = 520;   // cursor glide duration (matches the CSS transition); 400–600ms ease-in-out
 const PRESS_MS   = 230;   // press-down hold before the click registers
 const PER_CHAR   = 85;    // delay between typed characters
 const POST_TYPE  = 560;   // pause after a field is filled, before the Next gate
@@ -360,11 +358,41 @@ function scrollIntoViewIfNeeded(el) {
   }
 }
 
+/**
+ * Resolves an element's FINAL rect once it stops moving — waits out a smooth
+ * scrollIntoView and any post-paint reflow (font/image load) instead of guessing
+ * with a fixed timeout. Polls per animation frame until the rect is stable across
+ * two consecutive frames, capped so it can never hang. Returns null if cancelled
+ * or the element leaves the DOM. This is what keeps the cursor from targeting an
+ * intermediate, mid-scroll position.
+ */
+function settleRect(el, isCancelled, maxFrames = 40) {
+  return new Promise((resolve) => {
+    let prev = el.getBoundingClientRect();
+    let stable = 0;
+    let frames = 0;
+    const step = () => {
+      if (isCancelled()) return resolve(null);
+      if (!el.isConnected) return resolve(null);
+      const r = el.getBoundingClientRect();
+      const same = Math.abs(r.top - prev.top) < 0.5 && Math.abs(r.left - prev.left) < 0.5 &&
+                   Math.abs(r.width - prev.width) < 0.5 && Math.abs(r.height - prev.height) < 0.5;
+      stable = same ? stable + 1 : 0;
+      prev = r;
+      frames += 1;
+      if (stable >= 2 || frames >= maxFrames) return resolve(r);
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
 // ── The on-screen demo cursor ────────────────────────────────────────────────
 function DemoCursor({ x, y, down, pressKey, hidden, label, accent }) {
   return createPortal(
     <div
       aria-hidden
+      className="tut-demo-cursor"
       style={{
         position: 'fixed', left: 0, top: 0, zIndex: Z + 6,
         transform: `translate(${x}px, ${y}px)`,
@@ -437,11 +465,8 @@ function WalkthroughBoot({ dark, accent }) {
 function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingNext, onNext, stalled, dark, accent }) {
   const { rect } = useElementRect(step.selector, { active: !!step.selector });
 
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 375;
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 812;
-
   const header = (
-    <div style={{ fontSize: 15, fontWeight: 800, color: dark ? '#fff' : '#111', marginBottom: 6, lineHeight: 1.25 }}>
+    <div style={{ fontSize: 13.5, fontWeight: 800, color: dark ? '#fff' : '#111', marginBottom: 4, lineHeight: 1.25 }}>
       {step.title}
     </div>
   );
@@ -458,12 +483,12 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingN
 
   return createPortal(
     <>
-      {/* Dim panels around the target (non-blocking — the engine drives the UI) */}
-      <DimPanels rect={rect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} />
+      {/* No dim panels, no highlight box — the real app stays fully visible.
+          The gliding cursor (rendered by the parent) shows where the action is. */}
 
       {/* While waiting on Next, swallow taps so the user can't poke the real
-          UI behind the spotlight. Sits below the tooltip + Skip bar so both
-          stay clickable. */}
+          UI mid-step. Transparent (not a dim overlay) so the app stays readable.
+          Sits below the tooltip + Skip bar so both stay clickable. */}
       {awaitingNext && (
         <div onClick={(e) => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: Z + 1, background: 'transparent' }} />
       )}
@@ -490,7 +515,7 @@ function SpotlightStage({ step, stepNumber, total, onExit, onSkipStep, awaitingN
         </div>
       )}
 
-      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2}>
+      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2} compact>
         {step.body}
       </TutorialTooltip>
     </>,
@@ -703,14 +728,20 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
       if (!el) { setStalled(true); return; }
 
       scrollIntoViewIfNeeded(el);
-      await wait(360);
+      // Wait for the scroll/reflow to actually settle, then target the FINAL rect
+      // — never a fixed-timeout guess that could read a mid-scroll position.
+      const settled = await settleRect(el, isCancelled);
       if (cancelled) return;
+      if (!settled) { setStalled(true); return; }
 
-      moveCursor(el.getBoundingClientRect());
+      moveCursor(settled);
       setChidden(false);
       await wait(MOVE_MS + 140);
       if (cancelled) return;
-      moveCursor(el.getBoundingClientRect());
+      // Final correction read after the glide (late font/image/reflow shifts).
+      const corrected = await settleRect(el, isCancelled);
+      if (cancelled) return;
+      if (corrected) moveCursor(corrected);
 
       if (step.kind === 'type') {
         try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
