@@ -23,17 +23,18 @@ export default function DimPanels({ rect, vw, vh, dim, accent, z, pad = 8, block
     ...(blockTaps ? { touchAction: 'none' } : { pointerEvents: 'none' }),
   };
 
-  if (!rect) return <div {...handlers} style={{ ...panel, inset: 0 }} />;
+  if (!rect) return <div {...handlers} className="tut-dim-panel" style={{ ...panel, inset: 0 }} />;
 
   return (
     <>
-      <div {...handlers} style={{ ...panel, left: 0, top: 0, width: '100%', height: Math.max(0, rect.top - pad) }} />
-      <div {...handlers} style={{ ...panel, left: 0, top: rect.bottom + pad, width: '100%', height: Math.max(0, vh - rect.bottom - pad) }} />
-      <div {...handlers} style={{ ...panel, left: 0, top: Math.max(0, rect.top - pad), width: Math.max(0, rect.left - pad), height: rect.height + pad * 2 }} />
-      <div {...handlers} style={{ ...panel, left: rect.right + pad, top: Math.max(0, rect.top - pad), width: Math.max(0, vw - rect.right - pad), height: rect.height + pad * 2 }} />
+      <div {...handlers} className="tut-dim-panel" style={{ ...panel, left: 0, top: 0, width: '100%', height: Math.max(0, rect.top - pad) }} />
+      <div {...handlers} className="tut-dim-panel" style={{ ...panel, left: 0, top: rect.bottom + pad, width: '100%', height: Math.max(0, vh - rect.bottom - pad) }} />
+      <div {...handlers} className="tut-dim-panel" style={{ ...panel, left: 0, top: Math.max(0, rect.top - pad), width: Math.max(0, rect.left - pad), height: rect.height + pad * 2 }} />
+      <div {...handlers} className="tut-dim-panel" style={{ ...panel, left: rect.right + pad, top: Math.max(0, rect.top - pad), width: Math.max(0, vw - rect.right - pad), height: rect.height + pad * 2 }} />
       {glow && (
         <div
           aria-hidden
+          className="tut-dim-panel"
           style={{
             position: 'fixed', left: rect.left - pad, top: rect.top - pad,
             width: rect.width + pad * 2, height: rect.height + pad * 2,
