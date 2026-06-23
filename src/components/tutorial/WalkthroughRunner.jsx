@@ -70,11 +70,13 @@ function removeDemoRecords(walkthroughId, before) {
 // ── Layout / timing constants ───────────────────────────────────────────────
 const Z   = 9200;
 
-const MOVE_MS    = 520;   // cursor glide duration (matches the CSS transition); 400–600ms ease-in-out
-const PRESS_MS   = 230;   // press-down hold before the click registers
-const PER_CHAR   = 85;    // delay between typed characters
-const POST_TYPE  = 560;   // pause after a field is filled, before the Next gate
-const POST_CLICK = 660;   // pause after a click with no explicit settle signal
+// No cursor: the app demonstrates itself with on-screen actions + tooltips, at a
+// calm, readable pace. Each action dwells first so the step text can be read.
+const PRE_ACTION = 900;   // dwell after a step appears, before it auto-acts
+const PRESS_MS   = 260;   // brief pause before a click/pick registers
+const PER_CHAR   = 110;   // delay between typed characters (slow enough to follow)
+const POST_TYPE  = 850;   // pause after a field is filled
+const POST_CLICK = 1000;  // pause after a click with no explicit settle signal
 
 // ── Demo data (kept obviously sample-like) ──────────────────────────────────
 const futureDate = (days) => {
@@ -189,9 +191,37 @@ const DRIVER_INVOICE_STEPS = [
     holdMs: 2600,
   },
   {
+    kind: 'click',
+    selector: '[data-qs-tab="stores"]',
+    title: 'Your stores',
+    body: 'Opening the Stores tab.',
+    flow: true,
+    settleMs: 900,
+  },
+  {
+    kind: 'modal',
+    title: 'Every store in one place',
+    body: 'The Stores tab maps the stores you deliver to and keeps their phone numbers and addresses. Pin your favorites, and tap any store to see its running balance — so you always know who owes what.',
+    cta: 'Continue',
+  },
+  {
+    kind: 'click',
+    selector: '[data-qs-tab="reports"]',
+    title: 'Your numbers',
+    body: 'Opening Reports.',
+    flow: true,
+    settleMs: 900,
+  },
+  {
+    kind: 'modal',
+    title: 'See how business is trending',
+    body: 'Reports breaks your revenue and deliveries down by Today, Week, Month, and Year, and surfaces your top products and best-performing stores — so you can spot trends at a glance.',
+    cta: 'Continue',
+  },
+  {
     kind: 'success',
     title: 'That is your route.',
-    body: 'You just saw a full invoice created, saved, and marked paid. These are the actions you will use every day on Keiro.',
+    body: 'You saw a full invoice created, saved, and marked paid — plus where your stores and your reports live. These are the tools you will use every day on Keiro.',
     cta: 'Finish',
   },
 ];
@@ -283,13 +313,34 @@ const SO_REQUEST_STEPS = [
     kind: 'click',
     selector: '[data-qs-tab="so-invoices"]',
     title: 'Where your invoices land',
-    body: 'When a driver delivers and generates an invoice, it shows up in the Invoices tab automatically. Opening it now.',
+    body: 'Opening the Invoices tab.',
+    flow: true,
     settleMs: 900,
+  },
+  {
+    kind: 'modal',
+    title: 'Your billing, automatically',
+    body: 'When a driver delivers and generates an invoice, it lands here with its payment status — so every bill from every driver stays in one running history, with no manual entry.',
+    cta: 'Continue',
+  },
+  {
+    kind: 'click',
+    selector: '[data-qs-tab="so-drivers"]',
+    title: 'Your drivers',
+    body: 'Opening the Drivers tab.',
+    flow: true,
+    settleMs: 900,
+  },
+  {
+    kind: 'modal',
+    title: 'Connect with your drivers',
+    body: 'The Drivers tab is where you link up with drivers using an invite code, see who you are connected to, and manage those connections. A connected driver receives your orders instantly.',
+    cta: 'Continue',
   },
   {
     kind: 'success',
     title: 'You are ready to order.',
-    body: 'You just saw a delivery request placed and tracked, and you know where your invoices appear when deliveries arrive.',
+    body: 'You placed and tracked a delivery request, and saw where invoices land and how to manage your drivers — everything you need to run orders on Keiro.',
     cta: 'Finish',
   },
 ];
@@ -385,67 +436,6 @@ function settleRect(el, isCancelled, maxFrames = 40) {
     };
     requestAnimationFrame(step);
   });
-}
-
-// ── The on-screen demo cursor ────────────────────────────────────────────────
-function DemoCursor({ x, y, down, pressKey, hidden, label, accent }) {
-  return createPortal(
-    <div
-      aria-hidden
-      className="tut-demo-cursor"
-      style={{
-        position: 'fixed', left: 0, top: 0, zIndex: Z + 6,
-        transform: `translate(${x}px, ${y}px)`,
-        transition: `transform ${MOVE_MS}ms cubic-bezier(0.5, 0.05, 0.25, 1), opacity 0.25s ease`,
-        opacity: hidden ? 0 : 1,
-        pointerEvents: 'none', willChange: 'transform',
-      }}
-    >
-      {/* Click ripple — remounts on each press to replay the animation */}
-      {pressKey > 0 && (
-        <span
-          key={pressKey}
-          style={{
-            position: 'absolute', left: 1, top: 1, width: 54, height: 54,
-            marginLeft: -27, marginTop: -27, borderRadius: '50%',
-            background: accent, animation: 'tut-ripple 0.5s ease-out forwards',
-          }}
-        />
-      )}
-      {/* Pointer arrow */}
-      <svg
-        width="30" height="30" viewBox="0 0 28 28"
-        style={{
-          display: 'block',
-          transform: down ? 'scale(0.8)' : 'scale(1)',
-          transformOrigin: '5px 3px',
-          transition: 'transform 0.12s ease',
-          filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.5))',
-          animation: 'tut-cursor-in 0.25s ease both',
-        }}
-      >
-        <path
-          d="M5 3 L5 22 L10 17 L13.6 24.4 L16.7 22.9 L13.1 15.6 L20 15.6 Z"
-          fill="#ffffff" stroke="#111111" strokeWidth="1.4" strokeLinejoin="round"
-        />
-      </svg>
-      {/* Typing caption — shows the keystrokes as they land */}
-      {label != null && (
-        <span
-          style={{
-            position: 'absolute', left: 24, top: 26, whiteSpace: 'nowrap',
-            background: '#111114', color: '#fff', fontSize: 13, fontWeight: 600,
-            padding: '5px 10px', borderRadius: 9, boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
-            border: '1px solid rgba(255,255,255,0.12)',
-          }}
-        >
-          {label}
-          <span style={{ display: 'inline-block', width: 1.5, height: 14, marginLeft: 2, background: accent, verticalAlign: 'text-bottom', animation: 'tut-blink 1s step-end infinite' }} />
-        </span>
-      )}
-    </div>,
-    document.body
-  );
 }
 
 // ── Boot splash — a brief branded loader while the demo gets ready ───────────
@@ -650,15 +640,6 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
   // to tap Next, so they control the pace and can read each step.
   const [awaitingNext, setAwaitingNext] = useState(false);
 
-  // Cursor state (driven by the engine, rendered persistently so it glides)
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 375;
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 812;
-  const [cx, setCx] = useState(vw / 2);
-  const [cy, setCy] = useState(vh * 0.82);
-  const [cdown, setCdown] = useState(false);
-  const [chidden, setChidden] = useState(true);
-  const [clabel, setClabel] = useState(null);
-  const [pressKey, setPressKey] = useState(0);
 
   // A guest already at the entry cap: the demo record is created (cap bypassed
   // while the walkthrough is active) and removed again when it ends.
@@ -705,43 +686,26 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
     const timers = [];
     const isCancelled = () => cancelled;
     const wait = (ms) => new Promise((res) => { const t = setTimeout(res, ms); timers.push(t); });
-    const moveCursor = (rect) => { setCx(rect.left + rect.width / 2); setCy(rect.top + rect.height / 2); };
-    const press = () => { setCdown(true); setPressKey((k) => k + 1); };
-    const release = () => setCdown(false);
 
-    // Modal-style steps (user-gated or auto-advancing)
-    if (step.kind === 'intro' || step.kind === 'success') {
-      setChidden(true); setClabel(null);
-      return () => { cancelled = true; timers.forEach(clearTimeout); };
-    }
-    if (step.kind === 'modal') {
-      // Modals wait for the user to tap Continue — no auto-advance.
-      setChidden(true); setClabel(null);
+    // Modal-style steps (intro / success / teaching modal) — no auto-driving.
+    if (step.kind === 'intro' || step.kind === 'success' || step.kind === 'modal') {
       return () => { cancelled = true; timers.forEach(clearTimeout); };
     }
 
     // Action steps: click / type / pick / highlight
     (async () => {
-      setClabel(null);
       const el = await waitForEl(step.selector, isCancelled, step.timeout || 4500);
       if (cancelled) return;
       if (!el) { setStalled(true); return; }
 
+      // Bring the target into view and wait for the scroll/reflow to actually
+      // settle so the user sees the field, then dwell so the step's instruction
+      // can be read before the action runs.
       scrollIntoViewIfNeeded(el);
-      // Wait for the scroll/reflow to actually settle, then target the FINAL rect
-      // — never a fixed-timeout guess that could read a mid-scroll position.
-      const settled = await settleRect(el, isCancelled);
+      await settleRect(el, isCancelled);
       if (cancelled) return;
-      if (!settled) { setStalled(true); return; }
-
-      moveCursor(settled);
-      setChidden(false);
-      await wait(MOVE_MS + 140);
+      await wait(PRE_ACTION);
       if (cancelled) return;
-      // Final correction read after the glide (late font/image/reflow shifts).
-      const corrected = await settleRect(el, isCancelled);
-      if (cancelled) return;
-      if (corrected) moveCursor(corrected);
 
       if (step.kind === 'type') {
         try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
@@ -749,26 +713,20 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
         for (let i = 1; i <= text.length; i++) {
           if (cancelled) return;
           setNativeValue(el, text.slice(0, i));
-          setClabel(text.slice(0, i));
           await wait(PER_CHAR);
         }
         await wait(POST_TYPE);
         if (cancelled) return;
-        setClabel(null);
       } else if (step.kind === 'pick') {
-        press();
         await wait(PRESS_MS);
         if (cancelled) return;
         const val = typeof step.value === 'function' ? step.value() : String(step.value ?? '');
         setNativeValue(el, val, true);
-        release();
         await wait(POST_TYPE);
       } else if (step.kind === 'click') {
-        press();
         await wait(PRESS_MS);
         if (cancelled) return;
         try { el.click(); } catch { /* ignore */ }
-        release();
         if (step.settleEvent) {
           await waitForEvent(step.settleEvent, isCancelled, step.settleTimeout || 6000);
           if (!cancelled && step.settleSelector) await waitForEl(step.settleSelector, isCancelled, 4000);
@@ -779,7 +737,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
           await wait(step.settleMs || POST_CLICK);
         }
       } else if (step.kind === 'highlight') {
-        await wait(420);
+        await wait(step.holdMs || 700);
       }
 
       // Grouped form-fill/navigation steps flow on their own; standalone
@@ -845,11 +803,7 @@ export default function WalkthroughRunner({ walkthroughId, onClose }) {
 
   return (
     <>
-      {/* Persistent cursor — only visible during action steps */}
-      <DemoCursor
-        x={cx} y={cy} down={cdown} pressKey={pressKey}
-        hidden={chidden || isModal} label={clabel} accent={accent}
-      />
+      {/* No cursor: the app demonstrates itself with on-screen actions + tooltips. */}
 
       {isModal ? (
         <WalkthroughModal
