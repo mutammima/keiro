@@ -18,7 +18,7 @@ import {
 } from '../utils/storage';
 import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
-import { DEFAULT_BUSINESS_NAME, EVENTS } from '../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, EVENTS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
 import { markAction } from '../utils/tutorialProgress';
 
@@ -45,7 +45,7 @@ export function useInvoiceHistory() {
   // ── Core data state ──────────────────────────────────────────────────────
   const [invoices, setInvoices]   = useState([]);
   const [loading, setLoading]     = useState(true);
-  const bizName = getBusinessName() || DEFAULT_BUSINESS_NAME;
+  const bizName = getBusinessName() || BUSINESS_NAME_PLACEHOLDER;
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [expanded, setExpanded]           = useState(null);

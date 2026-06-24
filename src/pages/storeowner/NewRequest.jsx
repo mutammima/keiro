@@ -21,6 +21,15 @@ import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
+// Shown when a guest tries to send an order that can only reach a driver through
+// the cloud. Names the real reason (no account) instead of letting the order look
+// "placed" while it silently reaches no one.
+const SEND_WALL_COPY = {
+  title: 'Create an account to send this order',
+  subtitle: 'Orders reach drivers through the cloud, so they need a free account. Sign up and a driver can see and accept this request — your local data comes with you.',
+  cta: 'Create Free Account',
+};
+
 export default function NewRequest({ onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
@@ -34,6 +43,11 @@ export default function NewRequest({ onNav, onBack }) {
   const [errors,        setErrors]        = useState({});
   const [submitted,     setSubmitted]     = useState(false);
   const [guestWall,     setGuestWall]     = useState(false);
+  // Tailored copy for the guest wall. null → GuestCapModal's default (entry-cap)
+  // message; set to SEND_WALL_COPY when the block is because the order can only
+  // reach a driver through the cloud (a connected-driver send or an unassigned
+  // marketplace broadcast), which a guest session can't do.
+  const [wallCopy,      setWallCopy]      = useState(null);
   // Reorder prefill: original notes are staged but NOT copied unless the user
   // opts in via the "Copy notes from original" toggle (per spec).
   const [originalNotes, setOriginalNotes] = useState('');
@@ -95,7 +109,7 @@ export default function NewRequest({ onNav, onBack }) {
     // connection (connection_orders), not into this store's private list.
     if (driverId.startsWith('conn:')) {
       // A cross-account send needs a session to reach the driver — hard-block guests.
-      if (isGuest()) { setGuestWall(true); return; }
+      if (isGuest()) { setWallCopy(SEND_WALL_COPY); setGuestWall(true); return; }
       const conn = conns.find(c => `conn:${c.id}` === driverId);
       if (conn) {
         sendConnectionOrder(conn, {
@@ -116,6 +130,13 @@ export default function NewRequest({ onNav, onBack }) {
         }, 700);
         return;
       }
+    }
+
+    // No driver assigned → this order can only reach drivers via the marketplace
+    // broadcast, which needs a session. Block guests with the account wall BEFORE
+    // saving, so we never leave a "Pending" order that silently reached no one.
+    if (!driverId && !isTutorialActive() && isGuest()) {
+      setWallCopy(SEND_WALL_COPY); setGuestWall(true); return;
     }
 
     const driver = drivers.find(d => d.id === driverId);
@@ -172,7 +193,7 @@ export default function NewRequest({ onNav, onBack }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg }}>
 
-      <GuestCapModal open={guestWall} onClose={() => setGuestWall(false)} />
+      <GuestCapModal open={guestWall} onClose={() => { setGuestWall(false); setWallCopy(null); }} {...(wallCopy || {})} />
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>

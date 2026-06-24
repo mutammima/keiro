@@ -25,12 +25,19 @@ export default function FeatureTip({ tip, onDismiss }) {
   const { dark, accent } = useTheme();
   const { rect, missing } = useElementRect(tip.selector, { active: true });
 
-  // Give up quietly if the anchor never appears (don't burn the seen flag).
-  useEffect(() => {
-    if (missing) onDismiss(false);
-  }, [missing]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Every tab panel is mounted at once (a horizontal strip), so an anchor on a
+  // NON-visible tab still resolves a rect — just translated off-screen. Showing
+  // the tip then pins it to empty space on the wrong screen. Treat that like a
+  // missing anchor: dismiss quietly so it re-fires when that tab is actually up.
+  const offScreen = !!rect && (rect.right <= 0 || rect.left >= window.innerWidth);
 
-  if (!rect) return null; // wait for the anchor (or the missing-timeout above)
+  // Give up quietly if the anchor never appears / isn't on the visible screen
+  // (don't burn the seen flag — it can fire again next time it's in view).
+  useEffect(() => {
+    if (missing || offScreen) onDismiss(false);
+  }, [missing, offScreen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!rect || offScreen) return null; // wait for the anchor (or the timeout above)
 
   const footer = (
     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>

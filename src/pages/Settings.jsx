@@ -19,7 +19,7 @@ import {
   getPinnedStores, togglePinnedStore,
   lsGet, lsSet,
 } from '../utils/storage';
-import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, BUSINESS_NAME_PLACEHOLDER, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -57,7 +57,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   useEffect(() => { triggerTip('settings-biz'); }, []);
 
   // ── Business info ──────────────────────────────────────────────────────────
-  const [bizName,  setBizName]  = useState(() => getBusinessName()  || DEFAULT_BUSINESS_NAME);
+  const [bizName,  setBizName]  = useState(() => getBusinessName());
   const [bizPhone, setBizPhone] = useState(() => getBusinessPhone() || '');
   const [bizSaved, setBizSaved] = useState(false);
 
@@ -334,7 +334,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Name</label>
-              <input data-tutorial="settings-biz-name" data-tip="settings-biz" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder={DEFAULT_BUSINESS_NAME} />
+              <input data-tutorial="settings-biz-name" data-tip="settings-biz" style={inp} value={bizName} onChange={e => setBizName(e.target.value)} placeholder={BUSINESS_NAME_PLACEHOLDER} />
             </div>
             <div>
               <label style={{ ...s.fieldLabel, color: C.textSub }}>Business Phone</label>

@@ -10,7 +10,7 @@ import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
 import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
-import { DEFAULT_BUSINESS_NAME } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
@@ -168,7 +168,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
       <div style={{ ...s.header, ...glassStyle(dark) }}>
         <button data-tutorial="invoice-view-back" style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ ...s.title, color: C.text }}>{getBusinessName() || DEFAULT_BUSINESS_NAME}</span>
+          <span style={{ ...s.title, color: C.text }}>{getBusinessName() || BUSINESS_NAME_PLACEHOLDER}</span>
           <span style={{ fontSize: 12, color: C.textMuted }}>Invoice #{invoice.number}</span>
         </div>
         <div style={{ width: 60 }} />

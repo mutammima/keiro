@@ -212,7 +212,7 @@ export default function Home({ onNav }) {
               }}>
                 {[
                   { val: money(todayRevenue),       label: 'Revenue',    color: ACCENT },
-                  { val: String(todayDeliveries),   label: 'Deliveries', color: '#22c55e' },
+                  { val: String(todayDeliveries),   label: todayDeliveries === 1 ? 'Delivery' : 'Deliveries', color: '#22c55e' },
                   { val: String(pendingInvoices),   label: 'Pending',    color: '#f59e0b' },
                 ].map((item, i) => (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '13px 8px', borderLeft: i > 0 ? `1px solid ${dark ? '#1a2f5a' : '#c7d8ff'}` : 'none' }}>

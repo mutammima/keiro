@@ -30,7 +30,7 @@ import {
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { STORAGE_KEYS, DEFAULT_BUSINESS_NAME, EVENTS, AUTOFILL_DEBOUNCE_MS } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 import { isTutorialActive } from '../utils/tutorialState';
 import { markAction } from '../utils/tutorialProgress';
@@ -66,7 +66,7 @@ function uid() {
 export function useInvoiceForm(onGenerated) {
   // ── Business info state ──────────────────────────────────────────────────
   // Business name/phone are synchronous localStorage reads — no async needed.
-  const [businessName, setBusinessName]       = useState(() => getBusinessName() || DEFAULT_BUSINESS_NAME);
+  const [businessName, setBusinessName]       = useState(() => getBusinessName());
   const [businessPhone, setBusinessPhone]     = useState(() => getBusinessPhone() || '');
   const [editingBiz, setEditingBiz]           = useState(false);
   const [editingBizPhone, setEditingBizPhone] = useState(false);

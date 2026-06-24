@@ -20,14 +20,22 @@ import {
 } from '../../utils/tutorialProgress';
 import FeatureTip from './FeatureTip';
 
+// Most a single session will surface before going quiet. Tips are one-time, so
+// the rest simply re-fire on a later visit — this spreads them out instead of
+// burying a brand-new user under a barrage of hints in their first few minutes.
+const MAX_TIPS_PER_SESSION = 2;
+
 export default function TipManager({ role, paused = false }) {
   const [current, setCurrent] = useState(null); // tip id on screen
   const queueRef = useRef([]);                   // pending tip ids
   const currentRef = useRef(null);
+  const shownCountRef = useRef(0);               // tips the user has dismissed this session
   currentRef.current = current;
 
-  // Pull the next eligible tip off the queue into view.
+  // Pull the next eligible tip off the queue into view. Once the session cap is
+  // reached, drain the queue instead — remaining tips re-fire on a later visit.
   function advance() {
+    if (shownCountRef.current >= MAX_TIPS_PER_SESSION) { queueRef.current = []; setCurrent(null); return; }
     const next = queueRef.current.shift() || null;
     setCurrent(next);
   }
@@ -41,6 +49,11 @@ export default function TipManager({ role, paused = false }) {
       if (tip.role !== 'any' && tip.role !== role) return;
       if (hasSeenTip(id)) return;
       if (currentRef.current === id || queueRef.current.includes(id)) return;
+      // Session throttle: once the cap is reached, drop further triggers. They're
+      // not marked seen, so they re-fire naturally on a later session/visit. The
+      // count advances only when a tip is actually dismissed (see onDismiss), so
+      // a tip that auto-drops for an off-screen anchor doesn't burn a slot.
+      if (shownCountRef.current >= MAX_TIPS_PER_SESSION) return;
       if (currentRef.current) queueRef.current.push(id);
       else setCurrent(id);
     }
@@ -65,6 +78,7 @@ export default function TipManager({ role, paused = false }) {
         if (seen) {
           markTipSeen(current);
           if (tip.marksAction) markAction(tip.marksAction);
+          shownCountRef.current += 1; // count only tips the user actually saw + dismissed
         }
         advance();
       }}
