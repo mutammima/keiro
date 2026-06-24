@@ -97,11 +97,11 @@ export default function DriverStores({ onNav, onSelectStore }) {
       <div style={s.body}>
 
         {/* Connect a store (invite-only) */}
-        <div data-tutorial="stores-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
+        <div data-tutorial="stores-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: dark ? 'rgba(74,123,247,0.10)' : 'rgba(74,123,247,0.07)', border: `1px solid ${dark ? 'rgba(74,123,247,0.45)' : 'rgba(74,123,247,0.35)'}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a store</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a store on Keiro</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              Invite a store with a code — they link to you automatically when they join.
+              Invite with a code to create a live, linked account — their orders and your invoices sync between you automatically.
             </div>
           </div>
           <button onClick={() => setShowInvite(true)} style={{ flexShrink: 0, height: 34, padding: '0 16px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>

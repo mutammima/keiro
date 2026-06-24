@@ -12,6 +12,7 @@ import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
+import { getSignatures } from '../../utils/signatureStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
@@ -44,7 +45,9 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     outstanding, unpaidCount, partialCount, todayCount, overdueCount, allClear,
     filtered, todayInvoices, visibleOlderList, remaining,
     cycleStatus, setStatus,
-    handleDelete, handleShare, handleTogglePin,
+    confirmDelete, pendingDelete,
+    requestDelete, cancelDelete, confirmDeleteNow, undoDelete,
+    handleShare, handleTogglePin,
     isStorePinned,
   } = useInvoiceHistory();
 
@@ -99,6 +102,42 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     onNav('invoice');
   }
 
+  // ── Edit invoice ───────────────────────────────────────────────────────────
+  // An invoice with a captured signature is locked from editing: the signature
+  // is proof-of-delivery for the exact contents at signing time, so we never let
+  // an edit change what a signed slip vouches for. (Delete + recreate forces a
+  // fresh signature.) Editing reopens the New Invoice form in edit mode, carrying
+  // the original number/date/status so the save updates it in place.
+  function isInvoiceSigned(inv) {
+    const sig = getSignatures(inv.number || inv.invoice_number);
+    return !!(sig.seller || sig.buyer);
+  }
+
+  function handleEdit(inv) {
+    const prefill = {
+      editNumber:    inv.number || inv.invoice_number,
+      storeName:     inv.storeName    || inv.store_name    || '',
+      storePhone:    inv.storePhone   || inv.store_phone   || '',
+      storeAddress:  inv.storeAddress || inv.store_address || '',
+      customerName:  inv.customerName || inv.customer_name || '',
+      notes:         inv.notes || '',
+      date:          inv.date || '',
+      time:          inv.time || '',
+      paymentMethod: inv.paymentMethod || inv.payment_method || 'cash',
+      paymentStatus: inv.paymentStatus || inv.payment_status || 'unpaid',
+      createdAt:     inv.createdAt || inv.created_at || '',
+      items: (inv.items || []).map(item => ({
+        id:    item.id || `it_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name:  item.name,
+        qty:   item.qty,
+        price: item.price,
+      })),
+    };
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
+    setOpenMenu(null);
+    onNav('invoice');
+  }
+
   // ── Overdue payment reminder ──────────────────────────────────────────────
   // Opens WhatsApp with a pre-drafted reminder. Amount due is the remaining
   // balance (full total for unpaid, total − payments for partial); "days
@@ -110,6 +149,9 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     const amountDue = Math.max(0, total - paid);
     if (amountDue <= 0) return; // settled — nothing to chase
     const daysOverdue = daysSince(inv.date);
+    // An overdue invoice gets the "past due" wording; a manual early nudge stays
+    // a gentle "still outstanding" reminder.
+    const overdue = isInvoiceOverdue(inv, getFlagDays());
     const url = buildReminderUrl({
       storeName:     inv.storeName  || inv.store_name  || '',
       storePhone:    inv.storePhone || inv.store_phone || '',
@@ -117,6 +159,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
       date:          inv.date,
       amountDue,
       daysOverdue,
+      overdue,
       businessName:  bizName,
     });
     setOpenMenu(null);
@@ -309,12 +352,15 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
-                  {isOverdue && (
+                  {!isInvoiceSigned(inv) && (
+                    <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleEdit(inv)}>Edit</button>
+                  )}
+                  {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
-                  <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => handleDelete(inv.number)}>Delete Invoice</button>
+                  <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => requestDelete(inv.number)}>Delete Invoice</button>
                 </div>
               )}
             </div>
@@ -448,7 +494,14 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
-                  {isOverdue && (
+                  {!isInvoiceSigned(inv) && (
+                    <button style={{ ...s.dropdownItem, color: C.text }}
+                      onClick={() => handleEdit(inv)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }}
                       onClick={() => handleRemind(inv)}
                     >
@@ -466,7 +519,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                     Duplicate
                   </button>
                   <button style={{ ...s.dropdownItem, color: C.danger }}
-                    onClick={() => handleDelete(inv.number)}
+                    onClick={() => requestDelete(inv.number)}
                   >
                     Delete Invoice
                   </button>
@@ -846,11 +899,84 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         </div>,
         document.body
       )}
+
+      {/* Delete confirmation — portaled to body (iOS: escapes overflow-clipped ancestors) */}
+      {confirmDelete && createPortal(
+        <div style={s.modalOverlay} onClick={cancelDelete}>
+          <div
+            style={{ ...s.modalCard, background: C.card, borderColor: C.cardBorder }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p style={{ ...s.modalTitle, color: C.text }}>Delete invoice?</p>
+            <p style={{ ...s.modalText, color: C.textSub }}>
+              Invoice #{confirmDelete.number || confirmDelete.invoice_number} for "{confirmDelete.storeName || confirmDelete.store_name || 'this store'}" will be removed. You'll get a few seconds to undo.
+            </p>
+            <div style={s.modalActions}>
+              <button
+                style={{ ...s.modalBtn, background: C.inputBg, color: C.text, borderColor: C.inputBorder }}
+                onClick={cancelDelete}
+              >Cancel</button>
+              <button
+                style={{ ...s.modalBtn, background: C.danger, color: '#fff', borderColor: C.danger }}
+                onClick={confirmDeleteNow}
+              >Delete</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Undo snackbar — bottom; the real delete finalizes only when this expires */}
+      {pendingDelete && createPortal(
+        <div style={{ ...s.undoToast, background: C.card, borderColor: C.cardBorder }} role="status">
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: C.text }}>Invoice deleted</span>
+          <button style={{ ...s.undoBtn, color: ACCENT }} onClick={undoDelete}>Undo</button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
 
 const s = {
+  // ── Delete confirm modal + Undo snackbar ──────────────────────────────────
+  modalOverlay: {
+    // Above contextual tips (z 9500) so the confirm is never covered.
+    position: 'fixed', inset: 0, zIndex: 9600,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%', maxWidth: 340, borderRadius: 18,
+    border: '1px solid', padding: '22px 20px 18px',
+    boxShadow: '0 16px 48px rgba(0,0,0,0.35)',
+  },
+  modalTitle: { fontSize: 18, fontWeight: 800, margin: '0 0 8px' },
+  modalText: { fontSize: 14, lineHeight: 1.5, margin: '0 0 20px' },
+  modalActions: { display: 'flex', gap: 10 },
+  modalBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    border: '1px solid', fontSize: 15, fontWeight: 700,
+    cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+  },
+  undoToast: {
+    // Above contextual tips (z 9500) — the Undo action is time-critical, so it
+    // must never be hidden behind a tip popover.
+    position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+    bottom: 'calc(20px + env(safe-area-inset-bottom))',
+    zIndex: 9700, width: 'calc(100% - 32px)', maxWidth: 420,
+    boxSizing: 'border-box',
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '12px 12px 12px 18px', borderRadius: 14,
+    border: '1px solid', boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+    animation: 'tut-fadein 0.18s ease both',
+  },
+  undoBtn: {
+    flexShrink: 0, background: 'none', border: 'none',
+    fontSize: 14, fontWeight: 800, cursor: 'pointer',
+    padding: '6px 10px', WebkitTapHighlightColor: 'transparent',
+  },
   page: { minHeight: "100%", display: "flex", flexDirection: "column", overflowX: "hidden" },
   header: {
     padding: '14px 20px 12px',

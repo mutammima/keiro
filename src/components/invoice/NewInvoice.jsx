@@ -65,6 +65,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     generating, error,
     handleGenerate,
     guestWall, setGuestWall,
+    editNumber,
   } = useInvoiceForm(onGenerated);
 
   // ── Contact import ────────────────────────────────────────────────────────
@@ -117,8 +118,26 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     }
   }
 
-  // Layer 2 — first time the invoice form opens, point at the barcode scanner.
-  useEffect(() => { triggerTip('d-barcode'); }, []);
+  // On open, the form must start at the very top (store name first). Reset any
+  // inherited scroll on the overlay, THEN — after a brief beat at the top — fire
+  // the barcode tip. The tip's scroll-into-view would otherwise immediately pull
+  // the camera button up the moment the form opens, burying the first fields the
+  // user came to fill. 1.2s lets them see the top before the tip points lower.
+  useEffect(() => {
+    // Force the overlay's scroll container to the top on open. The container
+    // (.page-from-bottom) persists across opens and may still be mid-slide when
+    // this runs, so reset unconditionally (harmless on non-scrolling nodes) and
+    // again after layout settles (rAF) — otherwise a retained scroll survives.
+    const toTop = () => {
+      let node = document.querySelector('[data-tutorial="invoice-form"]');
+      while (node) { node.scrollTop = 0; node = node.parentElement; }
+      window.scrollTo(0, 0);
+    };
+    toTop();
+    const raf = requestAnimationFrame(toTop);
+    const t = setTimeout(() => triggerTip('d-barcode'), 1200);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+  }, []);
 
   return (
     <>
@@ -276,7 +295,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               onKeyDown={focusNext}
             />
             <div style={{ marginTop: 12 }}>
-              <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <Req /></label>
+              <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <span style={{ color: C.textMuted, fontWeight: 400 }}>(optional)</span></label>
               <input style={{ ...s.input, ...inp }} placeholder="John Smith"
                 enterKeyHint="next" onKeyDown={focusNext}
                 value={customerName} onChange={e => setCustomerName(e.target.value)} />
@@ -443,13 +462,18 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
             </div>
           )}
 
+          {editNumber != null && (
+            <p style={{ margin: '0 0 8px', textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: ACCENT }}>
+              Editing invoice #{editNumber} — saving replaces the original
+            </p>
+          )}
           <button
             data-tutorial="invoice-generate"
             style={{ ...s.generateBtn, opacity: generating ? 0.7 : 1 }}
             onClick={handleGenerate}
             disabled={generating}
           >
-            {generating ? 'Saving…' : 'Generate Invoice'}
+            {generating ? 'Saving…' : (editNumber != null ? 'Save Changes' : 'Generate Invoice')}
           </button>
 
           {/* ── Live preview ─────────────────────────────────────────────── */}

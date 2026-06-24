@@ -22,11 +22,16 @@ import { buildWhatsAppUrl } from './invoiceUtils';
  * @param {string} [p.businessName]
  * @returns {string}
  */
-export function buildReminderMessage({ storeName, invoiceNumber, date, amountDue, daysOverdue, businessName = '' }) {
+export function buildReminderMessage({ storeName, invoiceNumber, date, amountDue, daysOverdue, overdue = true, businessName = '' }) {
+  // Overdue reminders name the days past due; an early (manual) nudge stays
+  // gentle and doesn't claim the invoice is late.
+  const statusLine = overdue
+    ? `A friendly reminder that invoice *#${invoiceNumber}* from ${date} is now *${daysOverdue} day${daysOverdue === 1 ? '' : 's'}* past due.`
+    : `A friendly reminder about invoice *#${invoiceNumber}* from ${date}, which is still outstanding.`;
   return [
     `Hi *${storeName}*,`,
     '',
-    `A friendly reminder that invoice *#${invoiceNumber}* from ${date} is now *${daysOverdue} day${daysOverdue === 1 ? '' : 's'}* past due.`,
+    statusLine,
     '',
     `Amount due: *$${Number(amountDue).toFixed(2)}*`,
     '',

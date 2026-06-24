@@ -119,20 +119,20 @@ export default function SODrivers({ onNav }) {
         <button
           data-tutorial="so-drivers-add-btn"
           onClick={() => { setShowAdd(v => !v); setAddError(''); }}
-          style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, padding: '7px 16px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          style={{ background: C.inputBg, border: `1px solid ${C.inputBorder}`, color: C.text, fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
         >
-          {showAdd ? 'Cancel' : '+ Add'}
+          {showAdd ? 'Cancel' : '+ Add contact'}
         </button>
       </div>
 
       <div data-tip="so-drivers-list" style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Connect a driver (invite-only) */}
-        <div data-tutorial="so-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '14px 16px' }}>
+        <div data-tutorial="so-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: dark ? 'rgba(74,123,247,0.10)' : 'rgba(74,123,247,0.07)', border: `1px solid ${dark ? 'rgba(74,123,247,0.45)' : 'rgba(74,123,247,0.35)'}`, borderRadius: 16, padding: '14px 16px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a driver</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>⇄ Connect a driver on Keiro</div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              Invite a driver with a code — they link to you automatically when they join.
+              Invite with a code to create a live, linked account — their deliveries and invoices sync with you automatically.
             </div>
           </div>
           <button onClick={() => setShowInvite(true)} style={{ flexShrink: 0, height: 34, padding: '0 16px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
@@ -212,7 +212,10 @@ export default function SODrivers({ onNav }) {
         {/* Add driver form */}
         {showAdd && (
           <div style={s.card(C)}>
-            <p style={s.sectionLabel(C)}>New Driver</p>
+            <p style={s.sectionLabel(C)}>Add a contact manually</p>
+            <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 12px', lineHeight: 1.45 }}>
+              Saves a driver to your contacts for reference. This does <b style={{ fontWeight: 700 }}>not</b> create a live Keiro connection — use <b style={{ fontWeight: 700 }}>Invite</b> above to link a real driver account.
+            </p>
             <label data-tutorial="so-label-driver-name" style={s.label(C)}>Name</label>
             <input data-tutorial="so-drivers-name-input" style={{ ...s.input, ...inp }} placeholder="e.g. John Smith"
               value={newName} onChange={e => { setNewName(e.target.value); setAddError(''); }}
@@ -237,10 +240,16 @@ export default function SODrivers({ onNav }) {
         {!loading && drivers.length === 0 && !showAdd && (
           <div style={{ textAlign: 'center', paddingTop: 60 }}>
             <p style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>No drivers yet</p>
-            <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 20px', maxWidth: 260, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
-              Add your delivery drivers and their inventory so you know who to contact.
+            <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 20px', maxWidth: 280, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+              Invite a driver to link a live Keiro account, or add a contact manually just for your own reference.
             </p>
-            <button style={s.accentBtn} onClick={() => setShowAdd(true)}>+ Add Driver</button>
+            <button style={s.accentBtn} onClick={() => setShowInvite(true)}>Invite a driver</button>
+            <div>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{ marginTop: 12, background: 'none', border: 'none', color: C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', WebkitTapHighlightColor: 'transparent' }}
+              >Add a contact manually</button>
+            </div>
           </div>
         )}
 

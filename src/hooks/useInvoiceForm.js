@@ -91,6 +91,14 @@ export function useInvoiceForm(onGenerated) {
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card'
 
+  // ── Edit mode ────────────────────────────────────────────────────────────
+  // When set (via an `editNumber` in the prefill), handleGenerate updates this
+  // existing invoice in place — SAME number — instead of creating a new one.
+  // null = normal create mode. editMetaRef carries the fields we preserve on an
+  // update (original payment status + createdAt) without forcing a re-render.
+  const [editNumber, setEditNumber] = useState(null);
+  const editMetaRef = useRef({ paymentStatus: 'unpaid', createdAt: null });
+
   // ── Autocomplete lists (async loaded) ────────────────────────────────────
   const [storeNames, setStoreNames]     = useState(() => []);
   const [productNames]                  = useState(() => getProductNames()); // sync cache
@@ -120,6 +128,17 @@ export function useInvoiceForm(onGenerated) {
       if (p.customerName) setCustomerName(p.customerName);
       if (p.notes)        setNotes(p.notes);
       if (Array.isArray(p.items) && p.items.length) setItems(p.items);
+      // Edit mode (Duplicate omits these → stays a fresh, create-mode invoice).
+      if (p.editNumber != null) {
+        setEditNumber(p.editNumber);
+        editMetaRef.current = {
+          paymentStatus: p.paymentStatus || 'unpaid',
+          createdAt: p.createdAt || new Date().toISOString(),
+        };
+      }
+      if (p.date)          setDate(p.date);
+      if (p.time)          setTime(p.time);
+      if (p.paymentMethod) setPaymentMethod(p.paymentMethod);
     } catch {}
   }, []);
 
@@ -299,17 +318,25 @@ export function useInvoiceForm(onGenerated) {
   async function handleGenerate() {
     setError('');
     if (!storeName.trim()) return setError('Enter a store name.');
-    if (!customerName.trim()) return setError('Enter a customer name.');
+    // Customer name is optional — it never appears on the generated invoice or
+    // PDF (only as an optional "Attn:" line in the WhatsApp share text), so it
+    // must not block generation.
     if (items.length === 0) return setError('Add at least one item.');
+
+    // Editing an existing invoice updates it in place (same number); only a NEW
+    // invoice consumes a guest entry, completes a connection order, or counts as
+    // an onboarding milestone.
+    const isEdit = editNumber != null;
 
     // Guest hard cap: block the save and surface the account-upsell modal.
     // The walkthrough is exempt — it creates a demo invoice that it removes
-    // afterward, so a capped guest can still complete the tutorial.
-    if (!isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
+    // afterward, so a capped guest can still complete the tutorial. Edits add
+    // no new entry, so they're never capped.
+    if (!isEdit && !isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
 
     setGenerating(true);
     try {
-      const invoiceNumber = await getNextInvoiceNumber();
+      const invoiceNumber = isEdit ? editNumber : await getNextInvoiceNumber();
       const invoice = {
         businessName: businessName.trim(),
         businessPhone: businessPhone.trim(),
@@ -321,29 +348,34 @@ export function useInvoiceForm(onGenerated) {
         date, time, items,
         notes: notes.trim(),
         paymentMethod,
-        paymentStatus: 'unpaid',
-        createdAt: new Date().toISOString(),
+        // Preserve the existing status/created time on an edit; a new invoice
+        // starts unpaid and stamps "now".
+        paymentStatus: isEdit ? editMetaRef.current.paymentStatus : 'unpaid',
+        createdAt: isEdit ? editMetaRef.current.createdAt : new Date().toISOString(),
         // Share with the connected store account when this invoice came from
         // their order, or the store name matches an active connection.
         storeUserId: resolveConnectedStoreUserId(storeName.trim()),
       };
 
-      await saveInvoice(invoice);
+      await saveInvoice(invoice); // upserts by number → updates in place when editing
       await saveStoreName(storeName.trim());
       // Save phone + address in one upsert
       if (storePhone.trim() || storeAddress.trim()) {
         await saveStoreDetails(storeName.trim(), storePhone.trim(), storeAddress.trim());
       }
 
-      // If this invoice was filled from a connected store's order, flip that
-      // order to 'delivered' with the invoice number so the store sees it.
-      completeActiveConnectionOrder(invoiceNumber);
+      if (!isEdit) {
+        // If this invoice was filled from a connected store's order, flip that
+        // order to 'delivered' with the invoice number so the store sees it.
+        completeActiveConnectionOrder(invoiceNumber);
+      }
 
       // Reset form fields
       setItems([]); setStoreName(''); setCustomerName(''); setStorePhone(''); setStoreAddress('');
       setDate(todayString()); setTime(nowTimeString()); setNotes(''); setPaymentMethod('cash');
+      setEditNumber(null);
       onGenerated(invoice);
-      window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_INVOICE_CREATED));
+      if (!isEdit) window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_INVOICE_CREATED));
     } catch (err) {
       console.error(err);
       setError('Something went wrong. Please try again.');
@@ -396,5 +428,6 @@ export function useInvoiceForm(onGenerated) {
     error,
     handleGenerate,
     guestWall, setGuestWall,
+    editNumber, // non-null when editing an existing invoice in place
   };
 }
