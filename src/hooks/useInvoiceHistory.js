@@ -18,7 +18,7 @@ import {
 } from '../utils/storage';
 import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
-import { BUSINESS_NAME_PLACEHOLDER, EVENTS } from '../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, EVENTS, DELETE_UNDO_MS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
 import { markAction } from '../utils/tutorialProgress';
 
@@ -57,7 +57,23 @@ export function useInvoiceHistory() {
   const [, forceUpdate]                   = useState(0);
   const menuRef = useRef(null);
 
+  // ── Delete flow ──────────────────────────────────────────────────────────
+  // confirmDelete: the invoice awaiting a Yes/No in the portaled confirm modal.
+  // pendingDelete: an invoice in its brief post-confirm Undo window — hidden
+  // from every list/stat but still in `invoices` (and still in storage), so Undo
+  // restores it instantly. The real delete fires only when the window expires.
+  const [confirmDelete, setConfirmDelete] = useState(null); // invoice | null
+  const [pendingDelete, setPendingDelete] = useState(null); // { number, invoice } | null
+  const deleteTimerRef   = useRef(null);
+  const pendingDeleteRef = useRef(null);
+  pendingDeleteRef.current = pendingDelete;
+
   const today = todayInvoiceDate();
+
+  // Invoices visible right now: everything except one in its Undo window.
+  const liveInvoices = pendingDelete
+    ? invoices.filter(i => (i.number || i.invoice_number) !== pendingDelete.number)
+    : invoices;
 
   // ── Load invoices + payment log from cloud on mount ──────────────────────
   useEffect(() => {
@@ -100,26 +116,26 @@ export function useInvoiceHistory() {
   // ── Derived stats ─────────────────────────────────────────────────────────
 
   /** Total amount owed across all unpaid and partially paid invoices. */
-  const outstanding = invoices
+  const outstanding = liveInvoices
     .filter(i => getStatus(i) !== 'paid')
     .reduce((s, i) => s + subtotalOf(i), 0);
 
-  const unpaidCount  = invoices.filter(i => getStatus(i) === 'unpaid').length;
-  const partialCount = invoices.filter(i => getStatus(i) === 'partial').length;
-  const todayCount   = invoices.filter(i => i.date === today).length;
+  const unpaidCount  = liveInvoices.filter(i => getStatus(i) === 'unpaid').length;
+  const partialCount = liveInvoices.filter(i => getStatus(i) === 'partial').length;
+  const todayCount   = liveInvoices.filter(i => i.date === today).length;
 
   /** True when all invoices have been collected (outstanding === 0 and there are invoices). */
-  const allClear = outstanding === 0 && invoices.length > 0;
+  const allClear = outstanding === 0 && liveInvoices.length > 0;
 
   // Overdue detection (shared with InvoiceHistory + Home via invoiceUtils).
   // Read the threshold once here and pass it into isOverdue to avoid hitting
   // localStorage for every invoice in the list.
   const flagDays = getFlagDays();
-  const overdueCount = invoices.filter(inv => isOverdue(inv, flagDays)).length;
+  const overdueCount = liveInvoices.filter(inv => isOverdue(inv, flagDays)).length;
 
   // ── Filtered lists ────────────────────────────────────────────────────────
 
-  const filtered = invoices.filter(inv => {
+  const filtered = liveInvoices.filter(inv => {
     const q = search.trim().toLowerCase();
     const storeN = inv.storeName || inv.store_name || '';
     const matchQ = !q || storeN.toLowerCase().includes(q) || String(inv.number || inv.invoice_number).includes(q);
@@ -168,17 +184,63 @@ export function useInvoiceHistory() {
   }
 
   /**
-   * Prompts for confirmation then permanently deletes an invoice.
+   * Permanently deletes an invoice (local + cloud) and its signatures/payments.
+   * Internal — reached only when the Undo window expires or the screen unmounts.
    * @param {number} number - Invoice number to delete.
    */
-  function handleDelete(number) {
-    if (!window.confirm('Delete this invoice? This cannot be undone.')) return;
+  function finalizeDelete(number) {
+    clearTimeout(deleteTimerRef.current);
     deleteInvoice(number).catch(e => console.error(e));
     clearSignatures(number);
     clearPaymentsFor(number);
     setInvoices(prev => prev.filter(i => (i.number || i.invoice_number) !== number));
+    setPendingDelete(cur => (cur && cur.number === number ? null : cur));
+  }
+
+  /** Opens the portaled confirm modal for an invoice. */
+  function requestDelete(number) {
+    const inv = invoices.find(i => (i.number || i.invoice_number) === number);
+    if (inv) setConfirmDelete(inv);
     setOpenMenu(null);
   }
+
+  /** Dismisses the confirm modal without deleting. */
+  function cancelDelete() { setConfirmDelete(null); }
+
+  /**
+   * Confirmed in the modal → hide the invoice and open the Undo window. Nothing
+   * is removed from storage yet; finalizeDelete runs only if Undo isn't tapped.
+   */
+  function confirmDeleteNow() {
+    const inv = confirmDelete;
+    if (!inv) return;
+    const number = inv.number || inv.invoice_number;
+    setConfirmDelete(null);
+    // Only one delete pending at a time — commit any earlier one first.
+    if (pendingDelete && pendingDelete.number !== number) finalizeDelete(pendingDelete.number);
+    setPendingDelete({ number, invoice: inv });
+    clearTimeout(deleteTimerRef.current);
+    deleteTimerRef.current = setTimeout(() => finalizeDelete(number), DELETE_UNDO_MS);
+  }
+
+  /** Taps "Undo" within the window → cancel the pending delete, restore the invoice. */
+  function undoDelete() {
+    clearTimeout(deleteTimerRef.current);
+    setPendingDelete(null);
+  }
+
+  // The user already confirmed the delete; if they leave the screen before the
+  // window expires, commit it (otherwise the invoice — never removed from
+  // storage — would silently reappear on next load).
+  useEffect(() => () => {
+    const p = pendingDeleteRef.current;
+    if (p) {
+      clearTimeout(deleteTimerRef.current);
+      deleteInvoice(p.number).catch(() => {});
+      clearSignatures(p.number);
+      clearPaymentsFor(p.number);
+    }
+  }, []);
 
   /**
    * Generates a PDF and triggers the native share sheet (or downloads as fallback).
@@ -239,9 +301,13 @@ export function useInvoiceHistory() {
     filtered,
     todayInvoices, visibleOlderList, remaining,
 
+    // Delete flow (confirm modal + Undo window)
+    confirmDelete, pendingDelete,
+    requestDelete, cancelDelete, confirmDeleteNow, undoDelete,
+
     // Handlers
     cycleStatus, setStatus,
-    handleDelete, handleShare, handleTogglePin,
+    handleShare, handleTogglePin,
 
     // Utilities
     isStorePinned,

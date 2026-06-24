@@ -120,3 +120,10 @@ export const DEFAULT_FLAG_DAYS = 7;
  * one per keystroke. The input setState stays immediate (no input lag).
  */
 export const AUTOFILL_DEBOUNCE_MS = 250;
+
+/**
+ * How long (ms) a deleted invoice stays recoverable via the "Undo" snackbar
+ * before the deletion is finalized (local + cloud). ~5s is the common snackbar
+ * window; long enough to catch a mis-tap, short enough not to linger.
+ */
+export const DELETE_UNDO_MS = 5000;
