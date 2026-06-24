@@ -73,8 +73,14 @@ export const STORAGE_KEYS = {
 };
 
 // ── Business defaults ───────────────────────────────────────────────────────
-/** Fallback business name when the user hasn't set one yet. */
-export const DEFAULT_BUSINESS_NAME = 'J&Y Distributions';
+/**
+ * The stored business name is empty until the user sets one — we never brand a
+ * new account with a placeholder that masquerades as a real company. Editable
+ * fields start blank; the prompt below is shown as placeholder/hint text only.
+ */
+export const DEFAULT_BUSINESS_NAME = '';
+/** Visible prompt shown where a business name would go before one is set. */
+export const BUSINESS_NAME_PLACEHOLDER = 'Your Business Name';
 
 // ── Invoice numbering ───────────────────────────────────────────────────────
 /** Invoice numbers start counting up from here, so the first issued is 1001. */

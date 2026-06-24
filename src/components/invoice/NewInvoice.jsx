@@ -16,6 +16,7 @@ import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
 import { triggerTip } from '../../utils/tutorialProgress';
+import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
 
 // Lazy-loaded so html5-qrcode (the heavy scanner dependency) is split into its
 // own chunk and only fetched when the user actually taps the scan button.
@@ -149,13 +150,14 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
                 data-tutorial="invoice-biz-name-input"
                 style={{ ...s.bizNameInput, color: C.text, borderBottomColor: ACCENT }}
                 value={businessName}
+                placeholder={BUSINESS_NAME_PLACEHOLDER}
                 onChange={e => setBusinessName(e.target.value)}
                 onBlur={e => handleBizBlur(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleBizBlur(businessName)}
               />
             ) : (
-              <button data-tutorial="invoice-biz-name-btn" style={{ ...s.bizNameBtn, color: C.text }} onClick={() => setEditingBiz(true)}>
-                {businessName} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>✎</span>
+              <button data-tutorial="invoice-biz-name-btn" style={{ ...s.bizNameBtn, color: businessName ? C.text : C.textMuted }} onClick={() => setEditingBiz(true)}>
+                {businessName || BUSINESS_NAME_PLACEHOLDER} <span style={{ fontSize: 12, color: C.textMuted, fontWeight: 400 }}>✎</span>
               </button>
             )}
             {editingBizPhone ? (
