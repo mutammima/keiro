@@ -12,6 +12,7 @@ import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
+import { getSignatures } from '../../utils/signatureStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
@@ -89,6 +90,42 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
       notes:        inv.notes || '',
       items: (inv.items || []).map(item => ({
         id: `dup_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name:  item.name,
+        qty:   item.qty,
+        price: item.price,
+      })),
+    };
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
+    setOpenMenu(null);
+    onNav('invoice');
+  }
+
+  // ── Edit invoice ───────────────────────────────────────────────────────────
+  // An invoice with a captured signature is locked from editing: the signature
+  // is proof-of-delivery for the exact contents at signing time, so we never let
+  // an edit change what a signed slip vouches for. (Delete + recreate forces a
+  // fresh signature.) Editing reopens the New Invoice form in edit mode, carrying
+  // the original number/date/status so the save updates it in place.
+  function isInvoiceSigned(inv) {
+    const sig = getSignatures(inv.number || inv.invoice_number);
+    return !!(sig.seller || sig.buyer);
+  }
+
+  function handleEdit(inv) {
+    const prefill = {
+      editNumber:    inv.number || inv.invoice_number,
+      storeName:     inv.storeName    || inv.store_name    || '',
+      storePhone:    inv.storePhone   || inv.store_phone   || '',
+      storeAddress:  inv.storeAddress || inv.store_address || '',
+      customerName:  inv.customerName || inv.customer_name || '',
+      notes:         inv.notes || '',
+      date:          inv.date || '',
+      time:          inv.time || '',
+      paymentMethod: inv.paymentMethod || inv.payment_method || 'cash',
+      paymentStatus: inv.paymentStatus || inv.payment_status || 'unpaid',
+      createdAt:     inv.createdAt || inv.created_at || '',
+      items: (inv.items || []).map(item => ({
+        id:    item.id || `it_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         name:  item.name,
         qty:   item.qty,
         price: item.price,
@@ -309,6 +346,9 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
+                  {!isInvoiceSigned(inv) && (
+                    <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleEdit(inv)}>Edit</button>
+                  )}
                   {isOverdue && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
@@ -448,6 +488,13 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                     );
                   })}
                   <div style={{ ...s.dropdownDivider, background: C.divider }} />
+                  {!isInvoiceSigned(inv) && (
+                    <button style={{ ...s.dropdownItem, color: C.text }}
+                      onClick={() => handleEdit(inv)}
+                    >
+                      Edit
+                    </button>
+                  )}
                   {isOverdue && (
                     <button style={{ ...s.dropdownItem, color: C.text }}
                       onClick={() => handleRemind(inv)}

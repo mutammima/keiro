@@ -65,6 +65,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     generating, error,
     handleGenerate,
     guestWall, setGuestWall,
+    editNumber,
   } = useInvoiceForm(onGenerated);
 
   // ── Contact import ────────────────────────────────────────────────────────
@@ -443,13 +444,18 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
             </div>
           )}
 
+          {editNumber != null && (
+            <p style={{ margin: '0 0 8px', textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: ACCENT }}>
+              Editing invoice #{editNumber} — saving replaces the original
+            </p>
+          )}
           <button
             data-tutorial="invoice-generate"
             style={{ ...s.generateBtn, opacity: generating ? 0.7 : 1 }}
             onClick={handleGenerate}
             disabled={generating}
           >
-            {generating ? 'Saving…' : 'Generate Invoice'}
+            {generating ? 'Saving…' : (editNumber != null ? 'Save Changes' : 'Generate Invoice')}
           </button>
 
           {/* ── Live preview ─────────────────────────────────────────────── */}
