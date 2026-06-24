@@ -295,7 +295,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               onKeyDown={focusNext}
             />
             <div style={{ marginTop: 12 }}>
-              <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <Req /></label>
+              <label style={{ ...s.fieldLabel, color: C.textSub }}>Customer Name <span style={{ color: C.textMuted, fontWeight: 400 }}>(optional)</span></label>
               <input style={{ ...s.input, ...inp }} placeholder="John Smith"
                 enterKeyHint="next" onKeyDown={focusNext}
                 value={customerName} onChange={e => setCustomerName(e.target.value)} />

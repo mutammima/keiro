@@ -318,7 +318,9 @@ export function useInvoiceForm(onGenerated) {
   async function handleGenerate() {
     setError('');
     if (!storeName.trim()) return setError('Enter a store name.');
-    if (!customerName.trim()) return setError('Enter a customer name.');
+    // Customer name is optional — it never appears on the generated invoice or
+    // PDF (only as an optional "Attn:" line in the WhatsApp share text), so it
+    // must not block generation.
     if (items.length === 0) return setError('Add at least one item.');
 
     // Editing an existing invoice updates it in place (same number); only a NEW
