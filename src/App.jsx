@@ -29,7 +29,7 @@ import StoreMap from './pages/StoreMap';
 import Notes from './pages/Notes';
 import Home from './pages/Home';
 import EndOfDay from './pages/EndOfDay';
-import WhatsNew, { hasSeenWhatsNew } from './components/ui/WhatsNew';
+import WhatsNew, { hasSeenWhatsNew, markWhatsNewSeen } from './components/ui/WhatsNew';
 import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
@@ -178,11 +178,15 @@ function AppInner({ role, onSwitchRole }) {
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [role, refreshBadges]);
 
-  // Show WhatsNew only once onboarding is done (or already done on a returning user).
+  // "What's New" is a changelog — only meaningful to someone who used a PRIOR
+  // version. A brand-new user (onboarding was needed at mount) has nothing to
+  // compare against, so silently mark this version seen instead of showing the
+  // modal. Returning users who update (onboarding already long done) still see it.
+  const wasFirstRunRef = useRef(shouldShowOnboarding);
   useEffect(() => {
-    if (!shouldShowOnboarding && !hasSeenWhatsNew()) {
-      setShowWhatsNew(true);
-    }
+    if (shouldShowOnboarding || hasSeenWhatsNew()) return;
+    if (wasFirstRunRef.current) markWhatsNewSeen();
+    else setShowWhatsNew(true);
   }, [shouldShowOnboarding]);
 
   // Listen for version-check update signal and surface it to the user
