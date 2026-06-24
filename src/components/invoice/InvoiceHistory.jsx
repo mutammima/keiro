@@ -149,6 +149,9 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     const amountDue = Math.max(0, total - paid);
     if (amountDue <= 0) return; // settled — nothing to chase
     const daysOverdue = daysSince(inv.date);
+    // An overdue invoice gets the "past due" wording; a manual early nudge stays
+    // a gentle "still outstanding" reminder.
+    const overdue = isInvoiceOverdue(inv, getFlagDays());
     const url = buildReminderUrl({
       storeName:     inv.storeName  || inv.store_name  || '',
       storePhone:    inv.storePhone || inv.store_phone || '',
@@ -156,6 +159,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
       date:          inv.date,
       amountDue,
       daysOverdue,
+      overdue,
       businessName:  bizName,
     });
     setOpenMenu(null);
@@ -351,7 +355,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   {!isInvoiceSigned(inv) && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleEdit(inv)}>Edit</button>
                   )}
-                  {isOverdue && (
+                  {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
@@ -497,7 +501,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                       Edit
                     </button>
                   )}
-                  {isOverdue && (
+                  {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }}
                       onClick={() => handleRemind(inv)}
                     >
