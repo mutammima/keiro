@@ -1,5 +1,9 @@
 # Keiro — Claude Instructions
 
+> **Full architectural primer:** [`docs/CONTEXT.md`](docs/CONTEXT.md) — a standalone, in-depth brief
+> on what Keiro is, the data/storage layer, the connection/order/marketplace flows, the tutorial
+> system, data shapes, and house conventions. Read it (or paste it into a fresh chat) for deep context.
+
 ## What is Keiro?
 
 Keiro is a mobile-first PWA that connects delivery drivers and retail store owners. Drivers use it to create and share invoices, track deliveries, and manage their store relationships. Store owners use it to place orders with connected drivers, track deliveries, and view billing from their drivers. The two sides link via invite codes and communicate through a shared connection layer backed by Supabase.
