@@ -310,9 +310,25 @@ All state keys are `inv_`-prefixed so backup/restore captures them automatically
 - **Phase 3.1 — cross-account orders** (PR #104): connected store's order → driver's Route tab → Accept/Fill Invoice → on generate the order flips to `delivered` with the invoice number (30-min latch TTL); marketplace tables activated
 - **Payment logging, overdue WhatsApp reminders, sync-failure toasts** — see `utils/paymentStorage.js`, `utils/reminderMessage.js`, `utils/syncNotify.js`
 
-## Pending — Phase 3 queue
+## Phase 3 — shipped
 
-- **3.2 Shared invoice visibility** — driver's invoices for a connected store appear in that store's Invoices tab (read-only + payment status)
-- **3.3 Marketplace → connection loop** — a marketplace match ends in an invite/connection
-- **3.4 Cross-account event badges** — unread counts for new orders / invoices / payments
-- **Known limitation:** invites created in guest mode never reach the cloud (no session), so the other party can't redeem them
+All three Phase 3 items are wired and live:
+
+- **3.2 Shared invoice visibility** — `SOInvoices.jsx` loads shared invoices via
+  `getSharedInvoices`/`loadSharedInvoicesFromCloud` (connectionOrderStorage) and shows
+  receiving confirmation
+- **3.3 Marketplace → connection loop** — `Marketplace.jsx` / `FindDrivers.jsx` call
+  `requestConnection()` (connectionStorage), so a marketplace match ends in a connection request
+- **3.4 Cross-account event badges** — `eventBadges.js`, consumed in `App.jsx`
+
+Guest-mode invites (the old known limitation) are handled by gating: tapping Invite as a
+guest shows an "Account required" wall instead of creating an invite that could never be
+redeemed.
+
+## Pending — real-world launch blockers (not code)
+
+- **SMS provider** — phone-OTP sign-up sends no codes until a provider (e.g. Twilio) is
+  configured in Supabase Auth; until then nobody can create a real account
+- **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
+  receiving confirmation) are code-complete but have never been exercised on two physical
+  phones with live accounts
