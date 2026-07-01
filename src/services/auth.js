@@ -25,13 +25,71 @@ export async function signInWithEmail(email, password) {
 
 /**
  * Create a new account with email + password.
+ * When the project has "Confirm email" enabled, `user` is returned but
+ * `session` is null until the confirmation link is clicked — callers use
+ * that to show a "check your email" notice instead of proceeding.
  * @param {string} email
  * @param {string} password
- * @returns {Promise<{ user: object|null, error: object|null }>}
+ * @returns {Promise<{ user: object|null, session: object|null, error: object|null }>}
  */
 export async function signUpWithEmail(email, password) {
   try {
     const { data, error } = await supabase.auth.signUp({ email, password });
+    return { user: data?.user ?? null, session: data?.session ?? null, error };
+  } catch (err) {
+    return { user: null, session: null, error: err };
+  }
+}
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+
+/**
+ * Kick off Google sign-in. On success the browser NAVIGATES AWAY to Google and
+ * returns to the app's origin, where supabase-js (detectSessionInUrl) picks up
+ * the session — so this only "returns" on failure to start the flow.
+ * @returns {Promise<{ error: object|null }>}
+ */
+export async function signInWithGoogle() {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+// ── Password recovery ─────────────────────────────────────────────────────────
+
+/**
+ * Emails a password-reset link. Clicking it lands back on the app origin with a
+ * recovery session; AuthGate listens for the PASSWORD_RECOVERY event and shows
+ * the set-new-password screen.
+ * @param {string} email
+ * @returns {Promise<{ error: object|null }>}
+ */
+export async function resetPassword(email) {
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    return { error };
+  } catch (err) {
+    return { error: err };
+  }
+}
+
+/**
+ * Sets a new password for the currently-authenticated user (used from the
+ * recovery screen, where the reset link established a session).
+ * @param {string} newPassword
+ * @returns {Promise<{ user: object|null, error: object|null }>}
+ */
+export async function updatePassword(newPassword) {
+  try {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     return { user: data?.user ?? null, error };
   } catch (err) {
     return { user: null, error: err };

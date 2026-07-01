@@ -1,19 +1,24 @@
 /**
- * OnboardingFlow — the phone-OTP signup / sign-in experience that replaces the
- * old LoginScreen. Five forward-and-back screens with a 3-dot progress indicator:
+ * OnboardingFlow — sign-up / sign-in. Google OAuth is the primary path, real
+ * email + password the fallback; both funnel new users through the same
+ * profile-setup screens:
  *
- *   1. Welcome   — splash + Get started / Log in / (de-emphasized) Try as guest
- *   2. Phone     — US phone entry → sends an SMS code (signInWithOtp)
- *   3. Verify    — 6-box OTP → verifyOtp establishes the session
- *   4. About you — name / email / role / conditional store|business name → profiles
- *   5. Plan      — Basic (free, selected); Pro/Business "coming soon" → into the app
+ *   1. Welcome   — Continue with Google / Sign up with email / Log in / guest
+ *   2. About you — name / email / role / conditional store|business name → profiles
+ *      (names + email prefill from the provider when available)
+ *   3. Plan      — Basic (free, selected); Pro/Business "coming soon" → into the app
  *
- * Lazy-loaded by AuthGate so none of this is in the main bundle. The session is
- * created at screen 3; AuthGate keeps showing this flow until onboarding is
- * complete (it gates on profile/role, not just the session).
+ * Google's redirect leg: signInWithOAuth navigates away; on return supabase-js
+ * (detectSessionInUrl) restores the session and AuthGate remounts this flow with
+ * it — the 'resuming' path fetches the profile and either enters the app or
+ * lands on profile setup.
  *
- * A discreet email/password fallback (existing accounts) and a DEV-only bypass
- * are reachable from the Welcome screen.
+ * The phone-OTP screens (Phone → Verify) remain in the file but are DORMANT —
+ * no button reaches them until an SMS provider is funded in Supabase Auth.
+ *
+ * Lazy-loaded by AuthGate so none of this is in the main bundle. AuthGate keeps
+ * showing this flow until onboarding is complete (it gates on profile/role, not
+ * just the session). A DEV-only bypass is reachable from the Welcome screen.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -22,7 +27,7 @@ import { LIGHT, DARK, ACCENT } from '../../theme';
 import KeiroWordmark from '../ui/KeiroWordmark';
 import {
   sendPhoneOtp, verifyPhoneOtp, fetchProfile, saveProfile,
-  signInWithEmail, signUpWithEmail,
+  signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword,
 } from '../../services/auth';
 import { setRole } from '../../utils/storeOwnerStorage';
 import { getBusinessName, saveBusinessName } from '../../utils/storage';
@@ -157,7 +162,20 @@ function Body({ children }) {
 }
 
 // ── Screen 1: Welcome ────────────────────────────────────────────────────────
-function WelcomeScreen({ onStart, onEmail, onGuest, onDev, C }) {
+
+/** Official multi-colour Google "G" (SVG colours are hardcoded per convention). */
+function GoogleLogo({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+function WelcomeScreen({ onGoogle, googleLoading, googleError, onEmailSignup, onEmailLogin, onGuest, onDev, C, dark }) {
   return (
     <Screen C={C}>
       <div style={{
@@ -178,10 +196,32 @@ function WelcomeScreen({ onStart, onEmail, onGuest, onDev, C }) {
           </div>
         </div>
 
-        {/* Lower — actions */}
+        {/* Lower — actions. Google is primary (one tap, nothing to remember);
+            email is the accountless-Google fallback; phone OTP is dormant until
+            an SMS provider is funded. */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <PrimaryButton onClick={onStart} accent={ACCENT}>Get started</PrimaryButton>
-          <button onClick={onEmail} style={{
+          <button
+            onClick={onGoogle}
+            disabled={googleLoading}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              height: 52, width: '100%', borderRadius: 26,
+              background: dark ? '#fff' : '#fff',
+              border: dark ? 'none' : '1px solid rgba(0,0,0,0.12)',
+              color: '#1f1f1f', fontSize: 15.5, fontWeight: 700,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              opacity: googleLoading ? 0.7 : 1,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+            }}
+          >
+            <GoogleLogo />
+            {googleLoading ? 'Opening Google…' : 'Continue with Google'}
+          </button>
+          <PrimaryButton onClick={onEmailSignup} accent={ACCENT}>Sign up with email</PrimaryButton>
+          {googleError && (
+            <p style={{ fontSize: 12.5, color: '#ef4444', fontWeight: 600, margin: 0 }}>{googleError}</p>
+          )}
+          <button onClick={onEmailLogin} style={{
             background: 'none', border: 'none', color: C.textSub, fontSize: 14.5, fontWeight: 600,
             cursor: 'pointer', padding: '6px', WebkitTapHighlightColor: 'transparent',
           }}>
@@ -559,22 +599,57 @@ function PlanScreen({ onBack, onStart, loading, C }) {
   );
 }
 
-// ── Email fallback (existing accounts) ───────────────────────────────────────
-function EmailLoginScreen({ onBack, onAuthed, C }) {
-  const [mode, setMode] = useState('signin');
-  const [username, setUsername] = useState('');
+// ── Email sign-up / log-in ────────────────────────────────────────────────────
+// Real email addresses. Legacy compat: pre-rename accounts were created as
+// username@invoicego.app — a sign-IN input with no '@' gets that suffix so those
+// accounts still work. Sign-UP always requires a real address (it's what makes
+// password recovery possible).
+function EmailLoginScreen({ onBack, onAuthedUser, initialMode = 'signin', C, dark }) {
+  const [mode, setMode]         = useState(initialMode);
+  const [emailInput, setEmail]  = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [notice, setNotice]     = useState(''); // confirmation-sent / reset-sent
+
+  const looksLikeEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  function resolveEmail() {
+    const raw = emailInput.trim().toLowerCase();
+    if (raw.includes('@')) return raw;
+    // Legacy username-only account (sign-in only).
+    return mode === 'signin' ? `${raw}@invoicego.app` : raw;
+  }
 
   async function submit() {
-    if (!username.trim() || !password) { setError('Please enter your username and password.'); return; }
+    if (!emailInput.trim() || !password) { setError('Please enter your email and password.'); return; }
+    const email = resolveEmail();
+    if (mode === 'signup' && !looksLikeEmail(email)) { setError('Enter a valid email address — it’s how you recover your account.'); return; }
+    setError(''); setNotice(''); setLoading(true);
+    if (mode === 'signin') {
+      const { user, error: err } = await signInWithEmail(email, password);
+      if (err) { setError(friendlyAuthError(err) || err.message || 'Something went wrong. Please try again.'); setLoading(false); return; }
+      onAuthedUser(user);
+    } else {
+      const { user, session, error: err } = await signUpWithEmail(email, password);
+      if (err) { setError(friendlyAuthError(err) || err.message || 'Something went wrong. Please try again.'); setLoading(false); return; }
+      if (!session) {
+        // "Confirm email" is on for this project — no session until they click the link.
+        setNotice(`Almost there — we sent a confirmation link to ${email}. Tap it, then come back and log in.`);
+        setMode('signin'); setLoading(false); return;
+      }
+      onAuthedUser(user);
+    }
+  }
+
+  async function forgot() {
+    const email = resolveEmail();
+    if (!looksLikeEmail(email)) { setError('Enter your account email above first, then tap “Forgot password?”.'); return; }
     setError(''); setLoading(true);
-    const email = username.trim().toLowerCase() + '@invoicego.app';
-    const fn = mode === 'signin' ? signInWithEmail : signUpWithEmail;
-    const { user, error: err } = await fn(email, password);
-    if (err) { setError(err.message || 'Something went wrong.'); setLoading(false); }
-    else onAuthed(user);
+    const { error: err } = await resetPassword(email);
+    setLoading(false);
+    if (err) { setError(friendlyAuthError(err) || err.message || 'Could not send the reset email. Try again.'); return; }
+    setNotice(`Reset link sent to ${email} — tap it to choose a new password.`);
   }
 
   return (
@@ -582,22 +657,37 @@ function EmailLoginScreen({ onBack, onAuthed, C }) {
       <Header onBack={onBack} active={null} totalDots={3} accent={ACCENT} C={C} />
       <Body>
         <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '14px 0 8px', letterSpacing: '-0.01em' }}>
-          {mode === 'signin' ? 'Log in with email' : 'Create an account'}
+          {mode === 'signin' ? 'Log in' : 'Create your account'}
         </h2>
-        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 24px', lineHeight: 1.5 }}>For accounts created before phone sign-in.</p>
+        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 24px', lineHeight: 1.5 }}>
+          {mode === 'signin'
+            ? 'Welcome back — your data syncs across devices.'
+            : 'Free. Your invoices and orders back up to the cloud.'}
+        </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input value={username} onChange={(e) => { setUsername(e.target.value); setError(''); }} placeholder="Username" autoComplete="username" autoCapitalize="none" style={textInputStyle(C)} />
+          <input value={emailInput} onChange={(e) => { setEmail(e.target.value); setError(''); }} type="email" inputMode="email" placeholder="you@example.com" autoComplete="email" autoCapitalize="none" style={textInputStyle(C)} />
           <input value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} type="password" placeholder="Password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} style={textInputStyle(C)} />
         </div>
 
+        {mode === 'signin' && (
+          <div style={{ textAlign: 'right', marginTop: 10 }}>
+            <button onClick={forgot} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '4px 2px', WebkitTapHighlightColor: 'transparent' }}>
+              Forgot password?
+            </button>
+          </div>
+        )}
+
+        {notice && (
+          <p style={{ fontSize: 13.5, color: dark ? '#2ECC8A' : '#16a34a', fontWeight: 600, lineHeight: 1.5, margin: '12px 0 0' }}>{notice}</p>
+        )}
         <ErrorText C={C}>{error}</ErrorText>
 
         <div style={{ flex: 1, minHeight: 18 }} />
         <PrimaryButton onClick={submit} loading={loading} accent={ACCENT}>{mode === 'signin' ? 'Log in' : 'Create account'}</PrimaryButton>
         <div style={{ textAlign: 'center', marginTop: 14, fontSize: 14, color: C.textMuted }}>
           {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-          <button onClick={() => { setMode((m) => (m === 'signin' ? 'signup' : 'signin')); setError(''); }} style={{ background: 'none', border: 'none', color: ACCENT, fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 0, WebkitTapHighlightColor: 'transparent' }}>
+          <button onClick={() => { setMode((m) => (m === 'signin' ? 'signup' : 'signin')); setError(''); setNotice(''); }} style={{ background: 'none', border: 'none', color: ACCENT, fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 0, WebkitTapHighlightColor: 'transparent' }}>
             {mode === 'signin' ? 'Create one' : 'Log in'}
           </button>
         </div>
@@ -615,13 +705,31 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
   const [phoneDigits, setPhoneDigits] = useState('');
   const [authUser, setAuthUser] = useState(session?.user ?? null);
   const [finishing, setFinishing] = useState(false);
+  const [emailMode, setEmailMode] = useState('signin'); // which tab the email screen opens on
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState('');
   const [data, setData] = useState({ firstName: '', lastName: '', email: '', role: '', storeName: '', businessName: '' });
 
   const fullPhone = '+1' + phoneDigits;
   const displayPhone = formatUSPhone(phoneDigits);
 
-  // Resume: a session already exists (closed app mid-onboarding, or returning
-  // user on a new device). Load their profile, else send them to profile setup.
+  // Pre-fill the profile form from whatever the auth provider knows — a Google
+  // user arrives with full_name + email, an email signup with just the email.
+  function prefillFromUser(user) {
+    if (!user) return;
+    const meta = user.user_metadata || {};
+    const [first = '', ...rest] = String(meta.full_name || meta.name || '').trim().split(/\s+/);
+    setData(d => ({
+      ...d,
+      firstName: d.firstName || first,
+      lastName:  d.lastName  || rest.join(' '),
+      email:     d.email     || user.email || '',
+    }));
+  }
+
+  // Resume: a session already exists (closed app mid-onboarding, a returning
+  // user on a new device, or the return leg of the Google OAuth redirect).
+  // Load their profile, else send them to profile setup.
   useEffect(() => {
     if (step !== 'resuming') return;
     let cancelled = false;
@@ -631,10 +739,29 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
       const { profile } = await fetchProfile(uid);
       if (cancelled) return;
       if (profile && profile.role) { applyProfileLocal(profile); onAuthed(session.user); }
-      else setStep('profile');
+      else { prefillFromUser(session.user); setStep('profile'); }
     })();
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Google sign-in: on success the browser navigates away to Google and comes
+  // back to the origin, where the 'resuming' path above takes over.
+  async function handleGoogle() {
+    setGoogleError(''); setGoogleLoading(true);
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setGoogleError(friendlyAuthError(error) || 'Could not open Google sign-in.');
+      setGoogleLoading(false);
+      return;
+    }
+    // Success normally unloads the page. Some in-app browsers (WhatsApp,
+    // Instagram) block the OAuth navigation — reset after a beat so the button
+    // isn't stuck on "Opening Google…" forever, with a pointer to the fallback.
+    setTimeout(() => {
+      setGoogleLoading(false);
+      setGoogleError('Google sign-in didn’t open — your browser may block it. Try “Sign up with email” instead.');
+    }, 8000);
+  }
 
   function applyProfileLocal(p) {
     try {
@@ -646,12 +773,13 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
     } catch { /* ignore */ }
   }
 
-  // After OTP verifies: skip to app if a profile already exists, else profile setup.
+  // After any sign-in establishes a session (OTP verify, email log-in/sign-up):
+  // skip to the app if a profile already exists, else profile setup.
   async function onVerified(user) {
     setAuthUser(user);
     const { profile } = await fetchProfile(user.id);
     if (profile && profile.role) { applyProfileLocal(profile); onAuthed(user); }
-    else setStep('profile');
+    else { prefillFromUser(user); setStep('profile'); }
   }
 
   function finish() {
@@ -683,9 +811,22 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
     case 'plan':
       return <PlanScreen key="plan" onBack={() => setStep('profile')} onStart={finish} loading={finishing} C={C} />;
     case 'email':
-      return <EmailLoginScreen key="email" onBack={() => setStep('welcome')} onAuthed={onAuthed} C={C} />;
+      return <EmailLoginScreen key="email" initialMode={emailMode} onBack={() => setStep('welcome')} onAuthedUser={onVerified} C={C} dark={dark} />;
     case 'welcome':
     default:
-      return <WelcomeScreen key="welcome" onStart={() => setStep('phone')} onEmail={() => setStep('email')} onGuest={onGuest} onDev={devBypass} C={C} />;
+      return (
+        <WelcomeScreen
+          key="welcome"
+          onGoogle={handleGoogle}
+          googleLoading={googleLoading}
+          googleError={googleError}
+          onEmailSignup={() => { setEmailMode('signup'); setStep('email'); }}
+          onEmailLogin={() => { setEmailMode('signin'); setStep('email'); }}
+          onGuest={onGuest}
+          onDev={devBypass}
+          C={C}
+          dark={dark}
+        />
+      );
   }
 }
