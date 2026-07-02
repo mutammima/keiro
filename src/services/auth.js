@@ -96,15 +96,37 @@ export async function updatePassword(newPassword) {
   }
 }
 
+// Device-level preferences that survive a sign-out — they belong to the phone,
+// not the account. Everything else inv_-prefixed is account data (role, caches,
+// flags, PIN) and MUST be cleared, or the next account to sign in on this
+// device inherits the previous user's identity: hasCompletedOnboarding() sees
+// the stale role and skips onboarding, and the old account's cached invoices
+// render in the new account's UI.
+const DEVICE_PREF_KEYS = new Set(['inv_dark_mode', 'inv_accent_color', 'inv_density', 'inv_easy_mode']);
+
+function clearAccountLocalData() {
+  try {
+    const doomed = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('inv_') && !DEVICE_PREF_KEYS.has(k)) doomed.push(k);
+    }
+    doomed.forEach(k => localStorage.removeItem(k));
+  } catch { /* storage unavailable — nothing to clear */ }
+}
+
 /**
- * Sign out the current user.
+ * Sign out the current user and clear their account-scoped local data
+ * (device preferences like theme/accent/density are kept).
  * @returns {Promise<{ error: object|null }>}
  */
 export async function signOut() {
   try {
     const { error } = await supabase.auth.signOut();
+    clearAccountLocalData();
     return { error };
   } catch (err) {
+    clearAccountLocalData();
     return { error: err };
   }
 }
