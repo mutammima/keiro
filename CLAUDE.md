@@ -35,6 +35,11 @@ npm run dev        # → http://localhost:5173
 npm run build      # production build (must pass zero errors before any PR)
 ```
 
+## Live Deployment
+
+- **Production URL: `https://keiro-mutammimas-projects.vercel.app`** — the only URL that serves the app. `keiro.vercel.app`, `delivery-invoice.vercel.app`, and `invoicego.app` do **not** (the project was renamed delivery-invoice → invoice-go → invogo → keiro over time; old URLs are dead or detached). Verify what's live with `curl -s <prod>/version.json` — it returns the deployed git hash.
+- **Dev-server config names** (`.claude/launch.json`): `invoicego` (dev, port 5173) and `invoicego-preview` (preview, port 4174). These predate the Keiro rename — use these exact names; there is no server named `keiro`.
+
 ## Two Roles and Their Tabs
 
 Every account picks a role on first launch (stored in `inv_user_role`). The top nav shows a different tab strip per role.
@@ -170,14 +175,14 @@ src/
     storeowner/        Store Owner tab pages (SOHome, SOOrders, SODrivers, SOInvoices, SOReports, NewRequest)
     marketplace/       Discovery feeds (Marketplace, MyListings, FindDrivers)
   components/
-    auth/              Auth wrapper + login screen + guest upsell
+    auth/              AuthGate wrapper + OnboardingFlow (Google/email sign-in) + guest upsell
     connections/       InviteModal (invite code/link share sheet)
     dashboard/         Presentational chart components for Home dashboard
     invoice/           Invoice creation, history, view, preview, edit modal
     navigation/        Top nav bar, sidebar drawer, in-page footer
     onboarding/        RoleSelector (driver vs store owner, first launch)
     settings/          PIN lock, theme toggle
-    tutorial/          Onboarding tutorials (driver + SO variants)
+    tutorial/          3-layer onboarding: QuickStart + contextual tips + Help checklist (see Onboarding section)
     ui/                Splash screen, update banner, what's new modal, etc.
   hooks/               Custom React hooks
   services/            Supabase client, auth, db, migration (was lib/)
@@ -213,10 +218,11 @@ src/
 | `src/components/navigation/NavDrawer.jsx` | Sidebar navigation drawer |
 | `src/components/navigation/AppFooter.jsx` | In-page footer links |
 | `src/components/auth/AuthGate.jsx` | Auth wrapper |
-| `src/components/auth/LoginScreen.jsx` | Login / passkey screen |
+| `src/components/auth/OnboardingFlow.jsx` | Sign-in / sign-up flow — Google primary, email/password + recovery (PR #140) |
 | `src/components/settings/PinLock.jsx` | PIN lock screen |
 | `src/components/settings/ThemeToggle.jsx` | Dark/light toggle |
-| `src/components/tutorial/OnboardingTutorial.jsx` | First-time 5-step animated tutorial |
+| `src/components/tutorial/QuickStart.jsx` | First-run 4-step spotlight tutorial (see Onboarding section) |
+| `src/components/tutorial/WalkthroughRunner.jsx` | Replayable guided walkthroughs |
 | `src/components/ui/UpdateBanner.jsx` | "Update available" banner |
 | `src/components/ui/SplashScreen.jsx` | App launch splash |
 | `src/components/ui/WhatsNew.jsx` | What's new modal |
@@ -226,7 +232,7 @@ src/
 | `src/hooks/useInvoiceForm.js` | Invoice form state logic |
 | `src/hooks/useInvoiceHistory.js` | Invoice history state + payment status logic |
 | `src/services/supabase.js` | Supabase client |
-| `src/services/auth.js` | Auth helpers (signIn, signOut, passkey) |
+| `src/services/auth.js` | Auth helpers — `signInWithEmail` / `signUpWithEmail` / `signInWithGoogle`, `resetPassword` / `updatePassword`, `signOut`, phone OTP, profile CRUD |
 | `src/services/db.js` | Database CRUD helpers |
 | `src/services/migration.js` | LocalStorage → Supabase migration |
 | `src/utils/storage.js` | Data helpers (Supabase + localStorage); mirrors invoices to cache + emits sync-error toasts on failed cloud writes |
@@ -293,6 +299,21 @@ All state keys are `inv_`-prefixed so backup/restore captures them automatically
 - **`overflowX: 'clip'` not `'hidden'`**: `clip` prevents horizontal scroll without creating a new containing block — use it on page wrappers so fixed portals still escape.
 - **Unauthenticated Supabase deletes**: RLS silently returns no error when the user isn't logged in, so always delete from localStorage first, then attempt the cloud sync.
 
+## Data & State Gotchas
+
+- **All `inv_*` localStorage values are JSON-encoded.** `localStorage.getItem('inv_user_role')` returns `'"driver"'` (with quotes) — comparing it raw against `'driver'` shipped a real bug (invisible walkthrough). Always `JSON.parse` before comparing.
+
+## Testing & Verification
+
+- **Use a real `+tag` account for anything meaningful.** The old `test/test` login is gone. There is a DEV-only bypass (`OnboardingFlow.jsx`, gated on `import.meta.env.DEV`) that logs you in as a fake `{id:'dev'}` user — but it only exists under `npm run dev` (never in preview/prod builds) and creates NO real Supabase account, so it's useless for testing auth, cloud sync, or cross-account flows. For those, sign up with a real `alomonds+<tag>@gmail.com` account and report created throwaway accounts when done.
+- **Definition of done for UI fixes** — follow `.claude/skills/verified-fix/`: nuke the service worker first, real account, 375px viewport, screenshot proof before claiming fixed. A stale SW serving an old bundle is the #1 source of "the fix didn't work" false signals.
+- **Shipping** — follow `.claude/skills/ship/`: every "merge" should end with a state table (branch / PR / build / deploy / live version) so merge-and-deploy status never needs to be asked.
+
+## Tooling Conventions
+
+- **Prefer the dedicated tools over shell one-liners**: Read (not `sed -n`/`cat`), Edit (not `sed -i`/`perl -0pi`), Grep (not `grep -rn` pipelines), Write (not heredocs/`node -e` file writes). One-liner edits generate a permission prompt each and have repeatedly failed on zsh quoting/globbing.
+- **Large pasted specs**: save to `docs/specs/` immediately and work from the file — see `.claude/skills/spec/`.
+
 ## Shared Utilities
 
 - `src/utils/constants.js` — single source of truth for magic values: `STORAGE_KEYS`
@@ -327,8 +348,9 @@ redeemed.
 
 ## Pending — real-world launch blockers (not code)
 
-- **SMS provider** — phone-OTP sign-up sends no codes until a provider (e.g. Twilio) is
-  configured in Supabase Auth; until then nobody can create a real account
 - **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
   receiving confirmation) are code-complete but have never been exercised on two physical
   phones with live accounts
+
+(The old SMS-provider blocker is resolved: phone-OTP was replaced by Google sign-in +
+email/password auth in PR #140, so real accounts work without Twilio.)
