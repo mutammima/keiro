@@ -56,7 +56,7 @@ flows back to the store's Invoices tab.
 | UI | **React 19.2** (function components + hooks only) |
 | Build | **Vite** (PWA) |
 | Styling | **Inline styles only** — no Tailwind, no CSS modules, no CSS-in-JS. Colors from `src/theme.js`. |
-| Backend/Auth/DB | **Supabase** (`@supabase/supabase-js` 2.x) — Postgres + Row-Level Security + phone-OTP auth. Anon key only on the client. |
+| Backend/Auth/DB | **Supabase** (`@supabase/supabase-js` 2.x) — Postgres + Row-Level Security + auth (Google OAuth + email/password; phone-OTP dormant). Anon key only on the client. |
 | Local persistence | **localStorage** (every app feature works offline; cloud is best-effort sync) |
 | PDF | **jsPDF 4.x + jspdf-autotable** (lazy-loaded only at generation time) |
 | Barcode scan | **html5-qrcode** (lazy-loaded) |
@@ -107,13 +107,18 @@ variable string that works in `style` props; in raw SVG `fill`/`stroke` hardcode
 `glassStyle(dark)` = sticky-header backdrop blur (use only on sticky/fixed headers).
 
 ### 4d. Auth & guest mode
-- Sign-up is **phone OTP** ("What's your number?" → SMS code), with an email fallback in `auth.js`.
-  (Note: a phone provider must be configured in Supabase for OTP to actually send.)
+- Sign-up/sign-in is **Google OAuth (primary) + real email + password** (Supabase). Google returns
+  via redirect (`detectSessionInUrl` restores the session); email supports password reset. Both funnel
+  new users through the same profile-setup screens (`OnboardingFlow.jsx` — name/email prefilled from
+  the provider), then a plan screen, then the app. **Phone-OTP is still in the code but dormant** —
+  no button reaches it until an SMS provider is funded in Supabase Auth.
 - **Guest mode** (`localStorage['inv_guest_mode'] === 'true'`, helpers in `guestMode.js`): full local
   use without an account, capped at `GUEST_ENTRY_CAP` (5) saved entries. Cloud writes silently no-op
   (RLS rejects unauthenticated). Cross-account features (invites, sending orders to drivers) are
-  hard-gated behind account creation because they need a session. The cold-start screen
-  (`OnboardingFlow.jsx`) offers Get started (sign up) / Log in / Try as guest.
+  hard-gated behind account creation because they need a session. The cold-start screen offers
+  Continue with Google / Sign up with email / Log in / Try as guest.
+- **Sign-out clears account-scoped local data** (all `inv_*` except device prefs like theme/accent),
+  so the next account to sign in on the same device doesn't inherit the previous user's role/caches.
 
 ---
 
@@ -138,7 +143,7 @@ This is where most domain logic lives. Each module is local-first + cloud-sync:
 | `pdfGenerator.js` | jsPDF invoice generation (lazy) |
 | `eventBadges.js`, `geo.js`, `barcodeApi.js`, `guestMode.js`, `tutorialProgress.js`, `tutorialState.js` | Unread badges, geolocation, barcode lookup, guest cap, tutorial registries/state |
 
-`services/`: `supabase.js` (client), `auth.js` (sign-in/OTP/profile), `db.js` (raw Supabase CRUD;
+`services/`: `supabase.js` (client), `auth.js` (Google/email sign-in, password reset, dormant OTP, profile), `db.js` (raw Supabase CRUD;
 invoices upsert on `(user_id, invoice_number)`), `migration.js` (localStorage→cloud migration on
 first sign-in).
 
@@ -342,8 +347,8 @@ keys are `inv_`-prefixed. To reset first-run: `localStorage.removeItem('inv_onbo
   at 375px → commit (one logical change) → open a PR only when asked.
 - **Give intent, not just the change** ("make X clearer for a first-timer"). Conventions (inline
   styles, `C` tokens, portals, constants) are automatic; a one-line "why" helps pick the right call.
-- **Cross-account / auth-gated flows can't be fully exercised in the dev preview** (need two live
-  cloud accounts + a configured phone provider). Expect single-account/guest verification plus a flag
-  for what needs a real-device pass.
+- **Cross-account flows are testable with two real accounts** (email sign-up is instant). They've
+  been exercised end-to-end in one browser via sign-out/sign-in; a two-physical-phone pass is still
+  worth doing for touch/keyboard/network feel and real Google-redirect behavior on device.
 - **Good prompt shape:** *"In `<file/feature>`, for the `<role>` `<tab>`, change `<behavior>` because
   `<why>`. Keep `<constraint>`. Verify in the browser and show me before merging."*
