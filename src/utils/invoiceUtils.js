@@ -46,11 +46,15 @@ export function todayInvoiceDate() {
 
 /**
  * The user's configured overdue threshold in days, or the default.
+ * Any finite value ≥ 0 is honored — including 0 ("flag from the next day").
+ * The old `|| DEFAULT` swallowed a stored 0 as falsy and returned the default;
+ * a restored backup or manual value could carry 0, so accept it faithfully.
  * @returns {number}
  */
 export function getFlagDays() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.AUTO_FLAG_DAYS)) || DEFAULT_FLAG_DAYS;
+    const v = JSON.parse(localStorage.getItem(STORAGE_KEYS.AUTO_FLAG_DAYS));
+    return Number.isFinite(v) && v >= 0 ? v : DEFAULT_FLAG_DAYS;
   } catch {
     return DEFAULT_FLAG_DAYS;
   }
