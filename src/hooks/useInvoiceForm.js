@@ -99,6 +99,17 @@ export function useInvoiceForm(onGenerated) {
   const [editNumber, setEditNumber] = useState(null);
   const editMetaRef = useRef({ paymentStatus: 'unpaid', createdAt: null });
 
+  // $0-invoice guard: a total of $0.00 almost always means a forgotten price.
+  // handleGenerate opens this confirm once; confirmZeroTotal re-runs generation
+  // with allowZeroRef set so the guard passes on the second call.
+  const [zeroConfirm, setZeroConfirm] = useState(false);
+  const allowZeroRef = useRef(false);
+  function confirmZeroTotal() {
+    allowZeroRef.current = true;
+    setZeroConfirm(false);
+    handleGenerate();
+  }
+
   // ── Autocomplete lists (async loaded) ────────────────────────────────────
   const [storeNames, setStoreNames]     = useState(() => []);
   const [productNames]                  = useState(() => getProductNames()); // sync cache
@@ -323,6 +334,12 @@ export function useInvoiceForm(onGenerated) {
     // must not block generation.
     if (items.length === 0) return setError('Add at least one item.');
 
+    // A $0.00 total is almost always a forgotten price — confirm before saving
+    // (the confirm sets allowZeroRef so a deliberate $0 invoice still generates).
+    const total = items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+    if (total === 0 && !allowZeroRef.current) { setZeroConfirm(true); return; }
+    allowZeroRef.current = false;
+
     // Editing an existing invoice updates it in place (same number); only a NEW
     // invoice consumes a guest entry, completes a connection order, or counts as
     // an onboarding milestone.
@@ -429,5 +446,6 @@ export function useInvoiceForm(onGenerated) {
     handleGenerate,
     guestWall, setGuestWall,
     editNumber, // non-null when editing an existing invoice in place
+    zeroConfirm, setZeroConfirm, confirmZeroTotal, // $0-invoice guard
   };
 }

@@ -234,11 +234,15 @@ describe('getFlagDays', () => {
     expect(getFlagDays()).toBe(DEFAULT_FLAG_DAYS);
   });
 
-  it('returns DEFAULT_FLAG_DAYS when localStorage returns "0" (falsy after parse)', () => {
-    // JSON.parse('0') === 0, which is falsy, so `|| DEFAULT_FLAG_DAYS` kicks in.
-    // NOTE: this means a user who deliberately sets 0 days gets 7 instead.
-    // Potential UX bug — logged for review, test documents actual behaviour.
+  it('honors a stored 0 ("flag from the next day") instead of swallowing it', () => {
+    // Regression guard: the old `|| DEFAULT_FLAG_DAYS` treated 0 as falsy and
+    // returned the default. 0 is a valid finite threshold and must be honored.
     vi.stubGlobal('localStorage', { getItem: () => '0' });
+    expect(getFlagDays()).toBe(0);
+  });
+
+  it('falls back to the default for a negative value', () => {
+    vi.stubGlobal('localStorage', { getItem: () => '-3' });
     expect(getFlagDays()).toBe(DEFAULT_FLAG_DAYS);
   });
 });
