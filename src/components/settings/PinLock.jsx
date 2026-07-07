@@ -179,8 +179,10 @@ export default function PinLock({ onSuccess, setupMode = false, onCancel }) {
 
       {/* Numpad */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 72px)', gap: 12 }}>
-        {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, i) => (
-          k === '' ? <div key={i} /> :
+        {/* The gap cell needs its own key: keying it by index (9) collided
+            with the '9' digit button's key and spammed a React warning. */}
+        {['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k => (
+          k === '' ? <div key="pad-gap" /> :
           <button
             key={k}
             onClick={() => k === '⌫' ? backspace() : (setupMode ? pressSetup(k) : press(k))}
