@@ -1,0 +1,33 @@
+name: CI
+
+# Runs the unit suite + production build on every PR to main and every push to
+# main. Vercel builds/deploys separately and does NOT run tests, so this is the
+# only thing that catches a regression in the tested business logic before merge.
+# Lint is intentionally omitted — the repo carries pre-existing react-compiler
+# advisories, and the project's hard gate is "npm run build passes", not lint.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
