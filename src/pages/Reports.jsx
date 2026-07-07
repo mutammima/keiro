@@ -173,7 +173,7 @@ export default function Reports({ onOpenDrawer, onNav, embedded }) {
     <div style={{ ...s.page, ...(embedded ? { minHeight: '100%' } : null), background: C.bg }}>
       {!embedded && (
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+          <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
           <span style={{ ...s.title, color: C.text }}>Reports</span>
           <div style={{ width: 36 }} />
         </div>

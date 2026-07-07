@@ -138,7 +138,7 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
       }}>
         {/* Close button */}
         <div style={s.drawerHeader}>
-          <button style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>←</button>
+          <button aria-label="Close menu" style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>←</button>
         </div>
 
         {/* Role toggle pill — Uber-style instant switch */}

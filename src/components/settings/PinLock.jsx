@@ -186,6 +186,7 @@ export default function PinLock({ onSuccess, setupMode = false, onCancel }) {
           <button
             key={k}
             onClick={() => k === '⌫' ? backspace() : (setupMode ? pressSetup(k) : press(k))}
+            aria-label={k === '⌫' ? 'Delete last digit' : undefined}
             style={{
               height: 72, borderRadius: 36,
               background: k === '⌫' ? 'transparent' : (dark ? '#1c1c1e' : '#fff'),

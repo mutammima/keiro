@@ -72,7 +72,7 @@ export default function Profile({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Profile</span>
         <div style={{ width: 36 }} />
       </div>

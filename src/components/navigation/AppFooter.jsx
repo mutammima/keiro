@@ -77,7 +77,7 @@ export default function AppFooter({ onNav }) {
               <span style={{ ...s.sheetTitle, color: C.text }}>
                 {modal === 'news' ? "What's New" : modal === 'roadmap' ? 'Roadmap' : 'Backup & Restore'}
               </span>
-              <button style={{ ...s.sheetClose, color: C.textMuted }} onClick={() => { setModal(null); clearBackupMsg(); }}>✕</button>
+              <button aria-label="Close" style={{ ...s.sheetClose, color: C.textMuted }} onClick={() => { setModal(null); clearBackupMsg(); }}>✕</button>
             </div>
 
             <div style={s.sheetBody}>

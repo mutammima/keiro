@@ -168,7 +168,7 @@ export default function Products({ onOpenDrawer, onNav }) {
                           <div style={s.actions}>
                             <button
                               style={{ ...s.iconBtn, color: C.textMuted }}
-                              onClick={() => startEdit(p)}
+                              aria-label="Rename product" onClick={() => startEdit(p)}
                               title="Edit name"
                             >✎</button>
                           </div>
