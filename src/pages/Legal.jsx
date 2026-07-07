@@ -53,7 +53,7 @@ export default function Legal({ section = 'privacy', onOpenDrawer, onNav }) {
     <div style={{ ...s.page, background: C.bg }}>
       {/* Sticky header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Legal</span>
         <div style={{ width: 36 }} />
       </div>

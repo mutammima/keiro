@@ -58,7 +58,7 @@ export default function About({ onOpenDrawer, onNav }) {
 
       {/* Sticky header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>About</span>
         <div style={{ width: 36 }} />
       </div>

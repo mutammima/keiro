@@ -58,7 +58,7 @@ export default function BarcodeScanner({ onScan, onClose }) {
     <div style={s.overlay}>
       {/* Top bar */}
       <div style={s.topBar}>
-        <button style={s.closeBtn} onClick={stopAndClose}>✕</button>
+        <button aria-label="Close scanner" style={s.closeBtn} onClick={stopAndClose}>✕</button>
         <span style={s.topTitle}>Scan Barcode</span>
         <div style={{ width: 44 }} />
       </div>

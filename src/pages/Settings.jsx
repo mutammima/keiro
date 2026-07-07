@@ -199,7 +199,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Settings</span>
         {/* Close / back — uses onClose when provided, falls back to navigating to first tab */}
         <button

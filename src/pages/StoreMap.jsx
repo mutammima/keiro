@@ -145,7 +145,7 @@ function EditSheet({ store, C, onSave, onClose }) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', borderBottom: `1px solid ${C.divider}` }}>
           <span style={{ fontSize: 17, fontWeight: 700, color: C.text }}>Edit Store Info</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 16, cursor: 'pointer', padding: 4 }}>✕</button>
+          <button aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 16, cursor: 'pointer', padding: 4 }}>✕</button>
         </div>
         {/* Store name (read-only) */}
         <div style={{ padding: '16px 20px 0' }}>
@@ -434,7 +434,7 @@ export default function StoreMap({ onOpenDrawer }) {
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg }}>
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} onClick={onOpenDrawer}>☰</button>
+        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
         <span style={{ flex: 1, fontSize: 18, fontWeight: 700, color: C.text, textAlign: 'center' }}>Store Info</span>
         <div style={{ width: 36 }} />
       </div>

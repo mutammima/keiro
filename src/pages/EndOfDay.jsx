@@ -53,7 +53,7 @@ export default function EndOfDay({ onNav, embedded }) {
       {/* Header */}
       {!embedded && (
         <div style={{ ...s.header, background: C.bg, borderBottom: `1px solid ${C.divider}` }}>
-          <button style={{ ...s.backBtn, color: C.text }} onClick={() => onNav?.('route')}>←</button>
+          <button aria-label="Back" style={{ ...s.backBtn, color: C.text }} onClick={() => onNav?.('route')}>←</button>
           <span style={{ fontSize: 17, fontWeight: 700 }}>End of Day</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: C.textMuted }}>
             {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

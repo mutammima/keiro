@@ -337,6 +337,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
               <button
                 style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 12px', margin: '-15px -10px', WebkitTapHighlightColor: 'transparent' }}
                 onClick={e => { e.stopPropagation(); setOpenMenu(menuOpen ? null : inv.number); }}
+                aria-label="Invoice actions"
               >•••</button>
               {menuOpen && (
                 <div style={{ ...s.dropdown, background: C.card, borderColor: C.cardBorder }}>
@@ -463,6 +464,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             <button
               style={{ ...s.iconActionBtn, color: pinned ? '#f59e0b' : C.textMuted }}
               onClick={() => handleTogglePin(inv.storeName)}
+              aria-label={pinned ? 'Unpin store' : 'Pin store'}
               title={pinned ? 'Unpin store' : 'Pin store'}
             >
               {pinned ? '★' : '☆'}
@@ -471,6 +473,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
               <button
                 style={{ ...s.iconActionBtn, color: C.textMuted }}
                 onClick={() => setOpenMenu(menuOpen ? null : inv.number)}
+                aria-label="Invoice actions"
               >
                 •••
               </button>
@@ -635,7 +638,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                         <div style={{ fontSize: 11, color: C.textMuted }}>{fmtPaymentDate(p.ts)}</div>
                         {p.note && <div style={{ fontSize: 11, color: C.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.note}</div>}
                       </div>
-                      <button onClick={() => handleRemovePayment(inv.number, p.id)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 13px', margin: '-13px -9px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>×</button>
+                      <button aria-label="Remove payment" onClick={() => handleRemovePayment(inv.number, p.id)} style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 13px', margin: '-13px -9px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>×</button>
                     </div>
                   ))}
                   <button

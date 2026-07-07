@@ -49,6 +49,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
         {/* Hamburger */}
         <button
           data-tutorial="hamburger"
+          aria-label="Open menu"
           onClick={onOpenDrawer}
           style={{
             width: 48,

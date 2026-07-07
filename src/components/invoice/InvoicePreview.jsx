@@ -33,9 +33,9 @@ export default function InvoicePreview({ items, onRemove, onEdit, dark = false }
                 ${(Number(item.qty) * Number(item.price)).toFixed(2)}
               </span>
               {onEdit && (
-                <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => onEdit(item)}>✎</button>
+                <button style={{ ...s.iconBtn, color: C.textMuted }} aria-label="Edit item" onClick={() => onEdit(item)}>✎</button>
               )}
-              <button style={{ ...s.iconBtn, color: C.textMuted }} onClick={() => onRemove(item.id)}>✕</button>
+              <button style={{ ...s.iconBtn, color: C.textMuted }} aria-label="Remove item" onClick={() => onRemove(item.id)}>✕</button>
             </div>
           </div>
         ))}
