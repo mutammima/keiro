@@ -3,17 +3,20 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef, lazy, Suspen
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LIGHT, DARK } from './theme';
 import NavDrawer from './components/navigation/NavDrawer';
-import NewInvoice from './components/invoice/NewInvoice';
-import InvoiceView from './components/invoice/InvoiceView';
 import InvoiceHistory from './components/invoice/InvoiceHistory';
-import Products from './pages/Products';
-import StoreBalance from './pages/StoreBalance';
 import AuthGate from './components/auth/AuthGate';
-import About from './pages/About';
-import Legal from './pages/Legal';
-import Profile from './pages/Profile';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
+// Overlay-only pages are route-lazy: they're never on screen at first paint
+// (they slide up on navigate), so splitting them out of the entry chunk shrinks
+// first paint. The always-mounted tab pages stay statically imported below.
+const NewInvoice   = lazy(() => import('./components/invoice/NewInvoice'));
+const InvoiceView  = lazy(() => import('./components/invoice/InvoiceView'));
+const Products     = lazy(() => import('./pages/Products'));
+const StoreBalance = lazy(() => import('./pages/StoreBalance'));
+const About        = lazy(() => import('./pages/About'));
+const Legal        = lazy(() => import('./pages/Legal'));
+const Profile      = lazy(() => import('./pages/Profile'));
+const Reports      = lazy(() => import('./pages/Reports'));
+const Settings     = lazy(() => import('./pages/Settings'));
 // Tutorial system (Layer 1 quick start + Layer 2 contextual tips + Layer 4
 // guided walkthroughs) — lazy so none weigh on first paint.
 const QuickStart        = lazy(() => import('./components/tutorial/QuickStart'));
@@ -25,10 +28,10 @@ import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import SyncQueueRunner from './components/ui/SyncQueueRunner';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
-import StoreMap from './pages/StoreMap';
-import Notes from './pages/Notes';
 import Home from './pages/Home';
-import EndOfDay from './pages/EndOfDay';
+const StoreMap = lazy(() => import('./pages/StoreMap'));
+const Notes    = lazy(() => import('./pages/Notes'));
+const EndOfDay = lazy(() => import('./pages/EndOfDay'));
 import WhatsNew, { hasSeenWhatsNew, markWhatsNewSeen } from './components/ui/WhatsNew';
 import PinLock, { isPinEnabled } from './components/settings/PinLock';
 import UpdateBanner from './components/ui/UpdateBanner';
@@ -37,17 +40,18 @@ import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
 import { STORAGE_KEYS, EVENTS } from './utils/constants';
 // Store Owner role
 import RoleSelector from './components/onboarding/RoleSelector';
-import NewRequest from './pages/storeowner/NewRequest';
 import SOOrders from './pages/storeowner/SOOrders';
 import SODrivers from './pages/storeowner/SODrivers';
 import SOHome from './pages/storeowner/SOHome';
-import SOReports from './pages/storeowner/SOReports';
 import SOInvoices from './pages/storeowner/SOInvoices';
 import DriverReports from './pages/driver/DriverReports';
 import DriverStores from './pages/driver/DriverStores';
-import Marketplace from './pages/marketplace/Marketplace';
-import MyListings from './pages/marketplace/MyListings';
-import FindDrivers from './pages/marketplace/FindDrivers';
+// Overlay-only Store-Owner + marketplace pages — route-lazy (see note above).
+const NewRequest  = lazy(() => import('./pages/storeowner/NewRequest'));
+const SOReports   = lazy(() => import('./pages/storeowner/SOReports'));
+const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
+const MyListings  = lazy(() => import('./pages/marketplace/MyListings'));
+const FindDrivers = lazy(() => import('./pages/marketplace/FindDrivers'));
 import { resolveStartupRole, setRole } from './utils/storeOwnerStorage';
 import { redeemPendingInvite } from './utils/connectionStorage';
 import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
@@ -539,6 +543,11 @@ function AppInner({ role, onSwitchRole }) {
       {/* ── Overlay pages (slide up from bottom) ───────────────────────────── */}
       {overlayPage && (
         <div key={overlayPage} data-scroll-container="overlay" className={overlayClass} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', zIndex: 50, background: 'inherit' }}>
+          <Suspense fallback={
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span aria-hidden style={{ width: 30, height: 30, borderRadius: '50%', border: `3px solid ${C.cardBorder}`, borderTopColor: '#4A7BF7', animation: 'tut-spin 0.8s linear infinite' }} />
+            </div>
+          }>
           {overlayPage === 'invoice-view' && currentInvoice && (
             <InvoiceView
               invoice={currentInvoice}
@@ -569,6 +578,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'store-balance' && selectedStore && (
             <StoreBalance storeName={selectedStore} onBack={goBackFromOverlay} />
           )}
+          </Suspense>
         </div>
       )}
 
