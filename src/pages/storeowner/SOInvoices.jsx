@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { getSharedInvoices, loadSharedInvoicesFromCloud, getConnectionOrders, loadConnectionOrdersFromCloud, confirmReceiving } from '../../utils/connectionOrderStorage';
+import { getActiveConnections, loadConnectionsFromCloud } from '../../utils/connectionStorage';
 import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
@@ -43,9 +44,10 @@ export default function SOInvoices({ onNav }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const [orders,     setOrders]     = useState(() => getOrders());
-  const [shared,     setShared]     = useState(() => getSharedInvoices());
-  const [connOrders, setConnOrders] = useState(() => getConnectionOrders());
+  const [orders,      setOrders]      = useState(() => getOrders());
+  const [shared,      setShared]      = useState(() => getSharedInvoices());
+  const [connOrders,  setConnOrders]  = useState(() => getConnectionOrders());
+  const [activeConns, setActiveConns] = useState(() => getActiveConnections());
   const [confirmReceipt, setConfirmReceipt] = useState(null); // order awaiting receipt confirmation
   const [expandedId, setExpandedId] = useState(null);
   // Show a loading line only on a fresh device (no cached data to paint).
@@ -58,6 +60,7 @@ export default function SOInvoices({ onNav }) {
       loadOrdersFromCloud().then(list => setOrders(list)),
       loadSharedInvoicesFromCloud().then(setShared),
       loadConnectionOrdersFromCloud().then(setConnOrders),
+      loadConnectionsFromCloud().then(list => setActiveConns((list || []).filter(c => c.status === 'active'))),
     ]).then(() => setLoading(false));
   }, []);
 
@@ -141,13 +144,30 @@ export default function SOInvoices({ onNav }) {
         ) : bills.length === 0 && shared.length === 0 ? (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '32px 18px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 6px' }}>No invoices yet.</p>
-            <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Invoices from your connected drivers appear here automatically.</p>
-            <button
-              onClick={() => onNav('so-request')}
-              style={{ background: ACCENT, border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-            >
-              + New Request
-            </button>
+            {activeConns.length === 0 ? (
+              // Invoices can only arrive from a connected driver, so the real
+              // prerequisite is a connection — send the owner to connect one,
+              // not to place a request that would still reach no driver.
+              <>
+                <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Connect a driver to start receiving their invoices here.</p>
+                <button
+                  onClick={() => onNav('so-drivers')}
+                  style={{ background: ACCENT, border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  Connect a driver
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 12, color: C.textMuted, margin: '0 0 14px' }}>Invoices from your connected drivers appear here automatically.</p>
+                <button
+                  onClick={() => onNav('so-request')}
+                  style={{ background: ACCENT, border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  + New Request
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>
