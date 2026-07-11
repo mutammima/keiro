@@ -12,6 +12,7 @@ import { getActiveConnections, loadConnectionsFromCloud } from '../../utils/conn
 import { sendConnectionOrder } from '../../utils/connectionOrderStorage';
 import { saveMyDemand } from '../../utils/marketplaceStorage';
 import { getBusinessName, getBusinessPhone } from '../../utils/storage';
+import { formatInvoiceDate } from '../../utils/invoiceUtils';
 import { getCurrentPosition } from '../../utils/geo';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
 import { isTutorialActive } from '../../utils/tutorialState';
@@ -20,6 +21,9 @@ import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+/** Small red asterisk for required fields — mirrors the driver form's <Req /> convention. */
+const Req = () => <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>;
 
 // Shown when a guest tries to send an order that can only reach a driver through
 // the cloud. Names the real reason (no account) instead of letting the order look
@@ -34,6 +38,9 @@ export default function NewRequest({ onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
+  // Committed line items for this request. The productName/quantity/price fields
+  // below are the "add item" input row — a request can hold many lines.
+  const [items,         setItems]         = useState([]);
   const [productName,   setProductName]   = useState('');
   const [quantity,      setQuantity]      = useState('');
   const [price,         setPrice]         = useState('');
@@ -73,9 +80,15 @@ export default function NewRequest({ onNav, onBack }) {
     try { p = JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFILL) || 'null'); } catch { p = null; }
     if (!p || !p.reorder) return;
     try { localStorage.removeItem(STORAGE_KEYS.PREFILL); } catch { /* ignore */ }
-    if (p.productName) setProductName(p.productName);
-    if (p.quantity != null) setQuantity(String(p.quantity));
-    if (p.price != null && p.price !== '') setPrice(String(p.price));
+    // Multi-line reorder restores every committed line; a legacy single-line
+    // prefill still populates the add-item input row.
+    if (Array.isArray(p.items) && p.items.length) {
+      setItems(p.items.map(it => ({ id: uid(), name: it.name, qty: Number(it.qty) || 1, price: Number(it.price) || 0 })));
+    } else {
+      if (p.productName) setProductName(p.productName);
+      if (p.quantity != null) setQuantity(String(p.quantity));
+      if (p.price != null && p.price !== '') setPrice(String(p.price));
+    }
     if (p.driverId) setDriverId(p.driverId);
     // Fresh delivery date defaulting to tomorrow (user can change it).
     const t = new Date(); t.setDate(t.getDate() + 1);
@@ -88,10 +101,45 @@ export default function NewRequest({ onNav, onBack }) {
     return (c.inviterRole === 'driver' ? c.inviterName : c.redeemerName) || 'Connected driver';
   }
 
+  /** The add-item input row folded into a line item, or null if incomplete. */
+  function pendingLine() {
+    const name = productName.trim();
+    const qtyN = Number(quantity);
+    if (!name || !qtyN || qtyN <= 0) return null;
+    return { id: uid(), name, qty: qtyN, price: Number(price) || 0 };
+  }
+
+  /** All lines: committed items plus a valid-but-not-yet-added input row. */
+  function collectItems() {
+    const line = pendingLine();
+    return line ? [...items, line] : [...items];
+  }
+
+  /** Commit the input row to the item list (mirrors the driver invoice's Add Item). */
+  function addItem() {
+    const name = productName.trim();
+    const qtyN = Number(quantity);
+    const e = {};
+    if (!name) e.productName = 'Product name is required.';
+    if (!qtyN || qtyN <= 0) e.quantity = 'Enter a valid quantity.';
+    if (Object.keys(e).length) { setErrors(v => ({ ...v, ...e })); return; }
+    setItems(list => [...list, { id: uid(), name, qty: qtyN, price: Number(price) || 0 }]);
+    setProductName(''); setQuantity(''); setPrice('');
+    setErrors(v => ({ ...v, productName: '', quantity: '', items: '' }));
+  }
+
+  function removeItem(id) {
+    setItems(list => list.filter(it => it.id !== id));
+  }
+
+  function resetForm() {
+    setItems([]); setProductName(''); setQuantity(''); setPrice('');
+    setDeliveryDate(''); setDriverId(''); setNotes(''); setErrors({}); setSubmitted(false);
+  }
+
   function validate() {
     const e = {};
-    if (!productName.trim()) e.productName = 'Product name is required.';
-    if (!quantity || Number(quantity) <= 0) e.quantity = 'Enter a valid quantity.';
+    if (collectItems().length === 0) e.items = 'Add at least one product.';
     if (!deliveryDate) e.deliveryDate = 'Pick a delivery date.';
     return e;
   }
@@ -112,10 +160,13 @@ export default function NewRequest({ onNav, onBack }) {
       if (isGuest()) { setWallCopy(SEND_WALL_COPY); setGuestWall(true); return; }
       const conn = conns.find(c => `conn:${c.id}` === driverId);
       if (conn) {
+        const lines = collectItems();
+        const first = lines[0];
         sendConnectionOrder(conn, {
-          productName:  productName.trim(),
-          quantity:     Number(quantity),
-          price:        Number(price) || 0,
+          items:        lines,
+          productName:  first.name,
+          quantity:     first.qty,
+          price:        first.price,
           deliveryDate,
           notes:        notes.trim(),
           storeName:    getBusinessName() || 'A store',
@@ -123,11 +174,7 @@ export default function NewRequest({ onNav, onBack }) {
         });
         markAction('so_request'); // checklist: requested from a connected driver
         setSubmitted(true);
-        setTimeout(() => {
-          setProductName(''); setQuantity(''); setPrice(''); setDeliveryDate('');
-          setDriverId(''); setNotes(''); setErrors({}); setSubmitted(false);
-          onNav('so-orders');
-        }, 700);
+        setTimeout(() => { resetForm(); onNav('so-orders'); }, 700);
         return;
       }
     }
@@ -140,11 +187,14 @@ export default function NewRequest({ onNav, onBack }) {
     }
 
     const driver = drivers.find(d => d.id === driverId);
+    const lines = collectItems();
+    const first = lines[0];
     const order = {
       id: uid(),
-      productName: productName.trim(),
-      quantity: Number(quantity),
-      price: Number(price) || 0,
+      items: lines,
+      productName: first.name,   // first line summarises the order for legacy views
+      quantity: first.qty,
+      price: first.price,
       deliveryDate,
       driverId: driverId || null,
       driverName: driver ? driver.name : 'Unassigned',
@@ -161,13 +211,14 @@ export default function NewRequest({ onNav, onBack }) {
     // must never reach the shared marketplace — every new store owner's tour
     // would otherwise publish a junk open order that real drivers can claim.
     if (!driverId && !isTutorialActive()) {
+      // The marketplace demand feed is single-product, so broadcast the first line.
       saveMyDemand({
         id: order.id,
         storeName:   getBusinessName()  || 'A store',
         storePhone:  getBusinessPhone() || '',
-        productName: order.productName,
-        quantity:    order.quantity,
-        targetPrice: order.price,
+        productName: first.name,
+        quantity:    first.qty,
+        targetPrice: first.price,
         neededBy:    order.deliveryDate,
         notes:       order.notes,
         status:      'open',
@@ -179,11 +230,7 @@ export default function NewRequest({ onNav, onBack }) {
     setSubmitted(true);
 
     // Reset form after a brief confirmation flash
-    setTimeout(() => {
-      setProductName(''); setQuantity(''); setPrice(''); setDeliveryDate('');
-      setDriverId(''); setNotes(''); setErrors({}); setSubmitted(false);
-      onNav('so-orders');
-    }, 700);
+    setTimeout(() => { resetForm(); onNav('so-orders'); }, 700);
   }
 
   const inp = {
@@ -218,21 +265,50 @@ export default function NewRequest({ onNav, onBack }) {
           />
         )}
 
-        {/* Product */}
+        {/* Products */}
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>What do you need?</p>
 
-          <label data-tutorial="so-label-product" style={s.label(C)}>Product Name</label>
+          {/* Committed line items — a request can hold several products */}
+          {items.length > 0 && (
+            <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.map(it => (
+                <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                      Qty {it.qty}{Number(it.price) > 0 ? ` · $${Number(it.price).toFixed(2)} each` : ''}
+                    </div>
+                  </div>
+                  {Number(it.price) > 0 && (
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.text, flexShrink: 0 }}>${(it.qty * it.price).toFixed(2)}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeItem(it.id)}
+                    aria-label={`Remove ${it.name}`}
+                    style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, minHeight: 40, background: 'none', border: 'none', color: C.textMuted, fontSize: 18, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <label data-tutorial="so-label-product" style={s.label(C)}>
+            {items.length > 0 ? 'Add another product' : <>Product Name <Req /></>}
+          </label>
           <input
             data-tutorial="so-request-product"
             style={{ ...s.input, ...inp, borderColor: errors.productName ? C.danger : C.inputBorder }}
             placeholder="e.g. Whole Milk 1 Gal"
             value={productName}
-            onChange={e => { setProductName(e.target.value); setErrors(v => ({ ...v, productName: '' })); }}
+            onChange={e => { setProductName(e.target.value); setErrors(v => ({ ...v, productName: '', items: '' })); }}
           />
           {errors.productName && <p style={s.error(C)}>{errors.productName}</p>}
 
-          <label data-tutorial="so-label-qty" style={{ ...s.label(C), marginTop: 14 }}>Quantity</label>
+          <label data-tutorial="so-label-qty" style={{ ...s.label(C), marginTop: 14 }}>
+            Quantity {items.length === 0 && <Req />}
+          </label>
           <input
             data-tutorial="so-request-qty"
             type="number"
@@ -240,7 +316,7 @@ export default function NewRequest({ onNav, onBack }) {
             style={{ ...s.input, ...inp, borderColor: errors.quantity ? C.danger : C.inputBorder }}
             placeholder="e.g. 10"
             value={quantity}
-            onChange={e => { setQuantity(e.target.value); setErrors(v => ({ ...v, quantity: '' })); }}
+            onChange={e => { setQuantity(e.target.value); setErrors(v => ({ ...v, quantity: '', items: '' })); }}
           />
           {errors.quantity && <p style={s.error(C)}>{errors.quantity}</p>}
 
@@ -257,18 +333,34 @@ export default function NewRequest({ onNav, onBack }) {
             value={price}
             onChange={e => setPrice(e.target.value)}
           />
-          {Number(quantity) > 0 && Number(price) > 0 && (
-            <p style={{ fontSize: 13, fontWeight: 600, color: C.textSub, margin: '6px 0 0' }}>
-              Estimated total: <span style={{ color: C.text }}>${(Number(quantity) * Number(price)).toFixed(2)}</span>
-            </p>
-          )}
+
+          <button
+            type="button"
+            data-tutorial="so-add-item"
+            onClick={addItem}
+            style={{ width: '100%', marginTop: 14, height: 46, border: `1.5px dashed ${ACCENT}`, borderRadius: 12, background: 'none', color: ACCENT, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            + Add Item
+          </button>
+          {errors.items && <p style={s.error(C)}>{errors.items}</p>}
+
+          {(() => {
+            const all = collectItems();
+            const total = all.reduce((sum, i) => sum + i.qty * (Number(i.price) || 0), 0);
+            if (total <= 0) return null;
+            return (
+              <p style={{ fontSize: 13, fontWeight: 600, color: C.textSub, margin: '10px 0 0' }}>
+                Estimated total ({all.length} item{all.length !== 1 ? 's' : ''}): <span style={{ color: C.text }}>${total.toFixed(2)}</span>
+              </p>
+            );
+          })()}
         </div>
 
         {/* Delivery date */}
         <div style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>When do you need it?</p>
 
-          <label data-tutorial="so-label-date" style={s.label(C)}>Requested Delivery Date</label>
+          <label data-tutorial="so-label-date" style={s.label(C)}>Requested Delivery Date <Req /></label>
           <input
             data-tutorial="so-request-date"
             type="date"
@@ -278,6 +370,11 @@ export default function NewRequest({ onNav, onBack }) {
             onChange={e => { setDeliveryDate(e.target.value); setErrors(v => ({ ...v, deliveryDate: '' })); }}
           />
           {errors.deliveryDate && <p style={s.error(C)}>{errors.deliveryDate}</p>}
+          {deliveryDate && !errors.deliveryDate && (
+            <p style={{ fontSize: 13, fontWeight: 600, color: C.textSub, margin: '6px 0 0' }}>
+              Requested for <span style={{ color: C.text }}>{formatInvoiceDate(new Date(deliveryDate + 'T00:00:00'))}</span>
+            </p>
+          )}
         </div>
 
         {/* Driver */}

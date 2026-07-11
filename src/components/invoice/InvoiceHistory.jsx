@@ -16,7 +16,7 @@ import { getSignatures } from '../../utils/signatureStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
-import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince } from '../../utils/invoiceUtils';
+import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines } from '../../utils/invoiceUtils';
 import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
@@ -218,12 +218,13 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     const prefill = {
       storeName: o.storeName || '',
       notes: o.notes || '',
-      items: [{
-        id:    `co_${Date.now()}`,
-        name:  o.productName,
-        qty:   Number(o.quantity) || 1,
-        price: Number(o.price) || 0,
-      }],
+      // Carry every line the store ordered into the invoice, not just the first.
+      items: orderLines(o).map((it, i) => ({
+        id:    `co_${Date.now()}_${i}`,
+        name:  it.name,
+        qty:   Number(it.qty) || 1,
+        price: Number(it.price) || 0,
+      })),
     };
     localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
     if (o.status === 'pending') updateConnectionOrderStatus(o.id, 'accepted');
@@ -239,12 +240,13 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     // Items with price 0 are flagged visually in the form.
     const prefill = {
       notes: req.notes || '',
-      items: [{
-        id:    `br_${Date.now()}`,
-        name:  req.productName,
-        qty:   Number(req.quantity) || 1,
+      // Carry every requested line; price stays 0 so the driver sets each one.
+      items: orderLines(req).map((it, i) => ({
+        id:    `br_${Date.now()}_${i}`,
+        name:  it.name,
+        qty:   Number(it.qty) || 1,
         price: 0,
-      }],
+      })),
     };
     localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify(prefill));
     dismissBridgeRequest(req.id);
@@ -307,16 +309,21 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
           overflow: 'visible',
           position: 'relative',
         }}>
-          {/* Single-tap row */}
-          <button
-            onClick={() => setExpanded(isOpen ? null : inv.number)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center',
-              padding: '9px 12px', gap: 10,
-              background: 'none', border: 'none', cursor: 'pointer',
-              textAlign: 'left', WebkitTapHighlightColor: 'transparent',
-            }}
-          >
+          {/* Single-tap row: the expand target (primary) and the ••• menu
+              (secondary) are separate sibling buttons — never a button nested in
+              a button — so each has its own unambiguous hit-area. */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button
+              onClick={() => setExpanded(isOpen ? null : inv.number)}
+              aria-label={isOpen ? 'Collapse invoice' : 'Expand invoice'}
+              aria-expanded={isOpen}
+              style={{
+                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center',
+                padding: '9px 6px 9px 12px', gap: 10,
+                background: 'none', border: 'none', cursor: 'pointer',
+                textAlign: 'left', WebkitTapHighlightColor: 'transparent',
+              }}
+            >
             {/* Status dot */}
             <div style={{
               width: 8, height: 8, borderRadius: 4, flexShrink: 0,
@@ -331,12 +338,12 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             <span style={{ fontSize: 14, fontWeight: 800, color: C.text, flexShrink: 0 }}>
               ${total.toFixed(2)}
             </span>
-            {/* Menu */}
+            </button>
+            {/* Menu — sibling of the expand button, with its own ≥44px hit-area */}
             <div style={{ position: 'relative', flexShrink: 0 }} ref={menuOpen ? menuRef : null}>
-              {/* Padded hit area (≥44px) with negative margins so the dense row keeps its height */}
               <button
-                style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 14, cursor: 'pointer', padding: '15px 12px', margin: '-15px -10px', WebkitTapHighlightColor: 'transparent' }}
-                onClick={e => { e.stopPropagation(); setOpenMenu(menuOpen ? null : inv.number); }}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, background: 'none', border: 'none', color: C.textMuted, fontSize: 16, cursor: 'pointer', padding: '0 8px', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => setOpenMenu(menuOpen ? null : inv.number)}
                 aria-label="Invoice actions"
               >•••</button>
               {menuOpen && (
@@ -365,7 +372,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 </div>
               )}
             </div>
-          </button>
+          </div>
 
           {/* Meta row: number + date + status label */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px 8px', gap: 8 }}>
@@ -689,7 +696,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
               <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#1e3a5f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {o.productName} ×{o.quantity}
+                    {(() => { const ls = orderLines(o); return ls.length > 1 ? `${ls.length} items · ${ls[0].name} +${ls.length - 1} more` : `${o.productName} ×${o.quantity}`; })()}
                   </div>
                   <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : '#4a7bbf' }}>
                     {o.storeName || 'Connected store'}
@@ -722,8 +729,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             {bridgeRequests.map(req => (
               <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#1e3a5f' }}>{req.productName}</div>
-                  <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : '#4a7bbf' }}>Qty {req.quantity}{req.notes ? ` · ${req.notes}` : ''}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#fff' : '#1e3a5f' }}>{(() => { const ls = orderLines(req); return ls.length > 1 ? `${ls.length} items` : req.productName; })()}</div>
+                  <div style={{ fontSize: 12, color: dark ? 'rgba(255,255,255,0.5)' : '#4a7bbf' }}>{(() => { const ls = orderLines(req); return ls.length > 1 ? ls.map(l => `${l.name} ×${l.qty}`).join(', ') : `Qty ${req.quantity}`; })()}{req.notes ? ` · ${req.notes}` : ''}</div>
                 </div>
                 <button onClick={() => handleFillFromRequest(req)} style={{ flexShrink: 0, height: 34, padding: '0 14px', border: 'none', borderRadius: 9, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
                   Fill Invoice

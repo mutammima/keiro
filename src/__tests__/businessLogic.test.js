@@ -24,6 +24,8 @@ import {
   buildWhatsAppUrl,
   formatMoney,
   formatOrderDate,
+  orderLines,
+  orderTotal,
 } from '../utils/invoiceUtils.js';
 import { buildReminderMessage, buildReminderUrl } from '../utils/reminderMessage.js';
 import { DEFAULT_FLAG_DAYS, MS_PER_DAY } from '../utils/constants.js';
@@ -487,5 +489,53 @@ describe('Payment-status derivation (InvoiceHistory rule: paid >= total → paid
 
   it.each(cases)('paid=%s of total=%s → "%s"', (paid, total, expected) => {
     expect(deriveStatus(paid, total)).toBe(expected);
+  });
+});
+
+// ─── orderLines / orderTotal (multi-item order normalisation) ──────────────────
+describe('orderLines', () => {
+  it('returns the items array when a multi-line order carries one', () => {
+    const o = { items: [{ name: 'Milk', qty: 2, price: 3 }, { name: 'Bread', qty: 1, price: 4 }] };
+    expect(orderLines(o)).toHaveLength(2);
+    expect(orderLines(o)[1].name).toBe('Bread');
+  });
+
+  it('reconstructs a single line from camelCase scalar fields (legacy/1-item)', () => {
+    const o = { productName: 'Eggs', quantity: 12, price: 0.5 };
+    expect(orderLines(o)).toEqual([{ name: 'Eggs', qty: 12, price: 0.5 }]);
+  });
+
+  it('reconstructs from snake_case columns (raw DB row)', () => {
+    const row = { product_name: 'Rice', quantity: 5, price: 2 };
+    expect(orderLines(row)).toEqual([{ name: 'Rice', qty: 5, price: 2 }]);
+  });
+
+  it('ignores an empty items array and falls back to the scalar summary', () => {
+    const o = { items: [], productName: 'Soda', quantity: 3, price: 1 };
+    expect(orderLines(o)).toEqual([{ name: 'Soda', qty: 3, price: 1 }]);
+  });
+
+  it('defaults qty to 1 and price to 0 when missing', () => {
+    expect(orderLines({ productName: 'Item' })).toEqual([{ name: 'Item', qty: 1, price: 0 }]);
+  });
+
+  it('returns [] for a null/undefined order', () => {
+    expect(orderLines(null)).toEqual([]);
+    expect(orderLines(undefined)).toEqual([]);
+  });
+});
+
+describe('orderTotal', () => {
+  it('sums qty × price across every line of a multi-item order', () => {
+    const o = { items: [{ name: 'Milk', qty: 2, price: 3 }, { name: 'Bread', qty: 1, price: 4 }] };
+    expect(orderTotal(o)).toBe(10);
+  });
+
+  it('totals a single legacy line', () => {
+    expect(orderTotal({ productName: 'Eggs', quantity: 12, price: 0.5 })).toBe(6);
+  });
+
+  it('is 0 when lines have no price', () => {
+    expect(orderTotal({ items: [{ name: 'A', qty: 5 }, { name: 'B', qty: 2 }] })).toBe(0);
   });
 });

@@ -653,6 +653,8 @@ export async function saveSOOrder(order) {
         status:        order.status      || 'pending',
         notes:         order.notes       || '',
         created_at:    order.createdAt   || new Date().toISOString(),
+        // See note in saveConnectionOrder — only multi-line orders write `items`.
+        ...(Array.isArray(order.items) && order.items.length > 1 ? { items: order.items } : {}),
       }, { onConflict: 'id' })
       .select()
       .single();
@@ -757,6 +759,8 @@ export async function saveBridgeRequest(req) {
         notes:        req.notes || '',
         order_id:     req.orderId || '',
         created_at:   req.bridgedAt || new Date().toISOString(),
+        // See note in saveConnectionOrder — only multi-line requests write `items`.
+        ...(Array.isArray(req.items) && req.items.length > 1 ? { items: req.items } : {}),
       }, { onConflict: 'id' });
     return { error };
   } catch (err) {
@@ -1208,6 +1212,10 @@ export async function saveConnectionOrder(o) {
         delivery_date:  o.deliveryDate || null,
         notes:          o.notes || '',
         status:         'pending',
+        // Multi-line requests carry all lines in `items`; single-line requests
+        // stay fully described by product_name/quantity/price so this column is
+        // never written and pre-migration single-item orders can't regress.
+        ...(Array.isArray(o.items) && o.items.length > 1 ? { items: o.items } : {}),
       })
       .select()
       .single();

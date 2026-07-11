@@ -12,7 +12,7 @@ import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrd
 import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import AppFooter from '../../components/navigation/AppFooter';
 import { triggerTip, markAction } from '../../utils/tutorialProgress';
-import { formatOrderDate as formatDate } from '../../utils/invoiceUtils';
+import { formatOrderDate as formatDate, orderLines } from '../../utils/invoiceUtils';
 import { EVENTS } from '../../utils/constants';
 
 // Order status meta → shared ORDER_STATUS in theme.js
@@ -176,10 +176,15 @@ export default function SOOrders({ onNav }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 3 }}>
-                      {order.productName}
+                      {(() => { const ls = orderLines(order); return ls.length > 1 ? `${ls[0].name} +${ls.length - 1} more` : order.productName; })()}
                     </div>
                     <div style={{ fontSize: 12, color: C.textMuted }}>
-                      Qty: <strong style={{ color: C.textSub }}>{order.quantity}</strong>
+                      {(() => {
+                        const ls = orderLines(order);
+                        return ls.length > 1
+                          ? <span style={{ color: C.textSub, fontWeight: 700 }}>{ls.length} items</span>
+                          : <>Qty: <strong style={{ color: C.textSub }}>{order.quantity}</strong></>;
+                      })()}
                       {' · '}
                       {formatDate(order.deliveryDate)}
                     </div>
@@ -226,20 +231,21 @@ export default function SOOrders({ onNav }) {
                     Sent to {order.driverName}'s Keiro account — they update the status
                     as they accept and deliver.
                   </p>
-                  {order.status === 'delivered' && !order.receivedConfirmed && (
-                    <button style={{ ...s.actionBtn(C), background: ACCENT, color: '#fff', borderColor: ACCENT }}
-                      onClick={() => setConfirmReceipt(order)}>
-                      Confirm Receipt
+                  {/* Convention: ghost/Cancel left → primary right. */}
+                  {order.status === 'pending' && (
+                    <button style={{ ...s.actionBtn(C), color: C.textMuted, borderColor: C.divider }}
+                      onClick={() => { handleConnCancel(order.id); setExpandedId(null); }}>
+                      Cancel Order
                     </button>
                   )}
                   <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
                     onClick={() => handleReorder(order)}>
                     Reorder
                   </button>
-                  {order.status === 'pending' && (
-                    <button style={{ ...s.actionBtn(C), color: C.textMuted, borderColor: C.divider }}
-                      onClick={() => { handleConnCancel(order.id); setExpandedId(null); }}>
-                      Cancel Order
+                  {order.status === 'delivered' && !order.receivedConfirmed && (
+                    <button style={{ ...s.actionBtn(C), background: ACCENT, color: '#fff', borderColor: ACCENT }}
+                      onClick={() => setConfirmReceipt(order)}>
+                      Confirm Receipt
                     </button>
                   )}
                 </div>
@@ -251,22 +257,7 @@ export default function SOOrders({ onNav }) {
                       "{order.notes}"
                     </p>
                   )}
-                  <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
-                    onClick={() => handleReorder(order)}>
-                    Reorder
-                  </button>
-                  {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                    <button style={{ ...s.actionBtn(C), color: '#22c55e', borderColor: '#22c55e' }}
-                      onClick={() => { handleStatus(order.id, 'delivered'); setExpandedId(null); }}>
-                      Mark Delivered
-                    </button>
-                  )}
-                  {order.status === 'pending' && (
-                    <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
-                      onClick={() => { handleStatus(order.id, 'accepted'); setExpandedId(null); }}>
-                      Mark Accepted
-                    </button>
-                  )}
+                  {/* Convention: dismiss/destructive (Cancel, Delete) left → forward-progress primary right. */}
                   {order.status !== 'cancelled' && order.status !== 'delivered' && (
                     <button style={{ ...s.actionBtn(C), color: C.textMuted, borderColor: C.divider }}
                       onClick={() => { handleStatus(order.id, 'cancelled'); setExpandedId(null); }}>
@@ -277,6 +268,22 @@ export default function SOOrders({ onNav }) {
                     onClick={() => setConfirmDelete({ id: order.id, productName: order.productName })}>
                     Delete
                   </button>
+                  <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
+                    onClick={() => handleReorder(order)}>
+                    Reorder
+                  </button>
+                  {order.status === 'pending' && (
+                    <button style={{ ...s.actionBtn(C), color: ACCENT, borderColor: ACCENT }}
+                      onClick={() => { handleStatus(order.id, 'accepted'); setExpandedId(null); }}>
+                      Mark Accepted
+                    </button>
+                  )}
+                  {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                    <button style={{ ...s.actionBtn(C), color: '#22c55e', borderColor: '#22c55e' }}
+                      onClick={() => { handleStatus(order.id, 'delivered'); setExpandedId(null); }}>
+                      Mark Delivered
+                    </button>
+                  )}
                 </div>
               )}
             </div>

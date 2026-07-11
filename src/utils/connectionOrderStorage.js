@@ -56,6 +56,9 @@ function mapRow(row) {
     productName:   row.product_name,
     quantity:      Number(row.quantity) || 1,
     price:         Number(row.price)    || 0,
+    // Multi-line orders carry all lines here; single-line rows leave it null and
+    // consumers fall back to product_name/quantity/price via orderLines().
+    items:         Array.isArray(row.items) ? row.items : undefined,
     deliveryDate:  row.delivery_date || '',
     notes:         row.notes || '',
     status:        row.status,
@@ -81,7 +84,7 @@ export async function loadConnectionOrdersFromCloud() {
  * Store side: send an order to a connected driver. `conn` is an ACTIVE
  * connection from connectionStorage (carries both user ids).
  */
-export async function sendConnectionOrder(conn, { productName, quantity, price, deliveryDate, notes, storeName, driverName }) {
+export async function sendConnectionOrder(conn, { items, productName, quantity, price, deliveryDate, notes, storeName, driverName }) {
   const order = {
     id:            `co_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
     connectionId:  conn.id,
@@ -89,6 +92,9 @@ export async function sendConnectionOrder(conn, { productName, quantity, price, 
     driverUserId:  conn.driverUserId,
     storeName:     storeName  || '',
     driverName:    driverName || '',
+    // Full line list (2+ items) rides along; product_name/quantity/price still
+    // summarise the first line for legacy readers and the existing columns.
+    ...(Array.isArray(items) && items.length ? { items } : {}),
     productName,
     quantity:      Number(quantity) || 1,
     price:         Number(price)    || 0,
