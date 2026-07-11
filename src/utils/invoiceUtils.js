@@ -112,6 +112,29 @@ export function formatMoney(n) {
 }
 
 /**
+ * Normalises an order / bridge request to its line-item array. Multi-line
+ * requests carry an `items` array; single-line (or pre-multi-item) records are
+ * reconstructed from the scalar product_name/quantity/price summary so every
+ * consumer can treat orders uniformly as a list of lines.
+ * @param {object} o
+ * @returns {Array<{name:string, qty:number, price:number}>}
+ */
+export function orderLines(o) {
+  if (!o) return [];
+  if (Array.isArray(o.items) && o.items.length) return o.items;
+  return [{
+    name:  o.productName || o.product_name || '',
+    qty:   Number(o.quantity) || 1,
+    price: Number(o.price) || 0,
+  }];
+}
+
+/** Sum of qty × price across an order's line items. */
+export function orderTotal(o) {
+  return orderLines(o).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+}
+
+/**
  * Short date from a stored ISO order/delivery date ("YYYY-MM-DD" → "Jun 2, 2025").
  * Parsed at local midnight so the day never drifts across timezones. Previously
  * duplicated verbatim as a local `formatDate(iso)` in SOOrders and SOInvoices.

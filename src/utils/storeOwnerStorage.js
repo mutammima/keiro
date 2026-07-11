@@ -115,6 +115,9 @@ export function stageReorder(order) {
   const driverId = order.connectionId ? `conn:${order.connectionId}` : (order.driverId || '');
   lsSet(STORAGE_KEYS.PREFILL, {
     reorder: true,
+    // Carry every line so reordering a multi-item request restores all of them.
+    // productName/quantity/price stay for back-compat with a single-line prefill.
+    ...(Array.isArray(order.items) && order.items.length ? { items: order.items } : {}),
     productName: order.productName || '',
     quantity: order.quantity,
     price: order.price,
@@ -137,6 +140,7 @@ export async function loadOrdersFromCloud() {
     productName:  row.product_name,
     quantity:     row.quantity,
     price:        Number(row.price) || 0,
+    items:        Array.isArray(row.items) ? row.items : undefined,
     deliveryDate: row.delivery_date,
     driverId:     row.driver_id   || null,
     driverName:   row.driver_name || 'Unassigned',
@@ -218,6 +222,8 @@ export function bridgeOrderToDriver(order) {
     id: `br_${Date.now()}`,
     productName: order.productName,
     quantity: order.quantity,
+    // Pass the full line list through to the driver's invoice-prefill bridge.
+    ...(Array.isArray(order.items) && order.items.length ? { items: order.items } : {}),
     notes: order.notes || '',
     orderId: order.id,
     bridgedAt: new Date().toISOString(),
@@ -249,6 +255,7 @@ export async function loadBridgeRequestsFromCloud() {
     id:          row.id,
     productName: row.product_name,
     quantity:    row.quantity,
+    items:       Array.isArray(row.items) ? row.items : undefined,
     notes:       row.notes    || '',
     orderId:     row.order_id  || '',
     bridgedAt:   row.created_at,
