@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Keiro uses the camera to scan product barcodes when adding items to an invoice.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Keiro uses your location to sort nearby stores and drivers by distance in the marketplace.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
