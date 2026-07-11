@@ -12,9 +12,14 @@
     "format:check": "prettier --check 'src/**/*.{js,jsx}'",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "ios:sync": "vite build && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@supabase/supabase-js": "^2.106.2",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
