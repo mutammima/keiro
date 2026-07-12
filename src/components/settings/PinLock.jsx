@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { STORAGE_KEYS } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK } from '../../theme';
@@ -139,7 +140,10 @@ export default function PinLock({ onSuccess, setupMode = false, onCancel }) {
     ? (phase === 'enter' ? 'Set a 4-digit PIN' : 'Confirm your PIN')
     : 'Enter PIN';
 
-  return (
+  // Portal to document.body: an overlay-page ancestor uses overflowX:'hidden',
+  // which on iOS becomes a containing block that traps this position:fixed layer
+  // (invisible but tap-swallowing → app looks frozen). CLAUDE.md "Bug A".
+  return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 99999,
       background: dark ? '#000' : '#f0ede8',
@@ -207,6 +211,7 @@ export default function PinLock({ onSuccess, setupMode = false, onCancel }) {
           Cancel
         </button>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

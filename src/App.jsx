@@ -499,7 +499,7 @@ function AppInner({ role, onSwitchRole }) {
               display: 'flex',
               width: stripW ? `${TABS.length * stripW}px` : `${TABS.length * 100}%`,
               height: '100%',
-              paddingTop: `${TOP_NAV_HEIGHT}px`, // must track the fixed TopNav height
+              paddingTop: `calc(${TOP_NAV_HEIGHT}px + env(safe-area-inset-top))`, // clears the fixed TopNav + its safe-area pad
               transform: stripW
                 ? `translateX(${-tabIdx * stripW + dragOffset}px)`
                 : `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
