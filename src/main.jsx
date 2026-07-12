@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import './index.css'
 import App from './App.jsx'
 import { captureInviteFromUrl } from './utils/connectionStorage'
+import { initOtaUpdates } from './utils/otaUpdate'
 
 // Capture an `?invite=CODE` link param before React mounts and strip it from the
 // URL. Stashing it now means the code survives the auth/login flow and can be
@@ -28,3 +29,7 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Native only: signal a healthy boot (rollback guard) + check for an OTA update.
+// No-op on web. Fire-and-forget after render so it never blocks first paint.
+initOtaUpdates();
