@@ -1,5 +1,10 @@
 {
   "appId": "app.keiro.mobile",
   "appName": "Keiro",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": false
+    }
+  }
 }
