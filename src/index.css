@@ -70,8 +70,8 @@ textarea {
    Applied to DimPanels' panels + highlight ring (className="tut-dim-panel").
    Only runs on the infrequent tutorial-step change, not a hot path. */
 .tut-dim-panel {
-  transition: left 0.28s cubic-bezier(0.22,1,0.36,1), top 0.28s cubic-bezier(0.22,1,0.36,1),
-              width 0.28s cubic-bezier(0.22,1,0.36,1), height 0.28s cubic-bezier(0.22,1,0.36,1);
+  transition: left 0.5s cubic-bezier(0.22,1,0.36,1), top 0.5s cubic-bezier(0.22,1,0.36,1),
+              width 0.5s cubic-bezier(0.22,1,0.36,1), height 0.5s cubic-bezier(0.22,1,0.36,1);
 }
 
 /* ── Reduced motion ───────────────────────────────────────────────────────────
