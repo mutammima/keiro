@@ -9,7 +9,6 @@ import { LIGHT, DARK, ACCENT, statusColors } from '../theme';
 import { getInvoices } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
 import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
-import { markAction } from '../utils/tutorialProgress';
 
 export default function EndOfDay({ onNav, embedded }) {
   const { dark } = useTheme();
@@ -23,7 +22,6 @@ export default function EndOfDay({ onNav, embedded }) {
       setInvoices(Array.isArray(list) ? list : []);
       setLoading(false);
     });
-    markAction('eod'); // checklist: viewing the end-of-day summary
   }, []);
 
   const today = todayInvoiceDate();

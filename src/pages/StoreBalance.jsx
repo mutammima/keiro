@@ -10,7 +10,6 @@ import { MS_PER_DAY as MS_DAY } from '../utils/constants';
 import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
 import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
-import { triggerTip } from '../utils/tutorialProgress';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
@@ -46,9 +45,6 @@ export default function StoreBalance({ storeName, onBack }) {
   useEffect(() => {
     loadAllPaymentsFromCloud().then(() => setPayments(v => v + 1)).catch(() => {});
   }, []);
-
-  // Layer 2 — point at the outstanding total the first time a store balance opens.
-  useEffect(() => { triggerTip('d-store-balance'); }, []);
 
   // Load invoices for this store async
   useEffect(() => {

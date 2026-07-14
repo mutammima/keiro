@@ -12,7 +12,6 @@ import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
 import { getOrders, loadOrdersFromCloud } from '../../utils/storeOwnerStorage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
-import { markAction } from '../../utils/tutorialProgress';
 import { formatMoney as money } from '../../utils/invoiceUtils';
 import { MS_PER_DAY as DAY_MS } from '../../utils/constants';
 
@@ -37,7 +36,6 @@ export default function SOReports({ onOpenDrawer, onNav }) {
       .then(list => setOrders(list))
       .catch(() => {})
       .finally(() => setLoading(false));
-    markAction('so_history'); // checklist: viewed delivery/order history
   }, []);
 
   const stats = useMemo(() => {

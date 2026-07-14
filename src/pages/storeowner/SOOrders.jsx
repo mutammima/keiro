@@ -11,7 +11,6 @@ import { getOrders, updateOrderStatus, deleteOrder, bridgeOrderToDriver, loadOrd
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, confirmReceiving } from '../../utils/connectionOrderStorage';
 import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import AppFooter from '../../components/navigation/AppFooter';
-import { triggerTip, markAction } from '../../utils/tutorialProgress';
 import { formatOrderDate as formatDate, orderLines } from '../../utils/invoiceUtils';
 import { EVENTS } from '../../utils/constants';
 
@@ -96,12 +95,6 @@ export default function SOOrders({ onNav }) {
   // Anchors for the first connection order / first delivered-with-invoice order.
   const firstConnIdx      = visible.findIndex(o => o.isConnection);
   const firstDeliveredIdx = visible.findIndex(o => o.isConnection && o.status === 'delivered' && o.invoiceNumber != null);
-
-  // Layer 2 + checklist signals.
-  const hasConnOrder = merged.some(o => o.isConnection);
-  const hasDelivered = merged.some(o => o.status === 'delivered');
-  useEffect(() => { if (hasConnOrder) triggerTip('o-order-status'); }, [hasConnOrder]);
-  useEffect(() => { if (hasDelivered) { triggerTip('o-order-delivered'); markAction('so_delivered'); } }, [hasDelivered]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: C.bg }}>

@@ -15,7 +15,6 @@ import { getOrCreateInvite, inviteLink } from '../../utils/connectionStorage';
 import { getBusinessName } from '../../utils/storage';
 import { isGuest } from '../../utils/guestMode';
 import { GuestCapModal } from '../auth/GuestUpsell';
-import { triggerTip } from '../../utils/tutorialProgress';
 
 export default function InviteModal({ role, inviterName = '', onClose }) {
   const { dark } = useTheme();
@@ -30,7 +29,6 @@ export default function InviteModal({ role, inviterName = '', onClose }) {
     let alive = true;
     // Carry a display name so the other side knows who they connected with.
     getOrCreateInvite(role, inviterName || getBusinessName() || '').then(c => { if (alive) setConn(c); });
-    triggerTip('o-invite'); // explains the invite link (store owner only; manager filters)
     return () => { alive = false; };
   }, []); // eslint-disable-line
 

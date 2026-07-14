@@ -16,7 +16,6 @@ import { useInvoiceForm } from '../../hooks/useInvoiceForm';
 import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
-import { triggerTip } from '../../utils/tutorialProgress';
 import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
 
 // Lazy-loaded so html5-qrcode (the heavy scanner dependency) is split into its
@@ -137,8 +136,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     };
     toTop();
     const raf = requestAnimationFrame(toTop);
-    const t = setTimeout(() => triggerTip('d-barcode'), 1200);
-    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
@@ -388,7 +386,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
             )}
 
             <div style={s.productRow}>
-              <div data-tip="product-name" style={{ flex: 1, minWidth: 0 }} onFocusCapture={() => triggerTip('d-autofill')}>
+              <div data-tip="product-name" style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
                   value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
                   enterKeyHint="next" onKeyDown={focusNext} />

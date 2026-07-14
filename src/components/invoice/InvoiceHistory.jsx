@@ -18,7 +18,6 @@ import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrd
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines } from '../../utils/invoiceUtils';
 import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
-import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
 function fmtPaymentDate(iso) {
@@ -163,7 +162,6 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
       businessName:  bizName,
     });
     setOpenMenu(null);
-    markAction('reminder');
     window.open(url, '_blank');
   }
 
@@ -192,14 +190,6 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // invoice can surface the store's confirmed receipt (and any discrepancy).
   const orderByInvoice = {};
   connOrders.forEach(o => { if (o.invoiceNumber != null) orderByInvoice[o.invoiceNumber] = o; });
-
-  // ── Contextual tip triggers (Layer 2) ─────────────────────────────────────
-  // First card expansion → explain the action buttons.
-  useEffect(() => { if (expanded != null) triggerTip('d-invoice-actions'); }, [expanded]);
-  // An overdue invoice exists → point at the reminder action.
-  useEffect(() => { if (overdueCount > 0) triggerTip('d-overdue'); }, [overdueCount]);
-  // A connected store's order arrived → explain the Fill Invoice flow.
-  useEffect(() => { if (openConnOrders.length > 0) triggerTip('d-conn-order'); }, [openConnOrders.length]);
 
   function handleAcceptConnOrder(o) {
     updateConnectionOrderStatus(o.id, 'accepted');
@@ -230,7 +220,6 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     if (o.status === 'pending') updateConnectionOrderStatus(o.id, 'accepted');
     setActiveConnectionOrder(o.id);
     setConnOrders(getConnectionOrders());
-    markAction('filled_order');
     onNav('invoice');
   }
 

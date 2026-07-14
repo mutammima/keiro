@@ -20,7 +20,6 @@ import ReceivingSheet from '../../components/connections/ReceivingSheet';
 import { isGuest } from '../../utils/guestMode';
 import { GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
-import { triggerTip, markAction } from '../../utils/tutorialProgress';
 import { formatMoney as money, formatOrderDate as formatDate } from '../../utils/invoiceUtils';
 import { EVENTS } from '../../utils/constants';
 
@@ -78,10 +77,6 @@ export default function SOInvoices({ onNav }) {
     connOrders.forEach(o => { if (o.invoiceNumber != null) m[o.invoiceNumber] = o; });
     return m;
   }, [connOrders]);
-
-  // Layer 2 — once a driver has set a payment status, explain the status badge.
-  const hasPaymentStatus = shared.some(inv => (inv.paymentStatus || 'unpaid') !== 'unpaid');
-  useEffect(() => { if (hasPaymentStatus) triggerTip('o-payment-status'); }, [hasPaymentStatus]);
 
   const invTotal = (inv) => (inv.items || []).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
   const payMeta  = (status) => ({
@@ -193,7 +188,7 @@ export default function SOInvoices({ onNav }) {
                   return (
                     <div key={inv.id} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, overflow: 'hidden' }}>
                       <button
-                        onClick={() => { if (!isOpen) markAction('so_view_invoice'); setExpandedId(isOpen ? null : inv.id); }}
+                        onClick={() => setExpandedId(isOpen ? null : inv.id)}
                         style={{ width: '100%', background: 'none', border: 'none', padding: '12px 14px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
                       >
                         <div style={{ flex: 1, minWidth: 0 }}>
