@@ -8,6 +8,14 @@
  * tap on the target (by selector, geometry-independent) and advances the step,
  * while letting the element's own click run so the app actually navigates.
  *
+ * Two ways a step can advance:
+ *   • onTargetTap — tap the real highlighted element (e.g. a nav tab or button
+ *     the user should learn to use); the element's own onClick still fires.
+ *   • onNext — a "Next" button in the tooltip, for steps that narrate something
+ *     already on screen without requiring a real interaction (e.g. mid-form
+ *     fields, or a screen with no data yet to tap into).
+ * A step provides exactly one of the two.
+ *
  * Portaled to document.body per the codebase's iOS containing-block rule.
  */
 
@@ -20,16 +28,16 @@ import DimPanels from './DimPanels';
 const Z = 9000;
 const DIM = 'rgba(0,0,0,0.66)';
 
-export default function Spotlight({ targetSelector, onTargetTap, title, desc, stepNumber, total, canSkip, onSkip, dark, accent }) {
+export default function Spotlight({ targetSelector, onTargetTap, onNext, title, desc, stepNumber, total, canSkip, onSkip, dark, accent }) {
   const { rect } = useElementRect(targetSelector, { active: true });
 
   // Advance when the real target is tapped. Capture phase so we see it even
   // though the panels sit above; we do NOT preventDefault, so the element's own
   // onClick (navigation) still fires.
   useEffect(() => {
-    if (!targetSelector) return;
+    if (!targetSelector || !onTargetTap) return;
     function onClick(e) {
-      if (e.target.closest?.(targetSelector)) onTargetTap?.();
+      if (e.target.closest?.(targetSelector)) onTargetTap();
     }
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
@@ -43,6 +51,18 @@ export default function Spotlight({ targetSelector, onTargetTap, title, desc, st
       {title}
     </div>
   );
+
+  const footer = onNext ? (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+      <button
+        data-tutorial-ui="spotlight-next"
+        onClick={onNext}
+        style={{ height: 38, padding: '0 20px', borderRadius: 11, border: 'none', background: accent, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        Next
+      </button>
+    </div>
+  ) : undefined;
 
   return createPortal(
     <>
@@ -66,7 +86,7 @@ export default function Spotlight({ targetSelector, onTargetTap, title, desc, st
         </span>
       </div>
 
-      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} z={Z + 2}>
+      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2}>
         {desc}
       </TutorialTooltip>
     </>,

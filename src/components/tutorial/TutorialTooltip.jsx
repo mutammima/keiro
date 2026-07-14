@@ -1,6 +1,6 @@
 /**
- * TutorialTooltip — a small card pointing at a target rect, used by both the
- * Quick Start spotlight and the contextual FeatureTip.
+ * TutorialTooltip — a small card pointing at a target rect, used by the Quick
+ * Start spotlight.
  *
  * Positioning rules (safe down to a 320–375px screen):
  *   • Width clamps to min(viewport − 24, 340).
@@ -12,7 +12,7 @@
  * The card measures its own height after first paint (useLayoutEffect) and stays
  * invisible for that one frame to avoid a position flash.
  *
- * Does NOT portal itself — the parent (Spotlight / FeatureTip) owns the portal.
+ * Does NOT portal itself — the parent (Spotlight) owns the portal.
  */
 
 import { useLayoutEffect, useRef, useState } from 'react';

@@ -20,7 +20,6 @@ import { LIGHT, DARK, ACCENT, glassStyle, ORDER_STATUS } from '../../theme';
 import { MS_PER_DAY as MS_DAY, EVENTS } from '../../utils/constants';
 import { getOrders, loadOrdersFromCloud, stageReorder } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud } from '../../utils/connectionOrderStorage';
-import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 // MS_DAY → shared MS_PER_DAY in constants (aliased on the import above).
 
@@ -109,9 +108,6 @@ export default function SOHome({ onNav }) {
 
   const recentInventory  = useMemo(() => [...inventory].sort((a, b) => b.lastTime - a.lastTime).slice(0, 5), [inventory]);
   const restockList      = useMemo(() => inventory.filter(p => p.suggest).sort((a, b) => b.daysSince - a.daysSince), [inventory]);
-
-  // Layer 2 + checklist — when a restock suggestion appears, point at the card.
-  useEffect(() => { if (restockList.length > 0) { triggerTip('o-restock-card'); markAction('so_restock'); } }, [restockList.length]);
 
   const recent = orders.slice(0, 5);
 

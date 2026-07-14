@@ -5,7 +5,6 @@
 
 import { useRef, useState } from 'react';
 import { STORAGE_KEYS } from '../utils/constants';
-import { markAction } from '../utils/tutorialProgress';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,6 @@ export function useBackup() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     setBackupMsg('Backup downloaded.');
     setTimeout(() => setBackupMsg(''), 3000);
-    markAction('backup');
   }
 
   /** Programmatically opens the hidden file input for restore. */

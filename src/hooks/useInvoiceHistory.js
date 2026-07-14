@@ -20,7 +20,6 @@ import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureS
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, EVENTS, DELETE_UNDO_MS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
-import { markAction } from '../utils/tutorialProgress';
 
 // Re-exported so existing consumers (e.g. InvoiceHistory) can keep importing
 // subtotalOf from this hook; the canonical definition lives in invoiceUtils.
@@ -264,7 +263,6 @@ export function useInvoiceHistory() {
       // Lazy-load the PDF stack only when sharing.
       const { generateAndSharePDF } = await import('../utils/pdfGenerator');
       await generateAndSharePDF(normalised);
-      markAction('shared_pdf');
     }
     catch (e) { console.error(e); }
     finally { setSharing(null); }

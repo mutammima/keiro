@@ -12,14 +12,10 @@ import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
-import { triggerTip, markAction } from '../../utils/tutorialProgress';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-
-  // Layer 2 — first time the post-generate view is shown, point at the share row.
-  useEffect(() => { triggerTip('d-share'); }, []);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [busy, setBusy] = useState('');   // 'download' | 'share' | ''
@@ -41,7 +37,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     // Only persist if at least one sig exists (don't write a blank entry on mount)
     if (sellerSig !== null || buyerSig !== null) {
       saveSignatures(invoice.number, sellerSig, buyerSig);
-      if (sellerSig || buyerSig) markAction('signature');
       setSigSaved(true);
       const t = setTimeout(() => setSigSaved(false), 2000);
       return () => clearTimeout(t);
@@ -82,7 +77,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
         // Popup was blocked — fall back to same-tab navigation
         window.location.href = blobUrl;
       }
-      markAction('shared_pdf');
     } catch (e) {
       console.error(e);
       if (newTab) newTab.close();
@@ -101,7 +95,6 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
         const blobUrl = doc.output('bloburl');
         window.open(blobUrl, '_blank');
       }
-      markAction('shared_pdf');
     } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
     finally { setBusy(''); }
   }

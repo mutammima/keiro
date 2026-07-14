@@ -13,7 +13,6 @@ import { getDrivers, saveDriver, deleteDriver, loadDriversFromCloud } from '../.
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
-import { markAction } from '../../utils/tutorialProgress';
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
@@ -94,9 +93,6 @@ export default function SODrivers({ onNav }) {
   const incomingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && me && c.invitedBy && c.invitedBy !== me);
   const outgoingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && (!me || !c.invitedBy || c.invitedBy === me));
   const activeConns      = conns.filter(c => c.status === 'active');
-
-  // Checklist: an active driver connection counts as "Connect with a driver".
-  useEffect(() => { if (activeConns.length > 0) markAction('connected'); }, [activeConns.length]);
 
   function copyInvite(code) {
     try { navigator.clipboard.writeText(inviteLink(code)); } catch {}

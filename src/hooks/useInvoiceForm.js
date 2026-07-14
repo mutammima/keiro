@@ -32,8 +32,6 @@ import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSugges
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
 import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { isTutorialActive } from '../utils/tutorialState';
-import { markAction } from '../utils/tutorialProgress';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -242,7 +240,6 @@ export function useInvoiceForm(onGenerated) {
    */
   const handleScan = useCallback(async (barcode) => {
     setLastBarcode(barcode);
-    markAction('barcode');
 
     // 1. Check cloud catalog first
     const cached = await getProductByBarcode(barcode);
@@ -346,10 +343,8 @@ export function useInvoiceForm(onGenerated) {
     const isEdit = editNumber != null;
 
     // Guest hard cap: block the save and surface the account-upsell modal.
-    // The walkthrough is exempt — it creates a demo invoice that it removes
-    // afterward, so a capped guest can still complete the tutorial. Edits add
-    // no new entry, so they're never capped.
-    if (!isEdit && !isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
+    // Edits add no new entry, so they're never capped.
+    if (!isEdit && !canSaveGuestEntry()) { setGuestWall(true); return; }
 
     setGenerating(true);
     try {

@@ -18,7 +18,6 @@ import { getBridgeRequests, loadBridgeRequestsFromCloud } from '../../utils/stor
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
-import { markAction } from '../../utils/tutorialProgress';
 
 function lastDateOf(a, b) {
   const ta = Date.parse(a || '') || 0;
@@ -50,9 +49,6 @@ export default function DriverStores({ onNav, onSelectStore }) {
   const incomingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && me && c.invitedBy && c.invitedBy !== me);
   const outgoingRequests = conns.filter(c => c.status === 'pending' && c.driverUserId && c.storeUserId && (!me || !c.invitedBy || c.invitedBy === me));
   const activeConns      = conns.filter(c => c.status === 'active');
-
-  // Checklist: an active store connection counts as "Connect with a store".
-  useEffect(() => { if (activeConns.length > 0) markAction('connected'); }, [activeConns.length]);
 
   function copyInvite(code) {
     try { navigator.clipboard.writeText(inviteLink(code)); } catch {}

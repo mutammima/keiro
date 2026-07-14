@@ -2,11 +2,8 @@
  * DimPanels — the shared 4-panel screen dim with a rectangular hole cut around a
  * target rect, plus an optional pulsing highlight ring.
  *
- * Used by both spotlight layers so the geometry lives in one place:
- *   • Quick Start `Spotlight` — `blockTaps` panels that capture taps/scroll, so
- *     only the highlighted element shows through and stays interactive.
- *   • Guided `WalkthroughRunner` — non-blocking panels (`pointerEvents:none`),
- *     because its engine drives the real UI programmatically.
+ * Used by `Spotlight` with `blockTaps` panels that capture taps/scroll, so only
+ * the highlighted element shows through and stays interactive.
  *
  * When `rect` is null the whole screen is dimmed (no hole yet).
  */

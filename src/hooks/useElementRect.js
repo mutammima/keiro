@@ -2,10 +2,17 @@
  * useElementRect — tracks the live viewport rect of a target element by CSS
  * selector, scrolling it into view once on first resolve.
  *
- * A requestAnimationFrame loop keeps the rect glued to the element through
- * scrolling and the tab-strip slide animation, so a spotlight or tip stays
- * locked on its target. The loop only runs while `active` is true (i.e. while a
+ * A ~60fps setTimeout loop keeps the rect glued to the element through
+ * scrolling and page-transition animations, so a spotlight or tip stays locked
+ * on its target. The loop only runs while `active` is true (i.e. while a
  * spotlight/tip is on screen), so its cost is bounded.
+ *
+ * setTimeout, not requestAnimationFrame: rAF is suspended by the browser
+ * whenever the document isn't visible/focused (Page Visibility API), which a
+ * one-shot-then-stuck measurement can hit mid-transition — e.g. a tab
+ * momentarily loses focus, or (inside the Capacitor wrapper) a keyboard
+ * show/hide or permission dialog. setTimeout keeps firing regardless, so a
+ * step that starts a beat late still settles on the correct rect.
  *
  * Returns { rect, missing }:
  *   rect    — { top,left,width,height,bottom,right } | null
@@ -15,7 +22,8 @@
 
 import { useEffect, useState } from 'react';
 
-const GIVE_UP_FRAMES = 90; // ~1.5s at 60fps
+const TICK_MS = 16; // ~60fps
+const GIVE_UP_TICKS = Math.round(1500 / TICK_MS); // ~1.5s
 
 export function useElementRect(selector, { active = true, scrollIntoView = true } = {}) {
   const [rect, setRect]       = useState(null);
@@ -24,7 +32,7 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
   useEffect(() => {
     if (!active || !selector) { setRect(null); setMissing(false); return; }
 
-    let raf = 0;
+    let timer = 0;
     let tries = 0;
     let scrolled = false;
     let cancelled = false;
@@ -49,13 +57,13 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
         });
       } else {
         tries += 1;
-        if (tries === GIVE_UP_FRAMES) setMissing(true);
+        if (tries === GIVE_UP_TICKS) setMissing(true);
       }
-      raf = requestAnimationFrame(tick);
+      timer = setTimeout(tick, TICK_MS);
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => { cancelled = true; cancelAnimationFrame(raf); };
+    timer = setTimeout(tick, TICK_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [selector, active, scrollIntoView]);
 
   return { rect, missing };

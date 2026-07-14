@@ -15,8 +15,6 @@ import { getBusinessName, getBusinessPhone } from '../../utils/storage';
 import { formatInvoiceDate } from '../../utils/invoiceUtils';
 import { getCurrentPosition } from '../../utils/geo';
 import { canSaveGuestEntry, isGuest } from '../../utils/guestMode';
-import { isTutorialActive } from '../../utils/tutorialState';
-import { markAction } from '../../utils/tutorialProgress';
 import { GuestCapModal, GuestBanner } from '../../components/auth/GuestUpsell';
 import AppFooter from '../../components/navigation/AppFooter';
 
@@ -149,9 +147,7 @@ export default function NewRequest({ onNav, onBack }) {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
 
     // Guest hard cap: block the save and surface the account-upsell modal.
-    // The walkthrough is exempt — it creates a demo order that it removes
-    // afterward, so a capped guest can still complete the tutorial.
-    if (!isTutorialActive() && !canSaveGuestEntry()) { setGuestWall(true); return; }
+    if (!canSaveGuestEntry()) { setGuestWall(true); return; }
 
     // Connected driver selected → the order travels to THEIR account over the
     // connection (connection_orders), not into this store's private list.
@@ -172,7 +168,6 @@ export default function NewRequest({ onNav, onBack }) {
           storeName:    getBusinessName() || 'A store',
           driverName:   connDriverName(conn),
         });
-        markAction('so_request'); // checklist: requested from a connected driver
         setSubmitted(true);
         setTimeout(() => { resetForm(); onNav('so-orders'); }, 700);
         return;
@@ -182,7 +177,7 @@ export default function NewRequest({ onNav, onBack }) {
     // No driver assigned → this order can only reach drivers via the marketplace
     // broadcast, which needs a session. Block guests with the account wall BEFORE
     // saving, so we never leave a "Pending" order that silently reached no one.
-    if (!driverId && !isTutorialActive() && isGuest()) {
+    if (!driverId && isGuest()) {
       setWallCopy(SEND_WALL_COPY); setGuestWall(true); return;
     }
 
@@ -207,10 +202,8 @@ export default function NewRequest({ onNav, onBack }) {
 
     // No driver assigned → broadcast this order to the marketplace so any driver
     // who carries the product can discover and accept it. Assigning a specific
-    // driver keeps it a private handoff (not published). Tutorial demo requests
-    // must never reach the shared marketplace — every new store owner's tour
-    // would otherwise publish a junk open order that real drivers can claim.
-    if (!driverId && !isTutorialActive()) {
+    // driver keeps it a private handoff (not published).
+    if (!driverId) {
       // The marketplace demand feed is single-product, so broadcast the first line.
       saveMyDemand({
         id: order.id,
@@ -378,7 +371,7 @@ export default function NewRequest({ onNav, onBack }) {
         </div>
 
         {/* Driver */}
-        <div style={{ ...s.card(C) }}>
+        <div data-qs="assign-driver" style={{ ...s.card(C) }}>
           <p style={s.sectionLabel(C)}>Assign a Driver <span style={{ color: C.textMuted, fontWeight: 400, fontSize: 11 }}>optional</span></p>
 
           {drivers.length === 0 && conns.length === 0 ? (
