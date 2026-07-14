@@ -81,7 +81,7 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
         boxShadow: '0 18px 50px rgba(0,0,0,0.5)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
         visibility: size ? 'visible' : 'hidden',
-        animation: 'tut-fadein 0.18s ease both',
+        animation: 'tut-fadein 0.32s ease both',
         boxSizing: 'border-box',
       }}
     >
