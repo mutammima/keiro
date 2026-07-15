@@ -179,7 +179,10 @@ export function useInvoiceForm(onGenerated) {
   }
 
   const [productName, setProductName] = useState('');
-  const [qty, setQty]                 = useState('');
+  // '1', not '' — the field shows "1" as its placeholder either way, but a real
+  // default means it's a valid quantity from the start instead of a ghost value
+  // that reads as filled-in but fails "Add Item" with "Enter a valid quantity."
+  const [qty, setQty]                 = useState('1');
   const [price, setPrice]             = useState('');
   const [lastBarcode, setLastBarcode] = useState('');
   const [items, setItems]             = useState([]);
@@ -281,7 +284,7 @@ export function useInvoiceForm(onGenerated) {
     saveProductBarcode(barcodeKey, productName.trim(), priceNum).catch(() => {});
 
     setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
-    setProductName(''); setQty(''); setPrice(''); setLastBarcode('');
+    setProductName(''); setQty('1'); setPrice(''); setLastBarcode('');
   }
 
   /** Removes a line item by its unique ID. @param {string} id */

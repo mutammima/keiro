@@ -4,7 +4,15 @@
  * All functions return { user, error } or { error } for consistency.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
+
+// The custom URL scheme registered in ios/App/App/Info.plist
+// (CFBundleURLTypes) that Google's consent screen redirects back into on
+// native — see initOAuthDeepLinkHandler below for why this exists. Must also
+// be added to the Supabase project's Auth -> URL Configuration -> Redirect
+// URLs allowlist, or signInWithOAuth rejects it.
+const NATIVE_OAUTH_REDIRECT = 'keiro://auth-callback';
 
 // ── Email / password ──────────────────────────────────────────────────────────
 
@@ -44,13 +52,35 @@ export async function signUpWithEmail(email, password) {
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 
 /**
- * Kick off Google sign-in. On success the browser NAVIGATES AWAY to Google and
- * returns to the app's origin, where supabase-js (detectSessionInUrl) picks up
- * the session — so this only "returns" on failure to start the flow.
+ * Kick off Google sign-in.
+ *
+ * Web: the browser NAVIGATES AWAY to Google and returns to the app's origin,
+ * where supabase-js (detectSessionInUrl) picks up the session — so this only
+ * "returns" on failure to start the flow.
+ *
+ * Native (Capacitor): Google's OAuth consent screen refuses to load inside an
+ * embedded WebView ("disallowed_useragent") — every Capacitor/Cordova/React
+ * Native app hits this, it's a Google policy, not a bug. The fix is the
+ * standard native pattern: open the consent screen in the SYSTEM browser
+ * (@capacitor/browser -> SFSafariViewController on iOS) instead of navigating
+ * our own WebView, using skipBrowserRedirect so supabase-js hands back the
+ * URL instead of navigating immediately. Google redirects to our custom URL
+ * scheme when done; initOAuthDeepLinkHandler (called once at startup) catches
+ * that hand-off and exchanges the code for a session.
  * @returns {Promise<{ error: object|null }>}
  */
 export async function signInWithGoogle() {
   try {
+    if (Capacitor.isNativePlatform()) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: NATIVE_OAUTH_REDIRECT, skipBrowserRedirect: true },
+      });
+      if (error || !data?.url) return { error: error || new Error('No OAuth URL returned') };
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url: data.url, presentationStyle: 'popover' });
+      return { error: null };
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -59,6 +89,28 @@ export async function signInWithGoogle() {
   } catch (err) {
     return { error: err };
   }
+}
+
+/**
+ * Wires the native deep-link hand-off from signInWithGoogle above. Call once
+ * at app startup (no-op on web). When Google finishes and the system browser
+ * redirects to keiro://auth-callback, iOS routes that to the app via the App
+ * plugin's appUrlOpen event; this closes the system browser and exchanges the
+ * PKCE code in the callback URL for a real session, which fires
+ * onAuthStateChange the same way a web sign-in does — AuthGate needs no
+ * native-specific handling.
+ */
+export function initOAuthDeepLinkHandler() {
+  if (!Capacitor.isNativePlatform()) return;
+  import('@capacitor/app').then(({ App }) => {
+    App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url || !url.startsWith(NATIVE_OAUTH_REDIRECT)) return;
+      const { Browser } = await import('@capacitor/browser');
+      Browser.close().catch(() => {}); // best-effort — may already be closing itself
+      const { error } = await supabase.auth.exchangeCodeForSession(url);
+      if (error) console.error('[Keiro] Google sign-in code exchange failed', error);
+    });
+  });
 }
 
 // ── Password recovery ─────────────────────────────────────────────────────────

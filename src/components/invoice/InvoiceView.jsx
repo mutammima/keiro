@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
@@ -56,27 +57,28 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid });
   }
 
+  /** Lazy-loaded alongside the PDF stack — only fetched once a share/download is triggered. */
+  async function sharePDFBlob(...args) {
+    const mod = await import('../../utils/pdfGenerator');
+    return mod.sharePDFBlob(...args);
+  }
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   /**
-   * Opens the PDF in a new tab.
-   * We open the tab SYNCHRONOUSLY (inside the user gesture) before any await,
-   * then navigate it once the PDF blob is ready — browsers allow this pattern
-   * without blocking it as a popup.
+   * Opens the PDF in a new tab (web) or the native share sheet (iOS wrapper —
+   * there's no separate "download" concept there; Save to Files lives inside
+   * the same sheet Share uses). We open the tab SYNCHRONOUSLY (inside the user
+   * gesture) before any await on web, so it's ready once the blob is built —
+   * browsers allow this pattern without blocking it as a popup. sharePDFBlob
+   * closes/ignores it on the native path.
    */
   async function handleDownload() {
-    // Must open synchronously before any await to avoid popup blockers
-    const newTab = window.open('', '_blank');
+    const newTab = Capacitor.isNativePlatform() ? null : window.open('', '_blank');
     setBusy('download');
     try {
-      const { doc } = await getBlob();
-      const blobUrl = doc.output('bloburl');
-      if (newTab) {
-        newTab.location.href = blobUrl;
-      } else {
-        // Popup was blocked — fall back to same-tab navigation
-        window.location.href = blobUrl;
-      }
+      const built = await getBlob();
+      await sharePDFBlob(built, `Invoice #${invoice.number}`, newTab);
     } catch (e) {
       console.error(e);
       if (newTab) newTab.close();
@@ -87,14 +89,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   async function handleShare() {
     setBusy('share');
     try {
-      const { blob, filename, doc } = await getBlob();
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
-      } else {
-        const blobUrl = doc.output('bloburl');
-        window.open(blobUrl, '_blank');
-      }
+      const built = await getBlob();
+      await sharePDFBlob(built, `Invoice #${invoice.number}`);
     } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
     finally { setBusy(''); }
   }

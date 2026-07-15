@@ -20,6 +20,20 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google OAuth's redirect target inside the native wrapper — see
+				     NATIVE_OAUTH_REDIRECT in src/services/auth.js. Must match the
+				     Supabase project's Auth -> Redirect URLs allowlist exactly. -->
+				<string>keiro</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -28,6 +42,10 @@
 	<string>Keiro uses the camera to scan product barcodes when adding items to an invoice.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Keiro uses your location to sort nearby stores and drivers by distance in the marketplace.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

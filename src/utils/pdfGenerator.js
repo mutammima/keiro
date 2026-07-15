@@ -15,7 +15,9 @@
  * @param {string} invoice.time
  * @param {Array}  invoice.items  – [{ name, qty, price }]
  */
+import { Capacitor } from '@capacitor/core';
 import { STORAGE_KEYS } from './constants';
+import { notifySyncError } from './syncNotify';
 async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0 } = invoice;
 
@@ -262,20 +264,59 @@ export async function generatePDFBlob(invoice) {
 
 /**
  * Generates the PDF and triggers native share sheet (or download fallback).
- */
-/**
  * NOTE: callers must open a blank tab BEFORE calling this function
  * (to satisfy browser popup-blocker requirements), then pass it as `targetTab`.
  * If targetTab is null/undefined the PDF will still open but may be blocked.
  */
 export async function generateAndSharePDF(invoice, targetTab) {
-  const { blob, filename, doc } = await buildPDF(invoice);
+  const built = await buildPDF(invoice);
+  await sharePDFBlob(built, `Invoice #${invoice.number}`, targetTab);
+}
+
+/**
+ * Hands a generated PDF blob to the user however is appropriate for the
+ * current platform. A `blob:` URL can't be opened by iOS LaunchServices
+ * inside the native (Capacitor) wrapper — window.open()/location.href to one
+ * silently fails there — so that path is native-only:
+ *   1. Native (Capacitor): write the PDF to the cache dir via @capacitor/
+ *      filesystem, then hand its file:// URI to @capacitor/share, which opens
+ *      the native share sheet (Save to Files, AirDrop, Mail, Messages, print).
+ *      Unlike web, there's no separate "download" concept on iOS — both the
+ *      Download and Share buttons converge on this sheet, matching platform
+ *      convention.
+ *   2. Web, Files-capable Web Share API (mobile Safari/Chrome): native share
+ *      sheet via navigator.share.
+ *   3. Web fallback (desktop / no Web Share): open the blob in a new tab (or
+ *      the pre-opened `targetTab`, to survive popup blockers) — unchanged
+ *      existing behavior.
+ * @param {{blob: Blob, filename: string, doc: object}} built - buildPDF() result
+ * @param {string} title - share-sheet title, e.g. "Invoice #1042"
+ * @param {Window} [targetTab] - a tab pre-opened synchronously in the click handler
+ */
+export async function sharePDFBlob({ blob, filename, doc }, title, targetTab) {
+  if (Capacitor.isNativePlatform()) {
+    if (targetTab) targetTab.close(); // was opened for the web path; unused natively
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
+      const base64 = await blobToBase64(blob);
+      const { uri } = await Filesystem.writeFile({ path: filename, data: base64, directory: Directory.Cache });
+      await Share.share({ title, url: uri });
+    } catch (e) {
+      // AbortError-equivalent: the user closing the native share sheet also
+      // rejects on iOS — that's not a failure, don't surface it as one.
+      if (e?.message && /cancel/i.test(e.message)) return;
+      console.error('Native PDF share failed', e);
+      notifySyncError("Couldn't open the share sheet for this PDF. Try again.");
+    }
+    return;
+  }
 
   if (navigator.share && navigator.canShare) {
     const file = new File([blob], filename, { type: 'application/pdf' });
     if (navigator.canShare({ files: [file] })) {
       if (targetTab) targetTab.close(); // close the pre-opened tab if sharing natively
-      await navigator.share({ files: [file], title: `Invoice #${invoice.number}` });
+      await navigator.share({ files: [file], title });
       return;
     }
   }
@@ -286,4 +327,13 @@ export async function generateAndSharePDF(invoice, targetTab) {
   } else {
     window.open(blobUrl, '_blank');
   }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] || ''); // strip the data: prefix
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
