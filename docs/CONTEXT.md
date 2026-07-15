@@ -61,6 +61,7 @@ flows back to the store's Invoices tab.
 | PDF | **jsPDF 4.x + jspdf-autotable** (lazy-loaded only at generation time) |
 | Barcode scan | **html5-qrcode** (lazy-loaded) |
 | Deploy | **Vercel** |
+| Native wrapper | **Capacitor (iOS)** — same web app, sideloaded via AltStore/SideStore, not the App Store; see §4e |
 | Defaults | Dark mode default; max content width **480px** centered on desktop; viewport `100dvh` |
 
 Scripts: `npm run dev` (Vite dev server, port 5173), `npm run build` (must pass before any PR),
@@ -107,11 +108,15 @@ variable string that works in `style` props; in raw SVG `fill`/`stroke` hardcode
 `glassStyle(dark)` = sticky-header backdrop blur (use only on sticky/fixed headers).
 
 ### 4d. Auth & guest mode
-- Sign-up/sign-in is **Google OAuth (primary) + real email + password** (Supabase). Google returns
-  via redirect (`detectSessionInUrl` restores the session); email supports password reset. Both funnel
-  new users through the same profile-setup screens (`OnboardingFlow.jsx` — name/email prefilled from
-  the provider), then a plan screen, then the app. **Phone-OTP is still in the code but dormant** —
+- Sign-up/sign-in is **Google OAuth (primary) + real email + password** (Supabase). On **web**, Google
+  returns via redirect (`detectSessionInUrl` restores the session); email supports password reset. Both
+  funnel new users through the same profile-setup screens (`OnboardingFlow.jsx` — name/email prefilled
+  from the provider), then a plan screen, then the app. **Phone-OTP is still in the code but dormant** —
   no button reaches it until an SMS provider is funded in Supabase Auth.
+- **On native (the iOS wrapper), Google sign-in takes a different path.** Google's consent screen
+  refuses to load inside any embedded WebView, so `signInWithGoogle()` branches on
+  `Capacitor.isNativePlatform()`: it opens the consent screen in the **system** browser instead and
+  catches the result via a custom-URL-scheme deep link rather than `detectSessionInUrl`. See §4e.
 - **Guest mode** (`localStorage['inv_guest_mode'] === 'true'`, helpers in `guestMode.js`): full local
   use without an account, capped at `GUEST_ENTRY_CAP` (5) saved entries. Cloud writes silently no-op
   (RLS rejects unauthenticated). Cross-account features (invites, sending orders to drivers) are
@@ -119,6 +124,58 @@ variable string that works in `style` props; in raw SVG `fill`/`stroke` hardcode
   Continue with Google / Sign up with email / Log in / Try as guest.
 - **Sign-out clears account-scoped local data** (all `inv_*` except device prefs like theme/accent),
   so the next account to sign in on the same device doesn't inherit the previous user's role/caches.
+
+### 4e. Native wrapper (iOS/Capacitor)
+The same web app, wrapped in a native iOS shell via **Capacitor** (`ios/` folder), sideloaded through
+AltStore/SideStore — not on the App Store. Bundle id `app.keiro.mobile`. `npm run ios:sync` builds the
+web app and pushes it + plugin config into the native project (`cap sync ios`); `npm run ios:open`
+opens the Xcode project.
+
+**Plugins:** `@capacitor/core` + `@capacitor/ios` (base), `@capacitor/filesystem` + `@capacitor/share`
+(PDF sharing), `@capacitor/browser` + `@capacitor/app` (Google OAuth), `@capgo/capacitor-updater` (OTA
+updates). Every native-only branch checks `Capacitor.isNativePlatform()` — grep for it to find them
+all: skipping the web service worker (`main.jsx`), the OTA check (`otaUpdate.js`), the OAuth deep-link
+handler (`auth.js`), and the PDF share-sheet bridge (`pdfGenerator.js`).
+
+**Two problems that only exist inside the wrapper, both solved the same way — hand off to a native
+API instead of a web one:**
+- **PDF share/download.** iOS LaunchServices can't open `blob:` URLs from inside a Capacitor
+  WebView — `window.open()`/`location.href` to one just does nothing, silently. `sharePDFBlob()` in
+  `pdfGenerator.js` writes the PDF to the cache dir via `@capacitor/filesystem`, then hands the
+  resulting `file://` URI to `@capacitor/share`'s native share sheet. There's no separate "download"
+  concept on iOS, so Download and Share converge on the same sheet there; web is unchanged (Web Share
+  API, falling back to a blob tab).
+- **Google sign-in.** Google's OAuth screen refuses to load inside *any* embedded WebView
+  (`disallowed_useragent` — a Google policy every wrapped app hits, not a Keiro bug). The native path
+  opens the consent screen in the **system** browser (`@capacitor/browser`) via `skipBrowserRedirect`,
+  catches Google's redirect back through `@capacitor/app`'s `appUrlOpen` event on the custom URL scheme
+  `keiro://` (registered in `Info.plist`'s `CFBundleURLTypes`), and exchanges the PKCE code for a
+  session (`initOAuthDeepLinkHandler()` in `auth.js`). **The `keiro://auth-callback` scheme must also be
+  added to the Supabase project's Auth → URL Configuration → Redirect URLs allowlist**, or
+  `signInWithOAuth` rejects it — a dashboard change only the project owner can make.
+
+**OTA updates.** Every `npm run build` also runs `scripts/build-ota.mjs`, packaging `dist/` into
+`dist/ota/<git-hash>.zip` + `latest.json` (deployed to Vercel with everything else). On native launch,
+`otaUpdate.js` compares its baked-in version against `latest.json` and, if newer, downloads and
+activates the update on next open via `@capgo/capacitor-updater` — ordinary code/content changes reach
+the installed app with no reinstall. A new IPA is only needed when something *native* changes (a new
+permission, plugin, or `Info.plist` edit).
+
+**Safe-area:** the native WebView draws edge-to-edge under the status bar/Dynamic Island, unlike a
+browser tab. Handled via `viewport-fit=cover` + `env(safe-area-inset-top)` padding on the top nav — a
+no-op (resolves to 0) on desktop web and the installed PWA.
+
+**Signing, never commit:** `project.pbxproj`'s `DEVELOPMENT_TEAM` is the developer's personal Apple ID
+team — local-machine-specific, must be stashed before switching branches. Same for
+`.../xcshareddata/swiftpm/` (SPM cache) *except* `Package.resolved`, a real lockfile that should be
+committed like `package-lock.json`.
+
+**Verifying native-only code:** a browser can't exercise the share sheet or a real Google login. Beyond
+code review, an iOS Simulator build (`xcodebuild -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO`) +
+`xcrun simctl install/launch/screenshot` confirms the build links and the app doesn't crash; `xcrun
+simctl openurl "keiro://auth-callback?..."` confirms the URL scheme is registered at the OS level. A
+**real device** (or TestFlight) is still needed to confirm the full share-sheet content and OAuth
+round-trip.
 
 ---
 
@@ -141,7 +198,8 @@ This is where most domain logic lives. Each module is local-first + cloud-sync:
 | `constants.js` | **Single source of truth** for magic values: `STORAGE_KEYS` (every `inv_` key), `EVENTS`, `DEFAULT_FLAG_DAYS`, `DELETE_UNDO_MS`, `AUTOFILL_DEBOUNCE_MS`, `BUSINESS_NAME_PLACEHOLDER`, etc. |
 | `syncQueue.js` / `syncNotify.js` | Offline retry queue + failure-toast bridge |
 | `pdfGenerator.js` | jsPDF invoice generation (lazy) |
-| `eventBadges.js`, `geo.js`, `barcodeApi.js`, `guestMode.js`, `tutorialProgress.js`, `tutorialState.js` | Unread badges, geolocation, barcode lookup, guest cap, tutorial registries/state |
+| `eventBadges.js`, `geo.js`, `barcodeApi.js`, `guestMode.js` | Unread badges, geolocation, barcode lookup, guest cap |
+| `tutorialProgress.js` | Now tiny (~24 lines): the onboarding-done flag (also read directly by `AuthGate.jsx`/`resolveStartupRole()` — don't rename without updating those) + home-tab pulse-dot helpers. Used to also hold the tip/checklist/walkthrough registries — deleted along with those layers, see §9. |
 
 `services/`: `supabase.js` (client), `auth.js` (Google/email sign-in, password reset, dormant OTP, profile), `db.js` (raw Supabase CRUD;
 invoices upsert on `(user_id, invoice_number)`), `migration.js` (localStorage→cloud migration on
@@ -188,7 +246,7 @@ src/
     auth/                 AuthGate, OnboardingFlow (sign-up screens), GuestUpsell
     connections/          InviteModal
     dashboard/            DashboardCharts (BarChart, DonutRing, HorizBar)
-    tutorial/             QuickStart, TipManager, FeatureTip, WalkthroughRunner, HelpChecklist, Spotlight, DimPanels, TutorialTooltip
+    tutorial/             QuickStart (the entire tutorial, one 7-step tour per role), Spotlight, DimPanels, TutorialTooltip, Confetti
     settings/             PinLock, ThemeToggle
     ui/                   SplashScreen, UpdateBanner, WhatsNew, SyncToast, BarcodeScanner, etc.
     onboarding/           RoleSelector
@@ -245,22 +303,33 @@ End-of-Day summary.
 
 ---
 
-## 9. Onboarding / tutorial system (4 layers — `components/tutorial/`)
+## 9. Onboarding / tutorial system (one tour — `components/tutorial/`)
 
 1. **RoleSelector** — first launch, pick driver vs store owner.
-2. **QuickStart** (`QuickStart.jsx`) — a 4-step spotlight walk (spotlight the work tab → spotlight
-   "+ New" → confetti). First-run gated by `useOnboarding` (`inv_onboarding_complete`); replayable
-   from the drawer ("How it Works").
-3. **Contextual tips** (`TipManager.jsx` + `FeatureTip.jsx`) — one-time hints fired by `triggerTip(id)`
-   from feature sites. Shown one at a time, only after QuickStart, only for the current role,
-   **throttled to 2 per session** (the rest re-fire later); an off-screen anchor (wrong tab) is
-   skipped. Registry: `TIPS` in `tutorialProgress.js`.
-4. **WalkthroughRunner** (`WalkthroughRunner.jsx`) — self-driving guided demos that actually navigate
-   the real UI (no cursor; tooltips narrate; paced to be followable). `driver_invoice` and
-   `so_request` walkthroughs.
+2. **QuickStart** (`QuickStart.jsx`) — a single **7-step, role-aware spotlight tour**, taught in one
+   sitting right after signup, ending in a confetti success screen. First-run gated by `useOnboarding`
+   (`inv_onboarding_complete`); replayable from the drawer ("How it Works") and Settings → Help
+   ("Replay tutorial") — both relaunch the identical tour. On finish (driver only) a pulse dot appears
+   on the Home tab.
 
-Plus a **HelpChecklist** (Settings → Help) that auto-ticks as features are used. All tutorial state
-keys are `inv_`-prefixed. To reset first-run: `localStorage.removeItem('inv_onboarding_complete')`.
+**This replaced a four-layer system** (a 3-step QuickStart + 20 contextual tips throttled to "2 per
+session" so the rest trickled in over future days + a Settings checklist + an 836-line self-driving
+demo runner). The old design's core flaw: right after the "You're ready!" screen, an unrelated tip
+could fire pointing at an empty invoice list days later — the opposite of teaching a new user in one
+go. All four layers were deleted and merged into the single tour above; nothing else teaches the user
+anything after first run.
+
+Each of the 7 steps is either **tap-required** (the tooltip asks the user to tap the real highlighted
+element — a nav tab, a button — and that real tap also drives the app's own navigation) or
+**Next-button** (an informational step with a "Next" button in the tooltip footer, used for
+mid-form fields or screens with no data yet). Shared primitives: `useElementRect.js` (polls the
+target's rect via `setTimeout`, not `requestAnimationFrame` — rAF suspends on a hidden/unfocused
+document, which could freeze a spotlight mid-transition), `TutorialTooltip.jsx` (viewport-flipping,
+375px-safe, with the Next-button footer slot), `Spotlight.jsx` (4-panel dim with a click-through hole,
+portaled — `.tut-dim-panel` glides between targets over 500ms rather than snapping), `Confetti.jsx`.
+
+All tutorial state keys are `inv_`-prefixed. To reset first-run:
+`localStorage.removeItem('inv_onboarding_complete')`.
 
 ---
 
@@ -298,6 +367,9 @@ keys are `inv_`-prefixed. To reset first-run: `localStorage.removeItem('inv_onbo
 | Reading localStorage directly instead of via storage helpers | Misses cloud data |
 | Re-running Supabase SQL | Safe (idempotent), but the dashboard AI may rewrite it — verify with a REST probe |
 | Dev preview service worker | Can serve stale bundles + drop the dev session on reload (test single-session flows) |
+| `blob:` URLs inside the iOS wrapper | iOS LaunchServices can't open them — `window.open()`/`location.href` to a blob silently does nothing (why PDF share needed a native path, §4e) |
+| Google sign-in inside any embedded WebView | Blocked by Google's `disallowed_useragent` policy (not a Keiro bug) — needs the system-browser + deep-link pattern, §4e |
+| Native build, Supabase redirect URL not allowlisted | `keiro://auth-callback` must be added to Auth → URL Configuration → Redirect URLs or `signInWithOAuth` rejects it (dashboard-only change) |
 
 ---
 

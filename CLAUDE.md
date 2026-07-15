@@ -17,6 +17,7 @@ Keiro is a mobile-first PWA that connects delivery drivers and retail store owne
 | Backend / Auth / DB | Supabase (Postgres + RLS + auth) |
 | PDF | jsPDF + jspdf-autotable (lazy-loaded at generation time) |
 | Deployment | Vercel |
+| Native wrapper | **Capacitor (iOS)** — same web app, sideloaded via AltStore/SideStore; see "iOS Native Wrapper" |
 | Max content width | 480px (mobile-first, centered on desktop) |
 | Default theme | **Dark mode** |
 
@@ -182,7 +183,7 @@ src/
     navigation/        Top nav bar, sidebar drawer, in-page footer
     onboarding/        RoleSelector (driver vs store owner, first launch)
     settings/          PIN lock, theme toggle
-    tutorial/          3-layer onboarding: QuickStart + contextual tips + Help checklist (see Onboarding section)
+    tutorial/          Single guided tour (QuickStart) — see Onboarding section
     ui/                Splash screen, update banner, what's new modal, etc.
   hooks/               Custom React hooks
   services/            Supabase client, auth, db, migration (was lib/)
@@ -221,8 +222,7 @@ src/
 | `src/components/auth/OnboardingFlow.jsx` | Sign-in / sign-up flow — Google primary, email/password + recovery (PR #140) |
 | `src/components/settings/PinLock.jsx` | PIN lock screen |
 | `src/components/settings/ThemeToggle.jsx` | Dark/light toggle |
-| `src/components/tutorial/QuickStart.jsx` | First-run 4-step spotlight tutorial (see Onboarding section) |
-| `src/components/tutorial/WalkthroughRunner.jsx` | Replayable guided walkthroughs |
+| `src/components/tutorial/QuickStart.jsx` | The entire onboarding tutorial — one 7-step spotlight tour per role, replayable (see Onboarding section) |
 | `src/components/ui/UpdateBanner.jsx` | "Update available" banner |
 | `src/components/ui/SplashScreen.jsx` | App launch splash |
 | `src/components/ui/WhatsNew.jsx` | What's new modal |
@@ -232,7 +232,7 @@ src/
 | `src/hooks/useInvoiceForm.js` | Invoice form state logic |
 | `src/hooks/useInvoiceHistory.js` | Invoice history state + payment status logic |
 | `src/services/supabase.js` | Supabase client |
-| `src/services/auth.js` | Auth helpers — `signInWithEmail` / `signUpWithEmail` / `signInWithGoogle`, `resetPassword` / `updatePassword`, `signOut`, phone OTP, profile CRUD |
+| `src/services/auth.js` | Auth helpers — `signInWithEmail` / `signUpWithEmail` / `signInWithGoogle` (web: redirect; native: system browser + custom-scheme deep link, see iOS Native Wrapper), `resetPassword` / `updatePassword`, `signOut`, phone OTP, profile CRUD |
 | `src/services/db.js` | Database CRUD helpers |
 | `src/services/migration.js` | LocalStorage → Supabase migration |
 | `src/utils/storage.js` | Data helpers (Supabase + localStorage); mirrors invoices to cache + emits sync-error toasts on failed cloud writes |
@@ -247,11 +247,15 @@ src/
 | `src/utils/reminderMessage.js` | Builds the overdue-invoice WhatsApp reminder message + `wa.me` deep link |
 | `src/utils/syncNotify.js` | Bridges non-React storage-layer cloud-write failures to a global toast (`inv-sync-error` event) |
 | `src/components/ui/SyncToast.jsx` | Global banner that surfaces failed critical cloud writes |
-| `src/utils/pdfGenerator.js` | jsPDF invoice generation |
+| `src/utils/pdfGenerator.js` | jsPDF invoice generation; `sharePDFBlob()` hands the result to the native share sheet on iOS (blob: URLs don't work in the wrapper) or the browser/Web Share API on web |
 | `src/utils/barcodeApi.js` | Barcode lookup API |
-| `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update |
+| `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update (web/installed-PWA only — skipped inside the native wrapper) |
 | `public/version.json` | Written at build time with git hash for update detection |
 | `vite.config.js` | Auto-versioning: writes version.json + injects __APP_VERSION__ |
+| `src/utils/otaUpdate.js` | Native-only: checks `/ota/latest.json` on launch, downloads + applies a newer bundle — see iOS Native Wrapper |
+| `scripts/build-ota.mjs` | Runs after every `vite build`; packages `dist/` into `dist/ota/<hash>.zip` + `latest.json` |
+| `capacitor.config.json` | Capacitor config — appId, webDir, OTA updater plugin settings |
+| `ios/App/App/Info.plist` | Native permissions (camera, location), `keiro://` URL scheme for Google OAuth, file-sharing keys for PDF share |
 
 ## Navigation Model
 
@@ -276,24 +280,95 @@ column missing, 42P01 = table missing, `[]` = OK).
 
 ## Update System
 
+**Web / installed PWA:**
 - `vite.config.js` writes the current git hash to `public/version.json` at build time and injects `__APP_VERSION__` into the bundle
 - `useVersionCheck.js` polls `/version.json` every 30s — fires `inv-version-update` custom event on mismatch
 - `useAppUpdate.js` detects SW waiting state
 - `UpdateBanner.jsx` shows "Update now / Later" when either fires
 
+**Native (Capacitor) — over-the-air, no reinstall:** every `npm run build` also runs `scripts/build-ota.mjs`, which packages `dist/` into `dist/ota/<git-hash>.zip` + `dist/ota/latest.json` (deployed to Vercel like everything else). On native launch, `src/utils/otaUpdate.js` compares its baked-in `__APP_VERSION__` against `latest.json`; if newer, it downloads the zip and activates it on the *next* app open (`@capgo/capacitor-updater`). This means ordinary code/content changes reach the installed iOS app automatically — a new IPA is only needed when something *native* changes (a new permission, a new plugin, an Info.plist edit). See iOS Native Wrapper below.
+
 ## Onboarding / Tutorial System
 
-Three layers, all under `src/components/tutorial/` with state in `src/utils/tutorialProgress.js`:
+**One tour, taught in a single sitting** (`QuickStart.jsx`) — this used to be four separate
+layers (a 3-step quick start + 20 tips trickling in over multiple future sessions + a Settings
+checklist + an 836-line self-driving demo). All four were replaced with one 7-step, role-aware
+spotlight tour, because the old system's tips could fire on an empty screen days after signup —
+the opposite of "taught in one go."
 
-1. **Quick Start** (`QuickStart.jsx`) — 4-step, role-aware, spotlight-based. RoleSelector is step 1; this runs steps 2–4: spotlight the work tab (Route / Orders) → spotlight + New → confetti success. Skip from step 2 on. Lazy-loaded in `App.jsx`; first-run gated by `useOnboarding` (`inv_onboarding_complete`), replayable from the drawer ("How it Works") and Settings → Help. On finish (driver) a pulse dot appears on the Home tab.
-2. **Contextual tips** (`TipManager.jsx` + `FeatureTip.jsx`) — one-time hints fired by `triggerTip(id)` from feature sites. The manager shows one at a time, only after the quick start is done, only for the current role, only once (`inv_tip_<id>`). Registry: `TIPS` in `tutorialProgress.js`.
-3. **Feature checklist** (`HelpChecklist.jsx`, in Settings → Help) — auto-ticks as features are used. Reads `inv_act_<id>` flags set by `markAction(id)` and by the milestone bridge (`installMilestoneBridge` maps the app's existing `inv-onboarding-*` events to actions). Registry: `getChecklist(role)`.
+- `QuickStart.jsx` holds a data-driven step array per role (`driver` / `store_owner`). Each step is
+  either **tap-required** (the user taps the real highlighted element — a nav tab, a button — and
+  that real click also drives the app's own navigation) or **Next-button** (an informational step:
+  a "Next" button in the tooltip advances instead, for mid-form fields or a screen with no data
+  yet). RoleSelector runs first; QuickStart starts fresh at "Step 1 of 7."
+- First-run gated by `useOnboarding` (`inv_onboarding_complete`); replayable from the drawer ("How
+  it Works") and Settings → Help ("Replay tutorial") — both relaunch the exact same tour. On finish
+  (driver only) a pulse dot appears on the Home tab.
+- **Nothing else teaches the user anything after this** — no scattered tips, no checklist, no demo.
 
-Shared primitives: `useElementRect.js` (rAF rect tracking + scroll-into-view + give-up), `TutorialTooltip.jsx` (viewport-flipping card, 375px-safe), `Spotlight.jsx` (4-panel dim with a click-through hole, portaled), `Confetti.jsx`. Keyframes live in `index.css` (`tut-*`).
+Shared primitives: `useElementRect.js` (polls the target's live rect via `setTimeout`, not
+`requestAnimationFrame` — rAF is suspended whenever the document isn't visible/focused, which can
+freeze a spotlight mid page-transition; `setTimeout` keeps working), `TutorialTooltip.jsx`
+(viewport-flipping card, 375px-safe, has a `footer` slot for the Next-button steps), `Spotlight.jsx`
+(4-panel dim with a click-through hole, portaled; `.tut-dim-panel`'s CSS transition glides between
+targets over 500ms rather than snapping), `Confetti.jsx` (success-screen finale). Keyframes live in
+`index.css` (`tut-*`).
 
-All state keys are `inv_`-prefixed so backup/restore captures them automatically. To re-trigger first-run: `localStorage.removeItem('inv_onboarding_complete')` (clear `inv_tip_*` / `inv_act_*` to reset tips/checklist).
+`src/utils/tutorialProgress.js` is now tiny (~24 lines) — just the onboarding-done flag (also read
+directly by `AuthGate.jsx` and `resolveStartupRole()`, so don't rename it without updating those
+too) and the home-pulse helpers. All state keys are `inv_`-prefixed so backup/restore captures them
+automatically. To re-trigger first-run: `localStorage.removeItem('inv_onboarding_complete')`.
 
-## iOS / Safari Gotchas
+## iOS Native Wrapper (Capacitor)
+
+The same web app, wrapped in a native iOS shell via **Capacitor** (`ios/` folder), sideloaded via
+AltStore/SideStore — not on the App Store yet. Bundle id `app.keiro.mobile`. Dev commands:
+`npm run ios:sync` (build + `cap sync ios` — pushes the current web build + plugin config into the
+native project) and `npm run ios:open` (opens `ios/App/App.xcodeproj` in Xcode).
+
+**Native plugins in use:** `@capacitor/core`, `@capacitor/ios`, `@capacitor/filesystem` +
+`@capacitor/share` (PDF sharing), `@capacitor/browser` + `@capacitor/app` (Google OAuth), and
+`@capgo/capacitor-updater` (OTA updates — see Update System above).
+
+**Finding native-only code:** every native branch point checks `Capacitor.isNativePlatform()` —
+grep for it to find them all. Current ones: skip the web service worker (`main.jsx`), OTA update
+check (`otaUpdate.js`), the OAuth deep-link handler (`auth.js`), and the PDF share-sheet bridge
+(`pdfGenerator.js`).
+
+**Why PDF share needed a native path:** `blob:` URLs can't be opened by iOS LaunchServices inside a
+Capacitor WebView — `window.open()`/`location.href` to one just silently does nothing. The native
+path (`sharePDFBlob()` in `pdfGenerator.js`) writes the PDF to the cache dir via
+`@capacitor/filesystem`, then hands its `file://` URI to `@capacitor/share`'s native share sheet
+(Save to Files, AirDrop, Mail, print). There's no separate "download" concept on iOS, so Download
+and Share both converge on the same sheet there; web is unchanged.
+
+**Why Google sign-in needed a native path:** Google's OAuth consent screen refuses to load inside
+*any* embedded WebView (`disallowed_useragent`) — a Google policy every Capacitor/Cordova/React
+Native app hits, not a bug. The native path opens the consent screen in the **system** browser
+(`@capacitor/browser`, SFSafariViewController) via `skipBrowserRedirect`, then catches Google's
+redirect back via `@capacitor/app`'s `appUrlOpen` event on the custom URL scheme `keiro://`
+(registered in `Info.plist`'s `CFBundleURLTypes`), and exchanges the PKCE code for a session — see
+`initOAuthDeepLinkHandler()` in `auth.js`. **This scheme must also be added to the Supabase
+project's Auth → URL Configuration → Redirect URLs allowlist, or `signInWithOAuth` rejects it** —
+that's a dashboard change only the project owner can make.
+
+**Safe-area:** the native WebView draws edge-to-edge under the status bar / Dynamic Island (unlike
+a normal browser tab). Fixed via `viewport-fit=cover` in `index.html` and `env(safe-area-inset-top)`
+padding on `TopNav.jsx` — resolves to `0` (no-op) on desktop web and the installed PWA.
+
+**Signing is local-only, never commit:** `ios/App/App.xcodeproj/project.pbxproj`'s
+`DEVELOPMENT_TEAM` is the developer's personal Apple ID team — stash it before switching branches,
+never push it. Same for anything under `.../xcshareddata/swiftpm/` (SPM resolution cache) *except*
+`Package.resolved`, which is a real lockfile and should be committed like `package-lock.json`.
+
+**Verifying native-only paths:** a browser can't exercise the share sheet or complete a real Google
+login. Beyond code review, build for the simulator (`xcodebuild ... -sdk iphonesimulator
+CODE_SIGNING_ALLOWED=NO`) and use `xcrun simctl install/launch/screenshot` — this at least confirms
+the build links, the app doesn't crash, and (for deep links) `xcrun simctl openurl
+"keiro://auth-callback?..."` confirms the URL scheme is registered at the OS level. A **real device**
+(or TestFlight) is still needed to confirm the full round-trip.
+
+## iOS / Safari Gotchas (web / installed PWA)
 
 - **`position: fixed` modals**: any ancestor with `overflow: hidden` creates a new containing block on iOS, clipping fixed children. Use `createPortal(modal, document.body)` for all confirm/delete dialogs.
 - **`overflowX: 'clip'` not `'hidden'`**: `clip` prevents horizontal scroll without creating a new containing block — use it on page wrappers so fixed portals still escape.
@@ -330,6 +405,9 @@ All state keys are `inv_`-prefixed so backup/restore captures them automatically
 - **Phase 2 — store intelligence** (PR #103): smart order suggestion chips (≥2 of last 6 invoices, median qty + last price), invoice anomaly warning (≥2× / ≤⅓ of store average, non-blocking), weekly store statement (Mon–Sun, payments ledger, WhatsApp share)
 - **Phase 3.1 — cross-account orders** (PR #104): connected store's order → driver's Route tab → Accept/Fill Invoice → on generate the order flips to `delivered` with the invoice number (30-min latch TTL); marketplace tables activated
 - **Payment logging, overdue WhatsApp reminders, sync-failure toasts** — see `utils/paymentStorage.js`, `utils/reminderMessage.js`, `utils/syncNotify.js`
+- **iOS native wrapper** (Capacitor): safe-area fix, PIN-lock-freeze fix, OTA update system (`@capgo/capacitor-updater`), route-lazy overlay pages (entry chunk 1.16 MB → ~390 kB) — see iOS Native Wrapper above
+- **Native PDF share, Google sign-in, and a Qty-field bug** fixed inside the wrapper — see iOS Native Wrapper above for the PDF/OAuth mechanisms
+- **Onboarding consolidated** from 4 layers (quick start + trickling tips + Settings checklist + a self-driving demo) into a single 7-step tour — see Onboarding / Tutorial System above
 
 ## Phase 3 — shipped
 
@@ -351,6 +429,17 @@ redeemed.
 - **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
   receiving confirmation) are code-complete but have never been exercised on two physical
   phones with live accounts
+- **Supabase dashboard change for native Google sign-in** — `keiro://auth-callback` must be added
+  to Auth → URL Configuration → Redirect URLs, or the native OAuth flow is rejected. Only the
+  project owner can do this (no dashboard access from an assistant session).
+- **Native PDF share + Google sign-in — confirm on a real device.** Verified as far as possible
+  without one (clean simulator build/launch, URL scheme registered at the OS level per iOS's own
+  "Open in Keiro?" prompt), but the actual share-sheet content and a completed Google login round-
+  trip still need a real device or TestFlight pass.
+- **Error monitoring** — no Sentry (or equivalent) wired up yet; failures currently only reach
+  `console.error` on the user's device.
+- **Password-recovery E2E test** — blocked on adding a real SMTP provider (e.g. Resend) in
+  Supabase; the reset-link email can't send without one.
 
 (The old SMS-provider blocker is resolved: phone-OTP was replaced by Google sign-in +
 email/password auth in PR #140, so real accounts work without Twilio.)
