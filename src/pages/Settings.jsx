@@ -20,6 +20,7 @@ import {
   lsGet, lsSet,
 } from '../utils/storage';
 import { STORAGE_KEYS, BUSINESS_NAME_PLACEHOLDER, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
+import { getErrorLog, clearErrorLog } from '../utils/errorLog';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -156,6 +157,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     setLogo(null);
   }
 
+  // ── Error Log (local-only crash/error monitoring, see utils/errorLog.js) ──
+  const [errorLogOpen, setErrorLogOpen] = useState(false);
+
   // ── Switch Role ────────────────────────────────────────────────────────────
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
 
@@ -226,6 +230,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           <Row label="Replay tutorial" sub="Watch the guided tour again" C={C}>
             <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => onReplayTutorial?.()}>
               Replay
+            </button>
+          </Row>
+          <Row label="Error Log" sub="Recent app errors, kept on this device" C={C}>
+            <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => setErrorLogOpen(true)}>
+              View
             </button>
           </Row>
         </Section>
@@ -576,6 +585,50 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 style={{ flex: 1, height: 46, borderRadius: 12, border: 'none', background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
                 onClick={handleSwitchRole}
               >Switch</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Error Log modal */}
+      {errorLogOpen && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setErrorLogOpen(false)}
+        >
+          <div
+            style={{ width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: '18px 18px 0 0', border: `1px solid ${C.cardBorder}`, borderBottom: 'none', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 4px' }}>Error Log</p>
+            <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 14px' }}>
+              Kept on this device only — no remote reporting is set up yet. Newest first.
+            </p>
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {getErrorLog().length === 0 && (
+                <p style={{ fontSize: 14, color: C.textMuted, textAlign: 'center', padding: '20px 0' }}>No errors recorded.</p>
+              )}
+              {[...getErrorLog()].reverse().map((entry, i) => (
+                <div key={i} style={{ background: C.rowBg, borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>
+                    {new Date(entry.time).toLocaleString()} · {entry.source}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600, wordBreak: 'break-word' }}>
+                    {entry.message}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button
+                style={{ flex: 1, height: 44, borderRadius: 12, border: `1px solid ${C.inputBorder}`, background: C.inputBg, color: C.danger, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => { clearErrorLog(); setErrorLogOpen(false); }}
+              >Clear Log</button>
+              <button
+                style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                onClick={() => setErrorLogOpen(false)}
+              >Close</button>
             </div>
           </div>
         </div>,
