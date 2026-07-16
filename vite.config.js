@@ -33,4 +33,23 @@ export default defineConfig({
     // Replaced at bundle time — useVersionCheck reads this as LOCAL_VERSION
     __APP_VERSION__: JSON.stringify(appVersion),
   },
+  // @vitejs/plugin-react's own JSX transform only applies to the "client"
+  // environment (dev/build) — under `vitest run` it's skipped, so Vite falls
+  // back to esbuild's default (classic) JSX transform, which expects `React`
+  // in scope and isn't present anywhere in this codebase (every component
+  // relies on the automatic runtime). Without this, every component-rendering
+  // test fails at runtime with "React is not defined" — not just JSX written
+  // in a test file, but any app .jsx module it imports.
+  esbuild: {
+    jsx: 'automatic',
+  },
+  test: {
+    // Pure-logic tests (businessLogic.test.js) don't need a DOM, but the
+    // component/hook tests added alongside it (invoice form, connection
+    // invite/redeem, QuickStart tutorial) do — jsdom covers both, so it's the
+    // single environment for the whole suite rather than per-file overrides.
+    environment: 'jsdom',
+    setupFiles: ['./src/__tests__/setup.js'],
+    globals: false,
+  },
 });

@@ -3,9 +3,17 @@ import { createRoot } from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
 import './index.css'
 import App from './App.jsx'
+import ErrorBoundary from './components/ui/ErrorBoundary.jsx'
 import { captureInviteFromUrl } from './utils/connectionStorage'
 import { initOtaUpdates } from './utils/otaUpdate'
 import { initOAuthDeepLinkHandler } from './services/auth'
+import { initGlobalErrorListeners } from './utils/errorLog'
+
+// No remote crash reporter (Sentry or similar) is wired up yet — that needs an
+// account/DSN nobody's provided. Until then, this is local-only: catches
+// uncaught exceptions and rejected promises that happen outside React's render
+// tree (ErrorBoundary below only covers render-phase crashes). See errorLog.js.
+initGlobalErrorListeners();
 
 // Capture an `?invite=CODE` link param before React mounts and strip it from the
 // URL. Stashing it now means the code survives the auth/login flow and can be
@@ -27,7 +35,9 @@ if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )
 

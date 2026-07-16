@@ -55,6 +55,7 @@ export const STORAGE_KEYS = {
   MKT_DEMAND:         'inv_mkt_demand',
   // Infra / misc
   SYNC_QUEUE:         'inv_sync_queue',
+  ERROR_LOG:          'inv_error_log',
   GUEST_MODE:         'inv_guest_mode',
   AUTH_UID:           'inv_auth_uid',
   PLAN:               'inv_plan',
