@@ -408,6 +408,7 @@ the build links, the app doesn't crash, and (for deep links) `xcrun simctl openu
 - **iOS native wrapper** (Capacitor): safe-area fix, PIN-lock-freeze fix, OTA update system (`@capgo/capacitor-updater`), route-lazy overlay pages (entry chunk 1.16 MB → ~390 kB) — see iOS Native Wrapper above
 - **Native PDF share, Google sign-in, and a Qty-field bug** fixed inside the wrapper — see iOS Native Wrapper above for the PDF/OAuth mechanisms
 - **Onboarding consolidated** from 4 layers (quick start + trickling tips + Settings checklist + a self-driving demo) into a single 7-step tour — see Onboarding / Tutorial System above
+- **Local error monitoring + test coverage**: `ErrorBoundary` at the app root + a capped on-device error log (`src/utils/errorLog.js`, viewable from Settings → Help & Tutorial → Error Log) catch render crashes and uncaught window errors; Vitest gained jsdom + Testing Library and 3 new suites (invoice create→generate, connection invite→redeem, the full QuickStart tour), 103 tests total. No remote/cloud crash reporting yet — see Pending below.
 
 ## Phase 3 — shipped
 
@@ -428,18 +429,21 @@ redeemed.
 
 - **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
   receiving confirmation) are code-complete but have never been exercised on two physical
-  phones with live accounts
-- **Supabase dashboard change for native Google sign-in** — `keiro://auth-callback` must be added
-  to Auth → URL Configuration → Redirect URLs, or the native OAuth flow is rejected. Only the
-  project owner can do this (no dashboard access from an assistant session).
+  phones with live accounts. Numbered test script written and ready to run.
 - **Native PDF share + Google sign-in — confirm on a real device.** Verified as far as possible
   without one (clean simulator build/launch, URL scheme registered at the OS level per iOS's own
   "Open in Keiro?" prompt), but the actual share-sheet content and a completed Google login round-
-  trip still need a real device or TestFlight pass.
-- **Error monitoring** — no Sentry (or equivalent) wired up yet; failures currently only reach
-  `console.error` on the user's device.
+  trip still need a real device or TestFlight pass. On-device checklist written and ready to run.
 - **Password-recovery E2E test** — blocked on adding a real SMTP provider (e.g. Resend) in
-  Supabase; the reset-link email can't send without one.
+  Supabase; the reset-link email can't send without one. Needs the project owner's own SMTP
+  account/credentials entered by hand — not something an assistant session should type in.
+- **Real push notifications** — deferred; requires the paid Apple Developer Program (free
+  "personal team" signing can't enable the Push Notifications entitlement at all, independent of
+  code). Would also unlock TestFlight for the item above. Local-notifications and louder in-app
+  alerts (`eventBadges.js`) were considered as zero-cost substitutes but neither actually replaces
+  "alert me while the app is closed," so both were explicitly declined for now rather than built
+  as a partial stand-in.
 
-(The old SMS-provider blocker is resolved: phone-OTP was replaced by Google sign-in +
-email/password auth in PR #140, so real accounts work without Twilio.)
+(Resolved: phone-OTP was replaced by Google sign-in + email/password auth in PR #140, so real
+accounts work without Twilio. Resolved: the Supabase Auth → URL Configuration → Redirect URLs
+allowlist now includes `keiro://auth-callback`, so native Google sign-in is no longer rejected.)
