@@ -434,9 +434,18 @@ redeemed.
   without one (clean simulator build/launch, URL scheme registered at the OS level per iOS's own
   "Open in Keiro?" prompt), but the actual share-sheet content and a completed Google login round-
   trip still need a real device or TestFlight pass. On-device checklist written and ready to run.
-- **Password-recovery E2E test** — blocked on adding a real SMTP provider (e.g. Resend) in
-  Supabase; the reset-link email can't send without one. Needs the project owner's own SMTP
-  account/credentials entered by hand — not something an assistant session should type in.
+- **Password recovery — SMTP live and verified; one delivery limitation left.** Supabase custom
+  SMTP is configured against Resend (host `smtp.resend.com`, port 465), and the full reset round-trip
+  is verified end-to-end with a real account: sign-up → confirmation email → "Forgot password" →
+  reset email → set-new-password screen (confirms `AuthGate`'s `PASSWORD_RECOVERY` listener fires) →
+  new-password login. Enabling custom SMTP also auto-raised the email rate limit from the built-in
+  2/hour to 30/hour. All 6 auth email templates are Keiro-branded. Two dead-domain redirect bugs were
+  fixed in the same pass: the Auth **Site URL** and Redirect URLs allowlist pointed at `keiro.app`
+  (a domain this project never deployed to) instead of the live Vercel URL — that's what made earlier
+  confirmation/reset links land on a dead page. **Remaining blocker:** Resend's shared
+  `onboarding@resend.dev` sender only delivers to the Resend account's own address until a domain is
+  verified at resend.com/domains — so real users still can't receive reset/confirmation emails. No
+  domain purchased yet, by choice.
 - **Real push notifications** — deferred; requires the paid Apple Developer Program (free
   "personal team" signing can't enable the Push Notifications entitlement at all, independent of
   code). Would also unlock TestFlight for the item above. Local-notifications and louder in-app

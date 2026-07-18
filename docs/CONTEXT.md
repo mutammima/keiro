@@ -370,6 +370,8 @@ All tutorial state keys are `inv_`-prefixed. To reset first-run:
 | `blob:` URLs inside the iOS wrapper | iOS LaunchServices can't open them — `window.open()`/`location.href` to a blob silently does nothing (why PDF share needed a native path, §4e) |
 | Google sign-in inside any embedded WebView | Blocked by Google's `disallowed_useragent` policy (not a Keiro bug) — needs the system-browser + deep-link pattern, §4e |
 | Native build, Supabase redirect URL not allowlisted | `keiro://auth-callback` must be added to Auth → URL Configuration → Redirect URLs or `signInWithOAuth` rejects it (dashboard-only change) |
+| Supabase Auth **Site URL** / Redirect URLs pointing at a dead domain | Confirmation & password-reset links land on a dead page. Both were once set to `keiro.app` (never deployed) — must be the live Vercel URL. Dashboard-only, silent when wrong |
+| Resend shared sender (`onboarding@resend.dev`) | Only delivers to the Resend account's own email until a domain is verified at resend.com/domains — reset/confirmation emails to real users silently don't arrive |
 
 ---
 
