@@ -191,6 +191,8 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     ? `${/iPhone|iPad/.test(navigator.userAgent) ? 'iPhone / iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Browser'} · Signed in`
     : null;
 
+  const errorLogEntries = errorLogOpen ? getErrorLog() : [];
+
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
@@ -606,10 +608,10 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
               Kept on this device only — no remote reporting is set up yet. Newest first.
             </p>
             <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {getErrorLog().length === 0 && (
+              {errorLogEntries.length === 0 && (
                 <p style={{ fontSize: 14, color: C.textMuted, textAlign: 'center', padding: '20px 0' }}>No errors recorded.</p>
               )}
-              {[...getErrorLog()].reverse().map((entry, i) => (
+              {errorLogEntries.slice().reverse().map((entry, i) => (
                 <div key={i} style={{ background: C.rowBg, borderRadius: 12, padding: '10px 12px' }}>
                   <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4 }}>
                     {new Date(entry.time).toLocaleString()} · {entry.source}
