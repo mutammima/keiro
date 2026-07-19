@@ -12,8 +12,11 @@
  * to on-device.
  *
  * Swap-in path for a real reporter later: call `reportToRemote(entry)` from
- * `logError()` below once a DSN exists — every call site already funnels
- * through this one function.
+ * `logError()` below once a DSN exists — every *crash / uncaught* error funnels
+ * through this one function. (Handled, transient failures like failed cloud
+ * writes report separately via syncNotify → SyncToast and are deliberately NOT
+ * captured here; bridge notifySyncError → logError if you ever want unified
+ * telemetry.)
  */
 
 import { lsGet, lsSet } from './storage';
@@ -42,6 +45,9 @@ export function logError(error, meta = {}) {
   try {
     const log = lsGet(KEY, []);
     log.push(entry);
+    // while, not if: a restored backup (useBackup.js writes inv_error_log
+    // back raw, unvalidated) could already be over the cap, so this must
+    // converge in one call rather than trim one entry per future error.
     while (log.length > MAX_ENTRIES) log.shift();
     lsSet(KEY, log);
   } catch {
@@ -52,21 +58,9 @@ export function logError(error, meta = {}) {
   // reportToRemote(entry); // ← enable once a Sentry DSN (or equivalent) exists
 }
 
-export function getErrorLog() {
-  try {
-    return lsGet(KEY, []);
-  } catch {
-    return [];
-  }
-}
-
-export function clearErrorLog() {
-  try {
-    lsSet(KEY, []);
-  } catch {
-    // ignore
-  }
-}
+// lsGet/lsSet already guard their own throws (see storage.js) — no wrapper needed here.
+export const getErrorLog = () => lsGet(KEY, []);
+export const clearErrorLog = () => lsSet(KEY, []);
 
 /**
  * Installs window-level listeners so errors *outside* React's render tree
