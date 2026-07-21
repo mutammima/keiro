@@ -158,7 +158,10 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   }
 
   // ── Error Log (local-only crash/error monitoring, see utils/errorLog.js) ──
-  const [errorLogOpen, setErrorLogOpen] = useState(false);
+  // One state, not an open-flag + a list: null = closed, an array = open. The
+  // log is read from localStorage once when the modal is opened (below) rather
+  // than on every render of this large, frequently re-rendering component.
+  const [errorLogEntries, setErrorLogEntries] = useState(null);
 
   // ── Switch Role ────────────────────────────────────────────────────────────
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
@@ -190,8 +193,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   const sessionDevice = session
     ? `${/iPhone|iPad/.test(navigator.userAgent) ? 'iPhone / iPad' : /Android/.test(navigator.userAgent) ? 'Android' : 'Browser'} · Signed in`
     : null;
-
-  const errorLogEntries = errorLogOpen ? getErrorLog() : [];
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
@@ -235,7 +236,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
             </button>
           </Row>
           <Row label="Error Log" sub="Recent app errors, kept on this device" C={C}>
-            <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => setErrorLogOpen(true)}>
+            <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => setErrorLogEntries(getErrorLog())}>
               View
             </button>
           </Row>
@@ -594,10 +595,10 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
       )}
 
       {/* Error Log modal */}
-      {errorLogOpen && createPortal(
+      {errorLogEntries && createPortal(
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-          onClick={() => setErrorLogOpen(false)}
+          onClick={() => setErrorLogEntries(null)}
         >
           <div
             style={{ width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: '18px 18px 0 0', border: `1px solid ${C.cardBorder}`, borderBottom: 'none', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
@@ -625,11 +626,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button
                 style={{ flex: 1, height: 44, borderRadius: 12, border: `1px solid ${C.inputBorder}`, background: C.inputBg, color: C.danger, fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => { clearErrorLog(); setErrorLogOpen(false); }}
+                onClick={() => { clearErrorLog(); setErrorLogEntries(null); }}
               >Clear Log</button>
               <button
                 style={{ flex: 1, height: 44, borderRadius: 12, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-                onClick={() => setErrorLogOpen(false)}
+                onClick={() => setErrorLogEntries(null)}
               >Close</button>
             </div>
           </div>
