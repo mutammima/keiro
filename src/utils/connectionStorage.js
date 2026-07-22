@@ -185,7 +185,9 @@ function mapRow(row) {
 export async function loadConnectionsFromCloud() {
   // Cache the auth uid alongside — request direction (incoming vs outgoing)
   // needs to know who "me" is without an async call in render code.
-  try { const uid = await db.whoAmI(); if (uid) lsSet(STORAGE_KEYS.AUTH_UID, uid); } catch {}
+  // Signed out or offline: the uid cache is an optimisation for render-time
+  // direction checks, and the connection fetch below fails closed on its own.
+  try { const uid = await db.whoAmI(); if (uid) lsSet(STORAGE_KEYS.AUTH_UID, uid); } catch { /* uid cache is best-effort */ }
   const { data, error } = await db.getConnections();
   if (error || !data) return getConnections();
   const mapped = data.map(mapRow);
@@ -271,7 +273,9 @@ export function getPendingInviteCode() {
 }
 
 export function clearPendingInvite() {
-  try { localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE); } catch {}
+  // Storage blocked (private mode): the queued code simply stays queued and the
+  // next redeem attempt re-runs — redemption is idempotent on the server side.
+  try { localStorage.removeItem(STORAGE_KEYS.PENDING_INVITE); } catch { /* queue clear is best-effort */ }
 }
 
 /**

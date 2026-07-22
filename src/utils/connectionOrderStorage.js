@@ -168,7 +168,11 @@ export function setActiveConnectionOrder(id) {
  */
 export function completeActiveConnectionOrder(invoiceNumber) {
   const parked = lsGet(ACTIVE_KEY, null);
-  try { localStorage.removeItem(ACTIVE_KEY); } catch {}
+  try { localStorage.removeItem(ACTIVE_KEY); } catch {
+    // storage write blocked (Safari private mode / disabled storage) — clearing
+    // the parked id is only a tidy-up; the TTL check below still stops a stale
+    // parked order from being marked delivered by a later invoice.
+  }
   if (!parked || !parked.id) return;
   if (Date.now() - (parked.ts || 0) > ACTIVE_TTL_MS) return; // stale — ignore
   updateConnectionOrderStatus(parked.id, 'delivered', { invoiceNumber });

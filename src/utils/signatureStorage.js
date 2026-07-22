@@ -67,7 +67,9 @@ export function saveSignatures(invoiceNumber, sellerSig, buyerSig) {
  * @param {number|string} invoiceNumber
  */
 export function clearSignatures(invoiceNumber) {
-  try { localStorage.removeItem(PREFIX + invoiceNumber); } catch {}
+  // Local cache eviction only — the authoritative delete is the cloud call
+  // below, and a stale local copy is rebuilt by loadAllSignaturesFromCloud.
+  try { localStorage.removeItem(PREFIX + invoiceNumber); } catch { /* cache eviction is best-effort */ }
   db.deleteSignatureRow(invoiceNumber)
     .catch(e => console.error('deleteSignatureRow cloud error', e));
 }

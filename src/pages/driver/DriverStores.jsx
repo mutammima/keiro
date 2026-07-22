@@ -51,7 +51,10 @@ export default function DriverStores({ onNav, onSelectStore }) {
   const activeConns      = conns.filter(c => c.status === 'active');
 
   function copyInvite(code) {
-    try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
+    try { navigator.clipboard.writeText(inviteLink(code)); } catch {
+      // no clipboard API (non-secure context / older iOS WebView) - the invite code
+      // is rendered right next to this button, so it can still be copied by hand
+    }
   }
 
   function handleRespond(id, accept) {

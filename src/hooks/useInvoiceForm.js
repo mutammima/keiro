@@ -148,7 +148,12 @@ export function useInvoiceForm(onGenerated) {
       if (p.date)          setDate(p.date);
       if (p.time)          setTime(p.time);
       if (p.paymentMethod) setPaymentMethod(p.paymentMethod);
-    } catch {}
+    } catch {
+      // Prefill is a convenience hand-off, not required state: unreadable storage
+      // (private mode) or malformed inv_prefill JSON should still open an empty
+      // New Invoice form. The key is already removed above, so a bad payload
+      // can't wedge the form on the next open either.
+    }
   }, []);
 
   // ── Add-item form state ──────────────────────────────────────────────────

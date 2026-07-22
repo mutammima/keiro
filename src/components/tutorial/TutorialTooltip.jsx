@@ -43,7 +43,7 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
   // Vertical: prefer below the target, flip above when it won't fit.
   const h = size?.h ?? 160;
   let top;
-  let placement = 'below';
+  let placement; // every branch below assigns this before it is read
   if (!rect) {
     top = Math.max(MARGIN, vh / 2 - h / 2); // centered when there's no anchor
     placement = 'none';

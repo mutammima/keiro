@@ -35,7 +35,10 @@ export async function lookupBarcode(barcode) {
           : name;
       }
     }
-  } catch {}
+  } catch {
+    // offline, 6s timeout, or malformed JSON from Open Food Facts — this is
+    // only the first of two sources, so fall through to UPC Item DB below
+  }
 
   // ── 2. UPC Item DB (trial: 100 lookups/day) ───────────────────────────────
   // Broader product coverage beyond food. Free trial key embedded in URL.
@@ -50,7 +53,10 @@ export async function lookupBarcode(barcode) {
       const item = data?.items?.[0];
       if (item?.title) return item.title;
     }
-  } catch {}
+  } catch {
+    // offline, 6s timeout, or the trial key's daily quota is spent — this is the
+    // last source, so fall through to the null return that prompts manual entry
+  }
 
   // Both sources failed — caller should prompt for manual entry.
   return null;
