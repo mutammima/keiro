@@ -16,8 +16,8 @@
 import { useEffect } from 'react';
 import { EVENTS } from '../utils/constants';
 
-// Injected by vite.config.js at build time — unique git hash per deploy
-// eslint-disable-next-line no-undef
+// Injected by vite.config.js at build time — unique git hash per deploy.
+// (Declared as an ESLint global in eslint.config.js, so no disable is needed.)
 export const LOCAL_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 /** Unregisters all service workers then hard-reloads. */
