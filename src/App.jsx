@@ -234,7 +234,10 @@ function AppInner({ role, onSwitchRole }) {
     try {
       const d = JSON.parse(localStorage.getItem(STORAGE_KEYS.DENSITY)) || 'comfortable';
       document.body.classList.toggle('density-compact', d === 'compact');
-    } catch {}
+    } catch {
+      // localStorage blocked (private mode) or the stored density is malformed
+      // JSON -- density is cosmetic, so the default 'comfortable' class state stands.
+    }
   }, []);
 
   // Redeem a captured invite code once authenticated. AppInner only renders

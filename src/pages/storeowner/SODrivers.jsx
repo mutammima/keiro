@@ -95,7 +95,10 @@ export default function SODrivers({ onNav }) {
   const activeConns      = conns.filter(c => c.status === 'active');
 
   function copyInvite(code) {
-    try { navigator.clipboard.writeText(inviteLink(code)); } catch {}
+    try { navigator.clipboard.writeText(inviteLink(code)); } catch {
+      // No clipboard API (insecure context / older WebView) — the invite code is already
+      // rendered next to this button, so the user can still read or type it out manually.
+    }
   }
   function handleRespond(id, accept) {
     respondToRequest(id, accept).then(() => setConns(getConnections()));

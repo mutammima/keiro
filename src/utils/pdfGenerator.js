@@ -48,7 +48,10 @@ async function buildPDF(invoice) {
     try {
       const fmt = logob64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
       doc.addImage(logob64, fmt, logoX, 42, logoW, logoH);
-    } catch {}
+    } catch {
+      // Corrupt/unsupported logo data: skip the image but keep the reserved
+      // header height below, so the rest of the invoice still lays out correctly.
+    }
     headerBottomY = 42 + logoH + 8;
     // Business phone under logo
     if (businessPhone) {
@@ -212,7 +215,7 @@ async function buildPDF(invoice) {
   }
 
   // ── Signatures ────────────────────────────────────────────────────────────
-  let sigStartY = notesEndY + 28;
+  const sigStartY = notesEndY + 28;
   const sigBoxW = (pageW - margin * 2 - 20) / 2;
   const sigBoxH = 60;
 
@@ -222,7 +225,9 @@ async function buildPDF(invoice) {
   doc.setTextColor(130, 130, 130);
   doc.text('Seller / Deliverer Signature', margin, sigStartY);
   if (sellerSignature) {
-    try { doc.addImage(sellerSignature, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch {}
+    // Unreadable signature data: fall through to the blank ruled line below
+    // rather than aborting the whole PDF over a decorative image.
+    try { doc.addImage(sellerSignature, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
@@ -235,7 +240,8 @@ async function buildPDF(invoice) {
   doc.setTextColor(130, 130, 130);
   doc.text('Buyer / Recipient Signature', buyerX, sigStartY);
   if (buyerSignature) {
-    try { doc.addImage(buyerSignature, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch {}
+    // Same as the seller box above: a bad image must not fail the PDF.
+    try { doc.addImage(buyerSignature, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.line(buyerX, sigStartY + sigBoxH + 8, buyerX + sigBoxW, sigStartY + sigBoxH + 8);
 

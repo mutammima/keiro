@@ -32,7 +32,9 @@ export default function WhatsNew({ onClose }) {
   const C = dark ? DARK : LIGHT;
 
   function dismiss() {
-    try { markWhatsNewSeen(); } catch {}
+    // localStorage write can throw (private mode / quota): worst case this modal
+    // reappears after the next update, so the close below must still run.
+    try { markWhatsNewSeen(); } catch { /* seen-flag is best-effort */ }
     onClose();
   }
 

@@ -16,12 +16,12 @@ export default function useOnboarding() {
   const [shouldShow, setShouldShow] = useState(() => !hasCompleted());
 
   function markComplete() {
-    try { localStorage.setItem(LS_KEY, 'true'); } catch {}
+    try { localStorage.setItem(LS_KEY, 'true'); } catch { /* storage blocked (private mode): the tour still closes below, it just replays on the next launch */ }
     setShouldShow(false);
   }
 
   function skipOnboarding() {
-    try { localStorage.setItem(LS_KEY, 'true'); } catch {}
+    try { localStorage.setItem(LS_KEY, 'true'); } catch { /* storage blocked (private mode): the skip still hides the tour below, it just reappears on the next launch */ }
     setShouldShow(false);
   }
 

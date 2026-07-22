@@ -42,13 +42,20 @@ export default function BarcodeScanner({ onScan, onClose }) {
       });
 
     return () => {
-      try { scanner?.isScanning && scanner.stop().catch(() => {}); } catch {}
+      try { scanner?.isScanning && scanner.stop().catch(() => {}); } catch {
+        // html5-qrcode throws synchronously when .start() never resolved (camera
+        // permission denied / no device) — there is no stream left to release,
+        // and unmount cleanup must still remove the injected style below
+      }
       document.getElementById('qr-hide')?.remove();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function stopAndClose() {
-    try { scannerRef.current?.isScanning && scannerRef.current.stop().catch(() => {}); } catch {}
+    try { scannerRef.current?.isScanning && scannerRef.current.stop().catch(() => {}); } catch {
+      // tapping Close / Enter manually before the camera finished starting makes
+      // stop() throw — the overlay must close anyway, so a failed stop is moot
+    }
     onClose();
   }
 

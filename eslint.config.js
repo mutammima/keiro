@@ -6,7 +6,10 @@ import prettierConfig from 'eslint-config-prettier';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules', 'public']),
+  // `ios/App/App/public` is the web bundle `cap sync ios` copies into the native
+  // project — build output, gitignored, and it otherwise floods `npm run lint`
+  // with ~9.6k phantom problems from minified vendor code.
+  globalIgnores(['dist', 'node_modules', 'public', 'ios']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -16,7 +19,9 @@ export default defineConfig([
       prettierConfig, // must be last — disables ESLint rules that conflict with Prettier
     ],
     languageOptions: {
-      globals: globals.browser,
+      // __APP_VERSION__ is injected at build time by vite.config.js (see the
+      // Update System section in CLAUDE.md) — declare it so it isn't no-undef.
+      globals: { ...globals.browser, __APP_VERSION__: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     rules: {

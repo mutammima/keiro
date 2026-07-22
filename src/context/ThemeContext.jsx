@@ -41,14 +41,14 @@ export function ThemeProvider({ children }) {
   function toggleDark() {
     setDark(d => {
       const next = !d;
-      try { localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(next)); } catch {}
+      try { localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(next)); } catch { /* storage blocked (private mode / quota) — persisting the preference is optional, the toggle still applies for this session */ }
       return next;
     });
   }
 
   function setAccent(color) {
     setAccentState(color);
-    try { localStorage.setItem(STORAGE_KEYS.ACCENT_COLOR, color); } catch {}
+    try { localStorage.setItem(STORAGE_KEYS.ACCENT_COLOR, color); } catch { /* storage blocked (private mode / quota) — the accent is already in state and on :root, so only the next-launch restore is lost */ }
     applyAccent(color);
   }
 
