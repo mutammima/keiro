@@ -18,7 +18,9 @@ function applyThemeColor(dark) {
   document.body.style.background = color;
 }
 
-export function applyAccent(color) {
+// Internal only (used by ThemeProvider below) — not exported, so it doesn't
+// count against react-refresh/only-export-components.
+function applyAccent(color) {
   document.documentElement.style.setProperty('--accent', color);
 }
 
@@ -59,6 +61,10 @@ export function ThemeProvider({ children }) {
   );
 }
 
+// Colocated with its provider on purpose — the standard React context pattern,
+// and useTheme has ~44 call sites, so splitting it into its own file to satisfy
+// Fast Refresh would be pure churn for a dev-only HMR nicety.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   return useContext(ThemeContext);
 }
