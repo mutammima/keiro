@@ -65,7 +65,10 @@ export function useInvoiceHistory() {
   const [pendingDelete, setPendingDelete] = useState(null); // { number, invoice } | null
   const deleteTimerRef   = useRef(null);
   const pendingDeleteRef = useRef(null);
-  pendingDeleteRef.current = pendingDelete;
+  // Mirror pendingDelete into a ref OUTSIDE render, so the delete timer callback
+  // always reads the latest value without a stale closure. Writing a ref during
+  // render is impure (react-hooks/refs); the timer only fires long after this.
+  useEffect(() => { pendingDeleteRef.current = pendingDelete; }, [pendingDelete]);
 
   const today = todayInvoiceDate();
 
@@ -77,7 +80,8 @@ export function useInvoiceHistory() {
   // ── Load invoices + payment log from cloud on mount ──────────────────────
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // `loading` already initializes to true and this effect runs once on mount,
+    // so no setLoading(true) is needed here.
     // Both fetches run in parallel; invoices gate the loading spinner,
     // payments sync silently in the background.
     Promise.all([

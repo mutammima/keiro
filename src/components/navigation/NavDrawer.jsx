@@ -3,7 +3,6 @@
  * Shows pinned stores as quick-tap chips below the main nav items.
  */
 
-import { useState, useEffect } from 'react';
 import { STORAGE_KEYS } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
@@ -100,15 +99,14 @@ function isEasyMode() {
 export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const [pinned, setPinned] = useState([]);
 
   const isOwner = role === 'store_owner';
   const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (isEasyMode() ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
 
-  // Refresh pinned list whenever drawer opens
-  useEffect(() => {
-    if (open) setPinned(getPinnedStores());
-  }, [open]);
+  // Pinned chips (drivers only). Read straight from storage while the drawer is
+  // open — a plain derived value, so toggling a pin elsewhere shows up on the
+  // next open with no useState/effect round-trip (and no setState-in-effect).
+  const pinned = open && !isOwner ? getPinnedStores() : [];
 
   const guest = isGuest();
 

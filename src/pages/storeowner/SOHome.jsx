@@ -81,6 +81,10 @@ export default function SOHome({ onNav }) {
 
   // ── Inventory model: per-product cadence + restock flag ──────────────────────
   const inventory = useMemo(() => {
+    // Intentional snapshot of "now" at each orders change. A restock hint doesn't
+    // need a live-ticking clock (that would mean an interval re-render for a
+    // dashboard chip); it refreshes whenever orders change or the screen reopens.
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
     const map = {};
     orders

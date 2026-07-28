@@ -73,6 +73,9 @@ export default function NewRequest({ onNav, onBack }) {
 
   // Reorder prefill — written by stageReorder() before navigating here. Only
   // consume entries flagged `reorder` (leave any driver-invoice prefill alone).
+  // One-time consume-on-mount with a required removeItem side-effect, so this is
+  // a genuine prefill effect (not derivable) — the initial setState is expected.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let p;
     try { p = JSON.parse(localStorage.getItem(STORAGE_KEYS.PREFILL) || 'null'); } catch { p = null; }
@@ -93,6 +96,7 @@ export default function NewRequest({ onNav, onBack }) {
     setDeliveryDate(t.toISOString().slice(0, 10));
     if (p.notes) setOriginalNotes(p.notes);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /** Driver's display name on a connection, from the store's side. */
   function connDriverName(c) {

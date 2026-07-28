@@ -30,6 +30,13 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
+    // The synchronous reset below is deliberate: it clears the rect to null the
+    // instant the spotlight goes inactive or its target changes, so a stale rect
+    // from the previous target can't flash before the poll loop re-measures.
+    // Moving it to cleanup would instead null the rect on every selector change
+    // and flicker the spotlight mid page-transition. The loop's own setState is
+    // async (in a setTimeout), which the rule does not flag.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!active || !selector) { setRect(null); setMissing(false); return; }
 
     let timer = 0;

@@ -124,7 +124,23 @@ export function useInvoiceForm(onGenerated) {
     getInvoices().then(list => setAllInvoices(list || [])).catch(() => {});
   }, []);
 
-  // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation)
+  // ── Add-item form state ───────────────────────────────────────────────────
+  // Declared before the prefill effect below so its setItems is in scope when
+  // that effect restores a multi-line prefill (react-hooks/immutability).
+  const [productName, setProductName] = useState('');
+  // '1', not '' — the field shows "1" as its placeholder either way, but a real
+  // default means it's a valid quantity from the start instead of a ghost value
+  // that reads as filled-in but fails "Add Item" with "Enter a valid quantity."
+  const [qty, setQty]                 = useState('1');
+  const [price, setPrice]             = useState('');
+  const [lastBarcode, setLastBarcode] = useState('');
+  const [items, setItems]             = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation).
+  // One-time consume-on-mount with a required removeItem side-effect, so it's a
+  // genuine effect (not derivable state) — the initial setState is expected here.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.PREFILL);
@@ -155,8 +171,7 @@ export function useInvoiceForm(onGenerated) {
       // can't wedge the form on the next open either.
     }
   }, []);
-
-  // ── Add-item form state ──────────────────────────────────────────────────
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Ref to track the latest product name so stale async lookups don't overwrite.
   const latestProductNameRef = useRef('');
@@ -182,16 +197,6 @@ export function useInvoiceForm(onGenerated) {
       }).catch(() => {});
     }, AUTOFILL_DEBOUNCE_MS);
   }
-
-  const [productName, setProductName] = useState('');
-  // '1', not '' — the field shows "1" as its placeholder either way, but a real
-  // default means it's a valid quantity from the start instead of a ghost value
-  // that reads as filled-in but fails "Add Item" with "Enter a valid quantity."
-  const [qty, setQty]                 = useState('1');
-  const [price, setPrice]             = useState('');
-  const [lastBarcode, setLastBarcode] = useState('');
-  const [items, setItems]             = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [showScanner, setShowScanner] = useState(false);
@@ -267,7 +272,10 @@ export function useInvoiceForm(onGenerated) {
       setProductName('');
       setError('Product not found — enter name manually.');
     }
-  }, []);
+    // useState setters are referentially stable, so these deps never actually
+    // change handleScan's identity — listing them just lets React Compiler
+    // preserve the memoization instead of bailing out.
+  }, [setLastBarcode, setProductName, setPrice, setError]);
 
   /**
    * Validates the current add-item fields and appends a new line item to the
