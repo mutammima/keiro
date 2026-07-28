@@ -24,6 +24,10 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
   const cardRef = useRef(null);
   const [size, setSize] = useState(null); // { w, h } measured after paint
 
+  // No dep array on purpose: re-measure after every render so the card stays
+  // correctly sized as step content changes. The functional setSize returns the
+  // same object when unchanged, so this can't loop despite the missing deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (cardRef.current) {
       const { offsetWidth, offsetHeight } = cardRef.current;

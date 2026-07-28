@@ -26,18 +26,26 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [showSigs,  setShowSigs]  = useState(false);
   const [sigSaved,  setSigSaved]  = useState(false); // flash "Saved" after auto-save
 
-  // ── Load saved signatures on mount ─────────────────────────────────────────
+  // ── Load saved signatures when the invoice changes ─────────────────────────
+  // Initialisation from persisted state, re-run when invoice.number changes;
+  // sellerSig/buyerSig are then user-mutable (drawn on the pad), so this is
+  // genuine reset-on-change state, not a derivable value.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const saved = getSignatures(invoice.number);
     if (saved.seller) { setSellerSig(saved.seller); setShowSigs(true); }
     if (saved.buyer)  { setBuyerSig(saved.buyer);   setShowSigs(true); }
   }, [invoice.number]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Auto-save whenever either signature changes ────────────────────────────
   useEffect(() => {
     // Only persist if at least one sig exists (don't write a blank entry on mount)
     if (sellerSig !== null || buyerSig !== null) {
       saveSignatures(invoice.number, sellerSig, buyerSig);
+      // Persist-then-flash "Saved" in response to a signature change — a genuine
+      // side-effect on state change, not derivable.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSigSaved(true);
       const t = setTimeout(() => setSigSaved(false), 2000);
       return () => clearTimeout(t);

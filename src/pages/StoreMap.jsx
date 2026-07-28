@@ -197,9 +197,11 @@ function MapPreview({ address, name, dark }) {
   const [coords, setCoords] = useState(null);   // { lat, lon } | null
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'ok' | 'error'
 
-  // Geocode with Nominatim the first time the map is expanded
-  useEffect(() => {
-    if (!show || status !== 'idle') return;
+  // Geocode with Nominatim the first time the map is expanded. Driven from the
+  // expand handler below rather than an effect (no setState-in-effect); the
+  // status guard keeps it a one-shot even if the panel is toggled repeatedly.
+  function geocode() {
+    if (status !== 'idle') return;
     if (!address) { setStatus('error'); return; }
     setStatus('loading');
     const query = encodeURIComponent(address);
@@ -216,7 +218,13 @@ function MapPreview({ address, name, dark }) {
         }
       })
       .catch(() => setStatus('error'));
-  }, [show, address, status]);
+  }
+
+  function toggleMap() {
+    const willShow = !show;
+    setShow(willShow);
+    if (willShow) geocode();
+  }
 
   // Build the OSM embed URL from coordinates
   const osmSrc = useMemo(() => {
@@ -229,7 +237,7 @@ function MapPreview({ address, name, dark }) {
   return (
     <div style={{ marginTop: 10 }}>
       <button
-        onClick={() => setShow(v => !v)}
+        onClick={toggleMap}
         style={{
           background: 'none', border: 'none', padding: 0,
           color: ACCENT, fontSize: 12, fontWeight: 600,

@@ -135,6 +135,10 @@ function AppInner({ role, onSwitchRole }) {
   // caches that feed badges so counts appear without first visiting the tab.
   useEffect(() => {
     ensureBadgesInitialized();
+    // One-time seed + instant paint from cache on mount. The async refresh in
+    // the Promise below (not flagged, it runs in a .then) updates the counts
+    // once cloud data arrives.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshBadges();
     const loads = role === 'store_owner'
       ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
@@ -146,7 +150,11 @@ function AppInner({ role, onSwitchRole }) {
   }, [role, refreshBadges]);
 
   // Opening a badge tab (tap or swipe) marks its events seen → badge clears.
+  // An effect on `page` is the right choke point: page changes through five
+  // paths (tab tap, swipe, navigate, open/close overlay), so centralising here
+  // beats duplicating the clear at every setPage site.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (BADGE_KEYS.includes(page)) { markSeen(page); refreshBadges(); }
   }, [page, refreshBadges]);
 
@@ -196,8 +204,11 @@ function AppInner({ role, onSwitchRole }) {
     return () => window.removeEventListener(EVENTS.VERSION_UPDATE, handler);
   }, []);
 
-  // Clear the post-tour Home pulse once the user actually opens Home.
+  // Clear the post-tour Home pulse once the user actually opens Home. Same as
+  // the badge effect above: reacting to `page` here is the single choke point
+  // for a value that changes through several paths.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (page === 'home' && homePulse) { setHomePulse(false); setHomePulseState(false); }
   }, [page, homePulse]);
 
