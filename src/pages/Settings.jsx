@@ -26,7 +26,8 @@ import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
 import { signOut } from '../services/auth';
 import AppFooter from '../components/navigation/AppFooter';
-import PinLock, { isPinEnabled, clearPin } from '../components/settings/PinLock';
+import PinLock from '../components/settings/PinLock';
+import { isPinEnabled, clearPin } from '../utils/pinStorage';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
 

@@ -9,15 +9,10 @@
  *   BarChart      — 7-day SVG bar chart (accepts { days, dark })
  *   DonutRing     — SVG donut ring showing paid % (accepts { paid, owed, dark })
  *   HorizBar      — CSS horizontal progress bar (accepts { pct, color })
- *   PRODUCT_COLORS — palette array for cycling product bar colors
  */
 
 import { memo } from 'react';
 import { ACCENT } from '../../theme';
-
-// ─── Palette (cycle through for top-product bars) ─────────────────────────────
-
-export const PRODUCT_COLORS = ['#4A7BF7', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
 // ─── 7-Day Bar Chart ──────────────────────────────────────────────────────────
 //

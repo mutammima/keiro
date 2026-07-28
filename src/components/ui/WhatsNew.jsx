@@ -5,9 +5,7 @@
 
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { STORAGE_KEYS } from '../../utils/constants';
-
-export const APP_VERSION = '5.9';
+import { APP_VERSION, markWhatsNewSeen } from '../../utils/whatsNewState';
 
 const CHANGELOG = [
   'Payment reminders — one tap sends an overdue-invoice reminder over WhatsApp, with the balance and days overdue filled in',
@@ -16,16 +14,6 @@ const CHANGELOG = [
   'Cross-device store orders — orders sent from the Store Owner view now reach the driver on any device',
   'Stronger backups — exports now include every part of your data, including payments and signatures',
 ];
-
-const SEEN_KEY = `${STORAGE_KEYS.WHATS_NEW_SEEN_PREFIX}${APP_VERSION}`;
-
-export function hasSeenWhatsNew() {
-  return !!localStorage.getItem(SEEN_KEY);
-}
-
-export function markWhatsNewSeen() {
-  localStorage.setItem(SEEN_KEY, '1');
-}
 
 export default function WhatsNew({ onClose }) {
   const { dark } = useTheme();
