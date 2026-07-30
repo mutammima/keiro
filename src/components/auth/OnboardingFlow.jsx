@@ -22,6 +22,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import KeiroWordmark from '../ui/KeiroWordmark';
@@ -710,6 +711,11 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
   const [googleError, setGoogleError] = useState('');
   const [data, setData] = useState({ firstName: '', lastName: '', email: '', role: '', storeName: '', businessName: '' });
 
+  // Web-only fallback timer from handleGoogle; cleared on unmount so it can't
+  // setState on a component the OAuth redirect already tore down.
+  const googleTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(googleTimerRef.current), []);
+
   const fullPhone = '+1' + phoneDigits;
   const displayPhone = formatUSPhone(phoneDigits);
 
@@ -754,10 +760,19 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
       setGoogleLoading(false);
       return;
     }
-    // Success normally unloads the page. Some in-app browsers (WhatsApp,
-    // Instagram) block the OAuth navigation — reset after a beat so the button
-    // isn't stuck on "Opening Google…" forever, with a pointer to the fallback.
-    setTimeout(() => {
+    // On WEB, success unloads the page as the browser navigates to Google. Some
+    // in-app browsers (WhatsApp, Instagram) block that navigation, so this timer
+    // un-sticks the button and points at the email fallback.
+    //
+    // NOT on native: there the consent screen opens in the SYSTEM browser
+    // (see signInWithGoogle) and this WebView stays mounted in the background,
+    // so the timer would always fire and show a false "didn't open" error while
+    // Google is on screen. The deep-link handler completes that flow instead.
+    if (Capacitor.isNativePlatform()) return;
+
+    // Tracked so unmount can cancel it — on the normal web path the page
+    // navigates away and this component is gone before 8s elapse.
+    googleTimerRef.current = setTimeout(() => {
       setGoogleLoading(false);
       setGoogleError('Google sign-in didn’t open — your browser may block it. Try “Sign up with email” instead.');
     }, 8000);
