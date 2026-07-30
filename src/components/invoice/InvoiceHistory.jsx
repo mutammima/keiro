@@ -12,7 +12,7 @@ import AppFooter from '../navigation/AppFooter';
 import { useInvoiceHistory, STATUS_CYCLE, PAGE_SIZE, subtotalOf } from '../../hooks/useInvoiceHistory';
 import { useDensity } from '../../hooks/useDensity';
 import { getPaymentsFor, addPayment, removePayment, getTotalPaid } from '../../utils/paymentStorage';
-import { getSignatures } from '../../utils/signatureStorage';
+import { hasSignature } from '../../utils/signatureStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
@@ -108,8 +108,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   // fresh signature.) Editing reopens the New Invoice form in edit mode, carrying
   // the original number/date/status so the save updates it in place.
   function isInvoiceSigned(inv) {
-    const sig = getSignatures(inv.number || inv.invoice_number);
-    return !!(sig.seller || sig.buyer);
+    // Index-backed: true if signed on ANY device, without downloading the image.
+    return hasSignature(inv.number || inv.invoice_number);
   }
 
   function handleEdit(inv) {

@@ -835,7 +835,52 @@ export async function clearInvoicePayments(invoiceNumber) {
 
 // ── Invoice Signatures (proof of delivery) ────────────────────────────────────
 
-/** All of the current user's signature rows, for rebuilding the local cache. */
+/**
+ * Which invoices have a signature — invoice_number + updated_at ONLY.
+ *
+ * The `seller`/`buyer` columns hold base64 PNG data URLs (20-60 KB each), so
+ * selecting them for every invoice was the single biggest egress cost in the
+ * app: the whole set was re-downloaded on every InvoiceHistory mount. The list
+ * only needs to know WHICH invoices are signed (to lock editing), and a row
+ * exists if and only if at least one signature does — saveSignatureRow deletes
+ * the row when both are cleared — so these two small columns answer that.
+ * The actual image is fetched per-invoice by getSignatureRow below.
+ */
+export async function getSignatureIndex() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoice_signatures')
+      .select('invoice_number, updated_at');
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** The base64 signature blobs for ONE invoice — fetched only when it's opened. */
+export async function getSignatureRow(invoiceNumber) {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('invoice_signatures')
+      .select('seller, buyer, updated_at')
+      .eq('user_id', userId)
+      .eq('invoice_number', Number(invoiceNumber))
+      .maybeSingle();
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Every signature row INCLUDING the base64 blobs. Deliberately only called from
+ * the backup export (a rare, user-initiated action) so a backup taken on a
+ * fresh device still contains signatures it never opened. Never call this on a
+ * render path — that's what blew the egress budget.
+ */
 export async function getAllSignatures() {
   if (await noSession()) return { data: null, error: new Error('no session') };
   try {

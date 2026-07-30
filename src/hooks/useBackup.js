@@ -5,6 +5,7 @@
 
 import { useRef, useState } from 'react';
 import { STORAGE_KEYS } from '../utils/constants';
+import { cacheAllSignaturesForBackup } from '../utils/signatureStorage';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,14 @@ export function useBackup() {
    * Collects all app data from localStorage, serialises it to JSON,
    * and triggers a browser download of the backup file.
    */
-  function handleExport() {
+  async function handleExport() {
+    // Signature images are no longer cached eagerly (they were the app's biggest
+    // egress cost), so pull any that this device has never opened before
+    // sweeping localStorage — otherwise the backup would silently omit them.
+    // Safe to do here: export is rare and user-initiated, unlike a render path.
+    setBackupMsg('Preparing backup…');
+    await cacheAllSignaturesForBackup().catch(() => {});
+
     const data = {};
     collectBackupKeys().forEach(k => {
       const v = localStorage.getItem(k);
