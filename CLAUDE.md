@@ -272,6 +272,7 @@ names), so re-running is always safe:
 - `supabase-connections.sql` — connections table, participants-only RLS, `redeem_connection(p_code, p_name)` SECURITY DEFINER RPC
 - `supabase-connection-orders.sql` — cross-account orders; INSERT gated on an active connection linking store → driver
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
+- `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant
 before it runs. After any manual run, verify the live schema with an anon REST
@@ -373,6 +374,27 @@ the build links, the app doesn't crash, and (for deep links) `xcrun simctl openu
 - **`position: fixed` modals**: any ancestor with `overflow: hidden` creates a new containing block on iOS, clipping fixed children. Use `createPortal(modal, document.body)` for all confirm/delete dialogs.
 - **`overflowX: 'clip'` not `'hidden'`**: `clip` prevents horizontal scroll without creating a new containing block — use it on page wrappers so fixed portals still escape.
 - **Unauthenticated Supabase deletes**: RLS silently returns no error when the user isn't logged in, so always delete from localStorage first, then attempt the cloud sync.
+
+## Egress — the free-plan limit that actually bites
+
+In Jul 2026 the Supabase free plan's **egress** cap (5 GB/mo) was blown — 5.905 GB,
+118% — which paused the project. Nothing else was close: database 6%, storage 0%,
+MAU <1%. It was never about how much is *stored*; it was the same small data being
+re-downloaded constantly. Two causes, both now fixed:
+
+- **A 30s poll** in `App.jsx` re-fetched the whole `connection_orders` set (`select('*')`,
+  no limit) ~2,880×/day per open session. Replaced by a Supabase **Realtime**
+  subscription, with a self-tuning fallback poll (10 min once subscribed, 1 min if
+  Realtime never lands, so it degrades instead of breaking). Realtime was sitting at
+  <1% of its own free quota while egress overran.
+- **Signature blobs** (base64 PNGs, 20-60 KB each) were fetched for *every* invoice on
+  *every* InvoiceHistory mount. Now only an index of signed invoice numbers loads
+  (`getSignatureIndex`); the image is fetched per-invoice when opened, and the full set
+  only on backup export.
+
+**Rule of thumb when adding cloud reads:** never put an unbounded `select('*')` on a
+render path or an interval, and never fetch a base64/blob column for a list view — fetch
+an id/flag and lazy-load the payload.
 
 ## Data & State Gotchas
 

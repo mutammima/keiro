@@ -36,7 +36,8 @@ import { isPinEnabled } from './utils/pinStorage';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
-import { STORAGE_KEYS, EVENTS } from './utils/constants';
+import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS } from './utils/constants';
+import { supabase } from './services/supabase';
 // Store Owner role
 import RoleSelector from './components/onboarding/RoleSelector';
 import SOOrders from './pages/storeowner/SOOrders';
@@ -160,32 +161,71 @@ function AppInner({ role, onSwitchRole }) {
     if (BADGE_KEYS.includes(page)) { markSeen(page); refreshBadges(); }
   }, [page, refreshBadges]);
 
-  // ── Lightweight real-time ──────────────────────────────────────────────────
-  // Poll the cross-account tables every 30s while the app is foregrounded and
-  // the user is signed in. Refreshed caches recompute badges and fire
-  // EVENTS.DATA_REFRESH so any open cross-account list re-reads. Paused when the
-  // tab is hidden so it stays cheap on Supabase reads and battery. Guests have
-  // no cloud data, so they never poll.
+  // ── Cross-account sync: Realtime first, polling only as a backstop ─────────
+  // This used to poll every 30s (~2,880 requests/day per open session), which
+  // re-downloaded the full connection_orders set each time and was the main
+  // driver of the Supabase egress overage. Now a websocket subscription pushes
+  // changes instead — cheaper AND instant instead of up-to-30s stale.
+  //
+  // The poll survives as a safety net because postgres_changes silently
+  // delivers nothing if the table isn't in the `supabase_realtime` publication
+  // (see supabase-realtime.sql). Its interval self-tunes: rare once Realtime is
+  // confirmed subscribed, faster if the subscription never lands, so the app
+  // still works either way. Guests have no cloud data and skip all of it.
   useEffect(() => {
     if (isGuest()) return;
+
     let timer = null;
-    const tick = async () => {
-      if (document.visibilityState !== 'visible') return;
+    let pollMs = SYNC_POLL_DEGRADED_MS; // assume degraded until Realtime confirms
+    let cancelled = false;
+
+    const refresh = async () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
       const loads = role === 'store_owner'
         ? [loadSharedInvoicesFromCloud(), loadConnectionOrdersFromCloud()]
         : [loadConnectionOrdersFromCloud()];
       await Promise.allSettled(loads);
+      if (cancelled) return;
       refreshBadges();
       window.dispatchEvent(new CustomEvent(EVENTS.DATA_REFRESH));
     };
-    const start = () => { if (!timer) timer = setInterval(tick, 30000); };
-    const stop  = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+    const stopPoll  = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const startPoll = () => { stopPoll(); timer = setInterval(refresh, pollMs); };
+
+    // Realtime: any insert/update on the cross-account tables triggers one
+    // refresh. No filter — RLS already scopes what this user can see, and a
+    // spurious wake costs a single refetch.
+    const channel = supabase.channel('keiro-cross-account');
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'connection_orders' }, refresh);
+    if (role === 'store_owner') {
+      // A store owner's "shared invoices" are rows in `invoices` carrying their
+      // store_user_id — there is no separate table. RLS limits the events to
+      // exactly those rows.
+      channel.on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, refresh);
+    }
+    channel.subscribe(status => {
+      if (cancelled) return;
+      // SUBSCRIBED means events will actually arrive, so the poll can back off.
+      const healthy = status === 'SUBSCRIBED';
+      const next = healthy ? SYNC_POLL_HEALTHY_MS : SYNC_POLL_DEGRADED_MS;
+      if (next !== pollMs) { pollMs = next; if (timer) startPoll(); }
+    });
+
+    // Coming back to the foreground: refresh once immediately (covers anything
+    // missed while hidden, since Realtime events aren't replayed) and resume.
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') { tick(); start(); } else { stop(); }
+      if (document.visibilityState === 'visible') { refresh(); startPoll(); } else { stopPoll(); }
     };
-    start();
+
+    startPoll();
     document.addEventListener('visibilitychange', onVisibility);
-    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+    return () => {
+      cancelled = true;
+      stopPoll();
+      document.removeEventListener('visibilitychange', onVisibility);
+      supabase.removeChannel(channel);
+    };
   }, [role, refreshBadges]);
 
   // "What's New" is a changelog — only meaningful to someone who used a PRIOR

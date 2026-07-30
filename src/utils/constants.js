@@ -60,6 +60,9 @@ export const STORAGE_KEYS = {
   AUTH_UID:           'inv_auth_uid',
   PLAN:               'inv_plan',
   PULSE_HOME:         'inv_pulse_home',
+  // Which invoice numbers carry a signature. Cheap stand-in for the full
+  // base64 blobs so the history list can lock editing without downloading them.
+  SIG_INDEX:          'inv_sig_index',
   // Dynamic-key PREFIXES — always suffixed with an id, e.g. `${SIG_PREFIX}${id}`.
   SIG_PREFIX:            'inv_sig_',
   TIP_PREFIX:            'inv_tip_',
@@ -128,3 +131,14 @@ export const AUTOFILL_DEBOUNCE_MS = 250;
  * window; long enough to catch a mis-tap, short enough not to linger.
  */
 export const DELETE_UNDO_MS = 5000;
+
+// Cross-account refresh cadence. Realtime (a websocket subscription) is the
+// primary signal; these polls are only a safety net, because postgres_changes
+// silently delivers nothing unless the table is in the `supabase_realtime`
+// publication (see supabase-realtime.sql).
+//   HEALTHY  — Realtime subscribed: a rare backstop against a missed event.
+//   DEGRADED — Realtime unavailable: the app still works, just less instantly.
+// This replaced a flat 30s poll (~2,880 requests/day/session) that was the main
+// driver of the Supabase egress overage.
+export const SYNC_POLL_HEALTHY_MS  = 10 * 60 * 1000; // 10 min
+export const SYNC_POLL_DEGRADED_MS = 60 * 1000;      // 1 min

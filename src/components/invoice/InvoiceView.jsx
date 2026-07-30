@@ -3,13 +3,13 @@
  * native share, and plain-text copy actions.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
-import { getSignatures, saveSignatures } from '../../utils/signatureStorage';
+import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
@@ -26,20 +26,40 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [showSigs,  setShowSigs]  = useState(false);
   const [sigSaved,  setSigSaved]  = useState(false); // flash "Saved" after auto-save
 
+  // Values most recently hydrated from cache/cloud. The auto-save effect below
+  // compares against these so simply LOADING a signature doesn't immediately
+  // re-upload it (which would defeat the point of not downloading them eagerly).
+  const hydratedRef = useRef({ seller: null, buyer: null });
+
   // ── Load saved signatures when the invoice changes ─────────────────────────
-  // Initialisation from persisted state, re-run when invoice.number changes;
-  // sellerSig/buyerSig are then user-mutable (drawn on the pad), so this is
-  // genuine reset-on-change state, not a derivable value.
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // Local cache first (instant, offline-safe). If nothing is cached here but the
+  // index says this invoice IS signed — e.g. it was signed on another device —
+  // fetch just this one invoice's images. The whole set is no longer downloaded
+  // up front; see signatureStorage for the egress rationale.
   useEffect(() => {
+    let cancelled = false;
+    const apply = ({ seller, buyer }) => {
+      if (cancelled) return;
+      hydratedRef.current = { seller: seller ?? null, buyer: buyer ?? null };
+      if (seller) { setSellerSig(seller); setShowSigs(true); }
+      if (buyer)  { setBuyerSig(buyer);   setShowSigs(true); }
+    };
+
     const saved = getSignatures(invoice.number);
-    if (saved.seller) { setSellerSig(saved.seller); setShowSigs(true); }
-    if (saved.buyer)  { setBuyerSig(saved.buyer);   setShowSigs(true); }
+    if (saved.seller || saved.buyer) {
+      apply(saved);
+    } else if (hasSignature(invoice.number)) {
+      fetchSignatureFromCloud(invoice.number).then(apply).catch(() => {});
+    }
+    return () => { cancelled = true; };
   }, [invoice.number]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Auto-save whenever either signature changes ────────────────────────────
   useEffect(() => {
+    // Skip the write when these values are exactly what we just loaded — that's
+    // a hydration, not a user edit.
+    const h = hydratedRef.current;
+    if (sellerSig === h.seller && buyerSig === h.buyer) return;
     // Only persist if at least one sig exists (don't write a blank entry on mount)
     if (sellerSig !== null || buyerSig !== null) {
       saveSignatures(invoice.number, sellerSig, buyerSig);

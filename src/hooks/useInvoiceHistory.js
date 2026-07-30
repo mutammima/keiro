@@ -16,7 +16,7 @@ import {
   isStorePinned,
   getBusinessName,
 } from '../utils/storage';
-import { clearSignatures, loadAllSignaturesFromCloud } from '../utils/signatureStorage';
+import { clearSignatures, loadSignatureIndexFromCloud } from '../utils/signatureStorage';
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, EVENTS, DELETE_UNDO_MS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
@@ -87,7 +87,9 @@ export function useInvoiceHistory() {
     Promise.all([
       getInvoices(),
       loadAllPaymentsFromCloud().catch(() => {}),
-      loadAllSignaturesFromCloud().catch(() => {}),
+      // Index only (invoice numbers), NOT the base64 images — those are fetched
+      // per-invoice when one is opened. See signatureStorage for why.
+      loadSignatureIndexFromCloud().catch(() => {}),
     ]).then(([list]) => {
       if (!cancelled) {
         setInvoices(Array.isArray(list) ? list : []);
