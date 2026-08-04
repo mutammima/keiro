@@ -89,12 +89,12 @@ export default function MyListings({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={onOpenDrawer} style={s.iconBtn(C)}>&#9776;</button>
+        <button data-drawer-toggle onClick={onOpenDrawer} style={s.iconBtn(C)}>&#9776;</button>
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>My Listings</span>
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={{ padding: '16px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '16px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         <p style={{ fontSize: 13, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
           List the products you carry and your price. Stores that need these will be able to find you in the marketplace.

@@ -142,3 +142,33 @@ export const DELETE_UNDO_MS = 5000;
 // driver of the Supabase egress overage.
 export const SYNC_POLL_HEALTHY_MS  = 10 * 60 * 1000; // 10 min
 export const SYNC_POLL_DEGRADED_MS = 60 * 1000;      // 1 min
+
+// ── Responsive layout ───────────────────────────────────────────────────────
+/**
+ * The two width thresholds that separate the app's three layout tiers. Read
+ * through `useBreakpoint()` — nothing should compare `innerWidth` to these
+ * directly.
+ *
+ *   < TABLET            phone   — the original layout: top tab strip, swipeable
+ *                                 tab carousel, bottom-sheet overlays.
+ *   TABLET … DESKTOP-1  tablet  — same chrome, wider content, 2-column grids.
+ *   >= DESKTOP          desktop — docked side nav, no carousel, centered panels.
+ *
+ * 768 is the conventional portrait-tablet edge. 1100 is set so a half-screen
+ * laptop window (~720px) lands on tablet rather than getting desktop chrome in
+ * a space too narrow for a 232px side nav plus readable content.
+ */
+export const BREAKPOINTS = {
+  TABLET:  768,
+  DESKTOP: 1100,
+};
+
+// NOTE: the max content WIDTH per tier is not defined here — it lives in
+// src/App.css as the `--content-max` / `--form-max` custom properties, because
+// width capping is pure CSS and needs no JS. These BREAKPOINTS constants exist
+// for the structural decisions CSS can't make from an inline style: which nav
+// to render, whether to build the swipe carousel, how many grid columns.
+// The two thresholds are therefore written in both files — keep them in sync.
+
+/** Width of the docked side nav on desktop. Matches NavDrawer's slide-in width. */
+export const SIDE_NAV_WIDTH = 232;

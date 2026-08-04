@@ -124,7 +124,7 @@ export default function SODrivers({ onNav }) {
         </button>
       </div>
 
-      <div data-tip="so-drivers-list" style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div data-tip="so-drivers-list" style={{ padding: '14px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Connect a driver (invite-only) */}
         <div data-tutorial="so-connect-card" style={{ display: 'flex', alignItems: 'center', gap: 12, background: dark ? 'rgba(74,123,247,0.10)' : 'rgba(74,123,247,0.07)', border: `1px solid ${dark ? 'rgba(74,123,247,0.45)' : 'rgba(74,123,247,0.35)'}`, borderRadius: 16, padding: '14px 16px' }}>

@@ -18,7 +18,7 @@ Keiro is a mobile-first PWA that connects delivery drivers and retail store owne
 | PDF | jsPDF + jspdf-autotable (lazy-loaded at generation time) |
 | Deployment | Vercel |
 | Native wrapper | **Capacitor (iOS)** — same web app, sideloaded via AltStore/SideStore; see "iOS Native Wrapper" |
-| Max content width | 480px (mobile-first, centered on desktop) |
+| Layout | **Responsive** — phone / tablet / desktop, see "Responsive Layout" below |
 | Default theme | **Dark mode** |
 
 ## Running Locally
@@ -117,6 +117,65 @@ const s = {
 
 ---
 
+## Responsive Layout
+
+The app used to be pinned to a centered 480px column at every screen size, so on a
+desktop monitor it rendered as a phone-shaped strip. It now adapts across **three tiers**.
+
+| Tier | Width | Chrome |
+|------|-------|--------|
+| phone | `< 768` | Top tab strip, swipeable 4× tab carousel, bottom-sheet modals — **unchanged from before** |
+| tablet | `768–1099` | Same chrome, content widens to 720px |
+| desktop | `≥ 1100` | Docked left nav rail, no carousel, two-column bodies, centered dialogs |
+
+**Two mechanisms, and picking the right one matters:**
+
+1. **CSS custom properties** (`src/App.css`) — for anything that's purely a *value*
+   change. Inline styles can't hold a media query but they can hold `var()`, exactly
+   like the existing `ACCENT = 'var(--accent)'`. This is why ~29 page bodies needed no
+   hook, no import, and no resize listener:
+   - `--content-max` (480/720/1140) — lists, dashboards, grids
+   - `--form-max` (480/600/720) — forms, invoice views, prose. Capped tighter on
+     purpose: a 1140px single-column form is miserable to fill in.
+   - `--sheet-align` / `--sheet-radius-20` / `--sheet-radius-18` / `--sheet-border-b` —
+     turn bottom sheets into centered dialogs. **Deliberately unset below 1100px**, with
+     each call site passing its original value as the `var()` fallback, so phone
+     rendering is byte-identical.
+
+2. **`useBreakpoint()`** (`src/hooks/useBreakpoint.js`) — only for *structural* choices
+   CSS can't make from an inline style: which nav to render, whether to build the swipe
+   carousel at all. Built on `useSyncExternalStore`, **not** `useState` + `useEffect` —
+   the effect version trips `react-hooks/set-state-in-effect` and flashes the phone
+   layout for one frame on desktop before correcting.
+
+**Utility classes** (App.css, used from JSX like the existing `.app-shell` / `.page-*`):
+- `.col-split` — vertical flex stack on phone/tablet; **CSS multi-column** on desktop.
+  Multi-column, not grid, on purpose: grid aligns row heights, so a short card beside a
+  tall one leaves a big dead gap. Set `--col-gap` inline to match the page's old flex gap.
+- `.col-full` — a spanner inside `.col-split` (group headings, `AppFooter`). Runs under
+  both columns and forces a clean break, so a heading is never stranded at the foot of
+  column one. `AppFooter` self-tags, so pages don't need to.
+- `[data-drawer-toggle]` — every in-page ☰. Hidden on desktop, where the rail is
+  already docked open and a second sliding drawer would be nonsense.
+
+**Gotchas:**
+- **`BREAKPOINTS` in `constants.js` and the `@media` queries in `App.css` are the same
+  two numbers written twice.** Media queries can't read custom properties, so this
+  duplication is unavoidable — change both together.
+- Inline `display` beats a stylesheet `display`. Any container that should become
+  `.col-split` must **not** set `display`/`flexDirection`/`gap` inline (see
+  `SOInvoices.jsx`'s `s.body`, which moved them into the class).
+- `.col-split > *` needs `width: 100%` because several lists use `<button>` as their
+  card; as a flex child it filled the row, in a block/multicol container it shrink-wraps.
+- The tab list lives in **`src/components/navigation/tabs.js`** — one source for App.jsx
+  (ids, for the strip's index math), TopNav (labels), and the docked rail. The `*_TAB_IDS`
+  arrays are built once at module load because App.jsx holds them in a ref and compares
+  identity across renders.
+- `NavDrawer` is one component in two modes (`docked` prop), not two components — the
+  item list, icons, pinned chips and sign-out block are identical and a copy would drift.
+
+---
+
 ## Branching & Pull Requests
 
 **Always work on a feature branch, never commit directly to `main`.**
@@ -150,7 +209,8 @@ signup; the two roles see different tab sets and connect to each other through
 invite codes.
 
 - **Stack:** React + Vite PWA, Supabase (auth + cloud DB), localStorage fallback
-- **Mobile-first**, max-width 480px centered on desktop
+- **Mobile-first but responsive** — phone layout unchanged, tablet widens, desktop gets a
+  docked side rail and two-column bodies (see "Responsive Layout")
 - **Two roles** (`inv_user_role`): `driver` | `store_owner` — `RoleSelector` on first launch, switchable from the drawer
 - **Tabs per role** (swipe or tap the top nav):
   - Driver: `['home', 'route', 'stores', 'reports']` (route = invoice history + creation)

@@ -173,7 +173,7 @@ export default function Reports({ onOpenDrawer, onNav, embedded }) {
     <div style={{ ...s.page, ...(embedded ? { minHeight: '100%' } : null), background: C.bg }}>
       {!embedded && (
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
+          <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
           <span style={{ ...s.title, color: C.text }}>Reports</span>
           <div style={{ width: 36 }} />
         </div>
@@ -445,7 +445,7 @@ const s = {
   body: {
     padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 12,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   segmented: {
     display: 'flex', borderRadius: 12, padding: 4, gap: 4,

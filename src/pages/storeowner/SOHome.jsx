@@ -145,7 +145,9 @@ export default function SOHome({ onNav }) {
         </button>
       </div>
 
-      <div style={{ padding: '16px 16px 48px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* col-split: a single column on phone/tablet (identical to the flex
+          column this replaced), two balanced columns on desktop. */}
+      <div className="col-split" style={{ padding: '16px 16px 48px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', '--col-gap': '20px' }}>
 
         {loading ? (
           /* ── Loading skeleton — first cloud fetch on a fresh device ──────── */

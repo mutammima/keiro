@@ -150,24 +150,33 @@ export default function Home({ onNav }) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: C.bg }}>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* The rule spans the full width; the row inside it is capped to the same
+          column as the body, so the title and + New stay aligned with the
+          content instead of drifting to the far window edges on desktop. */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 16px', paddingTop: 'max(12px, env(safe-area-inset-top))',
         borderBottom: `1px solid ${C.divider}`,
         flexShrink: 0,
         background: C.bg,
       }}>
-        {/* No ☰ here — the fixed TopNav strip already provides the drawer toggle
-            for tab pages. Rendering one here too produced a double hamburger. */}
-        <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text }}>{bizName}</span>
-        <button
-          style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-          onClick={() => onNav('invoice')}
-        >+ New</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+          {/* No ☰ here — the fixed TopNav strip already provides the drawer toggle
+              for tab pages. Rendering one here too produced a double hamburger. */}
+          <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text }}>{bizName}</span>
+          <button
+            style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+            onClick={() => onNav('invoice')}
+          >+ New</button>
+        </div>
       </div>
 
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', paddingBottom: 88, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* The scroll container stays full-bleed so the scrollbar tracks the
+          window edge; the inner wrapper is what's width-capped and centered.
+          On desktop `dash-grid` turns this column into two, so the dashboard
+          fills the extra room with columns rather than a very long scroll. */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', paddingBottom: 88 }}>
+        <div className="col-split" style={{ maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
         {isGuest() && (
           <div style={{ margin: '14px 16px 0' }}>
@@ -300,7 +309,8 @@ export default function Home({ onNav }) {
           </>
         )}
 
-        <AppFooter onNav={onNav} />
+          <AppFooter onNav={onNav} />
+        </div>
       </div>
     </div>
   );

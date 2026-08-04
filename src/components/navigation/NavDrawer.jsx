@@ -1,14 +1,28 @@
 /**
- * NavDrawer — slide-in navigation sidebar.
- * Shows pinned stores as quick-tap chips below the main nav items.
+ * NavDrawer — the app's navigation sidebar, in two modes.
+ *
+ * MODE 1 (phone / tablet, `docked` false): a slide-in overlay drawer behind a
+ * dimmed backdrop, opened by the ☰ in TopNav. Unchanged from how it has always
+ * worked.
+ *
+ * MODE 2 (desktop, `docked` true): the same panel, permanently visible as a
+ * left rail in the app shell's flex row — no backdrop, no transform, no close
+ * button. Because TopNav is hidden on desktop, docked mode also renders the
+ * four primary role tabs at the top, so the rail carries the whole navigation.
+ *
+ * It's one component rather than a separate SideNav on purpose: the nav item
+ * list, icons, pinned-store chips, role toggle and sign-out block are identical
+ * in both modes, and a second copy would drift.
  */
 
-import { STORAGE_KEYS } from '../../utils/constants';
+import { STORAGE_KEYS, SIDE_NAV_WIDTH } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { signOut } from '../../services/auth';
 import { getPinnedStores } from '../../utils/storage';
 import { isGuest, promptAccount } from '../../utils/guestMode';
+import { tabsForRole } from './tabs';
+import KeiroWordmark from '../ui/KeiroWordmark';
 
 // SVG icon components — clean geometric shapes, no emoji
 const Icons = {
@@ -96,7 +110,10 @@ function isEasyMode() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
 }
 
-export default function NavDrawer({ open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole }) {
+export default function NavDrawer({
+  open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole,
+  docked = false, badges = {}, pulse = {},
+}) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -106,7 +123,8 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
   // Pinned chips (drivers only). Read straight from storage while the drawer is
   // open — a plain derived value, so toggling a pin elsewhere shows up on the
   // next open with no useState/effect round-trip (and no setState-in-effect).
-  const pinned = open && !isOwner ? getPinnedStores() : [];
+  // Docked mode is always "open", so it always reads.
+  const pinned = (docked || open) && !isOwner ? getPinnedStores() : [];
 
   const guest = isGuest();
 
@@ -117,26 +135,36 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
 
   return (
     <>
-      {/* Dimmed backdrop */}
-      <div
-        onClick={onClose}
-        aria-hidden="true"
-        style={{
-          ...s.backdrop,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-        }}
-      />
+      {/* Dimmed backdrop — overlay mode only; a docked rail has nothing to dim. */}
+      {!docked && (
+        <div
+          onClick={onClose}
+          aria-hidden="true"
+          style={{
+            ...s.backdrop,
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? 'auto' : 'none',
+          }}
+        />
+      )}
 
       {/* Drawer panel */}
       <div style={{
         ...s.drawer,
+        ...(docked ? s.drawerDocked : null),
         background: C.drawerBg,
-        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+        ...(docked
+          // In the shell's flex row: no transform, no slide transition, and a
+          // hairline separating the rail from the content column.
+          ? { borderRight: `1px solid ${C.divider}` }
+          : { transform: open ? 'translateX(0)' : 'translateX(-100%)' }),
       }}>
-        {/* Close button */}
+        {/* Header — wordmark when docked (it's the app's only chrome there),
+            back-arrow when it's an overlay that needs dismissing. */}
         <div style={s.drawerHeader}>
-          <button aria-label="Close menu" style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>←</button>
+          {docked
+            ? <KeiroWordmark C={C} style={{ fontSize: 22, paddingLeft: 4 }} />
+            : <button aria-label="Close menu" style={{ ...s.closeBtn, color: C.textMuted }} onClick={onClose}>←</button>}
         </div>
 
         {/* Role toggle pill — Uber-style instant switch */}
@@ -157,7 +185,7 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
                 return (
                   <button
                     key={id}
-                    onClick={() => { if (!active) { onSwitchRole(id); onClose(); } }}
+                    onClick={() => { if (!active) { onSwitchRole(id); if (!docked) onClose(); } }}
                     style={{
                       flex: 1,
                       padding: '8px 4px',
@@ -179,6 +207,47 @@ export default function NavDrawer({ open, onClose, onNav, currentPage, onTutoria
               })}
             </div>
           </div>
+        )}
+
+        {/* Primary role tabs — docked only. On phone/tablet these live in
+            TopNav; on desktop TopNav is hidden, so the rail carries them. */}
+        {docked && (
+          <nav style={s.nav} aria-label="Main">
+            {tabsForRole(role).map(tab => {
+              const active = currentPage === tab.id;
+              const count = badges[tab.id] || 0;
+              return (
+                <button
+                  key={tab.id}
+                  data-qs-tab={tab.id}
+                  onClick={() => onNav(tab.id)}
+                  style={{
+                    ...s.navItem,
+                    fontWeight: active ? 700 : 500,
+                    color: active ? C.navActiveText : C.navText,
+                    background: active ? C.navActive : 'none',
+                  }}
+                >
+                  <span aria-hidden="true" style={{
+                    ...s.tabRule,
+                    background: active ? ACCENT : 'transparent',
+                  }} />
+                  <span style={{ flex: 1 }}>{tab.label}</span>
+                  {pulse[tab.id] && (
+                    <span aria-hidden style={{
+                      width: 7, height: 7, borderRadius: 4, background: ACCENT, flexShrink: 0,
+                      '--tut-glow': 'rgba(74,123,247,0.5)',
+                      animation: 'tut-pulse 1.4s ease-in-out infinite',
+                    }} />
+                  )}
+                  {count > 0 && (
+                    <span style={s.badge}>{count > 9 ? '9+' : count}</span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ ...s.dividerLine, background: C.divider, marginTop: 8 }} />
+          </nav>
         )}
 
         {/* Main nav */}
@@ -294,6 +363,28 @@ const s = {
     transition: 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94), background-color 0.3s ease',
     display: 'flex', flexDirection: 'column',
     overflowY: 'auto',
+  },
+  // Docked (desktop): still fixed to the left edge, but permanently in place
+  // instead of translated off-screen. The content column is inset by
+  // SIDE_NAV_WIDTH to sit beside it, so the two never overlap.
+  // No transform transition — it never slides, and animating it would only
+  // cause a visible lurch when the window crosses the desktop breakpoint.
+  drawerDocked: {
+    width: SIDE_NAV_WIDTH,
+    transition: 'background-color 0.3s ease',
+    paddingTop: 'env(safe-area-inset-top)',
+  },
+  // The active-tab marker in the docked rail — a vertical accent bar, the
+  // sidebar counterpart of TopNav's underline.
+  tabRule: {
+    width: 3, height: 18, borderRadius: 2, flexShrink: 0,
+    marginRight: 7, transition: 'background 0.2s',
+  },
+  badge: {
+    minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box',
+    borderRadius: 8, background: '#ef4444', color: '#fff',
+    fontSize: 10, fontWeight: 800, lineHeight: '16px', textAlign: 'center',
+    flexShrink: 0,
   },
   drawerHeader: {
     display: 'flex', alignItems: 'center',

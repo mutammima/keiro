@@ -130,7 +130,7 @@ export default function SOInvoices({ onNav }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div data-tip="so-invoices-list" style={s.body}>
+      <div data-tip="so-invoices-list" className="col-split" style={s.body}>
 
         {isGuest() && <GuestBanner />}
 
@@ -310,7 +310,10 @@ const s = {
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
   body: {
     padding: '12px 16px 88px',
-    display: 'flex', flexDirection: 'column', gap: 10,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    // display/flexDirection/gap live in the .col-split class instead, so the
+    // desktop media query can switch this to a two-column layout — an inline
+    // `display` would win over the stylesheet and block that.
+    '--col-gap': '10px',
+    maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
 };

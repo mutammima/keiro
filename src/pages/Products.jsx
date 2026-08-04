@@ -87,7 +87,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} onClick={onOpenDrawer} aria-label="Open menu">☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} data-drawer-toggle onClick={onOpenDrawer} aria-label="Open menu">☰</button>
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? 'Cancel' : '+ Add'}
@@ -238,7 +238,7 @@ const s = {
   body: {
     padding: '14px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   card: { borderRadius: 18, border: '1px solid' },
   letterHeader: {

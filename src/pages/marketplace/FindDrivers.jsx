@@ -106,12 +106,12 @@ export default function FindDrivers({ onOpenDrawer, onNav }) {
 
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button onClick={onOpenDrawer} style={s.iconBtn(C)}>&#9776;</button>
+        <button data-drawer-toggle onClick={onOpenDrawer} style={s.iconBtn(C)}>&#9776;</button>
         <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text, textAlign: 'center' }}>Find Drivers</span>
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={{ padding: '14px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '14px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Search */}
         <input

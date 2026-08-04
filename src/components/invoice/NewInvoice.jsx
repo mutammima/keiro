@@ -571,7 +571,7 @@ const s = {
   body: {
     padding: '14px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 12,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   card: {
     borderRadius: 18, padding: '18px',

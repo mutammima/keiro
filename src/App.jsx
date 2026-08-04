@@ -36,7 +36,7 @@ import { isPinEnabled } from './utils/pinStorage';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
-import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS } from './utils/constants';
+import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS, SIDE_NAV_WIDTH } from './utils/constants';
 import { supabase } from './services/supabase';
 // Store Owner role
 import RoleSelector from './components/onboarding/RoleSelector';
@@ -57,11 +57,9 @@ import { redeemPendingInvite } from './utils/connectionStorage';
 import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
 import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
 import { isGuest } from './utils/guestMode';
+import { tabIdsForRole } from './components/navigation/tabs';
+import { useBreakpoint, BP } from './hooks/useBreakpoint';
 import './App.css';
-
-// Tab IDs for each role (connection-first navigation)
-const DRIVER_TABS = ['home', 'route', 'stores', 'reports'];
-const OWNER_TABS  = ['so-home', 'so-orders', 'so-drivers', 'so-invoices'];
 
 function tabIndex(tabs, p) {
   // invoice-view is a post-generate overlay; the strip is hidden while it shows,
@@ -107,7 +105,12 @@ function AppInner({ role, onSwitchRole }) {
   const C = dark ? DARK : LIGHT;
   const easyMode = isEasyMode();
 
-  const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
+  // Layout tier. Desktop swaps the whole shell: a docked side rail instead of
+  // TopNav, and a single rendered tab instead of the swipeable 4× strip.
+  const bp = useBreakpoint();
+  const desktop = bp === BP.DESKTOP;
+
+  const TABS = tabIdsForRole(role);
 
   // Dashboards are now tab 0 for both roles — no dashboard overlay on launch.
   // In easy mode the driver lands on the Route tab (invoice list + "+ New").
@@ -375,7 +378,9 @@ function AppInner({ role, onSwitchRole }) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [overlayPage]); // wrapper remounts when an overlay closes — re-measure then
+    // Wrapper remounts when an overlay closes, and when crossing the desktop
+    // breakpoint (desktop doesn't render the strip at all) — re-measure on both.
+  }, [overlayPage, desktop]);
 
   // Belt-and-suspenders to the onScroll guard below: clear any stray horizontal
   // scroll on the wrapper before each paint after a tab change, so a navigation
@@ -457,10 +462,33 @@ function AppInner({ role, onSwitchRole }) {
       el.removeEventListener('touchend',    handleEnd);
       el.removeEventListener('touchcancel', handleEnd);
     };
-  }, []); // only run once — handlers read live values via refs
+    // Handlers read live values via refs, so this doesn't need to re-run on
+    // state changes — but it MUST re-run across the desktop breakpoint, because
+    // desktop unmounts the swipe wrapper. Without this dep, resizing a desktop
+    // window down to phone width would leave swipe permanently dead.
+  }, [desktop]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
   const isTabPage = overlayPage === null;
+
+  // The four tab pages for this role, in tab order. Hoisted out of the JSX
+  // because both layouts need them: phone/tablet lay all four side by side in
+  // the swipe strip, desktop renders only the active one.
+  const tabEls = role === 'store_owner' ? [
+    <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+    <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+    <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+    <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+  ] : [
+    <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+    <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+    <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
+    <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
+  ];
+
+  // Desktop insets every content surface past the docked rail; phone/tablet
+  // start at the left edge as before.
+  const contentLeft = desktop ? SIDE_NAV_WIDTH : 0;
 
   return (
     <div
@@ -491,13 +519,29 @@ function AppInner({ role, onSwitchRole }) {
         onTutorial={() => setShowQuickStart(true)}
         role={role}
         onSwitchRole={onSwitchRole}
+        docked={desktop}
+        badges={badges}
+        pulse={homePulse ? { home: true } : {}}
       />
 
       {/* ── Tab strip — swipeable ─────────────────────────────────────────── */}
       {/* swipeWrapperRef is the viewport-width clip container that holds the   */}
       {/* 300%-wide strip. Non-passive touch listeners are attached to it via   */}
       {/* useEffect above so e.preventDefault() actually blocks native scroll.  */}
-      {isTabPage && (
+      {isTabPage && (desktop ? (
+        // Desktop: no carousel. A mouse can't swipe, so a 4×-window-wide strip
+        // is a large amount of layout to translate for a gesture that can never
+        // fire. Render only the active tab.
+        <div
+          data-scroll-container="tab"
+          style={{
+            position: 'absolute', inset: 0, left: contentLeft,
+            overflowY: 'auto', overflowX: 'hidden',
+          }}
+        >
+          {tabEls[tabIdx]}
+        </div>
+      ) : (
         <div
           ref={swipeWrapperRef}
           // The strip is N× wider than this clip box, so the browser treats the
@@ -535,17 +579,7 @@ function AppInner({ role, onSwitchRole }) {
               boxSizing: 'border-box',
             }}
           >
-            {(role === 'store_owner' ? [
-              <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-            ] : [
-              <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-              <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
-              <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
-              <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-            ]).map((child, i) => (
+            {tabEls.map((child, i) => (
               <div
                 key={i}
                 data-scroll-container="tab"
@@ -565,11 +599,19 @@ function AppInner({ role, onSwitchRole }) {
             ))}
           </div>
         </div>
-      )}
+      ))}
 
-      {/* ── Overlay pages (slide up from bottom) ───────────────────────────── */}
+      {/* ── Overlay pages ──────────────────────────────────────────────────── */}
+      {/* Phone/tablet: full-screen, sliding up from the bottom. Desktop: fills  */}
+      {/* the content column beside the rail and cross-fades instead — a sheet   */}
+      {/* sliding up from the bottom of a monitor is a phone idiom.              */}
       {overlayPage && (
-        <div key={overlayPage} data-scroll-container="overlay" className={overlayClass} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', zIndex: 50, background: 'inherit' }}>
+        <div
+          key={overlayPage}
+          data-scroll-container="overlay"
+          className={desktop ? 'page-fade' : overlayClass}
+          style={{ position: 'absolute', inset: 0, left: contentLeft, overflowY: 'auto', overflowX: 'hidden', zIndex: 50, background: 'inherit' }}
+        >
           <Suspense fallback={
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span aria-hidden style={{ width: 30, height: 30, borderRadius: '50%', border: `3px solid ${C.cardBorder}`, borderTopColor: '#4A7BF7', animation: 'tut-spin 0.8s linear infinite' }} />
@@ -609,8 +651,9 @@ function AppInner({ role, onSwitchRole }) {
         </div>
       )}
 
-      {/* Hide top nav on overlay pages — they have their own headers */}
-      {overlayPage === null && (
+      {/* Hide top nav on overlay pages — they have their own headers — and on
+          desktop, where the docked rail carries the tabs instead. */}
+      {overlayPage === null && !desktop && (
         <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} pulse={homePulse ? { home: true } : {}} />
       )}
       <OfflineBanner dark={dark} />
