@@ -251,7 +251,7 @@ export default function NewRequest({ onNav, onBack }) {
       </div>
 
       {/* Form */}
-      <div style={{ padding: '16px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px 16px 100px', maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Guest-mode persistent warning — local-only data, no cloud backup */}
         {isGuest() && (

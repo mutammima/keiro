@@ -109,7 +109,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
         flexShrink: 0,
       }}>
         <button
-          onClick={onOpenDrawer}
+          data-drawer-toggle onClick={onOpenDrawer}
           aria-label="Open menu"
           style={{ background: 'none', border: 'none', fontSize: 20, color: C.text, cursor: 'pointer', padding: '4px 6px', WebkitTapHighlightColor: 'transparent', lineHeight: 1 }}
         >
@@ -121,7 +121,7 @@ export default function SOReports({ onOpenDrawer, onNav }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={{ padding: '16px 16px 48px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: '16px 16px 48px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {isGuest() && <GuestBanner />}
 

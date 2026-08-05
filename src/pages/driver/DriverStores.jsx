@@ -226,7 +226,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="col-split" style={{ '--col-gap': '8px' }}>
             {stores.map(st => (
               <button
                 key={st.name}
@@ -271,6 +271,6 @@ const s = {
   body: {
     padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
 };

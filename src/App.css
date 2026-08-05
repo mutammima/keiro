@@ -52,16 +52,128 @@ html, body, #root { touch-action: pan-y; }
 }
 #root::-webkit-scrollbar { display: none; }
 
-/* Desktop centering — only kicks in when the screen is wider than a phone */
-@media (min-width: 481px) {
-  #root {
-    position: fixed;
-    top: 0;
-    left: 50%;
-    width: 480px;
-    transform: translateX(-50%);
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+/* ── Responsive content widths ───────────────────────────────────────────
+ *
+ * Inline styles can't hold a media query, but they CAN hold a CSS custom
+ * property (the codebase already does this — ACCENT is 'var(--accent)'). So
+ * page bodies declare `maxWidth: 'var(--content-max)'` and the actual number
+ * is resolved here, per breakpoint. That keeps ~29 call sites free of any
+ * hook, import, or resize listener.
+ *
+ * Two scales, because they want different things as the screen grows:
+ *   --content-max  lists, dashboards, grids — wants the room, fills it with
+ *                  more columns rather than longer rows.
+ *   --form-max     forms, invoice views, prose — capped much tighter, because
+ *                  a 1140px-wide single-column form is miserable to read and
+ *                  to fill in.
+ *
+ * KEEP IN SYNC with BREAKPOINTS in src/utils/constants.js. Media queries can't
+ * read custom properties, so the two thresholds genuinely have to be written
+ * twice; JS structural layout reads the constants, CSS width capping reads
+ * these. If you change one, change the other.
+ */
+:root {
+  --content-max: 480px;
+  --form-max:    480px;
+}
+@media (min-width: 768px) {
+  :root {
+    --content-max: 720px;
+    --form-max:    600px;
   }
+}
+@media (min-width: 1100px) {
+  :root {
+    --content-max: 1140px;
+    --form-max:    720px;
+  }
+}
+
+/* ── Bottom sheets → centered dialogs on desktop ─────────────────────────
+ *
+ * A sheet that slides up and clings to the bottom edge is a phone idiom; on a
+ * monitor it reads as a panel stuck to the taskbar. These two properties are
+ * set inline at each sheet (alignItems on the backdrop, borderRadius on the
+ * card), so they're driven by variables rather than overridden.
+ *
+ * Deliberately UNSET below 1100px: each call site passes its own original
+ * value as the var() fallback, so the phone rendering is byte-identical to
+ * before. The radius vars are per-size because the sheets don't all share one
+ * (Settings uses 18px, the others 20px) and matching each keeps it exact. */
+@media (min-width: 1100px) {
+  :root {
+    --sheet-align:     center;
+    --sheet-radius-20: 20px;
+    --sheet-radius-18: 18px;
+    /* Settings' sheet drops its bottom border on phone because that edge sits
+     * off-screen; once centered, the border has to close the box again. */
+    --sheet-border-b:  1px solid var(--sheet-border-c, rgba(128,128,128,0.25));
+  }
+}
+
+/* NOTE: #root used to be pinned to a centered 480px column above 481px, which
+ * rendered the app as a phone-shaped strip floating in the middle of a desktop
+ * monitor. That pin is gone — #root is now full-bleed at every size, and the
+ * layout adapts per tier via useBreakpoint() (see src/utils/constants.js
+ * BREAKPOINTS). Content is still width-capped, but by the page body rather than
+ * by the shell, so desktop can use the extra room for columns and a side nav. */
+
+/* ── Dashboard column layout ─────────────────────────────────────────────
+ *
+ * Phone and tablet: a plain vertical stack — exactly the flex column the
+ * dashboards used before this existed, so the mobile layout is unchanged.
+ * Desktop: the same sections reflow into two columns, so the extra width
+ * becomes columns instead of a single very long scroll.
+ *
+ * Sections opt out of the split with `gridColumn: '1 / -1'` inline (inert
+ * while this is a flex container, so it costs the phone layout nothing).
+ * 1100px must match BREAKPOINTS.DESKTOP in src/utils/constants.js. */
+.col-split {
+  display: flex;
+  flex-direction: column;
+  gap: var(--col-gap, 18px);
+}
+@media (min-width: 1100px) {
+  /* Multi-column, NOT grid. Grid aligns row heights, so a short section beside
+   * a tall one (the Today strip next to the week chart) leaves a large dead gap
+   * under it before the next section may start. Columns balance on content
+   * height instead, which is what a dashboard or a card list actually wants. */
+  .col-split {
+    display: block;
+    column-count: 2;
+    column-gap: 12px;
+  }
+  .col-split > * {
+    /* Never split a card down the middle across the column break. */
+    -webkit-column-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: var(--col-gap, 18px);   /* stands in for the flex `gap` */
+    /* As flex children these filled the row automatically. In a block/multicol
+     * container an inline-level child (notably <button>, which several lists
+     * use as their card) shrink-wraps to its text instead, so pin it to the
+     * column width. */
+    width: 100%;
+    box-sizing: border-box;
+  }
+  /* Spanners run the full width and interrupt the column flow, so a group
+   * heading always sits above its own balanced pair of columns rather than
+   * being stranded at the foot of column one. */
+  .col-split > .col-full {
+    column-span: all;
+    margin-bottom: 0;
+  }
+}
+
+/* ── Desktop: hide the in-page drawer toggles ────────────────────────────
+ *
+ * Every page header carries a ☰ that opens the slide-in NavDrawer. On desktop
+ * that drawer is already docked open as a permanent rail, so the ☰ would slide
+ * a second, identical nav over the top of the first one behind a backdrop.
+ * Tagged with data-drawer-toggle at each call site rather than keyed off the
+ * aria-label, so renaming a label can't silently un-hide them.
+ * 1100px must match BREAKPOINTS.DESKTOP in src/utils/constants.js. */
+@media (min-width: 1100px) {
+  [data-drawer-toggle] { display: none; }
 }
 
 /* ── Page slide / fade transitions ───────────────────────────────── */

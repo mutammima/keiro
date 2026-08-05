@@ -53,7 +53,7 @@ export default function Legal({ section = 'privacy', onOpenDrawer, onNav }) {
     <div style={{ ...s.page, background: C.bg }}>
       {/* Sticky header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Legal</span>
         <div style={{ width: 36 }} />
       </div>
@@ -124,7 +124,7 @@ const s = {
   title: { flex: 1, fontSize: 18, fontWeight: 700, textAlign: 'center', letterSpacing: 0.2 },
   body: {
     padding: '12px 16px 88px', display: 'flex', flexDirection: 'column', gap: 12,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   toggle: {
     display: 'flex', gap: 4, padding: 4, borderRadius: 12, border: '1px solid',

@@ -39,7 +39,10 @@ export default function AppFooter({ onNav }) {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      <div style={{ ...s.footer, borderTopColor: C.divider }}>
+      {/* col-full: when a page body is a two-column .col-split on desktop, the
+          footer is page chrome and must run under both columns rather than be
+          dealt into one of them. Inert everywhere else. */}
+      <div className="col-full" style={{ ...s.footer, borderTopColor: C.divider }}>
 
         {/* Links — pipe-separated */}
         <div style={s.linkRow}>

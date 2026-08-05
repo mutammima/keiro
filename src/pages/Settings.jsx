@@ -198,7 +198,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
+        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
         <span style={{ ...s.title, color: C.text }}>Settings</span>
         {/* Close / back — uses onClose when provided, falls back to navigating to first tab */}
         <button
@@ -598,11 +598,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
       {/* Error Log modal */}
       {errorLogEntries && createPortal(
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'var(--sheet-align, flex-end)', justifyContent: 'center' }}
           onClick={() => setErrorLogEntries(null)}
         >
           <div
-            style={{ width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: '18px 18px 0 0', border: `1px solid ${C.cardBorder}`, borderBottom: 'none', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
+            style={{ width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--sheet-radius-18, 18px 18px 0 0)', border: `1px solid ${C.cardBorder}`, borderBottom: 'var(--sheet-border-b, none)', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
             onClick={e => e.stopPropagation()}
           >
             <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 4px' }}>Error Log</p>
@@ -654,7 +654,7 @@ const s = {
   body: {
     padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
   fieldLabel: { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 },
   primaryBtn: {

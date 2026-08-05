@@ -442,12 +442,12 @@ export default function StoreMap({ onOpenDrawer }) {
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg }}>
       {/* Header */}
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
+        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
         <span style={{ flex: 1, fontSize: 18, fontWeight: 700, color: C.text, textAlign: 'center' }}>Store Info</span>
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={{ padding: '12px 16px 88px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '12px 16px 88px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Search */}
         <input
           style={{ width: '100%', boxSizing: 'border-box', height: 44, fontSize: 15, padding: '0 14px', background: C.inputBg, border: `1px solid ${C.inputBorder}`, borderRadius: 12, outline: 'none', color: C.text, fontFamily: 'inherit' }}

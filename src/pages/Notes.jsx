@@ -95,7 +95,7 @@ export default function Notes({ onOpenDrawer }) {
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: C.bg }}>
       <div style={{ ...glassStyle(dark), padding: '14px 20px 12px', paddingTop: 'max(14px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} aria-label="Open menu" onClick={onOpenDrawer}>☰</button>
+        <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text, padding: '3px 4px', WebkitTapHighlightColor: 'transparent' }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
         <span style={{ flex: 1, fontSize: 18, fontWeight: 700, color: C.text, textAlign: 'center' }}>Notes</span>
         <button
           onClick={openNew}
@@ -105,7 +105,7 @@ export default function Notes({ onOpenDrawer }) {
         </button>
       </div>
 
-      <div style={{ padding: '12px 16px 88px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+      <div style={{ padding: '12px 16px 88px', maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         {notes.length === 0 ? (
           <div style={{ paddingTop: 80, textAlign: 'center' }}>
             <p style={{ color: C.textSub, fontSize: 17, fontWeight: 700, margin: 0 }}>No notes yet.</p>

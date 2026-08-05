@@ -138,7 +138,7 @@ export default function SOOrders({ onNav }) {
       </div>
 
       {/* List */}
-      <div data-tip="so-orders-list" style={{ padding: '8px 16px 100px', maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div data-tip="so-orders-list" className="col-split" style={{ padding: '8px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', '--col-gap': '10px' }}>
 
         {loading && visible.length === 0 ? (
           <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading orders…</p>

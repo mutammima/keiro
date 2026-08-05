@@ -29,8 +29,8 @@ export default function ReceivingSheet({ order, onConfirm, onClose }) {
   }
 
   return createPortal(
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, borderRadius: '20px 20px 0 0', background: C.card, border: `1px solid ${C.cardBorder}`, padding: '20px 20px max(24px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)', animation: 'tut-fadein 0.18s ease both' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'var(--sheet-align, flex-end)', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, borderRadius: 'var(--sheet-radius-20, 20px 20px 0 0)', background: C.card, border: `1px solid ${C.cardBorder}`, padding: '20px 20px max(24px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)', animation: 'tut-fadein 0.18s ease both' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: C.divider, margin: '0 auto 16px' }} />
         <p style={{ fontSize: 18, fontWeight: 800, color: C.text, margin: '0 0 4px' }}>Confirm receipt</p>
         <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 18px' }}>{order.productName}</p>

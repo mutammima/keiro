@@ -33,7 +33,7 @@ export default function DriverReports({ onNav }) {
         paddingTop: 'max(12px, env(safe-area-inset-top))',
         flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', background: dark ? '#1a1a1a' : '#e0e0e0', borderRadius: 12, padding: 3, gap: 3, maxWidth: 480, margin: '0 auto' }}>
+        <div style={{ display: 'flex', background: dark ? '#1a1a1a' : '#e0e0e0', borderRadius: 12, padding: 3, gap: 3, maxWidth: 'var(--content-max)', margin: '0 auto' }}>
           {SEGMENTS.map(({ id, label }) => {
             const active = seg === id;
             return (

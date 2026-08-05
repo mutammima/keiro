@@ -813,10 +813,16 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         ) : (
           <>
             {/* Today */}
+            {/* Only the card runs are wrapped in .col-split — the banners and
+                filter bar above stay full-width without needing to be tagged.
+                On desktop the cards balance into two columns; on phone the
+                wrapper is just a flex column with the same gap as before. */}
             {todayInvoices.length > 0 && (
               <>
                 <p style={{ ...s.groupLabel, color: C.textMuted }}>Today</p>
-                {todayInvoices.map((inv, i) => renderInvoiceCard(inv, i === 0))}
+                <div className="col-split" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
+                  {todayInvoices.map((inv, i) => renderInvoiceCard(inv, i === 0))}
+                </div>
               </>
             )}
 
@@ -826,7 +832,9 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 {todayInvoices.length > 0 && (
                   <p style={{ ...s.groupLabel, color: C.textMuted, marginTop: 6 }}>Earlier</p>
                 )}
-                {visibleOlderList.map((inv, i) => renderInvoiceCard(inv, todayInvoices.length === 0 && i === 0))}
+                <div className="col-split" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
+                  {visibleOlderList.map((inv, i) => renderInvoiceCard(inv, todayInvoices.length === 0 && i === 0))}
+                </div>
               </>
             )}
 
@@ -847,11 +855,11 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
       {/* Log Payment modal */}
       {logPaymentFor !== null && createPortal(
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 env(safe-area-inset-bottom)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'var(--sheet-align, flex-end)', justifyContent: 'center', padding: '0 0 env(safe-area-inset-bottom)' }}
           onClick={() => setLogPaymentFor(null)}
         >
           <div
-            style={{ width: '100%', maxWidth: 480, borderRadius: '20px 20px 0 0', background: C.card, padding: '20px 20px 28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}
+            style={{ width: '100%', maxWidth: 480, borderRadius: 'var(--sheet-radius-20, 20px 20px 0 0)', background: C.card, padding: '20px 20px 28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.4)' }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.divider, margin: '0 auto 18px' }} />
@@ -997,7 +1005,7 @@ const s = {
   body: {
     padding: '12px 16px 88px',
     display: 'flex', flexDirection: 'column', gap: 10,
-    maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+    maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box',
   },
 
   // Hero card

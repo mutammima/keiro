@@ -8,20 +8,7 @@
 
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-
-const DRIVER_TABS = [
-  { id: 'home',    label: 'Home',    tutorial: null },
-  { id: 'route',   label: 'Route',   tutorial: null },
-  { id: 'stores',  label: 'Stores',  tutorial: null },
-  { id: 'reports', label: 'Reports', tutorial: null },
-];
-
-const OWNER_TABS = [
-  { id: 'so-home',     label: 'Home',     tutorial: null },
-  { id: 'so-orders',   label: 'Orders',   tutorial: null },
-  { id: 'so-drivers',  label: 'Drivers',  tutorial: null },
-  { id: 'so-invoices', label: 'Invoices', tutorial: null },
-];
+import { tabsForRole } from './tabs';
 
 export const TOP_NAV_HEIGHT = 44; // px, not counting safe-area — 44 = minimum comfortable tap target
 
@@ -29,7 +16,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const TABS = role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
+  const TABS = tabsForRole(role);
 
   const activeIdx = TABS.findIndex(t => currentPage === t.id);
 
@@ -52,7 +39,7 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
         <button
           data-tutorial="hamburger"
           aria-label="Open menu"
-          onClick={onOpenDrawer}
+          data-drawer-toggle onClick={onOpenDrawer}
           style={{
             width: 48,
             flexShrink: 0,
@@ -83,7 +70,6 @@ export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges 
           return (
             <button
               key={tab.id}
-              data-tutorial={tab.tutorial}
               data-qs-tab={tab.id}
               onClick={() => onNav(tab.id)}
               style={{
