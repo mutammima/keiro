@@ -147,7 +147,11 @@ html, body, #root { touch-action: pan-y; }
     /* Never split a card down the middle across the column break. */
     -webkit-column-break-inside: avoid;
     break-inside: avoid;
-    margin-bottom: var(--col-gap, 18px);   /* stands in for the flex `gap` */
+    /* Stands in for the flex `gap`, which multicol doesn't honour.
+     * CAREFUL: a child that sets the inline `margin` SHORTHAND (e.g.
+     * margin: '14px 16px 0') silently zeroes this and loses its column gap —
+     * inline wins. Use marginTop/Left/Right longhand on .col-split children. */
+    margin-bottom: var(--col-gap, 18px);
     /* As flex children these filled the row automatically. In a block/multicol
      * container an inline-level child (notably <button>, which several lists
      * use as their card) shrink-wraps to its text instead, so pin it to the
@@ -188,7 +192,18 @@ html, body, #root { touch-action: pan-y; }
 .page-from-right  { animation: page-from-right  0.36s cubic-bezier(0.22,1,0.36,1) both; will-change: transform, opacity; }
 .page-from-left   { animation: page-from-left   0.36s cubic-bezier(0.22,1,0.36,1) both; will-change: transform, opacity; }
 .page-from-bottom { animation: page-from-bottom 0.40s cubic-bezier(0.22,1,0.36,1) both; will-change: transform, opacity; }
-.page-fade        { animation: page-fade        0.26s ease both; }
+/* `transform` in will-change here is NOT a compositor hint — this class only
+ * animates opacity. It's load-bearing: will-change: transform creates a
+ * CONTAINING BLOCK for position:fixed descendants, which the three slide
+ * classes above get for free from their transform animation. Desktop overlays
+ * use page-fade, and a page whose own root is position:fixed (e.g. SOReports)
+ * would otherwise resolve against the viewport, escape the content column's
+ * left inset and cover the docked nav rail.
+ * `opacity` alone is NOT enough — it makes a stacking context but not a
+ * containing block. Verified in-browser: with opacity only, a fixed child of
+ * this element still lands at left:0 instead of left:232.
+ * Portaled modals are unaffected — they hang off document.body, not off this. */
+.page-fade        { animation: page-fade        0.26s ease both; will-change: transform, opacity; }
 
 /* ── New Invoice card stagger ────────────────────────────────────── */
 @keyframes card-enter { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

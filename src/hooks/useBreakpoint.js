@@ -30,7 +30,15 @@ export const BP = {
 const DESKTOP_QUERY = `(min-width: ${BREAKPOINTS.DESKTOP}px)`;
 const TABLET_QUERY  = `(min-width: ${BREAKPOINTS.TABLET}px)`;
 
+// jsdom does not implement window.matchMedia, and neither do some embedded
+// webviews. getServerSnapshot does NOT cover that case — React only calls it
+// when hydrating server-rendered markup, never on an ordinary client render —
+// so both functions below have to tolerate its absence themselves or every
+// component using this hook throws on mount under test.
+const hasMatchMedia = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+
 function subscribe(onChange) {
+  if (!hasMatchMedia()) return () => {};
   // Two listeners, because a single query can't distinguish three tiers. Both
   // fire on any crossing; React coalesces the resulting re-renders.
   const queries = [
@@ -42,13 +50,14 @@ function subscribe(onChange) {
 }
 
 function getSnapshot() {
+  // Mobile-first fallback, matching the CSS default so the two always agree.
+  if (!hasMatchMedia()) return BP.PHONE;
   if (window.matchMedia(DESKTOP_QUERY).matches) return BP.DESKTOP;
   if (window.matchMedia(TABLET_QUERY).matches)  return BP.TABLET;
   return BP.PHONE;
 }
 
-// No window (SSR / prerender / a test environment without matchMedia): assume
-// phone, matching the mobile-first CSS default so the two agree.
+// Used only when hydrating server-rendered markup. Same mobile-first default.
 function getServerSnapshot() {
   return BP.PHONE;
 }
