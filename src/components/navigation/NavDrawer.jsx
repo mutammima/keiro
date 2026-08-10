@@ -220,6 +220,9 @@ export default function NavDrawer({
                 <button
                   key={tab.id}
                   data-qs-tab={tab.id}
+                  // The active tab is otherwise signalled only by colour, weight
+                  // and an aria-hidden accent bar — nothing a screen reader sees.
+                  aria-current={active ? 'page' : undefined}
                   onClick={() => onNav(tab.id)}
                   style={{
                     ...s.navItem,
@@ -241,7 +244,12 @@ export default function NavDrawer({
                     }} />
                   )}
                   {count > 0 && (
-                    <span style={s.badge}>{count > 9 ? '9+' : count}</span>
+                    // Without a label the name computes to "Orders 3, button" —
+                    // the 3 is unqualified. On desktop this is the ONLY badge
+                    // surface, since TopNav isn't rendered.
+                    <span style={s.badge} aria-label={`${count} unread`}>
+                      {count > 9 ? '9+' : count}
+                    </span>
                   )}
                 </button>
               );
@@ -250,8 +258,9 @@ export default function NavDrawer({
           </nav>
         )}
 
-        {/* Main nav */}
-        <nav style={s.nav}>
+        {/* Main nav — labelled because docked mode renders the tab <nav> above
+            this one, and two unnamed navigation landmarks are a WCAG defect. */}
+        <nav style={s.nav} aria-label={docked ? 'More' : 'Main'}>
           {NAV_ITEMS.map(item => {
             const active = currentPage === item.id;
             return (

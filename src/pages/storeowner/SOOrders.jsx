@@ -138,12 +138,14 @@ export default function SOOrders({ onNav }) {
       </div>
 
       {/* List */}
-      <div data-tip="so-orders-list" className="col-split" style={{ padding: '8px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', '--col-gap': '10px' }}>
+      <div data-tip="so-orders-list" className="col-grid" style={{ padding: '8px 16px 100px', maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box', '--col-gap': '10px' }}>
 
+        {/* col-full: a centered message left in one grid cell reads as
+            left-of-centre with a blank column beside it. */}
         {loading && visible.length === 0 ? (
-          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading orders…</p>
+          <p className="col-full" style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading orders…</p>
         ) : visible.length === 0 ? (
-          <div style={{ textAlign: 'center', paddingTop: 60 }}>
+          <div className="col-full" style={{ textAlign: 'center', paddingTop: 60 }}>
             <p style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>No orders yet</p>
             <p style={{ fontSize: 13, color: C.textMuted, margin: '0 0 20px' }}>
               {filter === 'all' ? 'Tap Request to create your first order.' : `No ${filter} orders.`}

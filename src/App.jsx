@@ -82,7 +82,9 @@ function OfflineBanner({ dark }) {
   if (!offline) return null;
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
+      // left insets past the docked rail on desktop, 0 elsewhere — otherwise
+      // this covers the rail's Sign Out block (see --app-inset-left in App.css).
+      position: 'fixed', bottom: 0, left: 'var(--app-inset-left, 0px)', right: 0,
       background: dark ? '#1a0a00' : '#fff7ed',
       color: dark ? '#fbbf24' : '#b45309',
       textAlign: 'center', padding: '10px 16px', fontSize: 13, fontWeight: 500,

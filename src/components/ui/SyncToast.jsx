@@ -51,9 +51,13 @@ export default function SyncToast() {
       style={{
         position: 'fixed',
         top: 'max(12px, env(safe-area-inset-top))',
-        left: '50%',
+        // Centered over the CONTENT column, not the whole window — on desktop
+        // the docked rail occupies the first --app-inset-left px, so centering
+        // on 50% of the viewport pushes the toast visibly off-centre and lets
+        // its left edge reach over the rail.
+        left: 'calc(var(--app-inset-left, 0px) + (100% - var(--app-inset-left, 0px)) / 2)',
         transform: 'translateX(-50%)',
-        width: 'calc(100% - 32px)',
+        width: 'calc(100% - var(--app-inset-left, 0px) - 32px)',
         maxWidth: 420,
         zIndex: 9000,
         boxSizing: 'border-box',

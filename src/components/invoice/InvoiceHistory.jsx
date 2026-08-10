@@ -820,7 +820,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             {todayInvoices.length > 0 && (
               <>
                 <p style={{ ...s.groupLabel, color: C.textMuted }}>Today</p>
-                <div className="col-split" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
+                <div className="col-grid" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
                   {todayInvoices.map((inv, i) => renderInvoiceCard(inv, i === 0))}
                 </div>
               </>
@@ -832,7 +832,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 {todayInvoices.length > 0 && (
                   <p style={{ ...s.groupLabel, color: C.textMuted, marginTop: 6 }}>Earlier</p>
                 )}
-                <div className="col-split" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
+                <div className="col-grid" style={{ '--col-gap': `${D.cardGap + 2}px` }}>
                   {visibleOlderList.map((inv, i) => renderInvoiceCard(inv, todayInvoices.length === 0 && i === 0))}
                 </div>
               </>

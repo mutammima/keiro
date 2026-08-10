@@ -7,9 +7,13 @@
  * side nav). Two copies were already drifting apart by hand; a third would have
  * made it worse.
  *
- * The `*_TAB_IDS` arrays are built once at module load, NOT per call. App.jsx
- * keeps the id array in a ref and compares it across renders, so handing back a
- * freshly-mapped array each call would quietly break that identity check.
+ * The `*_TAB_IDS` arrays are built once at module load, NOT per call, so
+ * `tabIdsForRole` hands back a stable reference. App.jsx mirrors the array into
+ * a ref keyed on `role` (`useEffect(..., [role])`) and its swipe handlers read
+ * `tabsRef.current` — that works because `AppInner` is remounted via
+ * `key={role}`, not because anything compares the array's identity. Returning a
+ * fresh array per call wouldn't break correctness today; it would just churn
+ * allocations on a hot path for no reason.
  */
 
 export const DRIVER_TABS = [
