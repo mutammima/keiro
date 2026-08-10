@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useBreakpoint, BP } from '../hooks/useBreakpoint';
 
 const realMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
@@ -40,6 +40,40 @@ function stubMatchMediaAt(width) {
       };
     },
   });
+}
+
+/**
+ * A matchMedia whose width can be changed afterwards, with a `resizeTo(px)`
+ * that fires the `change` listeners a real browser fires on a window resize.
+ *
+ * This is the only way to exercise the subscribe → re-render path: neither
+ * browser harness available can produce a genuine resize (the in-app preview
+ * resizes via CDP device-metrics override, which re-evaluates media queries
+ * but dispatches no events; a real Chrome window that is maximized refuses to
+ * be resized programmatically at all). Everything below the browser's own
+ * event emission — which is spec'd behaviour, not app behaviour — is covered.
+ */
+function installResizableMatchMedia(initialWidth) {
+  let width = initialWidth;
+  const lists = new Set();
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query) => {
+      const min = Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0);
+      const listeners = new Set();
+      const mql = {
+        media: query,
+        get matches() { return width >= min; },
+        addEventListener: (_t, cb) => listeners.add(cb),
+        removeEventListener: (_t, cb) => listeners.delete(cb),
+        _fire: () => listeners.forEach(cb => cb({ matches: width >= min, media: query })),
+      };
+      lists.add(mql);
+      return mql;
+    },
+  });
+  return (next) => { width = next; lists.forEach(m => m._fire()); };
 }
 
 afterEach(() => {
@@ -71,5 +105,33 @@ describe('useBreakpoint', () => {
       expect(result.current, `width ${width}`).toBe(expected);
       unmount();
     }
+  });
+
+  it('re-renders when the viewport crosses a breakpoint', () => {
+    const resizeTo = installResizableMatchMedia(1440);
+    const { result } = renderHook(() => useBreakpoint());
+    expect(result.current).toBe(BP.DESKTOP);
+
+    // Desktop → phone, the case that unmounts the docked rail and rebuilds
+    // the swipe carousel.
+    act(() => resizeTo(375));
+    expect(result.current).toBe(BP.PHONE);
+
+    // …and back up, through the tablet tier.
+    act(() => resizeTo(900));
+    expect(result.current).toBe(BP.TABLET);
+
+    act(() => resizeTo(1200));
+    expect(result.current).toBe(BP.DESKTOP);
+  });
+
+  it('detaches its listeners on unmount', () => {
+    const resizeTo = installResizableMatchMedia(1440);
+    const { result, unmount } = renderHook(() => useBreakpoint());
+    expect(result.current).toBe(BP.DESKTOP);
+    unmount();
+    // Must not throw on a torn-down component (React would warn on a stray
+    // setState); the assertion is simply that this is inert.
+    expect(() => resizeTo(375)).not.toThrow();
   });
 });
