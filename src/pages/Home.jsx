@@ -115,7 +115,7 @@ export default function Home({ onNav }) {
 
   // ── Quick actions (shown in every non-loading branch) ───────────────────────
   const quickActions = (
-    <div style={{ margin: '4px 16px 0' }}>
+    <div style={{ marginTop: 4, marginLeft: 16, marginRight: 16 }}>
       <div style={s.sectionLabel(C)}>Quick Actions</div>
 
       <button
@@ -179,14 +179,14 @@ export default function Home({ onNav }) {
         <div className="col-split" style={{ maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
         {isGuest() && (
-          <div style={{ margin: '14px 16px 0' }}>
+          <div style={{ marginTop: 14, marginLeft: 16, marginRight: 16 }}>
             <GuestBanner />
           </div>
         )}
 
         {loading ? (
           /* ── Loading skeleton ─────────────────────────────────────────── */
-          <div style={{ margin: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ marginTop: 14, marginLeft: 16, marginRight: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="skeleton-box" style={{ height: 78, borderRadius: 14, background: skelBg }} />
             <div className="skeleton-box" style={{ height: 168, borderRadius: 18, background: skelBg }} />
             <div className="skeleton-box" style={{ height: 64, borderRadius: 16, background: skelBg }} />
@@ -209,7 +209,7 @@ export default function Home({ onNav }) {
         ) : (
           <>
             {/* ── 1. Today at a glance ─────────────────────────────────── */}
-            <div style={{ margin: '14px 16px 0' }}>
+            <div style={{ marginTop: 14, marginLeft: 16, marginRight: 16 }}>
               <div style={s.sectionLabel(C)}>Today</div>
 
               <div style={{
@@ -264,7 +264,7 @@ export default function Home({ onNav }) {
 
             {/* ── 2. This Week ─────────────────────────────────────────── */}
             {invoices.length > 0 && (
-              <div style={{ margin: '0 16px' }}>
+              <div style={{ marginLeft: 16, marginRight: 16 }}>
                 <div style={s.sectionLabel(C)}>This Week</div>
 
                 {/* Revenue bar chart */}

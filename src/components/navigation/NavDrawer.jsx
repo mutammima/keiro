@@ -373,6 +373,13 @@ const s = {
     width: SIDE_NAV_WIDTH,
     transition: 'background-color 0.3s ease',
     paddingTop: 'env(safe-area-inset-top)',
+    // Well below the z-index 200 that portaled modals/sheets use. As an
+    // overlay the drawer sits at 1600 so it can cover the app, but a docked
+    // rail that outranks a modal stays lit behind the dialog's backdrop and
+    // still takes clicks — which navigate the app and silently discard the
+    // dialog. It never overlaps the content column, so it needs no height
+    // in the stack at all beyond clearing the page body.
+    zIndex: 5,
   },
   // The active-tab marker in the docked rail — a vertical accent bar, the
   // sidebar counterpart of TopNav's underline.

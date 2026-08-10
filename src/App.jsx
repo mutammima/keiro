@@ -529,17 +529,30 @@ function AppInner({ role, onSwitchRole }) {
       {/* 300%-wide strip. Non-passive touch listeners are attached to it via   */}
       {/* useEffect above so e.preventDefault() actually blocks native scroll.  */}
       {isTabPage && (desktop ? (
-        // Desktop: no carousel. A mouse can't swipe, so a 4×-window-wide strip
-        // is a large amount of layout to translate for a gesture that can never
-        // fire. Render only the active tab.
-        <div
-          data-scroll-container="tab"
-          style={{
-            position: 'absolute', inset: 0, left: contentLeft,
-            overflowY: 'auto', overflowX: 'hidden',
-          }}
-        >
-          {tabEls[tabIdx]}
+        // Desktop: no carousel. A mouse can't swipe, so there's no reason to
+        // build a 4×-window-wide strip and translate it.
+        //
+        // But every tab still stays MOUNTED, exactly as the phone strip keeps
+        // all four alive. Rendering only the active tab made each rail click
+        // unmount one page and mount another, re-running that page's
+        // mount-time cloud reads — including an unbounded `select('*')` on
+        // connection_orders — on a plain user-driven path. That is precisely
+        // the read pattern that blew the Supabase egress cap in Jul 2026 (see
+        // CLAUDE.md, "Egress"). Hidden, not unmounted.
+        <div style={{ position: 'absolute', inset: 0, left: contentLeft, overflow: 'hidden' }}>
+          {tabEls.map((child, i) => (
+            <div
+              key={i}
+              data-scroll-container="tab"
+              style={{
+                position: 'absolute', inset: 0,
+                overflowY: 'auto', overflowX: 'hidden',
+                display: i === tabIdx ? 'block' : 'none',
+              }}
+            >
+              {child}
+            </div>
+          ))}
         </div>
       ) : (
         <div
