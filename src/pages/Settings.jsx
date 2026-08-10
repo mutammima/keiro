@@ -602,7 +602,10 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           onClick={() => setErrorLogEntries(null)}
         >
           <div
-            style={{ width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--sheet-radius-18, 18px 18px 0 0)', border: `1px solid ${C.cardBorder}`, borderBottom: 'var(--sheet-border-b, none)', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
+            // --sheet-border-c feeds the themed colour into --sheet-border-b,
+            // which App.css only defines at desktop width (a centered dialog
+            // needs the bottom edge a bottom sheet deliberately drops).
+            style={{ '--sheet-border-c': C.cardBorder, width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column', borderRadius: 'var(--sheet-radius-18, 18px 18px 0 0)', border: `1px solid ${C.cardBorder}`, borderBottom: 'var(--sheet-border-b, none)', background: C.card, padding: '18px 20px', boxShadow: '0 -16px 48px rgba(0,0,0,0.35)' }}
             onClick={e => e.stopPropagation()}
           >
             <p style={{ fontSize: 17, fontWeight: 800, color: C.text, margin: '0 0 4px' }}>Error Log</p>

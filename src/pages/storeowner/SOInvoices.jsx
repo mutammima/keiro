@@ -130,14 +130,16 @@ export default function SOInvoices({ onNav }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div data-tip="so-invoices-list" className="col-split" style={s.body}>
+      <div data-tip="so-invoices-list" className="col-grid" style={s.body}>
 
-        {isGuest() && <GuestBanner />}
+        {isGuest() && <div className="col-full"><GuestBanner /></div>}
 
+        {/* col-full: banners and centered messages span both columns — left in
+            a single grid cell they read as left-of-centre beside a blank one. */}
         {loading && bills.length === 0 && shared.length === 0 ? (
-          <p style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading invoices…</p>
+          <p className="col-full" style={{ textAlign: 'center', color: C.textMuted, fontSize: 14, paddingTop: 60 }}>Loading invoices…</p>
         ) : bills.length === 0 && shared.length === 0 ? (
-          <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '32px 18px', textAlign: 'center' }}>
+          <div className="col-full" style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, padding: '32px 18px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: C.textMuted, margin: '0 0 6px' }}>No invoices yet.</p>
             {activeConns.length === 0 ? (
               // Invoices can only arrive from a connected driver, so the real

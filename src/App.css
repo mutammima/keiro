@@ -89,6 +89,21 @@ html, body, #root { touch-action: pan-y; }
   }
 }
 
+/* ── Inset for app-level fixed chrome ────────────────────────────────────
+ *
+ * The update banner, offline banner and sync toast are position:fixed against
+ * the viewport at z-index 8000-9000, so on desktop they span the whole window
+ * and cover the docked rail (its wordmark and role toggle at the top, the
+ * Sign Out block at the bottom). App.jsx insets the tab and overlay containers
+ * with `contentLeft`, but those three sit outside both.
+ *
+ * 0 below the desktop breakpoint, so phone is untouched. Must stay equal to
+ * SIDE_NAV_WIDTH in src/utils/constants.js. */
+:root { --app-inset-left: 0px; }
+@media (min-width: 1100px) {
+  :root { --app-inset-left: 232px; }
+}
+
 /* ── Bottom sheets → centered dialogs on desktop ─────────────────────────
  *
  * A sheet that slides up and clings to the bottom edge is a phone idiom; on a
@@ -166,6 +181,36 @@ html, body, #root { touch-action: pan-y; }
     column-span: all;
     margin-bottom: 0;
   }
+}
+
+/* ── Two-column card LISTS ───────────────────────────────────────────────
+ *
+ * Grid, not multicol — the opposite choice from .col-split above, on purpose.
+ *
+ * Multicol defaults to `column-fill: balance`, which re-solves the balance
+ * point whenever total content height changes. Every list below is a
+ * tap-to-expand accordion, so expanding one invoice visibly re-deals
+ * *unrelated* cards across the column boundary. Grid assigns each item a fixed
+ * cell, so an expanding card grows its own row and nothing else moves.
+ *
+ * The cost is grid's row-height alignment: a short card beside a tall one
+ * leaves a gap. That's exactly why dashboards use .col-split instead. For a
+ * list of like-sized cards, stability under interaction beats tight packing.
+ * 1100px must match BREAKPOINTS.DESKTOP in src/utils/constants.js. */
+.col-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--col-gap, 12px);
+}
+@media (min-width: 1100px) {
+  .col-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  /* Empty/loading states are centered messages, not cards — left in a single
+   * cell they read as left-of-centre with a blank column beside them. */
+  .col-grid > .col-full { grid-column: 1 / -1; }
 }
 
 /* ── Desktop: hide the in-page drawer toggles ────────────────────────────

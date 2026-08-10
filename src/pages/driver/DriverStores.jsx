@@ -226,7 +226,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
             </button>
           </div>
         ) : (
-          <div className="col-split" style={{ '--col-gap': '8px' }}>
+          <div className="col-grid" style={{ '--col-gap': '8px' }}>
             {stores.map(st => (
               <button
                 key={st.name}

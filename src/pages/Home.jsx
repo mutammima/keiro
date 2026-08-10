@@ -173,7 +173,7 @@ export default function Home({ onNav }) {
       {/* ── Scrollable body ───────────────────────────────────────────────── */}
       {/* The scroll container stays full-bleed so the scrollbar tracks the
           window edge; the inner wrapper is what's width-capped and centered.
-          On desktop `dash-grid` turns this column into two, so the dashboard
+          On desktop `col-split` turns this column into two, so the dashboard
           fills the extra room with columns rather than a very long scroll. */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', paddingBottom: 88 }}>
         <div className="col-split" style={{ maxWidth: 'var(--content-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>

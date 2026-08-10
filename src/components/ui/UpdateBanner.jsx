@@ -23,7 +23,9 @@ export default function UpdateBanner({ onUpdate, isMidInvoice }) {
     <div style={{
       position: 'fixed',
       top: 'max(14px, env(safe-area-inset-top))',
-      left: 12, right: 12,
+      // Inset past the docked side rail on desktop; resolves to plain 12px
+      // below the desktop breakpoint (see --app-inset-left in App.css).
+      left: 'calc(var(--app-inset-left, 0px) + 12px)', right: 12,
       zIndex: 9000,
       background: dark ? '#141414' : '#ffffff',
       border: `1px solid ${dark ? '#2a2a2a' : '#e4e4e7'}`,
