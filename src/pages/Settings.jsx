@@ -476,7 +476,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Privacy Policy</div>
-                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties. We collect minimal usage data. You may delete your account and all associated data at any time by contacting support.
+                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user. We collect minimal usage data. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>
