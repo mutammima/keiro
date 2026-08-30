@@ -541,7 +541,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>
-                  Data is retained for the lifetime of your account. If you delete your account, all data is permanently removed within 30 days. Exported backup files are entirely in your control and are not managed by Keiro.
+                  Data is retained for the lifetime of your account. There is no in-app account deletion yet: to have your account and its data removed, email the address below and it will be deleted manually. Exported backup files are entirely in your control and are not managed by Keiro.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Contact</div>
