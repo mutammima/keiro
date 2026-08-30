@@ -4,7 +4,7 @@
  * Sections:
  *  1. Appearance      — light / dark theme
  *  2. Business Info   — name & phone
- *  3. Security        — active session info, sign out other devices, 2FA
+ *  3. Security        — active session info, sign out other devices
  *  4. Pinned Stores   — manage pinned store chips
  *  5. Backup & Restore
  *  6. Terms & Privacy — alpha disclaimer
@@ -67,7 +67,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
 
   // ── Security ───────────────────────────────────────────────────────────────
   const [session,      setSession]      = useState(null);
-  const [twoFAStatus,  setTwoFAStatus]  = useState('loading'); // 'enabled'|'disabled'|'loading'
   const [signOutMsg,   setSignOutMsg]   = useState('');
   const [secLoading,   setSecLoading]   = useState(false);
 
@@ -75,11 +74,6 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     supabase.auth.getSession().then(({ data }) => {
       setSession(data?.session ?? null);
     });
-    // Check MFA factors
-    supabase.auth.mfa.listFactors().then(({ data }) => {
-      const hasTOTP = data?.totp?.length > 0;
-      setTwoFAStatus(hasTOTP ? 'enabled' : 'disabled');
-    }).catch(() => setTwoFAStatus('disabled'));
   }, []);
 
   async function handleSignOutOthers() {
@@ -94,29 +88,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
     setTimeout(() => setSignOutMsg(''), 3000);
   }
 
-  async function handle2FAToggle() {
-    if (twoFAStatus === 'disabled') {
-      setSecLoading(true);
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
-      setSecLoading(false);
-      if (!error && data?.totp?.qr_code) {
-        setTwoFAStatus('setup');
-        setQrCode(data.totp.qr_code);
-        setFactorId(data.id);
-      }
-    }
-  }
-  const [qrCode,   setQrCode]   = useState('');
-  const [factorId, setFactorId] = useState('');
-  const [totpCode, setTotpCode] = useState('');
-  const [totpMsg,  setTotpMsg]  = useState('');
-
-  async function verifyTOTP() {
-    if (!totpCode.trim() || !factorId) return;
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: totpCode.trim() });
-    if (error) { setTotpMsg('Invalid code. Try again.'); }
-    else        { setTwoFAStatus('enabled'); setQrCode(''); setTotpCode(''); setTotpMsg('2FA enabled!'); }
-  }
+  // NOTE: the 2FA enrolment UI that used to live here was removed. Enrolment
+  // worked, but the second factor was never demanded at sign-in — there is no
+  // AAL check in signInWithEmail — so the UI claimed a protection the app did
+  // not provide. The Supabase calls are preserved, unreferenced, in
+  // services/mfa.js along with what must be built before re-exposing them.
 
   // ── Pinned stores ──────────────────────────────────────────────────────────
   const [pinned, setPinned] = useState(() => getPinnedStores());
@@ -368,44 +344,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </button>
               </Row>
               {signOutMsg && <p style={{ color: dark ? '#2ECC8A' : '#16a34a', fontSize: 12, margin: '4px 0 0', fontWeight: 500 }}>{signOutMsg}</p>}
-              <Divider C={C} />
             </>
-          )}
-
-          {/* 2FA */}
-          <Row
-            label="Two-Factor Auth (2FA)"
-            sub={twoFAStatus === 'enabled' ? 'Authenticator app is active' : twoFAStatus === 'setup' ? 'Scan QR code in your authenticator app' : 'Add an extra layer of sign-in security'}
-            C={C}
-          >
-            {twoFAStatus === 'loading' ? (
-              <span style={{ color: C.textMuted, fontSize: 12 }}>…</span>
-            ) : twoFAStatus === 'enabled' ? (
-              <span style={{ background: dark ? '#0D2B20' : '#f0fdf4', color: dark ? '#2ECC8A' : '#16a34a', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7 }}>ON</span>
-            ) : twoFAStatus === 'disabled' ? (
-              <button style={{ ...s.smallBtn, background: ACCENT, color: '#fff', border: 'none' }} onClick={handle2FAToggle} disabled={secLoading}>
-                Enable
-              </button>
-            ) : null}
-          </Row>
-
-          {twoFAStatus === 'setup' && qrCode && (
-            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <p style={{ color: C.textMuted, fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-                Scan this QR code with Google Authenticator, Authy, or any TOTP app, then enter the 6-digit code below.
-              </p>
-              <img src={qrCode} alt="2FA QR Code" style={{ width: 140, height: 140, borderRadius: 10, alignSelf: 'center', background: '#fff', padding: 6 }} />
-              <input
-                style={{ ...inp, height: 42 }}
-                placeholder="6-digit code"
-                inputMode="numeric"
-                maxLength={6}
-                value={totpCode}
-                onChange={e => setTotpCode(e.target.value.replace(/\D/g, ''))}
-              />
-              <button style={{ ...s.primaryBtn, background: ACCENT }} onClick={verifyTOTP}>Verify & Activate</button>
-              {totpMsg && <p style={{ color: totpMsg.includes('!') ? (dark ? '#2ECC8A' : '#16a34a') : C.danger, fontSize: 13, margin: 0 }}>{totpMsg}</p>}
-            </div>
           )}
 
           <Divider C={C} />
