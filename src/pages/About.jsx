@@ -45,7 +45,7 @@ const SECTIONS = [
   {
     icon: '☁',
     title: 'Cloud Sync',
-    body: 'Your data is securely stored in the cloud. Sign in on any device and all your invoices, products, and stores are right there. Everything is backed up automatically — nothing gets lost.',
+    body: 'Your data syncs to the cloud and is saved on your device, so signing in elsewhere brings your invoices, products, and stores with you. Sync is best-effort, not a guarantee — keep your own backups of anything important via Settings → Backup.',
   },
 ];
 
