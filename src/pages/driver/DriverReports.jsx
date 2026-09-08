@@ -5,13 +5,22 @@
  *   • End of Day → <EndOfDay embedded/>  (driver day summary)
  * Both child pages render in `embedded` mode (their own headers hidden) so this
  * tab owns a single header row.
+ *
+ * Both are lazy()-loaded HERE as well as in App.jsx. That is deliberate, not a
+ * duplicate: this tab is eagerly imported (it is one of the four driver tabs),
+ * so a static import of Reports/EndOfDay pulled both back into the entry chunk
+ * and silently cancelled App.jsx's lazy() split (Rollup warns about exactly
+ * this). Keeping the import dynamic on both sides is what actually produces
+ * separate chunks — and it means End of Day is never downloaded unless the
+ * user taps that segment.
  */
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK } from '../../theme';
-import Reports from '../Reports';
-import EndOfDay from '../EndOfDay';
+
+const Reports  = lazy(() => import('../Reports'));
+const EndOfDay = lazy(() => import('../EndOfDay'));
 
 const SEGMENTS = [
   { id: 'analytics', label: 'Analytics' },
@@ -60,9 +69,15 @@ export default function DriverReports({ onNav }) {
 
       {/* Active segment — Analytics scrolls in this wrapper; End of Day manages its own scroll */}
       <div style={{ flex: 1, minHeight: 0, overflowY: seg === 'analytics' ? 'auto' : 'hidden' }}>
-        {seg === 'analytics'
-          ? <Reports embedded onNav={onNav} />
-          : <EndOfDay embedded onNav={onNav} />}
+        <Suspense fallback={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
+            <span aria-hidden style={{ width: 30, height: 30, borderRadius: '50%', border: `3px solid ${C.cardBorder}`, borderTopColor: '#4A7BF7', animation: 'tut-spin 0.8s linear infinite' }} />
+          </div>
+        }>
+          {seg === 'analytics'
+            ? <Reports embedded onNav={onNav} />
+            : <EndOfDay embedded onNav={onNav} />}
+        </Suspense>
       </div>
     </div>
   );
