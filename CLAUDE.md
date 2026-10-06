@@ -332,6 +332,7 @@ names), so re-running is always safe:
 - `supabase-connections.sql` — connections table, participants-only RLS, `redeem_connection(p_code, p_name)` SECURITY DEFINER RPC
 - `supabase-connection-orders.sql` — cross-account orders; INSERT gated on an active connection linking store → driver
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
+- `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant
@@ -447,6 +448,12 @@ re-downloaded constantly. Two causes, both now fixed:
   subscription, with a self-tuning fallback poll (10 min once subscribed, 1 min if
   Realtime never lands, so it degrades instead of breaking). Realtime was sitting at
   <1% of its own free quota while egress overran.
+- **Every refresh still re-downloaded the whole set** (connection orders, plus a store's
+  shared invoices with their items), and at launch each mounted tab asked separately.
+  `connectionOrderStorage.js` now downloads everything once per app launch, then only
+  the id list plus rows changed since the newest `updated_at` seen (10-min overlap),
+  and concurrent loads share one request. Run `supabase-connection-orders-updated-at.sql`
+  so the server, not the phone's clock, stamps order changes.
 - **Signature blobs** (base64 PNGs, 20-60 KB each) were fetched for *every* invoice on
   *every* InvoiceHistory mount. Now only an index of signed invoice numbers loads
   (`getSignatureIndex`); the image is fetched per-invoice when opened, and the full set

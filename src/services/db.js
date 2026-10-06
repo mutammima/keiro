@@ -1259,6 +1259,45 @@ export async function getConnectionOrders() {
   }
 }
 
+/**
+ * Just the ids of the current user's connection orders — a few bytes a row.
+ * Lets a refresh drop orders that are gone without re-downloading the rest.
+ */
+export async function getConnectionOrderIds() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .select('id')
+      .or(`store_user_id.eq.${userId},driver_user_id.eq.${userId}`);
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * The current user's connection orders whose updated_at is at or after
+ * `sinceIso` — what a refresh needs once the full set is cached.
+ * @param {string} sinceIso
+ */
+export async function getConnectionOrdersChangedSince(sinceIso) {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('connection_orders')
+      .select('*')
+      .or(`store_user_id.eq.${userId},driver_user_id.eq.${userId}`)
+      .gte('updated_at', sinceIso)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
 /** Insert a new order (store side). The caller must be the store on the row. */
 export async function saveConnectionOrder(o) {
   try {
@@ -1308,6 +1347,47 @@ export async function getSharedInvoices() {
         invoice_items (*)
       `)
       .eq('store_user_id', userId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/** Just the ids of invoices addressed to the current user's store account. */
+export async function getSharedInvoiceIds() {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('store_user_id', userId);
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Invoices addressed to the current user's store account whose updated_at is
+ * at or after `sinceIso`, with their line items. invoices.updated_at is
+ * stamped by a trigger on every header change (supabase-invoice-updated-at.sql),
+ * and every save re-writes the header, so an item edit moves it too.
+ * @param {string} sinceIso
+ */
+export async function getSharedInvoicesChangedSince(sinceIso) {
+  const userId = await getCurrentUserId();
+  if (!userId) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select(`
+        *,
+        invoice_items (*)
+      `)
+      .eq('store_user_id', userId)
+      .gte('updated_at', sinceIso)
       .order('created_at', { ascending: false });
     return { data, error };
   } catch (err) {
