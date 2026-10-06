@@ -43,20 +43,31 @@ export function lsSet(key, value) {
 // ─── Invoice Number ───────────────────────────────────────────────────────────
 
 /**
- * Returns the next invoice number from the cloud (max existing + 1, min 1001).
+ * The highest invoice number this device knows is taken: the last number it
+ * handed out (`inv_number`) and every invoice in the local cache, which
+ * includes ones made offline that haven't reached the cloud yet.
+ * @returns {number}
+ */
+function highestLocalInvoiceNumber() {
+  const cachedMax = lsGet(STORAGE_KEYS.LIST, [])
+    .reduce((max, i) => Math.max(max, Number(i.number ?? i.invoice_number) || 0), 0);
+  return Math.max(INVOICE_NUMBER_START, Number(lsGet(STORAGE_KEYS.NUMBER, 0)) || 0, cachedMax);
+}
+
+/**
+ * Returns the next invoice number: above the cloud's highest (when reachable)
+ * AND above every number this device has seen. Saves upsert on the number, so
+ * reusing one silently overwrites that invoice — the cloud alone misses
+ * invoices still queued offline, and the device alone misses the cloud's.
  * @returns {Promise<number>}
  */
 export async function getNextInvoiceNumber() {
   const { data, error } = await db.getNextInvoiceNumber();
-  if (error) {
-    console.error('getNextInvoiceNumber error', error);
-    // Fallback to localStorage counter for offline support
-    const current = lsGet(STORAGE_KEYS.NUMBER, INVOICE_NUMBER_START);
-    const next = current + 1;
-    lsSet(STORAGE_KEYS.NUMBER, next);
-    return next;
-  }
-  return data;
+  if (error) console.error('getNextInvoiceNumber error, numbering from this device', error);
+  const localNext = highestLocalInvoiceNumber() + 1;
+  const next = error ? localNext : Math.max(data, localNext);
+  lsSet(STORAGE_KEYS.NUMBER, next);
+  return next;
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
