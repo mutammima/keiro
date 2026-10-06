@@ -259,6 +259,28 @@ export async function getNextInvoiceNumber() {
   }
 }
 
+/**
+ * The current user's invoice numbers with the fields that identify each
+ * invoice — no line items, so it stays small. Migration uses it to tell a
+ * guest invoice that merely shares a number with one of the account's
+ * invoices apart from the same invoice uploaded by an earlier, partial run.
+ * @returns {Promise<{ data: { invoice_number: number, created_at: string, store_name: string, date: string }[]|null, error: object|null }>}
+ */
+export async function getInvoiceNumberIndex() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: null, error: new Error('no session') };
+    // Own invoices only — see getNextInvoiceNumber for why the filter matters.
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('invoice_number, created_at, store_name, date')
+      .eq('user_id', userId);
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
 // ── Products ──────────────────────────────────────────────────────────────────
 
 /**

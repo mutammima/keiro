@@ -16,7 +16,7 @@
  */
 
 import * as db from './db';
-import { STORAGE_KEYS } from '../utils/constants';
+import { STORAGE_KEYS, INVOICE_NUMBER_START } from '../utils/constants';
 
 // Legacy boolean flag (pre-timestamp scheme). Still read for backward-compat:
 // a device that only has the old flag is treated as "never migrated under the
@@ -70,6 +70,80 @@ function entryTime(entry) {
   return Date.parse(entry?.createdAt || '');
 }
 
+/**
+ * Saving upserts on the invoice number, so a guest invoice uploaded under a
+ * number the account already uses would OVERWRITE that invoice. Gives each
+ * such invoice the next free number, and moves its local payments and
+ * signature with it, before anything is uploaded.
+ *
+ * "Already uses" means a DIFFERENT invoice: one whose creation time differs.
+ * The same invoice coming back from an earlier, partial migration keeps its
+ * number (its upsert is then the harmless re-save it always was).
+ *
+ * @param {object[]} invoiceList - the local invoices this run will upload
+ * @returns {Promise<{ error: Error|null }>} error when the account's numbers
+ *   could not be read; nothing is renumbered then, and the caller must not
+ *   upload the invoices.
+ */
+async function renumberCollidingInvoices(invoiceList) {
+  const { data, error } = await db.getInvoiceNumberIndex();
+  if (error || !data) return { error: error || new Error('no invoice index') };
+
+  const cloud = new Map(data.map(r => [Number(r.invoice_number), r]));
+  const sameInvoice = (inv, row) => {
+    const t = entryTime(inv);
+    if (!isNaN(t)) return t === Date.parse(row.created_at || '');
+    // Legacy invoices without a createdAt: fall back to what the invoice says.
+    return (inv.storeName || '') === (row.store_name || '') && (inv.date || '') === (row.date || '');
+  };
+
+  const local = lsGet(STORAGE_KEYS.LIST, []);
+  const numberOf = i => Number(i.number ?? i.invoice_number) || 0;
+  let next = Math.max(
+    INVOICE_NUMBER_START,
+    ...cloud.keys(),
+    ...local.map(numberOf),
+    Number(lsGet(STORAGE_KEYS.NUMBER, 0)) || 0,
+  ) + 1;
+
+  const moves = new Map(); // old number → new number
+  for (const inv of invoiceList) {
+    const row = cloud.get(numberOf(inv));
+    if (row && !sameInvoice(inv, row)) moves.set(numberOf(inv), next++);
+  }
+  if (moves.size === 0) return { error: null };
+
+  try {
+    localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify(local.map(inv => {
+      const to = moves.get(numberOf(inv));
+      if (to === undefined) return inv;
+      return { ...inv, number: to, ...('invoice_number' in inv ? { invoice_number: to } : {}) };
+    })));
+
+    const payments = lsGet(STORAGE_KEYS.PAYMENTS, {});
+    for (const [from, to] of moves) {
+      if (payments[from]) { payments[to] = payments[from]; delete payments[from]; }
+    }
+    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+
+    const index = lsGet(STORAGE_KEYS.SIG_INDEX, []);
+    for (const [from, to] of moves) {
+      const sig = localStorage.getItem(STORAGE_KEYS.SIG_PREFIX + from);
+      if (sig === null) continue;
+      localStorage.setItem(STORAGE_KEYS.SIG_PREFIX + to, sig);
+      localStorage.removeItem(STORAGE_KEYS.SIG_PREFIX + from);
+      if (Array.isArray(index)) index.splice(0, index.length, ...index.map(n => (Number(n) === from ? to : n)));
+    }
+    localStorage.setItem(STORAGE_KEYS.SIG_INDEX, JSON.stringify(index));
+
+    // The next invoice made on this device must start above the moved ones.
+    localStorage.setItem(STORAGE_KEYS.NUMBER, JSON.stringify(next - 1));
+  } catch (e) {
+    return { error: e };
+  }
+  return { error: null };
+}
+
 // ── Main migration function ───────────────────────────────────────────────────
 
 /**
@@ -95,10 +169,8 @@ export async function runMigrationIfNeeded() {
   const lastMs   = getLastMigratedAt();     // epoch-ms or null
   const isPartial = lastMs !== null;        // false on first/legacy migration
 
-  const allInvoices = lsGet(STORAGE_KEYS.LIST, []);
   const allOrders   = lsGet(STORAGE_KEYS.SO_ORDERS, []);
   const allDrivers  = lsGet(STORAGE_KEYS.SO_DRIVERS, []);
-  const allPayments = lsGet(STORAGE_KEYS.PAYMENTS, {}); // { [invoiceNumber]: Payment[] }
 
   // On a partial run, only take entries created after the last migration.
   // On a first run, take everything. Entries missing a parseable createdAt are
@@ -115,7 +187,27 @@ export async function runMigrationIfNeeded() {
     return !isNaN(t) && t > lastMs;
   };
 
-  const invoiceList = allInvoices.filter(isNew);
+  const errors = [];
+
+  // Invoices, and the payments and signatures keyed by their numbers, upload
+  // only once every number is known to be free in the account — otherwise the
+  // upsert overwrites one of the account's own invoices. If the account's
+  // numbers can't be read, hold all three back; the error leaves the
+  // migration timestamp alone, so they retry on the next sign-in.
+  let invoiceList = lsGet(STORAGE_KEYS.LIST, []).filter(isNew);
+  let holdInvoiceData = false;
+  if (invoiceList.length > 0) {
+    const { error } = await renumberCollidingInvoices(invoiceList);
+    if (error) {
+      holdInvoiceData = true;
+      errors.push(`Invoice numbers: could not check them against the account (${error.message || error})`);
+      invoiceList = [];
+    } else {
+      invoiceList = lsGet(STORAGE_KEYS.LIST, []).filter(isNew); // re-read: numbers may have moved
+    }
+  }
+  const allPayments = holdInvoiceData ? {} : lsGet(STORAGE_KEYS.PAYMENTS, {}); // { [invoiceNumber]: Payment[] }
+
   const soOrders    = allOrders.filter(isNew);
   const soDrivers   = allDrivers.filter(isNew);
 
@@ -133,7 +225,7 @@ export async function runMigrationIfNeeded() {
   // sync — entries without it are pre-existing and only migrate on a first run.
   const signatureList = [];
   try {
-    for (let i = 0; i < localStorage.length; i++) {
+    for (let i = 0; !holdInvoiceData && i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith(STORAGE_KEYS.SIG_PREFIX)) continue;
       const sig = lsGet(key, null);
@@ -157,12 +249,12 @@ export async function runMigrationIfNeeded() {
   // Nothing new to sync — record a baseline timestamp and exit. This both
   // upgrades a legacy device to the timestamp scheme and gives brand-new
   // accounts a clean starting point for future incremental checks.
+  // A held-back invoice upload is not "nothing new": skip the stamp so it retries.
   if (!hasNew) {
-    stampMigrated();
-    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, paymentsMigrated: 0, signaturesMigrated: 0, errors: [] };
+    if (errors.length === 0) stampMigrated();
+    return { ran: false, partial: false, invoicesMigrated: 0, productsMigrated: 0, storesMigrated: 0, ordersMigrated: 0, paymentsMigrated: 0, signaturesMigrated: 0, errors };
   }
 
-  const errors = [];
   let invoicesMigrated = 0;
   let productsMigrated = 0;
   let storesMigrated = 0;
