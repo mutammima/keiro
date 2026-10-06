@@ -11,6 +11,7 @@
 
 import * as db from '../services/db';
 import { enqueueSync } from './syncQueue';
+import { incrementalLoader, byCreatedDesc } from './incrementalSync';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
@@ -96,18 +97,56 @@ export async function saveInvoice(invoice) {
   return { error };
 }
 
+// Invoices waiting in the sync queue (or set aside after repeated rejection)
+// are the phone's truth until they upload: a queued save keeps the phone's
+// version — or the invoice itself, if the cloud has never seen it — and a
+// queued delete keeps it gone.
+function pendingInvoiceChanges() {
+  const saves = new Map();
+  const deletes = new Set();
+  for (const key of [STORAGE_KEYS.SYNC_QUEUE, STORAGE_KEYS.SYNC_FAILED]) {
+    if (!key) continue;
+    for (const item of lsGet(key, [])) {
+      const p = item?.payload || {};
+      if (item?.type === 'save_invoice' && p.invoice?.number != null) {
+        saves.set(p.invoice.number, p.invoice); deletes.delete(p.invoice.number);
+      } else if (item?.type === 'delete_invoice' && p.number != null) {
+        deletes.add(p.number); saves.delete(p.number);
+      }
+    }
+  }
+  return { saves, deletes };
+}
+
+const loadInvoices = incrementalLoader({
+  key: STORAGE_KEYS.LIST,
+  full: () => db.getInvoices(),
+  ids: () => db.getInvoiceNumberIndex(),
+  changedSince: since => db.getInvoicesChangedSince(since),
+  idOf: inv => inv.number ?? inv.invoice_number,
+  rowIdOf: row => row.invoice_number,
+  view: list => {
+    const { saves, deletes } = pendingInvoiceChanges();
+    const shown = list
+      .filter(inv => !deletes.has(inv.number))
+      .map(inv => saves.get(inv.number) ?? inv);
+    const onServer = new Set(list.map(inv => inv.number));
+    for (const [number, inv] of saves) if (!onServer.has(number)) shown.push(inv);
+    return shown.sort(byCreatedDesc);
+  },
+  absentOnPurpose: number => pendingInvoiceChanges().deletes.has(number),
+});
+
 /**
- * Returns all invoices, newest first.
- * Falls back to localStorage on error (offline support).
+ * Returns all of this account's invoices, newest first, and keeps them in the
+ * local list (inv_list) so the phone holds the whole account. Downloads
+ * everything once per launch, then only changes (see utils/incrementalSync.js);
+ * screens that ask at the same moment share one request. Falls back to the
+ * local list when the cloud can't be reached, or for a guest.
  * @returns {Promise<object[]>}
  */
-export async function getInvoices() {
-  const { data, error } = await db.getInvoices();
-  if (error || !data) {
-    console.warn('getInvoices falling back to localStorage', error);
-    return lsGet(STORAGE_KEYS.LIST, []);
-  }
-  return data;
+export function getInvoices() {
+  return loadInvoices();
 }
 
 /**

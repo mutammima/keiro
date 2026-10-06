@@ -53,50 +53,67 @@ async function noSession() {
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
 export async function getInvoices() {
+  return fetchOwnInvoices();
+}
+
+/**
+ * The current user's invoices whose updated_at is at or after `sinceIso`, with
+ * their line items. invoices.updated_at is stamped by a trigger on every header
+ * change (supabase-invoice-updated-at.sql), and every save re-writes the
+ * header, so an item edit moves it too.
+ * @param {string} sinceIso
+ */
+export async function getInvoicesChangedSince(sinceIso) {
+  return fetchOwnInvoices(query => query.gte('updated_at', sinceIso));
+}
+
+async function fetchOwnInvoices(narrow = query => query) {
   const userId = await getCurrentUserId();
   if (!userId) return { data: null, error: new Error('no session') };
   try {
     // Explicit owner filter — RLS also lets a store read invoices ADDRESSED to
     // them (store_user_id), and those must not leak into the own-invoices list.
-    const { data, error } = await supabase
+    const { data, error } = await narrow(supabase
       .from('invoices')
       .select(`
         *,
         invoice_items (*)
       `)
-      .eq('user_id', userId)
+      .eq('user_id', userId))
       .order('created_at', { ascending: false });
 
     if (error) return { data: null, error };
-
-    // Reshape to match existing app shape: { items: [...], number, ... }
-    // Every snake_case column the UI reads gets a camelCase twin so consumers
-    // never need the `inv.storeName || inv.store_name` dance (and the ones
-    // that forgot it — pin toggle, Reports today list — work on cloud rows).
-    const shaped = (data || []).map(inv => ({
-      ...inv,
-      number: inv.invoice_number,
-      storeName: inv.store_name || '',
-      storePhone: inv.store_phone || '',
-      storeAddress: inv.store_address || '',
-      businessName: inv.business_name || '',
-      businessPhone: inv.business_phone || '',
-      customerName: inv.customer_name || '',
-      paymentMethod: inv.payment_method || 'cash',
-      paymentStatus: inv.payment_status || 'unpaid',
-      items: (inv.invoice_items || []).map(item => ({
-        id: item.id,
-        name: item.name,
-        qty: item.qty,
-        price: item.price,
-      })),
-      invoice_items: undefined,
-    }));
-
-    return { data: shaped, error: null };
+    return { data: (data || []).map(shapeInvoice), error: null };
   } catch (err) {
     return { data: null, error: err };
   }
+}
+
+// Reshape to match existing app shape: { items: [...], number, ... }
+// Every snake_case column the UI reads gets a camelCase twin so consumers
+// never need the `inv.storeName || inv.store_name` dance (and the ones
+// that forgot it — pin toggle, Reports today list — work on cloud rows).
+function shapeInvoice(inv) {
+  return {
+    ...inv,
+    number: inv.invoice_number,
+    storeName: inv.store_name || '',
+    storePhone: inv.store_phone || '',
+    storeAddress: inv.store_address || '',
+    businessName: inv.business_name || '',
+    businessPhone: inv.business_phone || '',
+    customerName: inv.customer_name || '',
+    paymentMethod: inv.payment_method || 'cash',
+    paymentStatus: inv.payment_status || 'unpaid',
+    createdAt: inv.createdAt || inv.created_at,
+    items: (inv.invoice_items || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      qty: item.qty,
+      price: item.price,
+    })),
+    invoice_items: undefined,
+  };
 }
 
 /**

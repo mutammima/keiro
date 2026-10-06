@@ -454,6 +454,10 @@ re-downloaded constantly. Two causes, both now fixed:
   the id list plus rows changed since the newest `updated_at` seen (10-min overlap),
   and concurrent loads share one request. Run `supabase-connection-orders-updated-at.sql`
   so the server, not the phone's clock, stamps order changes.
+- **The driver's own invoice list** (`storage.getInvoices`, read by nine screens) works the
+  same way, through the shared `utils/incrementalSync.js`. It now keeps the whole account in
+  `inv_list`, with invoices still in the sync queue overriding the server copy until they upload.
+  New cloud-backed lists should use `incrementalLoader` rather than a bare `select('*')`.
 - **Signature blobs** (base64 PNGs, 20-60 KB each) were fetched for *every* invoice on
   *every* InvoiceHistory mount. Now only an index of signed invoice numbers loads
   (`getSignatureIndex`); the image is fetched per-invoice when opened, and the full set
