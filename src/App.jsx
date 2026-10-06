@@ -23,6 +23,7 @@ import useOnboarding from './hooks/useOnboarding';
 import { isHomePulse, setHomePulse } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
+import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
 import SyncQueueRunner from './components/ui/SyncQueueRunner';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
 import Home from './pages/Home';
@@ -722,6 +723,7 @@ export default function App() {
     <ThemeProvider>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
       <SyncToast />
+      <SyncAttentionBanner />
       <SyncQueueRunner />
       <AuthGate>
         <RoleGate />

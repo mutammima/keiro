@@ -24,7 +24,7 @@ import { getErrorLog, clearErrorLog } from '../utils/errorLog';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
-import { signOut } from '../services/auth';
+import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import AppFooter from '../components/navigation/AppFooter';
 import PinLock from '../components/settings/PinLock';
 import { isPinEnabled, clearPin } from '../utils/pinStorage';
@@ -68,6 +68,8 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   // ── Security ───────────────────────────────────────────────────────────────
   const [session,      setSession]      = useState(null);
   const [signOutMsg,   setSignOutMsg]   = useState('');
+  // Uploads pending changes first and asks before deleting any that won't go.
+  const { requestSignOut, signOutPrompt } = useSafeSignOut();
   const [secLoading,   setSecLoading]   = useState(false);
 
   useEffect(() => {
@@ -497,10 +499,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
         {/* Sign out */}
         <button
           style={{ ...s.outlineBtn, color: C.danger, borderColor: C.divider }}
-          onClick={async () => { await signOut(); window.location.reload(); }}
+          onClick={requestSignOut}
         >
           Sign Out
         </button>
+        {signOutPrompt}
 
         <AppFooter onNav={onNav} />
       </div>

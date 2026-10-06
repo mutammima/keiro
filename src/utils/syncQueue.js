@@ -7,10 +7,17 @@
  * retryable description of the operation in localStorage under `inv_sync_queue`.
  *
  * processSyncQueue() replays parked actions in FIFO order against Supabase,
- * removing each on success and incrementing a retry counter on failure. After
- * MAX_RETRIES failed attempts an action is dropped and the user is told it could
- * not be saved. It runs on the `online` event, on app foreground, on a 60s
- * interval while online, and once on startup (see SyncQueueRunner).
+ * removing each on success. A failure stops the round, and how it counts
+ * depends on what kind it was:
+ *   • unreachable (offline, timeout, dropped connection, expired session):
+ *     never counts — the change waits as long as it takes;
+ *   • rejected by the server (a SQLSTATE code: permissions, bad data): counts,
+ *     and after MAX_RETRIES the change moves to the set-aside list
+ *     (`inv_sync_failed`) so the rest of the queue can go on. Set-aside changes
+ *     are kept, surfaced by SyncAttentionBanner, and retryFailedSyncs() puts
+ *     them back. Nothing is ever deleted unsaved.
+ * It runs on the `online` event, on app foreground, on a 60s interval while
+ * online, and once on startup (see SyncQueueRunner).
  *
  * Guests have no cloud target (their data migrates on sign-up), so enqueueSync
  * is a no-op for them — nothing to retry.
@@ -23,10 +30,31 @@
 import * as db from '../services/db';
 import { STORAGE_KEYS } from './constants';
 import { isGuest } from './guestMode';
-import { notifySyncError, notifySyncSuccess } from './syncNotify';
+import { notifySyncSuccess } from './syncNotify';
 
 const KEY = STORAGE_KEYS.SYNC_QUEUE;
+const FAILED_KEY = STORAGE_KEYS.SYNC_FAILED;
 const MAX_RETRIES = 5;
+
+/** Fired whenever the set-aside list changes (SyncAttentionBanner listens). */
+export const SYNC_ATTENTION_EVENT = 'inv-sync-attention';
+
+/**
+ * Did the server answer and refuse, or did the request never get an answer?
+ * Only a refusal can be "permanent": it carries a Postgres SQLSTATE or a
+ * PostgREST code. Codes that still mean "couldn't get through" — connection
+ * (08), transaction rollback/deadlock (40), resources (53), operator
+ * intervention incl. statement timeout (57), system (58), and PostgREST's JWT
+ * errors (PGRST3xx) — count as unreachable, as does anything without a code
+ * ("Failed to fetch", "Not authenticated").
+ */
+function isRejection(err) {
+  const code = typeof err?.code === 'string' ? err.code : '';
+  if (!code) return false;
+  if (/^PGRST3/.test(code)) return false;
+  if (/^(08|40|53|57|58)/.test(code)) return false;
+  return true;
+}
 
 // ── Each action type maps to the db.* call that performs it ───────────────────
 const HANDLERS = {
@@ -59,12 +87,18 @@ const HANDLERS = {
   // upsert/delete-only convergence guarantee this queue relies on.
 };
 
-function read() {
-  try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; }
+function readList(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
   catch { return []; }
 }
-function write(q) {
-  try { localStorage.setItem(KEY, JSON.stringify(q)); } catch (e) { console.error('syncQueue write failed', e); }
+function writeList(key, list) {
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { console.error('syncQueue write failed', e); }
+}
+const read  = () => readList(KEY);
+const write = (q) => writeList(KEY, q);
+
+function announceAttention() {
+  try { window.dispatchEvent(new CustomEvent(SYNC_ATTENTION_EVENT)); } catch { /* no DOM */ }
 }
 function uid() {
   return 'sq_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -90,6 +124,25 @@ export function getQueueLength() {
   return read().length;
 }
 
+/** Changes the server rejected MAX_RETRIES times, oldest first. */
+export function getFailedSyncs() {
+  return readList(FAILED_KEY);
+}
+
+/** Every change not yet in the cloud: still queued, or set aside. */
+export function getUnsyncedCount() {
+  return read().length + getFailedSyncs().length;
+}
+
+/** "Try again": set-aside changes go back to the end of the queue, retries reset. */
+export function retryFailedSyncs() {
+  const failed = getFailedSyncs();
+  if (failed.length === 0) return;
+  write([...read(), ...failed.map(item => ({ ...item, retries: 0 }))]);
+  writeList(FAILED_KEY, []);
+  announceAttention();
+}
+
 let processing = false;
 
 /**
@@ -105,11 +158,11 @@ export async function processSyncQueue() {
   processing = true;
   let drained = 0;
   try {
-    // Process in FIFO order. On the first failure we stop the round so a single
-    // outage doesn't burn a retry on every queued item — the next trigger
-    // (online / foreground / interval) picks up where we left off.
-    // Known edge: a permanently-failing head item blocks the rest until it
-    // gives up after MAX_RETRIES (then the queue continues next round).
+    // Process in FIFO order. On a failure we stop the round, so later changes
+    // never overtake an earlier one to the same record; the next trigger
+    // (online / foreground / interval) picks up where we left off. A head item
+    // the server keeps rejecting blocks the rest for at most MAX_RETRIES
+    // rounds, then is set aside and the round continues past it.
     while (true) {
       const q = read();
       if (q.length === 0) break;
@@ -126,23 +179,33 @@ export async function processSyncQueue() {
         const res = await handler(item.payload);
         if (res && res.error) throw res.error;
       } catch (err) {
-        failed = true;
         const cur = read();
         const idx = cur.findIndex(x => x.id === item.id);
-        if (idx >= 0) {
+        const lastError = String(err?.message || err);
+        if (idx < 0) {
+          failed = true;
+        } else if (!isRejection(err)) {
+          // Unreachable: wait for the next trigger without spending a retry.
+          cur[idx] = { ...cur[idx], lastError };
+          write(cur);
+          failed = true;
+        } else {
           const retries = (cur[idx].retries || 0) + 1;
           if (retries >= MAX_RETRIES) {
-            cur.splice(idx, 1);
+            // Set aside — kept for "Try again" — and let the rest of the queue go on.
+            const [aside] = cur.splice(idx, 1);
             write(cur);
-            notifySyncError('A change could not be saved to the cloud after several tries and may need to be redone.');
-          } else {
-            cur[idx] = { ...cur[idx], retries, lastError: String(err?.message || err) };
-            write(cur);
+            writeList(FAILED_KEY, [...getFailedSyncs(), { ...aside, retries, lastError }]);
+            announceAttention();
+            continue;
           }
+          cur[idx] = { ...cur[idx], retries, lastError };
+          write(cur);
+          failed = true;
         }
       }
 
-      if (failed) break;                       // stop this round (likely offline / transient)
+      if (failed) break;                       // stop this round; keeps FIFO order
       // success — remove the head and continue
       const after = read().filter(x => x.id !== item.id);
       write(after);

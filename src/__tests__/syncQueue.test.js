@@ -70,8 +70,13 @@ vi.mock('../utils/syncNotify', () => ({
 }));
 
 import * as db from '../services/db';
-import { notifySyncError, notifySyncSuccess } from '../utils/syncNotify';
-import { enqueueSync, getQueueLength, processSyncQueue } from '../utils/syncQueue.js';
+import { notifySyncSuccess } from '../utils/syncNotify';
+import { enqueueSync, getQueueLength, processSyncQueue, getFailedSyncs, retryFailedSyncs, getUnsyncedCount, SYNC_ATTENTION_EVENT } from '../utils/syncQueue.js';
+
+// What the server says when it REJECTS a write (a Postgres SQLSTATE code), as
+// opposed to a request that never got an answer (no code: offline, timeout).
+const rejected = (message = 'permission denied') => ({ error: { code: '42501', message } });
+const unreachable = () => ({ error: { code: '', message: 'TypeError: Failed to fetch' } });
 
 const QUEUE_KEY = 'inv_sync_queue';
 const GUEST_KEY = 'inv_guest_mode';
@@ -144,7 +149,7 @@ describe('syncQueue — replay', () => {
     // db.* helpers resolve with { error } rather than rejecting — the module
     // converts that into a throw. If it stopped doing so, failed writes would
     // be silently dropped from the queue as if they had succeeded.
-    db.saveInvoice.mockResolvedValue({ error: new Error('RLS denied') });
+    db.saveInvoice.mockResolvedValue(rejected('RLS denied'));
     enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
 
     await processSyncQueue();
@@ -155,36 +160,72 @@ describe('syncQueue — replay', () => {
   });
 
   it('stops the round at the first failure so one outage does not burn every item\'s retries', async () => {
-    db.saveInvoice.mockResolvedValue({ error: new Error('offline') });
+    db.saveInvoice.mockResolvedValue(unreachable());
 
     enqueueSync({ type: 'save_invoice',   payload: { invoice: { number: 1 } } });
     enqueueSync({ type: 'delete_invoice', payload: { number: 2 } });
 
     await processSyncQueue();
 
-    expect(rawQueue()[0].retries).toBe(1);
+    expect(rawQueue()[0].retries).toBe(0);     // unreachable never counts — see below
     expect(rawQueue()[1].retries).toBe(0);     // never attempted this round
     expect(db.deleteInvoice).not.toHaveBeenCalled();
     expect(getQueueLength()).toBe(2);
   });
 
-  it('drops an action after MAX_RETRIES and tells the user it may need redoing', async () => {
-    db.saveInvoice.mockResolvedValue({ error: new Error('permanent') });
+  it('never uses up retries while the cloud is unreachable, however long that lasts', async () => {
+    // A driver can be offline (or behind a bad signal) for a whole route. The
+    // old queue counted those failures and DELETED the change after five.
+    db.saveInvoice.mockResolvedValue(unreachable());
     enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
 
-    // MAX_RETRIES is 5; each round burns exactly one retry on the head item.
-    for (let i = 0; i < 4; i++) {
-      await processSyncQueue();
-      expect(getQueueLength()).toBe(1);
-    }
+    for (let i = 0; i < 20; i++) await processSyncQueue();
+
+    expect(getQueueLength()).toBe(1);
+    expect(rawQueue()[0].retries).toBe(0);
+    expect(getFailedSyncs()).toEqual([]);
+  });
+
+  it('treats a dropped connection mid-query (class 08) and an expired session as unreachable too', async () => {
+    db.saveInvoice
+      .mockResolvedValueOnce({ error: { code: '08006', message: 'connection failure' } })
+      .mockResolvedValueOnce({ error: { code: 'PGRST301', message: 'JWT expired' } })
+      .mockResolvedValueOnce({ error: new Error('Not authenticated') });
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
+
+    for (let i = 0; i < 3; i++) await processSyncQueue();
+
+    expect(rawQueue()[0].retries).toBe(0);
+  });
+
+  it('sets a change aside after MAX_RETRIES rejections, keeps it, and carries on with the rest', async () => {
+    db.saveInvoice.mockResolvedValue(rejected());
+    enqueueSync({ type: 'save_invoice',   payload: { invoice: { number: 1 } } });
+    enqueueSync({ type: 'delete_invoice', payload: { number: 2 } });
+
+    // MAX_RETRIES is 5; each round burns one retry on the rejected head item
+    // and stops, so the queue keeps its order while there is hope.
+    for (let i = 0; i < 4; i++) await processSyncQueue();
     expect(rawQueue()[0].retries).toBe(4);
-    expect(notifySyncError).not.toHaveBeenCalled();
+    expect(db.deleteInvoice).not.toHaveBeenCalled();
 
-    await processSyncQueue();                  // 5th failure — give up
+    await processSyncQueue();                  // 5th rejection — set aside
 
+    expect(getFailedSyncs()).toEqual([expect.objectContaining({ type: 'save_invoice', payload: { invoice: { number: 1 } } })]);
+    expect(db.deleteInvoice).toHaveBeenCalledWith(2);  // the queue carried on
     expect(getQueueLength()).toBe(0);
-    expect(notifySyncError).toHaveBeenCalledTimes(1);
-    expect(notifySyncError).toHaveBeenCalledWith(expect.stringContaining('could not be saved'));
+  });
+
+  it('announces when changes are set aside, so the banner can show them', async () => {
+    db.saveInvoice.mockResolvedValue(rejected());
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
+    const heard = vi.fn();
+    window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+
+    for (let i = 0; i < 5; i++) await processSyncQueue();
+
+    window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+    expect(heard).toHaveBeenCalled();
   });
 
   it('records the last error while retrying, for diagnosis', async () => {
@@ -247,6 +288,30 @@ describe('syncQueue — replay', () => {
 
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
     expect(getQueueLength()).toBe(0);
+  });
+});
+
+describe('syncQueue — set-aside changes', () => {
+  it('"Try again" puts set-aside changes back at the end of the queue with fresh retries', async () => {
+    db.saveInvoice.mockResolvedValue(rejected());
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
+    for (let i = 0; i < 5; i++) await processSyncQueue();
+    expect(getFailedSyncs()).toHaveLength(1);
+
+    retryFailedSyncs();
+
+    expect(getFailedSyncs()).toEqual([]);
+    expect(rawQueue()).toEqual([expect.objectContaining({ type: 'save_invoice', retries: 0 })]);
+  });
+
+  it('counts queued and set-aside changes together as unsynced', async () => {
+    db.saveInvoice.mockResolvedValue(rejected());
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
+    for (let i = 0; i < 5; i++) await processSyncQueue();
+    db.deleteInvoice.mockResolvedValue(unreachable());
+    enqueueSync({ type: 'delete_invoice', payload: { number: 2 } });
+
+    expect(getUnsyncedCount()).toBe(2);
   });
 });
 
