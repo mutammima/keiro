@@ -18,22 +18,50 @@ import { INVOICE_NUMBER_START } from '../utils/constants';
 
 let _cachedUserId = null;
 
+// While the auth server is unreachable, supabase-js holds its session lock
+// retrying a token refresh, and getUser() waits on that lock — for as long as
+// the outage lasts. Every db call would hang with it, and so would every
+// screen, though the storage layer falls back to the phone's copy the moment
+// a call reports "no session". So the lookup is timeboxed, and after a
+// timeout calls answer "no session" at once for a short window instead of
+// each waiting again. A session arriving (TOKEN_REFRESHED once the server is
+// back) ends the window immediately.
+const AUTH_LOOKUP_TIMEOUT_MS = 4000;
+const AUTH_UNREACHABLE_WINDOW_MS = 30000;
+let _authUnreachableUntil = 0;
+let _userLookup = null; // shared by concurrent callers
+
 supabase.auth.onAuthStateChange((event, session) => {
   _cachedUserId = session?.user?.id ?? null;
+  if (_cachedUserId) _authUnreachableUntil = 0;
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
  * Returns the user id of the currently authenticated user, or null.
- * Uses the module-level cache to avoid a round-trip on every DB call.
+ * Uses the module-level cache to avoid a round-trip on every DB call, and
+ * gives up after AUTH_LOOKUP_TIMEOUT_MS (see above).
  * @returns {Promise<string|null>}
  */
 async function getCurrentUserId() {
   if (_cachedUserId !== null) return _cachedUserId;
-  const { data } = await supabase.auth.getUser();
-  _cachedUserId = data?.user?.id ?? null;
-  return _cachedUserId;
+  if (Date.now() < _authUnreachableUntil) return null;
+  if (!_userLookup) {
+    let timer;
+    const timedOut = new Promise(resolve => { timer = setTimeout(() => resolve({ timedOut: true }), AUTH_LOOKUP_TIMEOUT_MS); });
+    _userLookup = Promise.race([supabase.auth.getUser().catch(() => ({ data: null })), timedOut])
+      .then(result => {
+        if (result.timedOut) {
+          _authUnreachableUntil = Date.now() + AUTH_UNREACHABLE_WINDOW_MS;
+          return null;
+        }
+        // An event may have delivered the session while we waited.
+        return _cachedUserId ?? (_cachedUserId = result.data?.user?.id ?? null);
+      })
+      .finally(() => { clearTimeout(timer); _userLookup = null; });
+  }
+  return _userLookup;
 }
 
 /**

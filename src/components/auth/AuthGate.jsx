@@ -2,7 +2,9 @@
  * AuthGate — wraps the entire app and shows the onboarding flow when needed.
  *
  * Flow:
- *  1. On mount, checks for an existing Supabase session.
+ *  1. On mount, checks for an existing Supabase session — waiting at most a few
+ *     seconds. A device that holds a session but can't reach the server opens
+ *     the app offline on its local data, with a notice, until the server is back.
  *  2. Renders the app when: a guest, OR a session that has finished onboarding.
  *  3. Otherwise renders the lazy-loaded OnboardingFlow (phone OTP signup).
  *  4. After onboarding (or the email/dev paths) → runs one-time migration.
@@ -17,7 +19,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { getSession, onAuthStateChange, updatePassword } from '../../services/auth';
+import { getSessionState, onAuthStateChange, updatePassword } from '../../services/auth';
 import { runMigrationIfNeeded } from '../../services/migration';
 import { isGuest, enterGuest, exitGuest } from '../../utils/guestMode';
 
@@ -40,6 +42,9 @@ export default function AuthGate({ children }) {
   const [session, setSession]           = useState(null);
   const [guest, setGuest]               = useState(() => isGuest());
   const [checking, setChecking]         = useState(true);
+  // Signed in on this device, but the server can't be reached (e.g. the free
+  // Supabase project is paused). The app opens on local data until it's back.
+  const [offline, setOffline]           = useState(false);
   const [ready, setReady]               = useState(false); // latched once onboarding completes
   const [recovery, setRecovery]         = useState(false); // arrived via a password-reset link
   const [migrating, setMigrating]       = useState(false);
@@ -47,12 +52,15 @@ export default function AuthGate({ children }) {
 
   // ── Check for existing session on mount ──────────────────────────────────
   useEffect(() => {
-    getSession().then(s => { setSession(s); setChecking(false); });
+    // Waits at most a few seconds: while the server is unreachable supabase-js
+    // retries a token refresh for up to a minute (see getSessionState).
+    getSessionState().then(({ session: s, offline: off }) => { setSession(s); setOffline(off); setChecking(false); });
 
     const unsubscribe = onAuthStateChange((event, s) => {
-      if (event === 'SIGNED_OUT') { setSession(null); setReady(false); }
+      if (event === 'SIGNED_OUT') { setSession(null); setReady(false); setOffline(false); }
       else if (event === 'PASSWORD_RECOVERY') { setSession(s); setRecovery(true); }
-      else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') setSession(s);
+      // TOKEN_REFRESHED is also how an offline start learns the server is back.
+      else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') { setSession(s); setOffline(false); }
     });
     return unsubscribe;
   }, []);
@@ -111,7 +119,7 @@ export default function AuthGate({ children }) {
   }
 
   // ── Not onboarded → the sign-up flow (lazy chunk) ─────────────────────────
-  const appReady = guest || ready || (!!session && hasCompletedOnboarding());
+  const appReady = guest || ready || ((!!session || offline) && hasCompletedOnboarding());
   if (!appReady) {
     return (
       <Suspense fallback={loadingScreen}>
@@ -124,6 +132,21 @@ export default function AuthGate({ children }) {
   return (
     <>
       {children}
+
+      {/* Server unreachable — only while the device itself is online; when it
+          isn't, App's OfflineBanner already says so in the same spot. */}
+      {offline && !session && navigator.onLine !== false && (
+        <div role="status" style={{
+          position: 'fixed', bottom: 0, left: 'var(--app-inset-left, 0px)', right: 0,
+          background: dark ? '#1a0a00' : '#fff7ed',
+          color: dark ? '#fbbf24' : '#b45309',
+          textAlign: 'center', padding: '10px 16px', fontSize: 13, fontWeight: 500,
+          zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
+          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+        }}>
+          Can't reach Keiro's server right now. Your work is saved on this phone and will sync when it's back.
+        </div>
+      )}
 
       {/* Migration banner */}
       {migrationMsg && (
