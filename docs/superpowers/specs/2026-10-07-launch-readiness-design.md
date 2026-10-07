@@ -58,9 +58,15 @@ two per invoice, so a driver signing 30 stops a day fills the quota in days.
   without a circular import) removes
   local copies of signature images (`inv_sig_<n>`) that are already in the cloud,
   oldest first, until usage is under ~70% of the measured quota or nothing more can
-  be removed. "Already in the cloud" = signed-in, and no `sync_signature` action for
-  that invoice is in the sync queue. The signature index is updated so
-  `fetchSignatureFromCloud` re-downloads on open (existing behaviour).
+  be removed. "Already in the cloud" means the cloud has **confirmed** that exact
+  version: a successful upload (direct or queue replay) stamps the stored entry with
+  `syncedVersion = updatedAt`, and copies downloaded from the cloud arrive stamped.
+  Unstamped entries (saved before this change, or an upload cut off by the app
+  closing) are never removed, nor anything with a `sync_signature` action queued or
+  set aside. (Tightened during planning: "not in the queue" alone would remove a
+  signature whose upload was interrupted.) The signed-invoice index is left alone, so
+  the invoice still shows as signed and `fetchSignatureFromCloud` re-downloads the
+  image on open (existing behaviour).
 - Never removed: anything in the sync queue, invoices or payments, guest data, the
   queue itself, device preferences.
 - Runs at launch (after auth resolves) when usage is over 70%, and on any quota
