@@ -7,7 +7,11 @@
  * queue. Unlike SyncToast it never auto-dismisses: an unsaved change is not
  * something to forget about.
  *
- * Sits above the bottom-pinned OfflineBanner (App.jsx) so both can show at once.
+ * Sits above the bottom-pinned OfflineBanner (App.jsx) so both can show at once,
+ * and BENEATH every bottom sheet, dialog and the drawer (z-index 150; sheets
+ * start at 200), so an open sheet's backdrop covers it rather than the banner
+ * covering the sheet's inputs and buttons. "Later" hides it until another
+ * change is set aside.
  */
 
 import { useEffect, useState } from 'react';
@@ -18,14 +22,19 @@ import { SYNC_ATTENTION_EVENT, getFailedSyncs, retryFailedSyncs, processSyncQueu
 export default function SyncAttentionBanner() {
   const { dark } = useTheme();
   const [count, setCount] = useState(() => getFailedSyncs().length);
+  const [hiddenAt, setHiddenAt] = useState(null); // count when "Later" was tapped
 
   useEffect(() => {
-    const refresh = () => setCount(getFailedSyncs().length);
+    const refresh = () => {
+      const n = getFailedSyncs().length;
+      setCount(n);
+      if (n === 0) setHiddenAt(null); // a later set-aside is news again
+    };
     window.addEventListener(SYNC_ATTENTION_EVENT, refresh);
     return () => window.removeEventListener(SYNC_ATTENTION_EVENT, refresh);
   }, []);
 
-  if (count === 0) return null;
+  if (count === 0 || (hiddenAt !== null && count <= hiddenAt)) return null;
 
   function tryAgain() {
     retryFailedSyncs();
@@ -47,6 +56,7 @@ export default function SyncAttentionBanner() {
       <span style={{ flex: 1 }}>
         {count} change{count === 1 ? '' : 's'} couldn't be saved
       </span>
+      <button onClick={() => setHiddenAt(count)} style={{ ...s.btn, color: fg, border: 'none', padding: '0 6px' }}>Later</button>
       <button onClick={tryAgain} style={{ ...s.btn, color: fg, borderColor: fg }}>Try again</button>
     </div>,
     document.body
@@ -63,7 +73,7 @@ const s = {
     transform: 'translateX(-50%)',
     width: 'calc(100% - var(--app-inset-left, 0px) - 32px)',
     maxWidth: 420,
-    zIndex: 8500,
+    zIndex: 150, // beneath sheets (200+), dialogs and the drawer (1500); see header
     boxSizing: 'border-box',
     display: 'flex',
     alignItems: 'center',

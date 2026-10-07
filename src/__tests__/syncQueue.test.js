@@ -61,6 +61,8 @@ vi.mock('../services/db', () => {
     deleteSODriver: ok(),
     saveBridgeRequest: ok(),
     deleteBridgeRequest: ok(),
+    saveSignatureRow: ok(),
+    deleteSignatureRow: ok(),
   };
 });
 
@@ -186,6 +188,17 @@ describe('syncQueue — replay', () => {
     expect(getFailedSyncs()).toEqual([]);
   });
 
+  it('treats PostgREST\'s "database not reachable" codes (PGRST000-003, e.g. a project resuming) as unreachable', async () => {
+    for (const code of ['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003']) {
+      db.saveInvoice.mockResolvedValueOnce({ error: { code, message: 'Could not connect with the database' } });
+    }
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
+
+    for (let i = 0; i < 4; i++) await processSyncQueue();
+
+    expect(rawQueue()[0].retries).toBe(0);
+  });
+
   it('treats a dropped connection mid-query (class 08) and an expired session as unreachable too', async () => {
     db.saveInvoice
       .mockResolvedValueOnce({ error: { code: '08006', message: 'connection failure' } })
@@ -291,17 +304,46 @@ describe('syncQueue — replay', () => {
   });
 });
 
+describe('syncQueue — signatures', () => {
+  // Proof-of-delivery signatures used to be best-effort: a failed upload was
+  // only logged, so sign-out (which wipes inv_*) deleted the only copy without
+  // the promised prompt. They now queue like every other change.
+  it('replays a signature from what the phone holds NOW, so the newest one wins', async () => {
+    localStorage.setItem('inv_sig_1050', JSON.stringify({ seller: 'data:new', buyer: null, updatedAt: '2026-10-07T10:00:00Z' }));
+    enqueueSync({ type: 'sync_signature', payload: { invoiceNumber: 1050 } });
+
+    await processSyncQueue();
+
+    expect(db.saveSignatureRow).toHaveBeenCalledWith({ invoiceNumber: 1050, seller: 'data:new', buyer: null });
+    expect(getQueueLength()).toBe(0);
+  });
+
+  it('deletes the cloud copy when the signature was cleared on the phone', async () => {
+    enqueueSync({ type: 'sync_signature', payload: { invoiceNumber: 1050 } });
+
+    await processSyncQueue();
+
+    expect(db.deleteSignatureRow).toHaveBeenCalledWith(1050);
+    expect(db.saveSignatureRow).not.toHaveBeenCalled();
+  });
+});
+
 describe('syncQueue — set-aside changes', () => {
-  it('"Try again" puts set-aside changes back at the end of the queue with fresh retries', async () => {
+  it('"Try again" puts set-aside changes back AHEAD of newer queued ones, with fresh retries', async () => {
+    // A change is only ever set aside from the head of the queue, so it is
+    // older than everything still queued. Replaying it after them would let
+    // an old save undo a newer delete of the same invoice.
     db.saveInvoice.mockResolvedValue(rejected());
     enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1 } } });
     for (let i = 0; i < 5; i++) await processSyncQueue();
     expect(getFailedSyncs()).toHaveLength(1);
+    db.deleteInvoice.mockResolvedValue(unreachable());
+    enqueueSync({ type: 'delete_invoice', payload: { number: 1 } });
 
     retryFailedSyncs();
 
     expect(getFailedSyncs()).toEqual([]);
-    expect(rawQueue()).toEqual([expect.objectContaining({ type: 'save_invoice', retries: 0 })]);
+    expect(rawQueue().map(q => [q.type, q.retries])).toEqual([['save_invoice', 0], ['delete_invoice', 0]]);
   });
 
   it('counts queued and set-aside changes together as unsynced', async () => {
@@ -363,6 +405,7 @@ describe('syncQueue — replay-convergence invariant', () => {
       'save_store_name', 'save_store_phone', 'save_store_address', 'save_store_details',
       'save_driver', 'delete_driver',
       'save_bridge', 'delete_bridge',
+      'sync_signature',
     ];
 
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});

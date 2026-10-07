@@ -44,14 +44,15 @@ export const SYNC_ATTENTION_EVENT = 'inv-sync-attention';
  * Only a refusal can be "permanent": it carries a Postgres SQLSTATE or a
  * PostgREST code. Codes that still mean "couldn't get through" — connection
  * (08), transaction rollback/deadlock (40), resources (53), operator
- * intervention incl. statement timeout (57), system (58), and PostgREST's JWT
- * errors (PGRST3xx) — count as unreachable, as does anything without a code
- * ("Failed to fetch", "Not authenticated").
+ * intervention incl. statement timeout (57), system (58), PostgREST's
+ * "database not reachable" group (PGRST0xx, e.g. while the project resumes)
+ * and its JWT errors (PGRST3xx) — count as unreachable, as does anything
+ * without a code ("Failed to fetch", "Not authenticated").
  */
 function isRejection(err) {
   const code = typeof err?.code === 'string' ? err.code : '';
   if (!code) return false;
-  if (/^PGRST3/.test(code)) return false;
+  if (/^PGRST[03]/.test(code)) return false;
   if (/^(08|40|53|57|58)/.test(code)) return false;
   return true;
 }
@@ -82,6 +83,16 @@ const HANDLERS = {
   delete_driver:           (p) => db.deleteSODriver(p.id),
   save_bridge:             (p) => db.saveBridgeRequest(p.req),
   delete_bridge:           (p) => db.deleteBridgeRequest(p.id),
+  // Signatures replay from what the phone holds at replay time, not from a
+  // payload: the newest one wins, a cleared one is deleted, and 20-60 KB
+  // images aren't copied into the queue. Upsert or delete, so convergent.
+  sync_signature:          (p) => {
+    let sig = null;
+    try { sig = JSON.parse(localStorage.getItem(STORAGE_KEYS.SIG_PREFIX + p.invoiceNumber) || 'null'); } catch { /* unreadable → treat as cleared */ }
+    return sig && (sig.seller || sig.buyer)
+      ? db.saveSignatureRow({ invoiceNumber: p.invoiceNumber, seller: sig.seller || null, buyer: sig.buyer || null })
+      : db.deleteSignatureRow(p.invoiceNumber);
+  },
   // NOTE: clearAllProducts (an unscoped bulk wipe) is intentionally NOT queued —
   // replaying it after the user re-adds products would delete them, breaking the
   // upsert/delete-only convergence guarantee this queue relies on.
@@ -134,11 +145,16 @@ export function getUnsyncedCount() {
   return read().length + getFailedSyncs().length;
 }
 
-/** "Try again": set-aside changes go back to the end of the queue, retries reset. */
+/**
+ * "Try again": set-aside changes go back to the FRONT of the queue, retries
+ * reset. A change is only ever set aside from the head, so it is older than
+ * everything still queued; replaying it after them could let an old save undo
+ * a newer delete of the same record.
+ */
 export function retryFailedSyncs() {
   const failed = getFailedSyncs();
   if (failed.length === 0) return;
-  write([...read(), ...failed.map(item => ({ ...item, retries: 0 }))]);
+  write([...failed.map(item => ({ ...item, retries: 0 })), ...read()]);
   writeList(FAILED_KEY, []);
   announceAttention();
 }
