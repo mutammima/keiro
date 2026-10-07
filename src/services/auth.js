@@ -71,6 +71,11 @@ export async function signUpWithEmail(email, password) {
  */
 export async function signInWithGoogle() {
   try {
+    // Leaving for Google while our auth server is down lands the user on a
+    // dead "site can't be reached" page outside the app. Check first.
+    if (!(await isServerReachable())) {
+      return { error: Object.assign(new Error(SERVER_UNREACHABLE_MESSAGE), { name: 'ServerUnreachableError' }) };
+    }
     if (Capacitor.isNativePlatform()) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -181,6 +186,102 @@ export async function signOut() {
     clearAccountLocalData();
     return { error: err };
   }
+}
+
+// ── Server unreachable ────────────────────────────────────────────────────────
+// The free Supabase project pauses after a week without use, and its host then
+// stops resolving. These helpers let the app say so plainly and keep a
+// signed-in device usable on its local data until the server is back.
+
+export const SERVER_UNREACHABLE_MESSAGE =
+  "Can't reach Keiro right now. Check your connection — if it's working, our server may be down. Try again in a few minutes.";
+
+/**
+ * True for a request that never got an answer — offline, DNS failure, or the
+ * server down — as opposed to the server answering with an error. Covers each
+ * browser's fetch TypeError and supabase-js's AuthRetryableFetchError.
+ * @param {unknown} err
+ */
+export function isServerUnreachableError(err) {
+  if (!err) return false;
+  if (err.name === 'AuthRetryableFetchError' || err.name === 'ServerUnreachableError') return true;
+  return /failed to fetch|load failed|networkerror|network request failed/i.test(err.message || '');
+}
+
+/**
+ * Asks the auth server's health endpoint whether it is up, giving up after
+ * `timeoutMs`. Cheap: a few bytes, no session needed.
+ * @returns {Promise<boolean>}
+ */
+export async function isServerReachable(timeoutMs = 3000) {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${url}/auth/v1/health`, { headers: { apikey: key || '' }, signal: ctrl.signal });
+    return !!res?.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Is supabase-js completing a sign-in from this page's URL right now? */
+function authCallbackInUrl() {
+  try {
+    const { hash, search } = window.location;
+    return /(^|[#&])(access_token|error_description)=/.test(hash) || /[?&]code=/.test(search);
+  } catch {
+    return false;
+  }
+}
+
+/** Does this device hold a session supabase-js can try to refresh? */
+function hasStoredSession() {
+  try {
+    const raw = localStorage.getItem(supabase.auth.storageKey);
+    return !!(raw && JSON.parse(raw)?.refresh_token);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The session to start the app with, and whether to start it offline.
+ *
+ * An expired access token makes getSession() refresh it, and while the server
+ * is unreachable supabase-js retries for 30-60s before giving up. So this
+ * waits at most `timeoutMs`. If the refresh couldn't get an answer (or is
+ * still trying) and the device holds a session, it is `offline`: the app
+ * opens on local data, and supabase-js keeps refreshing in the background —
+ * it only deletes a stored session the server REJECTS — firing
+ * TOKEN_REFRESHED once the server is back.
+ * @returns {Promise<{ session: object|null, offline: boolean }>}
+ */
+export async function getSessionState({ timeoutMs = 5000 } = {}) {
+  // A sign-in arriving in the URL (OAuth return, email link) is finished by
+  // supabase-js before getSession resolves; cutting that short would show the
+  // Welcome screen to someone who is signed in a moment later. Wait it out.
+  if (authCallbackInUrl()) {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: null }));
+    return { session: data?.session ?? null, offline: false };
+  }
+  const stored = hasStoredSession();
+  let timer;
+  const timedOut = new Promise(resolve => { timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs); });
+  const result = await Promise.race([
+    supabase.auth.getSession().catch(error => ({ data: { session: null }, error })),
+    timedOut,
+  ]);
+  clearTimeout(timer);
+
+  if (result.timedOut) return { session: null, offline: stored };
+  const session = result.data?.session ?? null;
+  if (session) return { session, offline: false };
+  return { session: null, offline: stored && isServerUnreachableError(result.error) };
 }
 
 // ── Session ───────────────────────────────────────────────────────────────────

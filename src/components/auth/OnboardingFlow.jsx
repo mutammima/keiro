@@ -29,6 +29,7 @@ import KeiroWordmark from '../ui/KeiroWordmark';
 import {
   sendPhoneOtp, verifyPhoneOtp, fetchProfile, saveProfile,
   signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword,
+  isServerUnreachableError, SERVER_UNREACHABLE_MESSAGE,
 } from '../../services/auth';
 import { setRole } from '../../utils/storeOwnerStorage';
 import { getBusinessName, saveBusinessName } from '../../utils/storage';
@@ -47,6 +48,8 @@ function formatUSPhone(raw) {
 }
 
 function friendlyAuthError(error) {
+  // The browser's raw "Failed to fetch" etc. (server paused/down, or offline).
+  if (isServerUnreachableError(error)) return SERVER_UNREACHABLE_MESSAGE;
   const m = (error?.message || '').toLowerCase();
   if (m.includes('invalid') && m.includes('token')) return 'That code was incorrect. Check it and try again.';
   if (m.includes('expired')) return 'That code expired. Tap Resend for a new one.';
