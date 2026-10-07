@@ -41,7 +41,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); window.history.replaceState(null, '', '/'); });
 
 describe('getSessionState', () => {
   it('returns the session when the server answers', async () => {
@@ -70,6 +70,25 @@ describe('getSessionState', () => {
     expect(await getSessionState()).toEqual({ session: null, offline: false });
   });
 
+  it('waits for a sign-in that is arriving in the URL (OAuth / email link), however long it takes', async () => {
+    // supabase-js finishes such a sign-in (GET /user, then save) before
+    // getSession resolves; cutting it off at the cap showed the Welcome
+    // screen to a user who was, a moment later, signed in.
+    window.history.replaceState(null, '', '/#access_token=abc&refresh_token=def&type=signup');
+    supabase.auth.getSession.mockReturnValue(new Promise(resolve =>
+      setTimeout(() => resolve({ data: { session: { user: { id: 'u' } } }, error: null }), 60)));
+
+    expect(await getSessionState({ timeoutMs: 10 })).toEqual({ session: { user: { id: 'u' } }, offline: false });
+  });
+
+  it('waits for a PKCE code in the URL too', async () => {
+    window.history.replaceState(null, '', '/?code=abc123');
+    supabase.auth.getSession.mockReturnValue(new Promise(resolve =>
+      setTimeout(() => resolve({ data: { session: { user: { id: 'u' } } }, error: null }), 60)));
+
+    expect((await getSessionState({ timeoutMs: 10 })).session).toEqual({ user: { id: 'u' } });
+  });
+
   it('is signed out when the server rejected the session', async () => {
     storeSession();
     supabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: Object.assign(new Error('Invalid Refresh Token'), { name: 'AuthApiError', status: 400 }) });
@@ -96,15 +115,21 @@ describe('isServerUnreachableError', () => {
 
 describe('signInWithGoogle', () => {
   it('stays in the app with a clear message when the server is down, instead of opening a dead page', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
 
     const { error } = await signInWithGoogle();
 
     expect(supabase.auth.signInWithOAuth).not.toHaveBeenCalled();
     expect(error.message).toBe(SERVER_UNREACHABLE_MESSAGE);
+    // …and the sign-in screen recognises it, so it shows THIS message rather
+    // than its generic 'Could not open Google sign-in.'
+    expect(isServerUnreachableError(error)).toBe(true);
   });
 
   it('goes to Google as before when the server answers', async () => {
+    // Set explicitly: CI has no .env, and without a URL there's nothing to reach.
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true })));
 
     await signInWithGoogle();
@@ -137,5 +162,30 @@ describe('AuthGate while the server is unreachable', () => {
 
     expect(screen.getByText('THE APP')).toBeInTheDocument();
     expect(screen.queryByText(/Can't reach Keiro's server right now/)).not.toBeInTheDocument();
+  });
+
+  it('hands the spot to the "you\'re offline" banner while the phone itself is offline, and takes it back after', async () => {
+    vi.resetModules();
+    vi.doMock('../services/auth', () => ({
+      getSessionState: vi.fn(async () => ({ session: null, offline: true })),
+      onAuthStateChange: vi.fn(() => () => {}),
+      updatePassword: vi.fn(),
+    }));
+    vi.doMock('../services/migration', () => ({ runMigrationIfNeeded: vi.fn(async () => ({ ran: false })) }));
+    vi.doMock('../components/auth/OnboardingFlow', () => ({ default: () => <div>WELCOME SCREEN</div> }));
+    localStorage.setItem('inv_user_role', JSON.stringify('driver'));
+    const { default: AuthGate } = await import('../components/auth/AuthGate');
+    const setOnline = v => Object.defineProperty(navigator, 'onLine', { configurable: true, value: v });
+
+    render(<AuthGate><div>THE APP</div></AuthGate>);
+    expect(await screen.findByText(/Can't reach Keiro's server right now/)).toBeInTheDocument();
+
+    setOnline(false);
+    await act(async () => window.dispatchEvent(new Event('offline')));
+    expect(screen.queryByText(/Can't reach Keiro's server right now/)).not.toBeInTheDocument();
+
+    setOnline(true);
+    await act(async () => window.dispatchEvent(new Event('online')));
+    expect(screen.getByText(/Can't reach Keiro's server right now/)).toBeInTheDocument();
   });
 });

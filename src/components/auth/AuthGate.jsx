@@ -45,6 +45,16 @@ export default function AuthGate({ children }) {
   // Signed in on this device, but the server can't be reached (e.g. the free
   // Supabase project is paused). The app opens on local data until it's back.
   const [offline, setOffline]           = useState(false);
+  // The device's own connection: while it's offline, App's OfflineBanner says
+  // so in the same spot, so the server notice steps aside.
+  const [deviceOnline, setDeviceOnline] = useState(() => navigator.onLine !== false);
+  useEffect(() => {
+    const on = () => setDeviceOnline(true);
+    const off = () => setDeviceOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
   const [ready, setReady]               = useState(false); // latched once onboarding completes
   const [recovery, setRecovery]         = useState(false); // arrived via a password-reset link
   const [migrating, setMigrating]       = useState(false);
@@ -135,7 +145,7 @@ export default function AuthGate({ children }) {
 
       {/* Server unreachable — only while the device itself is online; when it
           isn't, App's OfflineBanner already says so in the same spot. */}
-      {offline && !session && navigator.onLine !== false && (
+      {offline && !session && deviceOnline && (
         <div role="status" style={{
           position: 'fixed', bottom: 0, left: 'var(--app-inset-left, 0px)', right: 0,
           background: dark ? '#1a0a00' : '#fff7ed',

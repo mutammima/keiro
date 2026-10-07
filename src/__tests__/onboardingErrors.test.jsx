@@ -8,6 +8,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// The real auth module imports the real Supabase client, which throws at
+// import without a URL — CI has no .env. The client isn't used here.
+vi.mock('../services/supabase', () => ({ supabase: { auth: { onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe() {} } } })) } } }));
+
 vi.mock('../services/auth', async (importActual) => ({
   ...(await importActual()),
   signInWithEmail: vi.fn(async () => ({ user: null, error: new TypeError('Failed to fetch') })),

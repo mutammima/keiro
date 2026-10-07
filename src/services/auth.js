@@ -73,7 +73,9 @@ export async function signInWithGoogle() {
   try {
     // Leaving for Google while our auth server is down lands the user on a
     // dead "site can't be reached" page outside the app. Check first.
-    if (!(await isServerReachable())) return { error: new Error(SERVER_UNREACHABLE_MESSAGE) };
+    if (!(await isServerReachable())) {
+      return { error: Object.assign(new Error(SERVER_UNREACHABLE_MESSAGE), { name: 'ServerUnreachableError' }) };
+    }
     if (Capacitor.isNativePlatform()) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -202,7 +204,7 @@ export const SERVER_UNREACHABLE_MESSAGE =
  */
 export function isServerUnreachableError(err) {
   if (!err) return false;
-  if (err.name === 'AuthRetryableFetchError') return true;
+  if (err.name === 'AuthRetryableFetchError' || err.name === 'ServerUnreachableError') return true;
   return /failed to fetch|load failed|networkerror|network request failed/i.test(err.message || '');
 }
 
@@ -224,6 +226,16 @@ export async function isServerReachable(timeoutMs = 3000) {
     return false;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Is supabase-js completing a sign-in from this page's URL right now? */
+function authCallbackInUrl() {
+  try {
+    const { hash, search } = window.location;
+    return /(^|[#&])(access_token|error_description)=/.test(hash) || /[?&]code=/.test(search);
+  } catch {
+    return false;
   }
 }
 
@@ -250,6 +262,13 @@ function hasStoredSession() {
  * @returns {Promise<{ session: object|null, offline: boolean }>}
  */
 export async function getSessionState({ timeoutMs = 5000 } = {}) {
+  // A sign-in arriving in the URL (OAuth return, email link) is finished by
+  // supabase-js before getSession resolves; cutting that short would show the
+  // Welcome screen to someone who is signed in a moment later. Wait it out.
+  if (authCallbackInUrl()) {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: null }));
+    return { session: data?.session ?? null, offline: false };
+  }
   const stored = hasStoredSession();
   let timer;
   const timedOut = new Promise(resolve => { timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs); });
