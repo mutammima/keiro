@@ -465,6 +465,8 @@ an id/flag and lazy-load the payload.
 
 ## Data & State Gotchas
 
+- **Every sign-out goes through `useSafeSignOut()`** (`src/hooks/useSafeSignOut.jsx`), never `signOut()` directly. Sign-out wipes all account-scoped `inv_*` keys, including the sync queue and, for a guest, all their data; the hook uploads first and asks before deleting anything not yet in the cloud. A guest who wants an account goes through `promptAccount()`, which keeps their data for migration.
+- **The sync queue never deletes a change unsaved.** Unreachable failures (offline, timeouts, expired session) don't count as retries; a change the server rejects 5 times moves to `inv_sync_failed`, shown by `SyncAttentionBanner` with "Try again".
 - **All `inv_*` localStorage values are JSON-encoded.** `localStorage.getItem('inv_user_role')` returns `'"driver"'` (with quotes) — comparing it raw against `'driver'` shipped a real bug (invisible walkthrough). Always `JSON.parse` before comparing.
 
 ## Testing & Verification

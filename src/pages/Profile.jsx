@@ -6,7 +6,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import { supabase } from '../services/supabase';
-import { signOut } from '../services/auth';
+import { useSafeSignOut } from '../hooks/useSafeSignOut';
+import { promptAccount } from '../utils/guestMode';
 import AppFooter from '../components/navigation/AppFooter';
 
 export default function Profile({ onOpenDrawer, onNav }) {
@@ -56,10 +57,8 @@ export default function Profile({ onOpenDrawer, onNav }) {
     else { setMsg('Password updated successfully.'); setNewPw(''); setConfirmPw(''); }
   }
 
-  async function handleSignOut() {
-    await signOut();
-    window.location.reload();
-  }
+  // Uploads pending changes first and asks before deleting any that won't go.
+  const { requestSignOut: handleSignOut, signOutPrompt } = useSafeSignOut();
 
   const inp = {
     background: C.inputBg, border: `1px solid ${C.inputBorder}`,
@@ -112,7 +111,7 @@ export default function Profile({ onOpenDrawer, onNav }) {
             <p style={{ ...s.guestNote, color: C.textMuted }}>
               You're using guest mode. Create an account to sync your data across devices and never lose your invoices.
             </p>
-            <button style={{ ...s.primaryBtn, background: ACCENT }} onClick={() => { signOut(); window.location.reload(); }}>
+            <button style={{ ...s.primaryBtn, background: ACCENT }} onClick={promptAccount}>
               Create Account / Sign In
             </button>
           </div>
@@ -174,6 +173,7 @@ export default function Profile({ onOpenDrawer, onNav }) {
         <button style={{ ...s.signOutBtn, color: C.danger, borderColor: C.divider }} onClick={handleSignOut}>
           Sign Out
         </button>
+        {signOutPrompt}
 
         <AppFooter onNav={onNav} />
       </div>

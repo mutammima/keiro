@@ -16,6 +16,7 @@
 import * as db from '../services/db';
 import { STORAGE_KEYS } from './constants';
 import { lsGet, lsSet } from './storage';
+import { enqueueSync } from './syncQueue';
 
 const PREFIX = STORAGE_KEYS.SIG_PREFIX;
 const INDEX_KEY = STORAGE_KEYS.SIG_INDEX;
@@ -58,11 +59,11 @@ export function saveSignatures(invoiceNumber, sellerSig, buyerSig) {
   } catch (e) {
     console.warn('saveSignatures: localStorage write failed', e);
   }
-  // Best-effort cloud sync (no toast: signatures aren't money records and the
-  // local copy is always the source of truth for the current device).
+  // Cloud sync; a failure queues it (the queue replays whatever this device
+  // holds then), so the only copy is never wiped by a sign-out unannounced.
   db.saveSignatureRow({ invoiceNumber, seller: sellerSig, buyer: buyerSig })
-    .then(({ error }) => { if (error) console.error('saveSignatureRow cloud error', error); })
-    .catch(e => console.error('saveSignatureRow cloud error', e));
+    .then(({ error }) => { if (error) queueSignatureSync(invoiceNumber, error); })
+    .catch(e => queueSignatureSync(invoiceNumber, e));
 }
 
 /**
@@ -77,7 +78,13 @@ export function clearSignatures(invoiceNumber) {
     markIndexed(invoiceNumber, false);
   } catch { /* cache eviction is best-effort */ }
   db.deleteSignatureRow(invoiceNumber)
-    .catch(e => console.error('deleteSignatureRow cloud error', e));
+    .then(res => { if (res?.error) queueSignatureSync(invoiceNumber, res.error); })
+    .catch(e => queueSignatureSync(invoiceNumber, e));
+}
+
+function queueSignatureSync(invoiceNumber, err) {
+  console.error('signature cloud sync failed, queued for retry', err);
+  enqueueSync({ type: 'sync_signature', payload: { invoiceNumber: Number(invoiceNumber) } });
 }
 
 // ── Signed-invoice index ─────────────────────────────────────────────────────

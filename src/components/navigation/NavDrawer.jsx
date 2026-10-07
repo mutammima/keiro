@@ -18,7 +18,7 @@
 import { STORAGE_KEYS, SIDE_NAV_WIDTH } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { signOut } from '../../services/auth';
+import { useSafeSignOut } from '../../hooks/useSafeSignOut';
 import { getPinnedStores } from '../../utils/storage';
 import { isGuest, promptAccount } from '../../utils/guestMode';
 import { tabsForRole } from './tabs';
@@ -128,10 +128,8 @@ export default function NavDrawer({
 
   const guest = isGuest();
 
-  async function handleSignOut() {
-    await signOut();
-    window.location.reload();
-  }
+  // Uploads pending changes first and asks before deleting any that won't go.
+  const { requestSignOut: handleSignOut, signOutPrompt } = useSafeSignOut();
 
   return (
     <>
@@ -355,6 +353,7 @@ export default function NavDrawer({
           )}
         </div>
       </div>
+      {signOutPrompt}
     </>
   );
 }
