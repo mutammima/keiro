@@ -25,6 +25,7 @@ import { lsGet, lsSet } from './storage';
 import { STORAGE_KEYS } from './constants';
 import { enqueueSync } from './syncQueue';
 import { getActiveConnections } from './connectionStorage';
+import { incrementalLoader } from './incrementalSync';
 import * as db from '../services/db';
 
 const KEY        = STORAGE_KEYS.CONN_ORDERS;
@@ -71,77 +72,10 @@ function mapRow(row) {
   };
 }
 
-// ── Incremental cloud refresh ──────────────────────────────────────────────────
-//
-// These caches refresh on every Realtime event, on the fallback poll, on every
-// foreground, and from each tab page's mount (all four tabs mount at once).
-// Re-downloading the whole set each time is the read pattern that blew the
-// Supabase egress cap in Jul 2026 (CLAUDE.md, "Egress"). So:
-//   • the first load after the app opens downloads everything;
-//   • later loads fetch the id list (a few bytes a row) plus only the rows
-//     changed since the newest updated_at seen, and rebuild the cache from
-//     those — so rows still come, change and go exactly as on the server;
-//   • loads that start while one is running share it.
-//
-// The overlap re-reads rows stamped up to 10 minutes before that newest one:
-// connection_orders.updated_at is written by the updating phone's clock
-// (until supabase-connection-orders-updated-at.sql has run), and a late commit can carry
-// an earlier stamp. If the cache still lacks a row the server has, the load
-// falls back to a full download.
-const SYNC_OVERLAP_MS = 10 * 60 * 1000;
-
-function newestStamp(rows, floor) {
-  return rows.reduce((max, r) => {
-    const t = Date.parse(r.updated_at || r.created_at || '');
-    return isNaN(t) ? max : Math.max(max, t);
-  }, floor);
-}
-
-function byCreatedDesc(a, b) {
-  return (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0);
-}
-
-function incrementalLoader({ key, full, ids, changedSince, map }) {
-  let watermark = null; // newest server updated_at seen (ms); null until this launch's full load
-  let inFlight = null;
-
-  async function fullLoad() {
-    const { data, error } = await full();
-    if (error || !data) return null;
-    const mapped = data.map(map);
-    lsSet(key, mapped);
-    watermark = newestStamp(data, 0);
-    return mapped;
-  }
-
-  async function changesOnly() {
-    const since = new Date(watermark - SYNC_OVERLAP_MS).toISOString();
-    const [idRes, changedRes] = await Promise.all([ids(), changedSince(since)]);
-    if (idRes.error || !idRes.data || changedRes.error || !changedRes.data) return null;
-
-    const live = new Set(idRes.data.map(r => r.id));
-    const changed = changedRes.data.map(map);
-    const changedIds = new Set(changed.map(o => o.id));
-    const kept = lsGet(key, []).filter(o => live.has(o.id) && !changedIds.has(o.id));
-    const merged = [...changed, ...kept].sort(byCreatedDesc);
-
-    const have = new Set(merged.map(o => o.id));
-    if ([...live].some(id => !have.has(id))) return fullLoad();
-
-    lsSet(key, merged);
-    watermark = newestStamp(changedRes.data, watermark);
-    return merged;
-  }
-
-  return function load() {
-    if (!inFlight) {
-      inFlight = (watermark === null ? fullLoad() : changesOnly())
-        .then(result => result ?? lsGet(key, []))
-        .finally(() => { inFlight = null; });
-    }
-    return inFlight;
-  };
-}
+// Both caches below refresh incrementally — see utils/incrementalSync.js.
+// connection_orders.updated_at is written by the updating phone's clock until
+// supabase-connection-orders-updated-at.sql has run; the loader's 10-minute
+// overlap covers ordinary drift.
 
 /** Pull the user's connection orders from the cloud and refresh the cache. */
 export const loadConnectionOrdersFromCloud = incrementalLoader({
