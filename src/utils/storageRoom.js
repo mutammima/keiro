@@ -184,6 +184,28 @@ export function markSignatureSynced(invoiceNumber, version) {
 }
 
 /**
+ * A stored value with the "uploaded" stamp taken off, for a signature entry
+ * arriving from somewhere the stamp no longer holds: a restored backup (older
+ * than the cloud, or another account's) or an invoice renumbered before upload
+ * (the cloud has it under the old number). Any other key or value is returned
+ * unchanged.
+ * @param {string} key
+ * @param {string} text  the stored (serialised) value
+ * @returns {string}
+ */
+export function withoutUploadStamp(key, text) {
+  if (typeof text !== 'string' || !SIG_KEY.test(key)) return text;
+  try {
+    const entry = JSON.parse(text);
+    if (!entry || typeof entry !== 'object' || !('syncedVersion' in entry)) return text;
+    const { syncedVersion: _stamp, ...rest } = entry;
+    return JSON.stringify(rest);
+  } catch {
+    return text;
+  }
+}
+
+/**
  * At launch: frees room early for a signed-in user near the limit, and says
  * whether a guest should be warned (nothing of a guest's is ever removed).
  * @param {{ budget?: number }} [opts]
