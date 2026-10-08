@@ -5,7 +5,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { ACCENT } from '../../theme';
-import { exportSignature } from '../../utils/signatureImage';
+import { exportSignature, recolorSignature } from '../../utils/signatureImage';
 
 export default function SignaturePad({ label, dark, C, onChange, initialDataUrl }) {
   const canvasRef = useRef(null);
@@ -22,19 +22,22 @@ export default function SignaturePad({ label, dark, C, onChange, initialDataUrl 
     canvas.height = rect.height * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
-    ctx.strokeStyle = dark ? '#ffffff' : '#111111';
+    const ink = dark ? '#ffffff' : '#111111';
+    ctx.strokeStyle = ink;
     ctx.lineWidth   = 2;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
 
-    // Restore saved signature if provided
+    // Restore a saved signature in this theme's ink, whatever ink it was saved in.
     if (initialDataUrl) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        setIsEmpty(false);
-      };
-      img.src = initialDataUrl;
+      recolorSignature(initialDataUrl, ink).then((src) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          setIsEmpty(false);
+        };
+        img.src = src;
+      });
     }
   }, [dark]); // eslint-disable-line
 

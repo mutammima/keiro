@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { exportSignature } from '../utils/signatureImage';
+import { exportSignature, recolorSignature, PRINT_INK } from '../utils/signatureImage';
 
 function fakeCanvas({ cssW, cssH, dpr }) {
   return {
@@ -35,5 +35,40 @@ describe('exportSignature', () => {
     const doc = { createElement: vi.fn() };
     expect(exportSignature(source, doc)).toBe('data:full-size');
     expect(doc.createElement).not.toHaveBeenCalled();
+  });
+});
+
+describe('recolorSignature', () => {
+  it('paints every stroke in the given colour, keeping the transparent background', async () => {
+    const ops = [];
+    const ctx = {
+      drawImage: (...a) => ops.push(['draw', ...a]),
+      fillRect: (...a) => ops.push(['fill', ...a]),
+      set globalCompositeOperation(v) { ops.push(['op', v]); },
+      set fillStyle(v) { ops.push(['style', v]); },
+    };
+    const out = { getContext: () => ctx, toDataURL: () => 'data:recoloured' };
+    const img = { width: 320, height: 90 };
+
+    const result = await recolorSignature('data:in', PRINT_INK, {
+      doc: { createElement: () => out },
+      loadImage: async () => img,
+    });
+
+    expect(result).toBe('data:recoloured');
+    expect(ops).toEqual([
+      ['draw', img, 0, 0],
+      ['op', 'source-in'],
+      ['style', '#111111'],
+      ['fill', 0, 0, 320, 90],
+    ]);
+  });
+
+  it('returns the original when the image cannot be read', async () => {
+    const result = await recolorSignature('data:bad', PRINT_INK, {
+      doc: { createElement: vi.fn() },
+      loadImage: async () => { throw new Error('unreadable'); },
+    });
+    expect(result).toBe('data:bad');
   });
 });

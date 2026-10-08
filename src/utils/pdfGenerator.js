@@ -18,6 +18,7 @@
 import { Capacitor } from '@capacitor/core';
 import { STORAGE_KEYS } from './constants';
 import { notifySyncError } from './syncNotify';
+import { recolorSignature, PRINT_INK } from './signatureImage';
 async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0 } = invoice;
 
@@ -215,6 +216,9 @@ async function buildPDF(invoice) {
   }
 
   // ── Signatures ────────────────────────────────────────────────────────────
+  // Signatures may be drawn in white (dark-mode ink): print them dark.
+  const sellerInk = sellerSignature ? await recolorSignature(sellerSignature, PRINT_INK) : null;
+  const buyerInk  = buyerSignature  ? await recolorSignature(buyerSignature,  PRINT_INK) : null;
   const sigStartY = notesEndY + 28;
   const sigBoxW = (pageW - margin * 2 - 20) / 2;
   const sigBoxH = 60;
@@ -224,10 +228,10 @@ async function buildPDF(invoice) {
   doc.setFontSize(8);
   doc.setTextColor(130, 130, 130);
   doc.text('Seller / Deliverer Signature', margin, sigStartY);
-  if (sellerSignature) {
+  if (sellerInk) {
     // Unreadable signature data: fall through to the blank ruled line below
     // rather than aborting the whole PDF over a decorative image.
-    try { doc.addImage(sellerSignature, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
+    try { doc.addImage(sellerInk, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
@@ -239,9 +243,9 @@ async function buildPDF(invoice) {
   doc.setFontSize(8);
   doc.setTextColor(130, 130, 130);
   doc.text('Buyer / Recipient Signature', buyerX, sigStartY);
-  if (buyerSignature) {
+  if (buyerInk) {
     // Same as the seller box above: a bad image must not fail the PDF.
-    try { doc.addImage(buyerSignature, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
+    try { doc.addImage(buyerInk, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.line(buyerX, sigStartY + sigBoxH + 8, buyerX + sigBoxW, sigStartY + sigBoxH + 8);
 
