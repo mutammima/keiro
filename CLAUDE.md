@@ -340,6 +340,11 @@ before it runs. After any manual run, verify the live schema with an anon REST
 probe (`GET $URL/rest/v1/<table>?select=<critical_column>&limit=1` — 42703 =
 column missing, 42P01 = table missing, `[]` = OK).
 
+**Keep-awake + outage alert:** `.github/workflows/keep-supabase-awake.yml` reads one row
+every 3 days so the free project never pauses; a run that doesn't get HTTP 200 fails and
+GitHub emails the owner. Needs repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+GitHub disables scheduled workflows after 60 days without repo activity; any push re-arms it.
+
 ## Update System
 
 **Web / installed PWA:**
