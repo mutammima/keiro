@@ -21,6 +21,7 @@ import {
 } from '../utils/storage';
 import { STORAGE_KEYS, BUSINESS_NAME_PLACEHOLDER, DEFAULT_FLAG_DAYS, EVENTS } from '../utils/constants';
 import { getErrorLog, clearErrorLog } from '../utils/errorLog';
+import { crashReportsEnabled, setCrashReportsEnabled, sendTestReport } from '../utils/crashReporter';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import { supabase } from '../services/supabase';
@@ -44,6 +45,14 @@ const ACCENT_PRESETS = [
   '#06B6D4', // cyan
   '#64748B', // slate
 ];
+
+const TEST_REPORT_TEXT = {
+  sent: 'Sent. It should appear in Sentry within a minute.',
+  'no-dsn': "Crash reporting isn't set up in this build.",
+  off: 'Crash reports are switched off (Terms & Privacy).',
+  offline: "You're offline. Try again when connected.",
+  'not-ready': 'Crash reporting could not start. Try again in a moment.',
+};
 
 export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, onReplayTutorial }) {
   const { dark, accent, setAccent } = useTheme();
@@ -141,6 +150,8 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   // log is read from localStorage once when the modal is opened (below) rather
   // than on every render of this large, frequently re-rendering component.
   const [errorLogEntries, setErrorLogEntries] = useState(null);
+  const [crashOn, setCrashOn] = useState(() => crashReportsEnabled());
+  const [testReport, setTestReport] = useState(null);
 
   // ── Switch Role ────────────────────────────────────────────────────────────
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
@@ -217,6 +228,11 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
           <Row label="Error Log" sub="Recent app errors, kept on this device" C={C}>
             <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={() => setErrorLogEntries(getErrorLog())}>
               View
+            </button>
+          </Row>
+          <Row label="Send test report" sub={testReport ? TEST_REPORT_TEXT[testReport] : 'Check that crash reports reach the developer'} C={C}>
+            <button style={{ ...s.smallBtn, background: C.rowBg, color: ACCENT, border: `1px solid ${C.divider}` }} onClick={async () => setTestReport(await sendTestReport())}>
+              Send
             </button>
           </Row>
         </Section>
@@ -458,6 +474,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
         {/* ── 7. Terms & Privacy ─────────────────────────────────────────── */}
         <Section title="Terms & Privacy" C={C} defaultOpen={false}>
           <div style={{ paddingTop: 8 }}>
+            <Row label="Send crash reports" sub="Helps fix problems. Never includes invoices, names or contact details." C={C}>
+              <Toggle on={crashOn} onChange={(on) => { setCrashReportsEnabled(on); setCrashOn(on); }} dark={dark} />
+            </Row>
             {/* Alpha badge */}
             <div style={{ background: dark ? '#1f1000' : '#fffbeb', border: `1px solid ${dark ? '#2a1800' : '#fde68a'}`, borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
               <div style={{ color: dark ? '#fbbf24' : '#b45309', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>⚠ Alpha / Test Build</div>
@@ -478,7 +497,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Privacy Policy</div>
-                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user. We collect minimal usage data. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
+                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user. We collect minimal usage data. If the app crashes, a report goes to Sentry (our error-monitoring provider): the error, the app version, your device type and the screen it happened on, never your invoices, names or contact details. You can switch this off above. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>

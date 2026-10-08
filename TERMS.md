@@ -90,4 +90,4 @@ effect constitutes acceptance.
 
 ## 12. Contact
 
-Questions about these Terms: **[your-email@example.com]**
+Questions about these Terms: **alomonds@gmail.com**

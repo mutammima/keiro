@@ -16,7 +16,7 @@ Keiro is a mobile-first platform connecting delivery drivers and stores in
 real time — helping each side see what the other needs and carries, and
 supporting the invoicing and payments that come with those deliveries.
 
-If you have questions about this policy, contact: **[your-email@example.com]**
+If you have questions about this policy, contact: **alomonds@gmail.com**
 
 ## 2. Information we collect
 
@@ -31,6 +31,12 @@ We only collect the information needed to provide the App's features:
   add to invoices.
 - **Device-local preferences** — settings such as theme, display density, and
   onboarding status, stored locally on your device.
+- **Crash reports** — if the App crashes, a report is sent to **Sentry**, our
+  error-monitoring provider: the error and where in the code it happened, the
+  App version, whether you use the web or iPhone app, your device and browser
+  type, and which screen it happened on. Reports never include invoice
+  contents, customer or store names, emails, phone numbers, your IP address, or
+  invite codes. You can switch them off in Settings → Terms & Privacy.
 
 We do **not** collect payment card numbers, bank details, or government IDs.
 The App does not process payments.
@@ -59,7 +65,8 @@ We do **not** sell your data, rent it, or share it with advertisers.
 We share information only:
 
 - **With service providers** that operate the App's infrastructure (e.g.
-  Supabase for authentication and database hosting), strictly to provide the
+  Supabase for authentication and database hosting, and Sentry for crash
+  reports), strictly to provide the
   service.
 - **When required by law**, such as to comply with a valid legal request.
 
@@ -97,4 +104,4 @@ by the "Last updated" date above.
 
 ## 11. Contact
 
-Questions or requests: **[your-email@example.com]**
+Questions or requests: **alomonds@gmail.com**
