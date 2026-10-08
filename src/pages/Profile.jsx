@@ -9,6 +9,7 @@ import { supabase } from '../services/supabase';
 import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import { promptAccount } from '../utils/guestMode';
 import AppFooter from '../components/navigation/AppFooter';
+import { SPAM_HINT } from '../utils/constants';
 
 export default function Profile({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
@@ -42,7 +43,7 @@ export default function Profile({ onOpenDrawer, onNav }) {
     const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
     setLoading(false);
     if (error) setErr(error.message);
-    else { setMsg('Email updated! Check your inbox to confirm.'); setNewEmail(''); }
+    else { setMsg(`Email updated! Check your inbox to confirm. ${SPAM_HINT}`); setNewEmail(''); }
   }
 
   async function handleUpdatePassword(e) {

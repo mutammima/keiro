@@ -118,6 +118,9 @@ export const EVENTS = {
 /** Shown when an invoice reached neither the cloud nor this phone. */
 export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
 
+/** Gmail-sent sign-in mail lands in Spam more often than domain mail. */
+export const SPAM_HINT = "Can't find it? Check your Spam folder.";
+
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;

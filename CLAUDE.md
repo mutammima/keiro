@@ -533,10 +533,13 @@ redeemed.
   2/hour to 30/hour. All 6 auth email templates are Keiro-branded. Two dead-domain redirect bugs were
   fixed in the same pass: the Auth **Site URL** and Redirect URLs allowlist pointed at `keiro.app`
   (a domain this project never deployed to) instead of the live Vercel URL — that's what made earlier
-  confirmation/reset links land on a dead page. **Remaining blocker:** Resend's shared
-  `onboarding@resend.dev` sender only delivers to the Resend account's own address until a domain is
-  verified at resend.com/domains — so real users still can't receive reset/confirmation emails. No
-  domain purchased yet, by choice.
+  confirmation/reset links land on a dead page. **Remaining blocker (owner, 2026-10-07 decision):** switch
+  Supabase SMTP from Resend's shared `onboarding@resend.dev` sender (delivers only to the Resend
+  account's own address) to a Gmail account made for Keiro: `smtp.gmail.com`, port 465, the Gmail
+  address as user and sender, a Google app password (needs 2-Step Verification), sender name "Keiro";
+  templates and the 30/hour limit stay. Gmail allows ~500 messages a day. Steps:
+  `docs/superpowers/plans/2026-10-07-launch-readiness.md`, "Owner actions". Every "we sent you an
+  email" notice adds `SPAM_HINT` because Gmail-sent mail lands in Spam more often.
 - **Real push notifications** — deferred; requires the paid Apple Developer Program (free
   "personal team" signing can't enable the Push Notifications entitlement at all, independent of
   code). Would also unlock TestFlight for the item above. Local-notifications and louder in-app
