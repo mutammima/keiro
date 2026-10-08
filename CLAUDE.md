@@ -525,11 +525,11 @@ redeemed.
 
 - **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
   receiving confirmation) are code-complete but have never been exercised on two physical
-  phones with live accounts. Numbered test script written and ready to run.
+  phones with live accounts. Test script: [docs/device-test.md](docs/device-test.md).
 - **Native PDF share + Google sign-in — confirm on a real device.** Verified as far as possible
   without one (clean simulator build/launch, URL scheme registered at the OS level per iOS's own
   "Open in Keiro?" prompt), but the actual share-sheet content and a completed Google login round-
-  trip still need a real device or TestFlight pass. On-device checklist written and ready to run.
+  trip still need a real device or TestFlight pass. Covered by docs/device-test.md (steps 5 and 12).
 - **Password recovery — SMTP live and verified; one delivery limitation left.** Supabase custom
   SMTP is configured against Resend (host `smtp.resend.com`, port 465), and the full reset round-trip
   is verified end-to-end with a real account: sign-up → confirmation email → "Forgot password" →
