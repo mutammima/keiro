@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 
 // ── Auto-versioning ───────────────────────────────────────────────────────────
 // Compute a unique version from the git commit hash at build/dev-start time.
@@ -27,8 +28,28 @@ fs.writeFileSync('./public/version.json', JSON.stringify({ version: appVersion }
 
 console.log(`[Keiro] Build version: ${appVersion}`);
 
+// Readable stack traces in Sentry: only when the owner has set these three in
+// Vercel. Maps are uploaded, then deleted before anything is deployed or zipped
+// for OTA, so they are never served. Without them, no maps are built at all.
+const uploadSourceMaps = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
+);
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    ...(uploadSourceMaps
+      ? [sentryVitePlugin({
+          org: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+          authToken: process.env.SENTRY_AUTH_TOKEN,
+          release: { name: appVersion },          // matches crashReporter's release
+          sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+          telemetry: false,
+        })]
+      : []),
+  ],
+  build: { sourcemap: uploadSourceMaps ? 'hidden' : false },
   define: {
     // Replaced at bundle time — useVersionCheck reads this as LOCAL_VERSION
     __APP_VERSION__: JSON.stringify(appVersion),
