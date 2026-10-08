@@ -25,10 +25,22 @@ export const SESSION_CAP = 20;
 
 const KEY = STORAGE_KEYS.CRASH_REPORTS;
 const ENV_DSN = import.meta.env.VITE_SENTRY_DSN || '';
+const loadSentry = () => import('@sentry/react');
 
+// Sentry integrations Keiro does not run: GlobalHandlers and BrowserApiErrors
+// would catch crashes before errorLog does (sent twice, or without the screen
+// and outside the cap); BrowserSession sends a "session" with the IP at every
+// launch; CultureContext adds the locale and timezone, which the privacy text
+// does not list.
+const DROPPED_INTEGRATIONS = new Set(['GlobalHandlers', 'BrowserApiErrors', 'BrowserSession', 'CultureContext']);
+
+let activeDsn = ENV_DSN;
+let activeLoad = loadSentry;
+let activeExtra = {};
 let configured = Boolean(ENV_DSN);
 let sentry = null;
 let loading = null;
+let generation = 0;   // bumped when reporting is switched off, so a load in flight is dropped
 let sent = 0;
 let screen = 'startup';
 const waiting = [];
@@ -37,13 +49,30 @@ export function crashReportsEnabled() {
   return lsGet(KEY, true) !== false;
 }
 
+/** The Settings switch. Off closes Sentry; on starts it (when a DSN exists). */
 export function setCrashReportsEnabled(on) {
   lsSet(KEY, Boolean(on));
+  if (on) {
+    initCrashReporter();
+  } else {
+    shutDown();
+  }
+}
+
+function shutDown() {
+  generation += 1;
+  const S = sentry;
+  sentry = null;
+  loading = null;
+  waiting.length = 0;
+  try { Promise.resolve(S?.close?.()).catch(() => {}); } catch { /* closing is best-effort */ }
 }
 
 /** The tab or overlay on screen, attached to each report. */
 export function setCrashScreen(name) {
-  if (name) screen = String(name);
+  if (!name) return;
+  screen = String(name);
+  sentry?.setTag?.('screen', screen);
 }
 
 /** The URL without its query string or hash (invite codes live there). */
@@ -75,27 +104,37 @@ export function scrubEvent(event) {
 }
 
 /**
- * Loads and starts Sentry. Safe to call more than once; a no-op without a DSN.
- * @param {{ dsn?: string, load?: () => Promise<object> }} [opts]  overrides for tests
+ * Loads and starts Sentry. Safe to call more than once; a no-op without a DSN
+ * or while the user has switched crash reports off (nothing is contacted then).
+ * @param {{ dsn?: string, load?: () => Promise<object>, extraOptions?: object }} [opts]
+ *   overrides for tests (extraOptions is merged into Sentry.init, e.g. a transport)
  * @returns {Promise<object|null>} the Sentry module, or null
  */
-export function initCrashReporter({ dsn = ENV_DSN, load = () => import('@sentry/react') } = {}) {
+export function initCrashReporter({ dsn = activeDsn, load = activeLoad, extraOptions = activeExtra } = {}) {
+  activeDsn = dsn;
+  activeLoad = load;
+  activeExtra = extraOptions;
   configured = Boolean(dsn);
-  if (!configured) return Promise.resolve(null);
+  if (!configured || !crashReportsEnabled()) return Promise.resolve(null);
   if (loading) return loading;
+  const attempt = generation;
   loading = load()
     .then((S) => {
+      if (attempt !== generation || !crashReportsEnabled()) return null; // switched off meanwhile
       S.init({
         dsn,
         release: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev',
         environment: Capacitor.isNativePlatform() ? 'ios-app' : 'web',
-        sendDefaultPii: false,
-        // errorLog's own window listeners already report uncaught errors;
-        // Sentry's would send each one twice.
-        integrations: (defaults) => defaults.filter((i) => i.name !== 'GlobalHandlers'),
+        // Sentry 11's data-collection switches: no IP address (events say
+        // infer_ip "never"), cookies, headers or URL query strings.
+        dataCollection: { userInfo: false, cookies: false, httpHeaders: false, urlQueryParams: false },
+        sendClientReports: false,
+        integrations: (defaults) => defaults.filter((i) => !DROPPED_INTEGRATIONS.has(i.name)),
         beforeSend: (event) => (crashReportsEnabled() ? scrubEvent(event) : null),
         beforeBreadcrumb: scrubBreadcrumb,
+        ...extraOptions,
       });
+      S.setTag?.('screen', screen);
       sentry = S;
       waiting.splice(0).forEach(send);
       return S;
@@ -145,6 +184,10 @@ export async function sendTestReport() {
 
 /** Test-only: forget all state, as if the app had just started without a DSN. */
 export function _resetCrashReporterForTests() {
+  generation += 1;
+  activeDsn = '';
+  activeLoad = loadSentry;
+  activeExtra = {};
   configured = false;
   sentry = null;
   loading = null;

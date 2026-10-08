@@ -2282,6 +2282,8 @@ Post a state table (branch, commits, tests, build, what was checked in the brows
 2. **Sentry**
    1. sentry.io → sign up (free Developer plan) → Create project → platform **React** → name `keiro`.
    2. Copy the DSN (Settings → Projects → keiro → Client Keys).
+   2a. Settings → Projects → keiro → Security & Privacy → turn on **Prevent Storing of IP
+       Addresses** (a server-side backstop; the app already tells Sentry never to infer the IP).
    3. Vercel → keiro project → Settings → Environment Variables → `VITE_SENTRY_DSN` = the DSN, all environments → redeploy.
    4. Optional, for readable stack traces: Sentry → Settings → Auth Tokens → create one with
       `project:releases` and `org:read`; add `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` (your org slug)

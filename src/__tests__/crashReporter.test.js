@@ -21,7 +21,7 @@ import { STORAGE_KEYS } from '../utils/constants';
 const DSN = 'https://key@o0.ingest.sentry.io/1';
 
 function fakeSentry() {
-  return { init: vi.fn(), captureException: vi.fn() };
+  return { init: vi.fn(), captureException: vi.fn(), setTag: vi.fn(), close: vi.fn() };
 }
 
 beforeEach(() => {
@@ -43,8 +43,11 @@ describe('crash reporter', () => {
     const S = fakeSentry();
     await initCrashReporter({ dsn: DSN, load: async () => S });
     const opts = S.init.mock.calls[0][0];
-    expect(opts.sendDefaultPii).toBe(false);
-    expect(opts.integrations([{ name: 'GlobalHandlers' }, { name: 'Breadcrumbs' }]).map(i => i.name)).toEqual(['Breadcrumbs']);
+    expect(opts.dataCollection).toEqual({ userInfo: false, cookies: false, httpHeaders: false, urlQueryParams: false });
+    expect(opts.sendClientReports).toBe(false);
+    const defaults = ['GlobalHandlers', 'BrowserApiErrors', 'BrowserSession', 'CultureContext', 'Breadcrumbs', 'Dedupe']
+      .map((name) => ({ name }));
+    expect(opts.integrations(defaults).map(i => i.name)).toEqual(['Breadcrumbs', 'Dedupe']);
 
     setCrashScreen('route');
     expect(reportCrash(new Error('boom'), { source: 'ErrorBoundary' })).toBe(true);
@@ -129,5 +132,70 @@ describe('crash reporter', () => {
   it('signing out keeps the crash-report choice (a device preference)', async () => {
     const { DEVICE_PREF_KEYS } = await import('../services/auth');
     expect(DEVICE_PREF_KEYS.has(STORAGE_KEYS.CRASH_REPORTS)).toBe(true);
+  });
+});
+
+describe('crash reporter switch and screen (review fixes)', () => {
+  it('switched off, Sentry is never loaded; switching on loads it; switching off closes it', async () => {
+    setCrashReportsEnabled(false);
+    const S = fakeSentry();
+    const load = vi.fn(async () => S);
+    expect(await initCrashReporter({ dsn: DSN, load })).toBeNull();
+    expect(load).not.toHaveBeenCalled();
+
+    setCrashReportsEnabled(true);
+    await vi.waitFor(() => expect(S.init).toHaveBeenCalledTimes(1));
+
+    setCrashReportsEnabled(false);
+    expect(S.close).toHaveBeenCalledTimes(1);
+    expect(reportCrash(new Error('after off'))).toBe(false);
+    expect(S.captureException).not.toHaveBeenCalled();
+  });
+
+  it('every report carries the screen, including ones Sentry catches itself', async () => {
+    const S = fakeSentry();
+    await initCrashReporter({ dsn: DSN, load: async () => S });
+    setCrashScreen('so-orders');
+    expect(S.setTag).toHaveBeenCalledWith('screen', 'so-orders');
+  });
+});
+
+describe('crash reporter with the real Sentry SDK', () => {
+  function recordingTransport(sent) {
+    return () => ({
+      send: async (envelope) => { sent.push(envelope); return {}; },
+      flush: async () => true,
+    });
+  }
+
+  it('sends the crash without IP inference, locale, timezone or a session', async () => {
+    const sent = [];
+    const S = await initCrashReporter({
+      dsn: DSN,
+      load: () => import('@sentry/react'),
+      extraOptions: { transport: recordingTransport(sent) },
+    });
+    reportCrash(new Error('boom'), { source: 'test' });
+    await S.flush(2000);
+    await S.close(2000);
+
+    const items = sent.flatMap(([, list]) => list);
+    expect(items.map(([h]) => h.type)).not.toContain('session');
+    const event = items.find(([h]) => h.type === 'event')?.[1];
+    expect(event).toBeTruthy();
+    expect(event.sdk?.settings?.infer_ip).toBe('never');
+    expect(event.contexts?.culture).toBeUndefined();
+    expect(event.user?.ip_address).toBeUndefined();
+    expect(event.tags).toMatchObject({ source: 'test' });
+  });
+
+  it('switched off, the real SDK is never started and nothing is sent', async () => {
+    setCrashReportsEnabled(false);
+    const sent = [];
+    const load = vi.fn(() => import('@sentry/react'));
+    expect(await initCrashReporter({ dsn: DSN, load, extraOptions: { transport: recordingTransport(sent) } })).toBeNull();
+    reportCrash(new Error('boom'));
+    expect(load).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
   });
 });
