@@ -93,6 +93,28 @@ describe('writeLocal', () => {
     window.removeEventListener(EVENTS.STORAGE_OK, onOk);
   });
 
+  it('stays full until the write that failed goes through, not on any unrelated small write', () => {
+    setItem.mockRestore();                         // take the real one before re-spying
+    const realSetItem = Storage.prototype.setItem;
+    setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key === 'inv_payments') throw quotaError();
+      return realSetItem.call(this, key, value);
+    });
+    const onOk = vi.fn();
+    window.addEventListener(EVENTS.STORAGE_OK, onOk);
+
+    expect(writeLocal('inv_payments', '[1]')).toBe(false);
+    expect(writeLocal('inv_seen_home', '1')).toBe(true);     // e.g. a badge timestamp
+    expect(isStorageFull()).toBe(true);
+    expect(onOk).not.toHaveBeenCalled();
+
+    setItem.mockRestore();
+    expect(writeLocal('inv_payments', '[1]')).toBe(true);
+    expect(isStorageFull()).toBe(false);
+    expect(onOk).toHaveBeenCalledTimes(1);
+    window.removeEventListener(EVENTS.STORAGE_OK, onOk);
+  });
+
   it('returns false without announcing for a failure that is not about space', () => {
     setItem.mockImplementation(() => { throw new Error('SecurityError'); });
     const onFull = vi.fn();

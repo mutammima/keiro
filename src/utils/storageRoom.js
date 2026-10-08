@@ -39,6 +39,10 @@ const SIG_PREFIX = STORAGE_KEYS.SIG_PREFIX;
 const SIG_KEY = new RegExp(`^${SIG_PREFIX}(\\d+)$`);
 
 let full = false;
+// Keys whose write failed for lack of space. "Full" lasts until each of them
+// has been written: an unrelated small write (a badge timestamp) fitting does
+// not mean the payment or order that failed has been saved.
+const failedKeys = new Set();
 
 export function isQuotaError(e) {
   if (!e) return false;
@@ -71,8 +75,8 @@ function announce(name) {
   try { window.dispatchEvent(new CustomEvent(name)); } catch { /* no DOM */ }
 }
 
-function succeeded() {
-  if (full) {
+function succeeded(key) {
+  if (failedKeys.delete(key) && failedKeys.size === 0 && full) {
     full = false;
     announce(EVENTS.STORAGE_OK);
   }
@@ -88,7 +92,7 @@ function succeeded() {
 export function writeLocal(key, text) {
   try {
     localStorage.setItem(key, text);
-    return succeeded();
+    return succeeded(key);
   } catch (e) {
     if (!isQuotaError(e)) {
       console.error('localStorage write failed', key, e);
@@ -98,10 +102,11 @@ export function writeLocal(key, text) {
   makeRoom();
   try {
     localStorage.setItem(key, text);
-    return succeeded();
+    return succeeded(key);
   } catch (e) {
     console.error('localStorage is full; not saved', key, e);
     full = true;
+    failedKeys.add(key);
     announce(EVENTS.STORAGE_FULL);
     return false;
   }
@@ -194,4 +199,5 @@ export function checkStorageOnLaunch({ budget = STORAGE_BUDGET_BYTES } = {}) {
 /** Test-only: forget the "full" state between tests. */
 export function _resetStorageRoomForTests() {
   full = false;
+  failedKeys.clear();
 }
