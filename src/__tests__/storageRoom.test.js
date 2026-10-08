@@ -16,7 +16,7 @@ vi.mock('../services/db', () => ({
 
 import {
   writeLocal, makeRoom, markSignatureSynced, estimateUsage, isQuotaError,
-  isStorageFull, _resetStorageRoomForTests,
+  isStorageFull, _resetStorageRoomForTests, checkStorageOnLaunch,
 } from '../utils/storageRoom';
 import { EVENTS, STORAGE_KEYS } from '../utils/constants';
 import { lsSet, saveInvoice } from '../utils/storage';
@@ -204,5 +204,26 @@ describe('saveInvoice', () => {
   it('reports savedLocally: true normally', async () => {
     const res = await saveInvoice({ number: 1002, items: [] });
     expect(res.savedLocally).toBe(true);
+  });
+});
+
+describe('checkStorageOnLaunch', () => {
+  it('frees room early for a signed-in user past the target', () => {
+    sig(1001, { at: '2026-01-01' });
+    const budget = estimateUsage() / 0.9;          // 90% full
+    expect(checkStorageOnLaunch({ budget })).toBe('ok');
+    expect(localStorage.getItem('inv_sig_1001')).toBeNull();
+  });
+
+  it('asks a guest near the limit to create an account, and removes nothing', () => {
+    sig(1001, { at: '2026-01-01' });
+    localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
+    const budget = estimateUsage() / 0.85;         // 85% full
+    expect(checkStorageOnLaunch({ budget })).toBe('guest-near-full');
+    expect(localStorage.getItem('inv_sig_1001')).not.toBeNull();
+  });
+
+  it('says ok with room to spare', () => {
+    expect(checkStorageOnLaunch()).toBe('ok');
   });
 });

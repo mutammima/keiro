@@ -178,6 +178,19 @@ export function markSignatureSynced(invoiceNumber, version) {
   } catch { /* a missed stamp only means this image is never removed */ }
 }
 
+/**
+ * At launch: frees room early for a signed-in user near the limit, and says
+ * whether a guest should be warned (nothing of a guest's is ever removed).
+ * @param {{ budget?: number }} [opts]
+ * @returns {'ok' | 'guest-near-full'}
+ */
+export function checkStorageOnLaunch({ budget = STORAGE_BUDGET_BYTES } = {}) {
+  const usage = estimateUsage();
+  if (isGuest()) return usage > GUEST_WARN_AT * budget ? 'guest-near-full' : 'ok';
+  if (usage > MAKE_ROOM_TARGET * budget) makeRoom({ target: MAKE_ROOM_TARGET * budget });
+  return 'ok';
+}
+
 /** Test-only: forget the "full" state between tests. */
 export function _resetStorageRoomForTests() {
   full = false;
