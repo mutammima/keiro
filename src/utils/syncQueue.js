@@ -161,7 +161,9 @@ export function getUnsyncedCount() {
 export function retryFailedSyncs() {
   const failed = getFailedSyncs();
   if (failed.length === 0) return;
-  write([...failed.map(item => ({ ...item, retries: 0 })), ...read()]);
+  // Clear the set-aside list only once the queue holds those changes: on a
+  // full phone the queue write can fail, and clearing anyway would lose them.
+  if (!write([...failed.map(item => ({ ...item, retries: 0 })), ...read()])) return;
   writeList(FAILED_KEY, []);
   announceAttention();
 }
@@ -216,11 +218,15 @@ export async function processSyncQueue() {
           const retries = (cur[idx].retries || 0) + 1;
           if (retries >= MAX_RETRIES) {
             // Set aside — kept for "Try again" — and let the rest of the queue go on.
-            const [aside] = cur.splice(idx, 1);
-            write(cur);
-            writeList(FAILED_KEY, [...getFailedSyncs(), { ...aside, retries, lastError }]);
-            announceAttention();
-            continue;
+            // The set-aside list is written first, and the queue shrunk only
+            // after: on a full phone the first write can fail, and the change
+            // then stays queued rather than vanishing.
+            if (writeList(FAILED_KEY, [...getFailedSyncs(), { ...cur[idx], retries, lastError }])) {
+              cur.splice(idx, 1);
+              write(cur);
+              announceAttention();
+              continue;
+            }
           }
           cur[idx] = { ...cur[idx], retries, lastError };
           write(cur);

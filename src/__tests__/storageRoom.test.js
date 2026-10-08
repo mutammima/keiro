@@ -20,7 +20,8 @@ import {
 } from '../utils/storageRoom';
 import { EVENTS, STORAGE_KEYS } from '../utils/constants';
 import { lsSet, saveInvoice } from '../utils/storage';
-import { enqueueSync, processSyncQueue } from '../utils/syncQueue';
+import { enqueueSync, processSyncQueue, retryFailedSyncs } from '../utils/syncQueue';
+import * as db from '../services/db';
 import { saveSignatures } from '../utils/signatureStorage';
 
 function quotaError() {
@@ -247,5 +248,41 @@ describe('checkStorageOnLaunch', () => {
 
   it('says ok with room to spare', () => {
     expect(checkStorageOnLaunch()).toBe('ok');
+  });
+});
+
+describe('sync queue on a full phone', () => {
+  /** Only writes that grow a value are refused, as on a phone that is nearly full. */
+  function refuseGrowingWrites() {
+    const realSetItem = Storage.prototype.setItem;
+    return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (String(value).length > (localStorage.getItem(key) || '').length) throw quotaError();
+      return realSetItem.call(this, key, value);
+    });
+  }
+  const total = () =>
+    JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]').length
+    + JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_FAILED) || '[]').length;
+
+  it('"Try again" never deletes set-aside changes when the queue cannot be written', () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_FAILED, JSON.stringify([
+      { id: 'a', type: 'save_invoice', payload: { invoice: { number: 1 } }, retries: 5 },
+    ]));
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, '[]');
+    const spy = refuseGrowingWrites();
+    retryFailedSyncs();
+    spy.mockRestore();
+    expect(total()).toBe(1);
+  });
+
+  it('setting a change aside never drops it when the set-aside list cannot grow', async () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([
+      { id: 'a', type: 'save_invoice', payload: { invoice: { number: 1 } }, ts: 1, retries: 4 },
+    ]));
+    db.saveInvoice.mockResolvedValueOnce({ error: { code: '23505', message: 'rejected' } });
+    const spy = refuseGrowingWrites();
+    await processSyncQueue();
+    spy.mockRestore();
+    expect(total()).toBe(1);
   });
 });
