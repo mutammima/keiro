@@ -82,9 +82,11 @@ export async function getNextInvoiceNumber() {
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /**
- * Save an invoice to Supabase, falling back to localStorage if not authenticated.
+ * Saves an invoice to the cloud, and to this phone's cache either way.
  * @param {object} invoice
- * @returns {Promise<void>}
+ * @returns {Promise<{ error: object|null, savedLocally: boolean }>} savedLocally
+ *   is false when this phone's storage is full; with an error as well, the
+ *   invoice is nowhere and the caller must keep it on screen.
  */
 export async function saveInvoice(invoice) {
   const { error } = await db.saveInvoice(invoice);
@@ -96,13 +98,13 @@ export async function saveInvoice(invoice) {
   const list = lsGet(STORAGE_KEYS.LIST, []);
   const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
   if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
-  lsSet(STORAGE_KEYS.LIST, list);
+  const savedLocally = lsSet(STORAGE_KEYS.LIST, list);
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, queued for retry', error);
     enqueueSync({ type: 'save_invoice', payload: { invoice } });
   }
-  return { error };
+  return { error, savedLocally };
 }
 
 /**

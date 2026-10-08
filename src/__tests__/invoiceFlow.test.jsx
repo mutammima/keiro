@@ -52,6 +52,7 @@ vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 import { saveInvoice, saveStoreName, getNextInvoiceNumber } from '../utils/storage';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { STORAGE_FULL_MESSAGE } from '../utils/constants';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -131,6 +132,33 @@ describe('useInvoiceForm — create → generate', () => {
     // Form resets for the next invoice.
     expect(result.current.items).toHaveLength(0);
     expect(result.current.storeName).toBe('');
+  });
+
+  it('keeps the form when the invoice reached neither the cloud nor this phone', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: new Error('offline'), savedLocally: false });
+    const onGenerated = vi.fn();
+    const { result } = renderHook(() => useInvoiceForm(onGenerated));
+
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe(STORAGE_FULL_MESSAGE);
+    expect(onGenerated).not.toHaveBeenCalled();
+    expect(saveStoreName).not.toHaveBeenCalled();
+    expect(result.current.items).toHaveLength(1);           // nothing typed is lost
+    expect(result.current.storeName).toBe('Corner Store');
+  });
+
+  it('carries on when the cloud saved it even though this phone is full', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: null, savedLocally: false });
+    const onGenerated = vi.fn();
+    const { result } = renderHook(() => useInvoiceForm(onGenerated));
+
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe('');
+    expect(onGenerated).toHaveBeenCalledTimes(1);
   });
 
   it('holds for confirmation on a $0.00 total instead of silently saving', async () => {

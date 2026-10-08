@@ -19,7 +19,7 @@ import {
   isStorageFull, _resetStorageRoomForTests,
 } from '../utils/storageRoom';
 import { EVENTS, STORAGE_KEYS } from '../utils/constants';
-import { lsSet } from '../utils/storage';
+import { lsSet, saveInvoice } from '../utils/storage';
 import { enqueueSync, processSyncQueue } from '../utils/syncQueue';
 import { saveSignatures } from '../utils/signatureStorage';
 
@@ -189,5 +189,20 @@ describe('upload stamps', () => {
     await processSyncQueue();
     const entry = JSON.parse(localStorage.getItem('inv_sig_1001'));
     expect(entry.syncedVersion).toBe(entry.updatedAt);
+  });
+});
+
+describe('saveInvoice', () => {
+  it('reports savedLocally: false when the phone is full and the cloud failed', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw quotaError(); });
+    const res = await saveInvoice({ number: 1001, items: [] });
+    setItem.mockRestore();
+    expect(res.savedLocally).toBe(false);
+    expect(res.error).toBeTruthy();
+  });
+
+  it('reports savedLocally: true normally', async () => {
+    const res = await saveInvoice({ number: 1002, items: [] });
+    expect(res.savedLocally).toBe(true);
   });
 });

@@ -114,6 +114,9 @@ export const EVENTS = {
   ONBOARDING_STORE_VIEWED:    'inv-onboarding-store-viewed',
 };
 
+/** Shown when an invoice reached neither the cloud nor this phone. */
+export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
+
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;

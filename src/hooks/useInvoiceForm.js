@@ -30,7 +30,7 @@ import {
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -385,7 +385,13 @@ export function useInvoiceForm(onGenerated) {
         storeUserId: resolveConnectedStoreUserId(storeName.trim()),
       };
 
-      await saveInvoice(invoice); // upserts by number → updates in place when editing
+      // Upserts by number → updates in place when editing.
+      const saved = (await saveInvoice(invoice)) || {};
+      if (saved.error && saved.savedLocally === false) {
+        // Neither the cloud nor this phone has it: keep everything on screen.
+        setError(STORAGE_FULL_MESSAGE);
+        return;
+      }
       await saveStoreName(storeName.trim());
       // Save phone + address in one upsert
       if (storePhone.trim() || storeAddress.trim()) {
