@@ -159,7 +159,7 @@ export async function updatePassword(newPassword) {
 // device inherits the previous user's identity: hasCompletedOnboarding() sees
 // the stale role and skips onboarding, and the old account's cached invoices
 // render in the new account's UI.
-const DEVICE_PREF_KEYS = new Set(['inv_dark_mode', 'inv_accent_color', 'inv_density', 'inv_easy_mode']);
+export const DEVICE_PREF_KEYS = new Set(['inv_dark_mode', 'inv_accent_color', 'inv_density', 'inv_easy_mode', 'inv_crash_reports']);
 
 function clearAccountLocalData() {
   try {

@@ -59,6 +59,7 @@ import { redeemPendingInvite } from './utils/connectionStorage';
 import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './utils/connectionOrderStorage';
 import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
 import { isGuest } from './utils/guestMode';
+import { setCrashScreen } from './utils/crashReporter';
 import { tabIdsForRole } from './components/navigation/tabs';
 import { useBreakpoint, BP } from './hooks/useBreakpoint';
 import './App.css';
@@ -272,6 +273,9 @@ function AppInner({ role, onSwitchRole }) {
   useEffect(() => {
     if (overlayPage === null) setPage(tabsRef.current[tabIdx]);
   }, [tabIdx, overlayPage]);
+
+  // Crash reports say which screen they happened on.
+  useEffect(() => { setCrashScreen(page); }, [page]);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const navigate = useCallback((p) => {

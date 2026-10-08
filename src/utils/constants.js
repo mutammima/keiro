@@ -35,6 +35,7 @@ export const STORAGE_KEYS = {
   ACCENT_COLOR:     'inv_accent_color',
   DENSITY:          'inv_density',
   EASY_MODE:        'inv_easy_mode',
+  CRASH_REPORTS:    'inv_crash_reports',   // device pref: send crash reports (default on); kept across sign-out
   AUTO_FLAG_DAYS:   'inv_auto_flag_days',
   AUTO_MARK_DAYS:   'inv_auto_mark_days',
   USER_ROLE:        'inv_user_role',

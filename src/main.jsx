@@ -8,11 +8,12 @@ import { captureInviteFromUrl } from './utils/connectionStorage'
 import { initOtaUpdates } from './utils/otaUpdate'
 import { initOAuthDeepLinkHandler } from './services/auth'
 import { initGlobalErrorListeners } from './utils/errorLog'
+import { initCrashReporter } from './utils/crashReporter'
 
-// No remote crash reporter (Sentry or similar) is wired up yet — that needs an
-// account/DSN nobody's provided. Until then, this is local-only: catches
-// uncaught exceptions and rejected promises that happen outside React's render
-// tree (ErrorBoundary below only covers render-phase crashes). See errorLog.js.
+// Catches uncaught exceptions and rejected promises outside React's render tree
+// (ErrorBoundary below covers render-phase crashes). Both funnel into
+// errorLog.logError, which keeps them on the device and reports them
+// (crashReporter.js).
 initGlobalErrorListeners();
 
 // Capture an `?invite=CODE` link param before React mounts and strip it from the
@@ -47,3 +48,7 @@ initOtaUpdates();
 
 // Native only: catch Google sign-in's redirect back into the app. No-op on web.
 initOAuthDeepLinkHandler();
+
+// Crash reporting (Sentry): loaded off the startup path, and only when a DSN
+// is configured. Crashes before it is ready are held and sent once it is.
+setTimeout(() => { initCrashReporter(); }, 0);
