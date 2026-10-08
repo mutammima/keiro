@@ -21,7 +21,7 @@ export default defineConfig([
     languageOptions: {
       // __APP_VERSION__ is injected at build time by vite.config.js (see the
       // Update System section in CLAUDE.md) — declare it so it isn't no-undef.
-      globals: { ...globals.browser, __APP_VERSION__: 'readonly' },
+      globals: { ...globals.browser, __APP_VERSION__: 'readonly', __APP_RELEASE__: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     rules: {

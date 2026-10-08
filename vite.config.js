@@ -28,6 +28,10 @@ fs.writeFileSync('./public/version.json', JSON.stringify({ version: appVersion }
 
 console.log(`[Keiro] Build version: ${appVersion}`);
 
+// The release people see ("Keiro 5.9"). __APP_VERSION__ stays the git hash:
+// the update check and OTA compare that one.
+const appRelease = JSON.parse(fs.readFileSync('./package.json', 'utf8')).version;
+
 // Readable stack traces in Sentry: only when the owner has set these three in
 // Vercel. Maps are uploaded, then deleted before anything is deployed or zipped
 // for OTA, so they are never served. Without them, no maps are built at all.
@@ -53,6 +57,7 @@ export default defineConfig({
   define: {
     // Replaced at bundle time — useVersionCheck reads this as LOCAL_VERSION
     __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_RELEASE__: JSON.stringify(appRelease),
   },
   // @vitejs/plugin-react's own JSX transform only applies to the "client"
   // environment (dev/build) — under `vitest run` it's skipped, so Vite falls

@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { useBackup } from '../../hooks/useBackup';
 import { isGuest, promptAccount } from '../../utils/guestMode';
+import { versionLabel } from '../../utils/appVersion';
 
 const WHATS_NEW = [
   { v: '5.9', notes: ['Overdue payment reminders — one-tap WhatsApp', 'Reliable cloud sync with on-screen sync alerts', 'Privacy Policy & Terms added'] },
@@ -64,7 +65,7 @@ export default function AppFooter({ onNav }) {
           <FooterLink label="Terms of Service" onPress={() => onNav?.('terms')} C={C} />
         </div>
 
-        <p style={{ ...s.version, color: C.textLight }}>Keiro v5.9 · Cloud sync</p>
+        <p style={{ ...s.version, color: C.textLight }}>{versionLabel()} · Cloud sync</p>
       </div>
 
       {/* ── Modal sheet ──────────────────────────────────────────────────── */}
