@@ -16,11 +16,23 @@
 import * as db from '../services/db';
 import { STORAGE_KEYS } from './constants';
 import { lsGet, lsSet } from './storage';
-import { enqueueSync } from './syncQueue';
+import { enqueueSync, dropQueuedSyncs } from './syncQueue';
 import { writeLocal, markSignatureSynced } from './storageRoom';
 
 const PREFIX = STORAGE_KEYS.SIG_PREFIX;
 const INDEX_KEY = STORAGE_KEYS.SIG_INDEX;
+
+// One invoice's cloud writes run in the order they were made. The pad saves on
+// every stroke, and two upserts of the same row racing could leave the cloud
+// with the older signature (and the phone's copy stamped as if it matched).
+const uploads = new Map();
+function inOrder(invoiceNumber, run) {
+  const key = Number(invoiceNumber);
+  const next = (uploads.get(key) || Promise.resolve()).then(run, run);
+  uploads.set(key, next);
+  next.then(() => { if (uploads.get(key) === next) uploads.delete(key); });
+  return next;
+}
 
 /**
  * Returns the stored signatures for an invoice, or nulls if none saved.
@@ -40,38 +52,63 @@ export function getSignatures(invoiceNumber) {
 
 /**
  * Saves signatures for an invoice. Pass null to clear a signature.
- * Local write is synchronous; cloud sync is best-effort in the background.
+ * Local write is synchronous; cloud sync runs in the background, in order.
  * @param {number|string} invoiceNumber
  * @param {string|null} sellerSig  - data URL or null
  * @param {string|null} buyerSig   - data URL or null
+ * @returns {{ savedLocally: boolean, cloud: Promise<boolean> }} savedLocally is
+ *   false when this phone's storage is full; cloud resolves true once the cloud
+ *   has this signature. Both false: it is saved nowhere, and the caller says so.
  */
 export function saveSignatures(invoiceNumber, sellerSig, buyerSig) {
   // Both empty → treat as a clear (and remove the cloud row too).
   if (!sellerSig && !buyerSig) {
-    clearSignatures(invoiceNumber);
-    return;
+    return { savedLocally: true, cloud: clearSignatures(invoiceNumber) };
   }
   const updatedAt = new Date().toISOString();
   const wrote = writeLocal(
     PREFIX + invoiceNumber,
     JSON.stringify({ seller: sellerSig, buyer: buyerSig, updatedAt })
   );
-  // The index says "signed" even if only the cloud ends up with the image.
-  markIndexed(invoiceNumber, true);
+  // "Signed" (which locks editing) only once a copy exists somewhere.
+  if (wrote) markIndexed(invoiceNumber, true);
   // Cloud sync. A failure is queued only when this phone holds the image: the
   // queue replays whatever is stored locally, and replaying a missing entry
   // would delete the cloud's older signature.
-  db.saveSignatureRow({ invoiceNumber, seller: sellerSig, buyer: buyerSig })
-    .then(({ error }) => {
-      if (error) { if (wrote) queueSignatureSync(invoiceNumber, error); }
-      else markSignatureSynced(invoiceNumber, updatedAt);
-    })
-    .catch(e => { if (wrote) queueSignatureSync(invoiceNumber, e); });
+  const cloud = inOrder(invoiceNumber, () =>
+    db.saveSignatureRow({ invoiceNumber, seller: sellerSig, buyer: buyerSig })
+      .then(({ error }) => {
+        if (error) {
+          if (wrote) queueSignatureSync(invoiceNumber, error);
+          return false;
+        }
+        if (wrote) markSignatureSynced(invoiceNumber, updatedAt);
+        else keepCloudCopyOnly(invoiceNumber);
+        return true;
+      })
+      .catch((e) => {
+        if (wrote) queueSignatureSync(invoiceNumber, e);
+        return false;
+      })
+  );
+  return { savedLocally: wrote, cloud };
+}
+
+/**
+ * The cloud took a signature this phone could not store. Drop the phone's
+ * older copy, and any queued replay of it, so neither hides nor overwrites the
+ * newer one; opening the invoice downloads it.
+ */
+function keepCloudCopyOnly(invoiceNumber) {
+  markIndexed(invoiceNumber, true);
+  try { localStorage.removeItem(PREFIX + invoiceNumber); } catch { /* best-effort */ }
+  dropQueuedSyncs('sync_signature', (p) => Number(p.invoiceNumber) === Number(invoiceNumber));
 }
 
 /**
  * Removes saved signatures for an invoice (e.g. when the invoice is deleted).
  * @param {number|string} invoiceNumber
+ * @returns {Promise<boolean>} whether the cloud row is gone
  */
 export function clearSignatures(invoiceNumber) {
   // Local cache eviction only — the authoritative delete is the cloud call
@@ -80,9 +117,14 @@ export function clearSignatures(invoiceNumber) {
     localStorage.removeItem(PREFIX + invoiceNumber);
     markIndexed(invoiceNumber, false);
   } catch { /* cache eviction is best-effort */ }
-  db.deleteSignatureRow(invoiceNumber)
-    .then(res => { if (res?.error) queueSignatureSync(invoiceNumber, res.error); })
-    .catch(e => queueSignatureSync(invoiceNumber, e));
+  return inOrder(invoiceNumber, () =>
+    db.deleteSignatureRow(invoiceNumber)
+      .then((res) => {
+        if (res?.error) { queueSignatureSync(invoiceNumber, res.error); return false; }
+        return true;
+      })
+      .catch((e) => { queueSignatureSync(invoiceNumber, e); return false; })
+  );
 }
 
 function queueSignatureSync(invoiceNumber, err) {

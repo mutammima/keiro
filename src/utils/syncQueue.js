@@ -137,6 +137,26 @@ export function enqueueSync(action) {
   return write(q);
 }
 
+/**
+ * Removes queued or set-aside actions of `type` whose payload matches. Only for
+ * when the cloud already holds something newer than what they would replay
+ * (signatureStorage: the cloud took a signature this phone could not store).
+ * @param {string} type
+ * @param {(payload: object) => boolean} matches
+ */
+export function dropQueuedSyncs(type, matches) {
+  const keep = (list) => list.filter((a) => !(a.type === type && matches(a.payload || {})));
+  const queued = read();
+  const keptQueued = keep(queued);
+  if (keptQueued.length !== queued.length) write(keptQueued);
+  const failed = getFailedSyncs();
+  const keptFailed = keep(failed);
+  if (keptFailed.length !== failed.length) {
+    writeList(FAILED_KEY, keptFailed);
+    announceAttention();
+  }
+}
+
 /** Current number of pending (un-synced) actions. */
 export function getQueueLength() {
   return read().length;

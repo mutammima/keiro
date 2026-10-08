@@ -11,7 +11,7 @@ import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
 import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
-import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
@@ -24,7 +24,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [sellerSig, setSellerSig] = useState(null);
   const [buyerSig,  setBuyerSig]  = useState(null);
   const [showSigs,  setShowSigs]  = useState(false);
-  const [sigSaved,  setSigSaved]  = useState(false); // flash "Saved" after auto-save
+  const [sigStatus, setSigStatus] = useState('');    // '' | 'saved' (flashes) | 'not-saved'
 
   // Values most recently hydrated from cache/cloud. The auto-save effect below
   // compares against these so simply LOADING a signature doesn't immediately
@@ -62,13 +62,23 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     if (sellerSig === h.seller && buyerSig === h.buyer) return;
     // Only persist if at least one sig exists (don't write a blank entry on mount)
     if (sellerSig !== null || buyerSig !== null) {
-      saveSignatures(invoice.number, sellerSig, buyerSig);
-      // Persist-then-flash "Saved" in response to a signature change — a genuine
-      // side-effect on state change, not derivable.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSigSaved(true);
-      const t = setTimeout(() => setSigSaved(false), 2000);
-      return () => clearTimeout(t);
+      const { savedLocally, cloud } = saveSignatures(invoice.number, sellerSig, buyerSig);
+      // "Saved" only once a copy exists somewhere: on a full phone that is when
+      // the cloud takes it; with no connection either, say it was not saved.
+      let cancelled = false;
+      let t;
+      const show = (status) => {
+        if (cancelled) return;
+        setSigStatus(status);
+        clearTimeout(t);
+        if (status === 'saved') t = setTimeout(() => setSigStatus(''), 2000);
+      };
+      if (savedLocally) {
+        show('saved');
+      } else {
+        cloud.then((ok) => show(ok ? 'saved' : 'not-saved'));
+      }
+      return () => { cancelled = true; clearTimeout(t); };
     }
   }, [sellerSig, buyerSig]); // eslint-disable-line
 
@@ -292,8 +302,10 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             <div>
               <p style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: 0 }}>Signatures</p>
               <p style={{ color: C.textMuted, fontSize: 12, margin: '2px 0 0' }}>
-                {sigSaved
+                {sigStatus === 'saved'
                   ? <span style={{ color: C.successText }}>✓ Saved</span>
+                  : sigStatus === 'not-saved'
+                  ? <span style={{ color: C.danger }}>{STORAGE_FULL_MESSAGE}</span>
                   : sellerSig || buyerSig
                     ? 'Signed · saved to device · embedded in PDF'
                     : 'Proof of delivery · saved with invoice'}
