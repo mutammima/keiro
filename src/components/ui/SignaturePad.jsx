@@ -5,6 +5,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { ACCENT } from '../../theme';
+import { exportSignature } from '../../utils/signatureImage';
 
 export default function SignaturePad({ label, dark, C, onChange, initialDataUrl }) {
   const canvasRef = useRef(null);
@@ -71,7 +72,7 @@ export default function SignaturePad({ label, dark, C, onChange, initialDataUrl 
     drawing.current = false;
     setIsEmpty(false);
     // Emit data URL
-    const dataUrl = canvasRef.current.toDataURL('image/png');
+    const dataUrl = exportSignature(canvasRef.current);
     onChange?.(dataUrl);
   }
 
