@@ -31,6 +31,7 @@ import * as db from '../services/db';
 import { STORAGE_KEYS } from './constants';
 import { isGuest } from './guestMode';
 import { notifySyncSuccess } from './syncNotify';
+import { writeLocal, markSignatureSynced } from './storageRoom';
 
 const KEY = STORAGE_KEYS.SYNC_QUEUE;
 const FAILED_KEY = STORAGE_KEYS.SYNC_FAILED;
@@ -89,9 +90,13 @@ const HANDLERS = {
   sync_signature:          (p) => {
     let sig = null;
     try { sig = JSON.parse(localStorage.getItem(STORAGE_KEYS.SIG_PREFIX + p.invoiceNumber) || 'null'); } catch { /* unreadable → treat as cleared */ }
-    return sig && (sig.seller || sig.buyer)
-      ? db.saveSignatureRow({ invoiceNumber: p.invoiceNumber, seller: sig.seller || null, buyer: sig.buyer || null })
-      : db.deleteSignatureRow(p.invoiceNumber);
+    if (!(sig && (sig.seller || sig.buyer))) return db.deleteSignatureRow(p.invoiceNumber);
+    return db.saveSignatureRow({ invoiceNumber: p.invoiceNumber, seller: sig.seller || null, buyer: sig.buyer || null })
+      .then((res) => {
+        // The cloud now has this exact version: makeRoom may drop the local copy.
+        if (!res?.error) markSignatureSynced(p.invoiceNumber, sig.updatedAt);
+        return res;
+      });
   },
   // NOTE: clearAllProducts (an unscoped bulk wipe) is intentionally NOT queued —
   // replaying it after the user re-adds products would delete them, breaking the
@@ -103,7 +108,7 @@ function readList(key) {
   catch { return []; }
 }
 function writeList(key, list) {
-  try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { console.error('syncQueue write failed', e); }
+  return writeLocal(key, JSON.stringify(list));
 }
 const read  = () => readList(KEY);
 const write = (q) => writeList(KEY, q);
@@ -118,16 +123,18 @@ function uid() {
 /**
  * Parks a failed cloud write for automatic retry. No-op for guests.
  * @param {{ type: string, payload?: object }} action
+ * @returns {boolean} whether it was parked (false for a guest, an unknown type,
+ *   or when this phone's storage is full; StorageBanner reports the last one)
  */
 export function enqueueSync(action) {
-  if (isGuest()) return;                       // no cloud target — nothing to retry
+  if (isGuest()) return false;                 // no cloud target — nothing to retry
   if (!action || !HANDLERS[action.type]) {
     console.error('enqueueSync: unknown action type', action?.type);
-    return;
+    return false;
   }
   const q = read();
   q.push({ id: uid(), type: action.type, payload: action.payload || {}, ts: Date.now(), retries: 0 });
-  write(q);
+  return write(q);
 }
 
 /** Current number of pending (un-synced) actions. */

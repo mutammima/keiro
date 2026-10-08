@@ -12,6 +12,7 @@
 import * as db from '../services/db';
 import { enqueueSync } from './syncQueue';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
+import { writeLocal } from './storageRoom';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {
@@ -32,12 +33,20 @@ export function lsGet(key, fallback) {
   }
 }
 
+/**
+ * Writes a value as JSON. Returns whether it was written: false means this
+ * phone's storage is full even after freeing room (StorageBanner says so).
+ * @returns {boolean}
+ */
 export function lsSet(key, value) {
+  let text;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    text = JSON.stringify(value);
   } catch (e) {
-    console.error('localStorage write failed', e);
+    console.error('lsSet: value cannot be stored', key, e);
+    return false;
   }
+  return writeLocal(key, text);
 }
 
 // ─── Invoice Number ───────────────────────────────────────────────────────────

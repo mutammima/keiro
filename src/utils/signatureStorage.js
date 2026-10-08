@@ -17,6 +17,7 @@ import * as db from '../services/db';
 import { STORAGE_KEYS } from './constants';
 import { lsGet, lsSet } from './storage';
 import { enqueueSync } from './syncQueue';
+import { writeLocal, markSignatureSynced } from './storageRoom';
 
 const PREFIX = STORAGE_KEYS.SIG_PREFIX;
 const INDEX_KEY = STORAGE_KEYS.SIG_INDEX;
@@ -50,20 +51,22 @@ export function saveSignatures(invoiceNumber, sellerSig, buyerSig) {
     clearSignatures(invoiceNumber);
     return;
   }
-  try {
-    localStorage.setItem(
-      PREFIX + invoiceNumber,
-      JSON.stringify({ seller: sellerSig, buyer: buyerSig, updatedAt: new Date().toISOString() })
-    );
-    markIndexed(invoiceNumber, true);
-  } catch (e) {
-    console.warn('saveSignatures: localStorage write failed', e);
-  }
-  // Cloud sync; a failure queues it (the queue replays whatever this device
-  // holds then), so the only copy is never wiped by a sign-out unannounced.
+  const updatedAt = new Date().toISOString();
+  const wrote = writeLocal(
+    PREFIX + invoiceNumber,
+    JSON.stringify({ seller: sellerSig, buyer: buyerSig, updatedAt })
+  );
+  // The index says "signed" even if only the cloud ends up with the image.
+  markIndexed(invoiceNumber, true);
+  // Cloud sync. A failure is queued only when this phone holds the image: the
+  // queue replays whatever is stored locally, and replaying a missing entry
+  // would delete the cloud's older signature.
   db.saveSignatureRow({ invoiceNumber, seller: sellerSig, buyer: buyerSig })
-    .then(({ error }) => { if (error) queueSignatureSync(invoiceNumber, error); })
-    .catch(e => queueSignatureSync(invoiceNumber, e));
+    .then(({ error }) => {
+      if (error) { if (wrote) queueSignatureSync(invoiceNumber, error); }
+      else markSignatureSynced(invoiceNumber, updatedAt);
+    })
+    .catch(e => { if (wrote) queueSignatureSync(invoiceNumber, e); });
 }
 
 /**
@@ -154,6 +157,7 @@ export async function fetchSignatureFromCloud(invoiceNumber) {
         seller: data.seller ?? null,
         buyer:  data.buyer  ?? null,
         updatedAt: data.updated_at,
+        syncedVersion: data.updated_at,   // came from the cloud: it has this version
       })
     );
     markIndexed(invoiceNumber, true);
@@ -179,6 +183,7 @@ export async function cacheAllSignaturesForBackup() {
           seller: row.seller ?? null,
           buyer:  row.buyer  ?? null,
           updatedAt: row.updated_at,
+          syncedVersion: row.updated_at,  // came from the cloud: it has this version
         })
       );
     } catch { /* quota — skip this row */ }

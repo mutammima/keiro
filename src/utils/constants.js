@@ -101,6 +101,11 @@ export const EVENTS = {
   DATA_REFRESH:   'inv-data-refresh',    // foreground poll refreshed the caches
   VERSION_UPDATE: 'inv-version-update',  // a newer build is available
   DENSITY_CHANGE: 'inv-density-change',  // display density setting changed
+  // This phone's storage for Keiro is full: a write failed even after
+  // makeRoom() (utils/storageRoom.js). STORAGE_OK follows the next write that
+  // succeeds. StorageBanner listens for both.
+  STORAGE_FULL:   'inv-storage-full',
+  STORAGE_OK:     'inv-storage-ok',
   // Onboarding/tutorial milestones — dispatched by feature sites, consumed by the
   // milestone bridge (tutorialProgress) and walkthrough settle steps.
   ONBOARDING_INVOICE_CREATED: 'inv-onboarding-invoice-created',
