@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getInvoices } from '../../utils/storage';
-import { groupInvoicesByStore, unassignedStoreNote } from '../../utils/invoiceUtils';
+import { groupInvoicesByStore, unassignedStoreNote, outstandingScopeLine } from '../../utils/invoiceUtils';
 import { getBridgeRequests, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
@@ -181,7 +181,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
         )}
 
         {/* Outstanding summary */}
-        {stores.length > 0 && (
+        {(stores.length > 0 || unassigned.count > 0) && (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 18, padding: '16px 18px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textMuted }}>
               Total Outstanding
@@ -190,7 +190,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
               ${totalOutstanding.toFixed(2)}
             </div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              across {stores.length} store{stores.length > 1 ? 's' : ''}
+              {outstandingScopeLine(stores.length, unassigned.count)}
             </div>
           </div>
         )}

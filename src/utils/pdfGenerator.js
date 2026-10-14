@@ -25,6 +25,14 @@ import { isEasyMode } from './easyMode';
 // pen; anything filled prints as text. Only used when invoice.layout is
 // 'template' (the default while Easy Mode is on).
 
+/** `text` at the current font, cut with "..." so it fits `maxWidth`. */
+function fitText(doc, text, maxWidth) {
+  if (doc.getTextWidth(text) <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && doc.getTextWidth(`${cut}...`) > maxWidth) cut = cut.slice(0, -1);
+  return `${cut.trimEnd()}...`;
+}
+
 /** "Label: value", or "Label: ______" ruled to the field's right edge. */
 function templateField(doc, label, value, x, y, right) {
   doc.setFont('helvetica', 'bold');
@@ -34,7 +42,8 @@ function templateField(doc, label, value, x, y, right) {
   const valueX = x + doc.getTextWidth(label) + 6;
   if (value && String(value).trim()) {
     doc.setFont('helvetica', 'normal');
-    doc.text(String(value).trim(), valueX, y);
+    // Cut to the field so a long value never runs into the next label or off the page.
+    doc.text(fitText(doc, String(value).trim(), right - valueX), valueX, y);
   } else {
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.6);
@@ -243,16 +252,16 @@ async function buildPDF(invoice) {
   );
 
   let finalY = doc.lastAutoTable.finalY + 16;
-  // The template's totals, Paid-by, Notes and signature lines take ~210pt
-  // below the table. On a long delivery, start them on a fresh page instead
-  // of printing past the footer.
-  if (template) {
-    const noteLines = notes && notes.trim() ? doc.splitTextToSize(notes.trim(), pageW - margin * 2 - 48).length : 1;
-    const tailHeight = 212 + (noteLines - 1) * 13;
-    if (finalY + tailHeight > pageH - 60) {
-      doc.addPage();
-      finalY = margin;
-    }
+  // The totals, (template) Paid-by, Notes and signature lines need room below
+  // the table. On a long delivery, start them on a fresh page instead of
+  // printing past the footer. Short invoices are drawn exactly as before.
+  const noteLines = notes && notes.trim() ? doc.splitTextToSize(notes.trim(), pageW - margin * 2 - 48).length : 0;
+  const tailHeight = template
+    ? 212 + Math.max(0, noteLines - 1) * 13
+    : 160 + (noteLines ? 22 + noteLines * 13 : 0);
+  if (finalY + tailHeight > pageH - 60) {
+    doc.addPage();
+    finalY = margin;
   }
   const labelX = pageW - margin - 110;
   const valueX = pageW - margin;

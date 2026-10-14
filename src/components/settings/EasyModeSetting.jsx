@@ -8,6 +8,7 @@
  */
 import { Section, Toggle } from '../ui/SettingsUI';
 import { STORAGE_KEYS } from '../../utils/constants';
+import { lsSet } from '../../utils/storage';
 import { isEasyMode } from '../../utils/easyMode';
 
 export const EASY_MODE_DESCRIPTION =
@@ -17,12 +18,9 @@ export default function EasyModeSetting({ role, C, dark, onChange = () => window
   if (role === 'store_owner') return null;
 
   function toggle(on) {
-    try {
-      localStorage.setItem(STORAGE_KEYS.EASY_MODE, JSON.stringify(on));
-    } catch {
-      return; // storage blocked (private mode): nothing would change after a reload
-    }
-    onChange(on);
+    // lsSet frees cache space on a full phone; if it still can't save, a
+    // reload would come back in the old mode, so don't reload.
+    if (lsSet(STORAGE_KEYS.EASY_MODE, on)) onChange(on);
   }
 
   return (
