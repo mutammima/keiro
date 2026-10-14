@@ -4,7 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 
 const SCANNER_ID = 'qr-reader';
 
-export default function BarcodeScanner({ onScan, onClose }) {
+export default function BarcodeScanner({ onScan, onClose, closeLabel = 'Enter manually' }) {
   const scannerRef = useRef(null);
   const [status, setStatus] = useState('starting'); // starting | ready | error
   const [errorMsg, setErrorMsg] = useState('');
@@ -98,7 +98,7 @@ export default function BarcodeScanner({ onScan, onClose }) {
         )}
       </div>
 
-      <button style={s.manualBtn} onClick={stopAndClose}>Enter manually</button>
+      <button style={s.manualBtn} onClick={stopAndClose}>{closeLabel}</button>
 
       <style>{`
         @keyframes scanMove {

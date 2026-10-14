@@ -9,6 +9,7 @@ import AuthGate from './components/auth/AuthGate';
 // (they slide up on navigate), so splitting them out of the entry chunk shrinks
 // first paint. The always-mounted tab pages stay statically imported below.
 const NewInvoice   = lazy(() => import('./components/invoice/NewInvoice'));
+const EasyInvoice  = lazy(() => import('./components/invoice/EasyInvoice'));
 const InvoiceView  = lazy(() => import('./components/invoice/InvoiceView'));
 const Products     = lazy(() => import('./pages/Products'));
 const StoreBalance = lazy(() => import('./pages/StoreBalance'));
@@ -20,7 +21,7 @@ const Settings     = lazy(() => import('./pages/Settings'));
 // One-time onboarding tour — lazy so it doesn't weigh on first paint.
 const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
 import useOnboarding from './hooks/useOnboarding';
-import { isHomePulse, setHomePulse } from './utils/tutorialProgress';
+import { isHomePulse, setHomePulse, markTourSeen, pendingModeTour, tourStartPage } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
@@ -60,7 +61,8 @@ import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './ut
 import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
 import { isGuest } from './utils/guestMode';
 import { setCrashScreen } from './utils/crashReporter';
-import { tabIdsForRole } from './components/navigation/tabs';
+import { tabIdsForRole, tabTargetFor } from './components/navigation/tabs';
+import { easyModeFor } from './utils/easyMode';
 import { useBreakpoint, BP } from './hooks/useBreakpoint';
 import './App.css';
 
@@ -101,21 +103,17 @@ function OfflineBanner({ dark }) {
 
 // ── Main app ──────────────────────────────────────────────────────────────────
 
-function isEasyMode() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
-}
-
 function AppInner({ role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const easyMode = isEasyMode();
+  const easyMode = easyModeFor(role);
 
   // Layout tier. Desktop swaps the whole shell: a docked side rail instead of
   // TopNav, and a single rendered tab instead of the swipeable 4× strip.
   const bp = useBreakpoint();
   const desktop = bp === BP.DESKTOP;
 
-  const TABS = tabIdsForRole(role);
+  const TABS = tabIdsForRole(role, easyMode);
 
   // Dashboards are now tab 0 for both roles — no dashboard overlay on launch.
   // In easy mode the driver lands on the Route tab (invoice list + "+ New").
@@ -262,8 +260,9 @@ function AppInner({ role, onSwitchRole }) {
     if (page === 'home' && homePulse) { setHomePulse(false); setHomePulseState(false); }
   }, [page, homePulse]);
 
-  // Tab strip index — easy-mode driver starts on Route (index 1), else tab 0
-  const [tabIdx, setTabIdx] = useState(() => (role !== 'store_owner' && easyMode ? 1 : 0));
+  // Tab strip index — tab 0 is Home (full) or Route (Easy Mode), which is
+  // exactly where each starts.
+  const [tabIdx, setTabIdx] = useState(0);
 
   // tabsRef — lets swipe handlers always read the current TABS without re-registering
   const tabsRef = useRef(TABS);
@@ -278,7 +277,9 @@ function AppInner({ role, onSwitchRole }) {
   useEffect(() => { setCrashScreen(page); }, [page]);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const navigate = useCallback((p) => {
+  const navigate = useCallback((target) => {
+    // A tab hidden in this mode (Home in Easy Mode) lands on the first tab.
+    const p = tabTargetFor(tabsRef.current, target);
     const ti = tabIndex(tabsRef.current, p);
     if (ti !== -1) {
       setTabIdx(ti);
@@ -335,19 +336,34 @@ function AppInner({ role, onSwitchRole }) {
     setPage(tabsRef.current[tabIdx]);
   }
 
-  // ── Quick Start finish (shared by first-run and replay) ─────────────────────
+  // ── Quick Start (shared by first-run, a mode's first tour, and replay) ──────
+  // Drivers get one tour per mode: switching Easy Mode on or off (which
+  // reloads the app) plays that mode's tour once. Replays: How it Works.
+  const tourMode = easyMode ? 'easy' : 'full';
+  const [modeTourPending, setModeTourPending] = useState(() => pendingModeTour(role, tourMode));
   const isFirstRunQuickStart = shouldShowOnboarding;
   function finishQuickStart(skipped) {
+    if (role !== 'store_owner') markTourSeen(tourMode);
     if (isFirstRunQuickStart) {
       skipped ? skipOnboarding() : markOnboardingComplete();
-      // Pulse the Home tab afterward to point the driver at their dashboard.
-      if (!skipped && role !== 'store_owner') { setHomePulse(true); setHomePulseState(true); }
+      // Pulse the Home tab afterward to point the driver at their dashboard
+      // (Easy Mode has no Home tab).
+      if (!skipped && role !== 'store_owner' && tourMode === 'full') { setHomePulse(true); setHomePulseState(true); }
       navigate(role === 'store_owner' ? 'so-orders' : 'route');
-    } else {
-      setShowQuickStart(false);
+    } else if (modeTourPending) {
+      navigate('route');
     }
+    setModeTourPending(false);
+    setShowQuickStart(false);
   }
-  const quickStartVisible = shouldShowOnboarding || showQuickStart;
+  const quickStartVisible = shouldShowOnboarding || showQuickStart || modeTourPending;
+
+  // How it Works / Replay tutorial: go where the tour's first step is, then play it.
+  function startTour() {
+    const startPage = tourStartPage(role, tourMode);
+    if (startPage) navigate(startPage);
+    setShowQuickStart(true);
+  }
 
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
   //
@@ -482,7 +498,7 @@ function AppInner({ role, onSwitchRole }) {
   // The four tab pages for this role, in tab order. Hoisted out of the JSX
   // because both layouts need them: phone/tablet lay all four side by side in
   // the swipe strip, desktop renders only the active one.
-  const tabEls = role === 'store_owner' ? [
+  const allTabEls = role === 'store_owner' ? [
     <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
     <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
     <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
@@ -493,6 +509,8 @@ function AppInner({ role, onSwitchRole }) {
     <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
     <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ];
+  // Only the tabs this mode shows (Easy Mode hides Home); keys are the tab ids.
+  const tabEls = allTabEls.filter(el => TABS.includes(el.key));
 
   // Desktop insets every content surface past the docked rail; phone/tablet
   // start at the left edge as before.
@@ -524,7 +542,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={() => setShowQuickStart(true)}
+        onTutorial={startTour}
         role={role}
         onSwitchRole={onSwitchRole}
         docked={desktop}
@@ -645,8 +663,9 @@ function AppInner({ role, onSwitchRole }) {
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
           )}
-          {overlayPage === 'invoice' && (
-            <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
+          {overlayPage === 'invoice' && (easyMode
+            ? <EasyInvoice onGenerated={handleInvoiceGenerated} onBack={goBackFromOverlay} />
+            : <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
           )}
           {overlayPage === 'so-request' && (
             <NewRequest onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={goBackFromOverlay} />
@@ -661,7 +680,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); startTour(); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -684,6 +703,7 @@ function AppInner({ role, onSwitchRole }) {
         <Suspense fallback={null}>
           <QuickStart
             role={role}
+            mode={tourMode}
             onNav={navigate}
             onComplete={() => finishQuickStart(false)}
             onSkip={() => finishQuickStart(true)}

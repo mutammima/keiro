@@ -42,6 +42,8 @@ export const STORAGE_KEYS = {
   PIN:              'inv_pin',
   ONBOARDING_DONE:  'inv_onboarding_complete',
   TUTORIAL_SEEN:    'inv_tutorial_seen',
+  TOUR_SEEN_FULL:   'inv_tour_seen_full',   // driver saw the full-mode tour
+  TOUR_SEEN_EASY:   'inv_tour_seen_easy',   // driver saw the Easy Mode tour
   MIGRATED:         'inv_migrated',
   MIGRATED_AT:      'inv_migrated_at',
   // Connections / cross-account
@@ -117,6 +119,9 @@ export const EVENTS = {
 
 /** Shown when an invoice reached neither the cloud nor this phone. */
 export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
+
+/** Shown in the product field while a scanned barcode is being named remotely. */
+export const LOOKING_UP_TEXT = 'Looking up…';
 
 /** A scan no source could name. addItem() saves the typed name under that barcode. */
 export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";

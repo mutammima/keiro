@@ -17,6 +17,7 @@ import { getInvoices } from '../utils/storage';
 import { isGuest } from '../utils/guestMode';
 import { GuestBanner } from '../components/auth/GuestUpsell';
 import AppFooter from '../components/navigation/AppFooter';
+import { revenueByStore } from '../utils/invoiceUtils';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -112,14 +113,9 @@ export default function Reports({ onOpenDrawer, onNav, embedded }) {
   const invoiceCount = filtered.length;
 
   // ── Top stores ─────────────────────────────────────────────────────────────
-  const storeMap = {};
-  filtered.forEach(inv => {
-    const name = inv.storeName || inv.store_name || 'Unknown';
-    storeMap[name] = (storeMap[name] || 0) + invTotal(inv);
-  });
-  const topStores = Object.entries(storeMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  // Invoices with no store (Easy Mode) still count in the totals above, but
+  // aren't a store to rank.
+  const topStores = revenueByStore(filtered, invTotal).slice(0, 5);
   const maxStoreVal = topStores[0]?.[1] || 1;
 
   // ── Top products ───────────────────────────────────────────────────────────

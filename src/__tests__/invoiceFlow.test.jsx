@@ -49,11 +49,11 @@ vi.mock('../utils/connectionOrderStorage', () => ({
 }));
 vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 
-import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode } from '../utils/storage';
+import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode, getInvoices, getStoreDetails, saveStoreDetails } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT } from '../utils/constants';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -313,5 +313,189 @@ describe('useInvoiceForm — scanning', () => {
     expect(result.current.productName).toBe('Coke can 12oz');
     expect(result.current.price).toBe('1.25');
     expect(lookupBarcode).not.toHaveBeenCalled();
+  });
+});
+
+describe('useInvoiceForm — Easy invoice', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    canSaveGuestEntry.mockReturnValue(true);
+    getNextInvoiceNumber.mockResolvedValue(1001);
+  });
+
+  /** Adds one typed line (no store), leaving the hook ready to generate. */
+  function addLine(result, { name = 'Mobil 1 5W-30 5qt', qty = '1', price = '24.99' } = {}) {
+    act(() => { result.current.setProductName(name); });
+    act(() => { result.current.setQty(qty); });
+    act(() => { result.current.setPrice(price); });
+    let added;
+    act(() => { added = result.current.addItem(); });
+    return added;
+  }
+
+  it('makes an invoice with no store, and saves no store name', async () => {
+    const onGenerated = vi.fn();
+    const { result } = renderHook(() => useInvoiceForm(onGenerated, { easy: true }));
+    expect(addLine(result)).toBe(true);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(saveInvoice.mock.calls[0][0].storeName).toBe('');
+    expect(saveStoreName).not.toHaveBeenCalled();
+    expect(onGenerated).toHaveBeenCalledTimes(1);
+  });
+
+  it('a barcode already on the list reopens that line with +1, and Add updates it', async () => {
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil 1 5W-30 5qt', lastPrice: 24.99 });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.price).toBe('24.99');
+    act(() => { result.current.addItem(); });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0]).toMatchObject({ qty: 1, barcode: '071924145009' });
+
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(getProductByBarcode).toHaveBeenCalledTimes(1); // the rescan didn't look it up again
+    expect(result.current.qty).toBe('2');
+    expect(result.current.replaceLineId).toBe(result.current.items[0].id);
+
+    act(() => { result.current.addItem(); });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].qty).toBe(2);
+    expect(result.current.replaceLineId).toBeNull();
+  });
+
+  it('a new scan after tapping a line adds a new line instead of replacing it', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    addLine(result);
+    act(() => { result.current.loadItemIntoForm(result.current.items[0]); });
+    expect(result.current.replaceLineId).not.toBeNull();
+
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Coke can 12oz', lastPrice: 1.25 });
+    await act(async () => { await result.current.handleScan('049000006346', 'UPC_A'); });
+    expect(result.current.replaceLineId).toBeNull();
+    act(() => { result.current.addItem(); });
+    expect(result.current.items.map(i => i.name)).toEqual(['Mobil 1 5W-30 5qt', 'Coke can 12oz']);
+  });
+
+  it('tapping a line and changing its price updates that line', () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    addLine(result);
+    act(() => { result.current.loadItemIntoForm(result.current.items[0]); });
+    expect(result.current.qty).toBe('1');
+    act(() => { result.current.setPrice('20'); });
+    act(() => { result.current.addItem(); });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].price).toBe(20);
+  });
+
+  it('clearAddForm empties the fields and forgets the line being edited', () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    addLine(result);
+    act(() => { result.current.loadItemIntoForm(result.current.items[0]); });
+    act(() => { result.current.clearAddForm(); });
+    expect(result.current.productName).toBe('');
+    expect(result.current.qty).toBe('1');
+    expect(result.current.price).toBe('');
+    expect(result.current.replaceLineId).toBeNull();
+  });
+
+  it('Add while the name is still being looked up does nothing', async () => {
+    let finishLookup;
+    lookupBarcode.mockReturnValueOnce(new Promise(resolve => { finishLookup = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+
+    let pending;
+    act(() => { pending = result.current.handleScan('0071181000240'); });
+    await waitFor(() => expect(result.current.productName).toBe(LOOKING_UP_TEXT));
+    act(() => { result.current.setPrice('5'); });
+
+    let added;
+    act(() => { added = result.current.addItem(); });
+    expect(added).toBe(false);
+    expect(result.current.items).toHaveLength(0);
+    expect(saveProductBarcode).not.toHaveBeenCalled();
+
+    await act(async () => { finishLookup({ name: null, status: 'not-found' }); await pending; });
+  });
+
+  it('recentStores lists the 3 most recently invoiced stores, newest first, no repeats or blanks', async () => {
+    getInvoices.mockResolvedValueOnce([
+      { storeName: 'Old Mart',     createdAt: '2026-10-01T10:00:00Z' },
+      { storeName: 'Sunrise Deli', createdAt: '2026-10-13T10:00:00Z' },
+      { storeName: '',             createdAt: '2026-10-14T09:00:00Z' },
+      { storeName: 'Corner Mart',  createdAt: '2026-10-12T10:00:00Z' },
+      { storeName: 'sunrise deli', createdAt: '2026-10-11T10:00:00Z' },
+      { storeName: 'Bodega 1',     createdAt: '2026-10-10T10:00:00Z' },
+    ]);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await waitFor(() => expect(result.current.recentStores).toEqual(['Sunrise Deli', 'Corner Mart', 'Bodega 1']));
+  });
+
+  it('editing a normal-mode invoice in Easy Mode keeps the fields Easy Mode doesn’t show', async () => {
+    localStorage.setItem('inv_prefill', JSON.stringify({
+      storeName: 'Corner Store', storePhone: '718-555-0123', storeAddress: '1 Main St',
+      customerName: 'Sam', notes: 'Back door', paymentMethod: 'card',
+      editNumber: 1042, paymentStatus: 'paid', createdAt: '2026-10-01T00:00:00.000Z',
+      items: [{ id: 'a', name: 'Widget', qty: 3, price: 5 }],
+    }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await waitFor(() => expect(result.current.editNumber).toBe(1042));
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice.mock.calls.at(-1)[0]).toMatchObject({
+      number: 1042, storeName: 'Corner Store', storePhone: '718-555-0123', storeAddress: '1 Main St',
+      customerName: 'Sam', notes: 'Back door', paymentMethod: 'card', paymentStatus: 'paid',
+    });
+  });
+
+  it('a cancelled scan’s late lookup does not land on the next item', async () => {
+    let finishA;
+    lookupBarcode.mockReturnValueOnce(new Promise(resolve => { finishA = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+
+    let pendingA;
+    act(() => { pendingA = result.current.handleScan('0071181000240'); });          // A: not in his catalog
+    await waitFor(() => expect(result.current.productName).toBe(LOOKING_UP_TEXT));
+    act(() => { result.current.clearAddForm(); });                                   // Cancel
+
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil 1 5W-30 5qt', lastPrice: 24.99 });
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); }); // B
+    await act(async () => { finishA({ name: 'Some Other Thing', status: 'found' }); await pendingA; });
+
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.price).toBe('24.99');
+    act(() => { result.current.addItem(); });
+    expect(saveProductBarcode).toHaveBeenCalledWith('071924145009', 'Mobil 1 5W-30 5qt', 24.99);
+  });
+
+  it('changing the store clears the previous store’s phone, address and contact', async () => {
+    getStoreDetails
+      .mockResolvedValueOnce({ phone: '718-555-0001', address: '1 Sunrise Ave' })  // Sunrise Deli
+      .mockResolvedValueOnce({ phone: '', address: '' });                          // Corner Mart
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    act(() => { result.current.handleStoreNameChange('Sunrise Deli'); });
+    await waitFor(() => expect(result.current.storePhone).toBe('718-555-0001'), { timeout: 3000 });
+    act(() => { result.current.setCustomerName('Sam'); });
+
+    act(() => { result.current.handleStoreNameChange('Corner Mart'); });
+    addLine(result);
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice.mock.calls.at(-1)[0]).toMatchObject({ storeName: 'Corner Mart', storePhone: '', storeAddress: '', customerName: '' });
+    expect(saveStoreDetails).not.toHaveBeenCalled();
+  });
+
+  it('normal mode still requires a store name', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addLine(result);
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(result.current.error).toBe('Enter a store name.');
+    expect(saveInvoice).not.toHaveBeenCalled();
   });
 });

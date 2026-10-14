@@ -13,6 +13,7 @@ import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } 
 import { getTotalPaid } from '../../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
+import { isEasyMode } from '../../utils/easyMode';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -355,7 +356,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             onClick={handleShare}
             disabled={!!busy}
           >
-            {busy === 'share' ? '…' : 'Share'}
+            {busy === 'share' ? '…' : (isEasyMode() ? 'Print / Share' : 'Share')}
           </button>
           <button
             style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.cardBorder }}
