@@ -49,10 +49,10 @@ vi.mock('../utils/connectionOrderStorage', () => ({
 }));
 vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 
-import { saveInvoice, saveStoreName, getNextInvoiceNumber } from '../utils/storage';
+import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode } from '../utils/storage';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { STORAGE_FULL_MESSAGE } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE } from '../utils/constants';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -212,5 +212,31 @@ describe('useInvoiceForm — create → generate', () => {
     expect(saved.number).toBe(1042);
     expect(saved.paymentStatus).toBe('paid'); // preserved from the edited invoice, not reset to 'unpaid'
     expect(completeActiveConnectionOrder).not.toHaveBeenCalled(); // edits never complete a connection order
+  });
+});
+
+describe('useInvoiceForm — scanning', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('on an unknown barcode, says to type the name once and that Keiro will remember it', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('0071181000240'); });
+
+    expect(result.current.productName).toBe('');
+    expect(result.current.error).toBe(UNKNOWN_BARCODE_MESSAGE);
+    expect(UNKNOWN_BARCODE_MESSAGE).toMatch(/remember/i);
+  });
+
+  it('saves the typed name under the scanned barcode, so the next scan finds it', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('0071181000240'); });
+
+    addOneItem(result, { name: 'Motor Oil 5W-30 5qt', qty: '2', price: '24.99' });
+
+    expect(saveProductBarcode).toHaveBeenCalledWith('0071181000240', 'Motor Oil 5W-30 5qt', 24.99);
   });
 });
