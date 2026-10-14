@@ -310,6 +310,7 @@ src/
 | `src/utils/pdfGenerator.js` | jsPDF invoice generation; `sharePDFBlob()` hands the result to the native share sheet on iOS (blob: URLs don't work in the wrapper) or the browser/Web Share API on web |
 | `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
 | `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
+| `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
 | `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update (web/installed-PWA only — skipped inside the native wrapper) |
 | `public/version.json` | Written at build time with git hash for update detection |
 | `vite.config.js` | Auto-versioning: writes version.json + injects __APP_VERSION__ |

@@ -28,7 +28,8 @@ export default function BarcodeScanner({ onScan, onClose }) {
         { facingMode: 'environment' },
         { fps: 12, qrbox: { width: 240, height: 140 },
           formatsToSupport: [9, 10, 14, 15, 5, 4, 3, 8] }, // EAN-13, EAN-8, UPC-A, UPC-E, CODE-128, CODE-93, CODE-39, ITF
-        (text) => { stopAndClose(); onScan(text); },
+        // The format tells an 8-digit UPC-E (expanded before lookup) from an EAN-8.
+        (text, result) => { stopAndClose(); onScan(text, result?.result?.format?.formatName); },
         () => {}
       )
       .then(() => setStatus('ready'))

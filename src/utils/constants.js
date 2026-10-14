@@ -121,6 +121,12 @@ export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro i
 /** A scan no source could name. addItem() saves the typed name under that barcode. */
 export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";
 
+/** A lookup that couldn't run (offline, service down, out of quota) — the product may well exist. */
+export const LOOKUP_UNAVAILABLE_MESSAGE = "Couldn't check right now (no signal, or the lookup service is busy). Type the name, or tap Try again.";
+
+/** GS1 restricted-circulation codes (barcodeFormat.isStoreMadeBarcode) — no database can name them. */
+export const STORE_MADE_BARCODE_MESSAGE = "This is a store-made barcode, so no database will have it. Type the name once and Keiro will remember it.";
+
 /** Gmail-sent sign-in mail lands in Spam more often than domain mail. */
 export const SPAM_HINT = "Can't find it? Check your Spam folder.";
 
