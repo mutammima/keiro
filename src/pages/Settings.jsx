@@ -24,6 +24,7 @@ import { getErrorLog, clearErrorLog } from '../utils/errorLog';
 import { crashReportsEnabled, setCrashReportsEnabled, sendTestReport } from '../utils/crashReporter';
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
+import EasyModeSetting from '../components/settings/EasyModeSetting';
 import { supabase } from '../services/supabase';
 import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import AppFooter from '../components/navigation/AppFooter';
@@ -199,24 +200,8 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
 
       <div style={s.body}>
 
-        {/* ── 0. Easy Mode ───────────────────────────────────────────────── */}
-        <Section title="Easy Mode" C={C} defaultOpen>
-          <div style={{ paddingTop: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 3 }}>Simplified view</div>
-                <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.45 }}>
-                  Shows only New Invoice, Invoices, and Products. Hides Reports, Notes, Store Info, and other advanced features.
-                </div>
-              </div>
-              <Toggle
-                on={lsGet(STORAGE_KEYS.EASY_MODE, false)}
-                onChange={v => { lsSet(STORAGE_KEYS.EASY_MODE, v); window.location.reload(); }}
-                C={C} dark={dark}
-              />
-            </div>
-          </div>
-        </Section>
+        {/* ── 0. Easy Mode (drivers only) ────────────────────────────────── */}
+        <EasyModeSetting role={currentRole} C={C} dark={dark} />
 
         {/* ── Help & Tutorial ────────────────────────────────────────────── */}
         <Section title="Help & Tutorial" C={C} defaultOpen={false}>
