@@ -21,7 +21,7 @@ const Settings     = lazy(() => import('./pages/Settings'));
 // One-time onboarding tour — lazy so it doesn't weigh on first paint.
 const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
 import useOnboarding from './hooks/useOnboarding';
-import { isHomePulse, setHomePulse } from './utils/tutorialProgress';
+import { isHomePulse, setHomePulse, markTourSeen, pendingModeTour } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
@@ -336,19 +336,27 @@ function AppInner({ role, onSwitchRole }) {
     setPage(tabsRef.current[tabIdx]);
   }
 
-  // ── Quick Start finish (shared by first-run and replay) ─────────────────────
+  // ── Quick Start (shared by first-run, a mode's first tour, and replay) ──────
+  // Drivers get one tour per mode: switching Easy Mode on or off (which
+  // reloads the app) plays that mode's tour once. Replays: How it Works.
+  const tourMode = easyMode ? 'easy' : 'full';
+  const [modeTourPending, setModeTourPending] = useState(() => pendingModeTour(role, tourMode));
   const isFirstRunQuickStart = shouldShowOnboarding;
   function finishQuickStart(skipped) {
+    if (role !== 'store_owner') markTourSeen(tourMode);
     if (isFirstRunQuickStart) {
       skipped ? skipOnboarding() : markOnboardingComplete();
-      // Pulse the Home tab afterward to point the driver at their dashboard.
-      if (!skipped && role !== 'store_owner') { setHomePulse(true); setHomePulseState(true); }
+      // Pulse the Home tab afterward to point the driver at their dashboard
+      // (Easy Mode has no Home tab).
+      if (!skipped && role !== 'store_owner' && tourMode === 'full') { setHomePulse(true); setHomePulseState(true); }
       navigate(role === 'store_owner' ? 'so-orders' : 'route');
-    } else {
-      setShowQuickStart(false);
+    } else if (modeTourPending) {
+      navigate('route');
     }
+    setModeTourPending(false);
+    setShowQuickStart(false);
   }
-  const quickStartVisible = shouldShowOnboarding || showQuickStart;
+  const quickStartVisible = shouldShowOnboarding || showQuickStart || modeTourPending;
 
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
   //
@@ -688,6 +696,7 @@ function AppInner({ role, onSwitchRole }) {
         <Suspense fallback={null}>
           <QuickStart
             role={role}
+            mode={tourMode}
             onNav={navigate}
             onComplete={() => finishQuickStart(false)}
             onSkip={() => finishQuickStart(true)}

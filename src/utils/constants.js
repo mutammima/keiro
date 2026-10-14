@@ -42,6 +42,8 @@ export const STORAGE_KEYS = {
   PIN:              'inv_pin',
   ONBOARDING_DONE:  'inv_onboarding_complete',
   TUTORIAL_SEEN:    'inv_tutorial_seen',
+  TOUR_SEEN_FULL:   'inv_tour_seen_full',   // driver saw the full-mode tour
+  TOUR_SEEN_EASY:   'inv_tour_seen_easy',   // driver saw the Easy Mode tour
   MIGRATED:         'inv_migrated',
   MIGRATED_AT:      'inv_migrated_at',
   // Connections / cross-account
