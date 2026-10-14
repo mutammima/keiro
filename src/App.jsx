@@ -9,6 +9,7 @@ import AuthGate from './components/auth/AuthGate';
 // (they slide up on navigate), so splitting them out of the entry chunk shrinks
 // first paint. The always-mounted tab pages stay statically imported below.
 const NewInvoice   = lazy(() => import('./components/invoice/NewInvoice'));
+const EasyInvoice  = lazy(() => import('./components/invoice/EasyInvoice'));
 const InvoiceView  = lazy(() => import('./components/invoice/InvoiceView'));
 const Products     = lazy(() => import('./pages/Products'));
 const StoreBalance = lazy(() => import('./pages/StoreBalance'));
@@ -647,8 +648,9 @@ function AppInner({ role, onSwitchRole }) {
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
           )}
-          {overlayPage === 'invoice' && (
-            <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
+          {overlayPage === 'invoice' && (easyMode
+            ? <EasyInvoice onGenerated={handleInvoiceGenerated} onBack={goBackFromOverlay} />
+            : <NewInvoice onOpenDrawer={() => setDrawerOpen(true)} onGenerated={handleInvoiceGenerated} onNav={navigate} onBack={goBackFromOverlay} />
           )}
           {overlayPage === 'so-request' && (
             <NewRequest onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={goBackFromOverlay} />
