@@ -54,6 +54,8 @@ Every account picks a role on first launch (stored in `inv_user_role`). The top 
 | `stores` | Store map, contact list |
 | `reports` | Today / Week / Month / Year analytics |
 
+**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the ☰ menu.
+
 **Store Owner** — `inv_user_role = 'store_owner'`
 
 | Tab key | What it is |
@@ -311,6 +313,8 @@ src/
 | `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
 | `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
 | `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
+| `src/utils/easyMode.js` | The one reader for Easy Mode (`isEasyMode`, `easyModeFor(role)`, drivers only). Feeds `tabs.js`, the ☰ menu, the invoice screen, the PDF template and the tour |
+| `src/components/invoice/EasyInvoice.jsx` | Easy Mode's invoice: optional store with type-to-search + recent stores, Scan item → `ScanCheckCard` (name/qty/price) → Add → camera reopens; built on `useInvoiceForm(…, { easy: true })`. Spec: `docs/specs/2026-10-14-easy-mode-design.md` |
 | `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update (web/installed-PWA only — skipped inside the native wrapper) |
 | `public/version.json` | Written at build time with git hash for update detection |
 | `vite.config.js` | Auto-versioning: writes version.json + injects __APP_VERSION__ |
@@ -373,6 +377,13 @@ the opposite of "taught in one go."
 - First-run gated by `useOnboarding` (`inv_onboarding_complete`); replayable from the drawer ("How
   it Works") and Settings → Help ("Replay tutorial") — both relaunch the exact same tour. On finish
   (driver only) a pulse dot appears on the Home tab.
+- **One driver tour per mode.** `QuickStart` takes `mode` (`'full'` | `'easy'`). Easy Mode's 7 steps
+  teach the scan-first invoice (targets `data-qs="easy-store|easy-scan|easy-make"` on
+  `EasyInvoice.jsx`). Switching Easy Mode (which reloads) plays that mode's tour once:
+  `inv_tour_seen_full` / `inv_tour_seen_easy` via `tutorialProgress.isTourSeen/markTourSeen`.
+  Finishing the original one-time tour counts as having seen the full tour. Replays: How it Works.
+  Store owners are unaffected. The full tour's descriptions live in `DRIVER_STEP_TEXT`;
+  `tourModes.test.jsx` pins them to the app's real button names.
 - **Nothing else teaches the user anything after this** — no scattered tips, no checklist, no demo.
 
 Shared primitives: `useElementRect.js` (polls the target's live rect via `setTimeout`, not
