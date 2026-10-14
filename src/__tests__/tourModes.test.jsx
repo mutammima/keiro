@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import QuickStart from '../components/tutorial/QuickStart.jsx';
-import { isTourSeen, markTourSeen, pendingModeTour } from '../utils/tutorialProgress';
+import { isTourSeen, markTourSeen, pendingModeTour, tourStartPage } from '../utils/tutorialProgress';
 import { STORAGE_KEYS } from '../utils/constants';
 
 function FakeAppChrome() {
@@ -123,5 +123,13 @@ describe('full tour copy matches the app', () => {
     expect(screen.getByText('Every store you invoice appears here with what it owes. Tap one for its full balance. With an account, Invite links a store so its orders reach you directly.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Stores' }));
     expect(screen.getByText('Home shows today and the last 7 days; Reports breaks revenue down by Today, Week, Month or Year. End of Day, at the top of Reports, shows the cash and card you collected.')).toBeInTheDocument();
+  });
+});
+
+describe('replaying a tour', () => {
+  it('the Easy tour starts on Route (its first step is + New there); others start where they are', () => {
+    expect(tourStartPage('driver', 'easy')).toBe('route');
+    expect(tourStartPage('driver', 'full')).toBeNull();
+    expect(tourStartPage('store_owner', 'easy')).toBeNull();
   });
 });

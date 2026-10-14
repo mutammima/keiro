@@ -162,6 +162,10 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   // Easy invoice: the id of the line the add-item fields are editing (a tapped
   // or rescanned line). null = the next addItem() appends a new line.
   const [replaceLineId, setReplaceLineId] = useState(null);
+  // Bumped by every scan and every reset of the add-item fields, so a lookup
+  // that finishes after the driver moved on (Cancel, the next scan, Add) is
+  // ignored instead of landing on another item's fields.
+  const scanSeqRef = useRef(0);
   const [editingItem, setEditingItem] = useState(null);
 
   // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation).
@@ -260,6 +264,10 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   function handleStoreNameChange(val) {
     latestStoreNameRef.current = val;
     setStoreName(val); // immediate — controlled input, no lag
+    // Easy Mode hides phone, address and contact, so a previous store's values
+    // would silently print (and be saved) under this one. Clear them; the
+    // lookup below refills this store's own phone and address.
+    if (easy) { setStorePhone(''); setStoreAddress(''); setCustomerName(''); }
     clearTimeout(storeLookupTimer.current);
     if (!val?.trim()) return;
     // Debounced cloud lookup (one combined phone+address query) after a typing
@@ -285,6 +293,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setReplaceLineId(item.id);
     setError('');
     setLookupUnavailable(false);
+    scanSeqRef.current += 1;
     // Setters are stable; listing them lets React Compiler keep the memoization.
   }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
 
@@ -292,6 +301,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   const clearAddForm = useCallback(() => {
     setProductName(''); setQty('1'); setPrice(''); setLastBarcode('');
     setReplaceLineId(null); setError(''); setLookupUnavailable(false);
+    scanSeqRef.current += 1;
   }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
 
   /**
@@ -299,12 +309,13 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
    * "no database has it", or "couldn't check" (which offers Try again).
    * @param {string} barcode - already normalized
    */
-  const lookUpRemotely = useCallback(async (barcode) => {
+  const lookUpRemotely = useCallback(async (barcode, seq) => {
     setError('');
     setLookupUnavailable(false);
     setProductName(LOOKING_UP_TEXT);
     setPrice('');
     const { name, status } = await lookupBarcode(barcode);
+    if (seq !== scanSeqRef.current) return; // the driver moved on: drop the late answer
     if (name) {
       setProductName(name);
       return;
@@ -326,6 +337,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
    * @param {string} [format] - The scanner's reported format, e.g. 'UPC_E'.
    */
   const handleScan = useCallback(async (scanned, format) => {
+    const seq = ++scanSeqRef.current;
     const barcode = normalizeScannedBarcode(scanned, format);
     // Easy invoice: a barcode already on the list reopens that line, +1.
     if (easy) {
@@ -336,11 +348,14 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setReplaceLineId(null);
     setError('');
     setLookupUnavailable(false);
+    setProductName('');
+    setPrice('');
 
     // 1. The driver's own catalog. Products saved before UPC-E codes were
     //    expanded are under the short code, so try that too.
     let cached = await getProductByBarcode(barcode);
     if (!cached && barcode !== scanned) cached = await getProductByBarcode(scanned);
+    if (seq !== scanSeqRef.current) return; // a newer scan or Cancel came first
     if (cached) {
       setProductName(cached.name);
       setPrice(String(cached.lastPrice));
@@ -356,7 +371,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     }
 
     // 3. Remote barcode sources.
-    await lookUpRemotely(barcode);
+    await lookUpRemotely(barcode, seq);
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler
     // preserve the memoization instead of bailing out.
@@ -364,7 +379,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
 
   /** Try again after a lookup that couldn't run, for the barcode still shown. */
   const retryLookup = useCallback(async () => {
-    if (lastBarcode) await lookUpRemotely(lastBarcode);
+    if (lastBarcode) await lookUpRemotely(lastBarcode, ++scanSeqRef.current);
   }, [lastBarcode, lookUpRemotely]);
 
   /**
@@ -398,6 +413,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
       setItems(prev => [...prev, { id: uid(), ...line }]);
     }
     setProductName(''); setQty('1'); setPrice(''); setLastBarcode(''); setLookupUnavailable(false); setReplaceLineId(null);
+    scanSeqRef.current += 1;
     return true;
   }
 

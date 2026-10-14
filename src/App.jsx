@@ -21,7 +21,7 @@ const Settings     = lazy(() => import('./pages/Settings'));
 // One-time onboarding tour — lazy so it doesn't weigh on first paint.
 const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
 import useOnboarding from './hooks/useOnboarding';
-import { isHomePulse, setHomePulse, markTourSeen, pendingModeTour } from './utils/tutorialProgress';
+import { isHomePulse, setHomePulse, markTourSeen, pendingModeTour, tourStartPage } from './utils/tutorialProgress';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
@@ -358,6 +358,13 @@ function AppInner({ role, onSwitchRole }) {
   }
   const quickStartVisible = shouldShowOnboarding || showQuickStart || modeTourPending;
 
+  // How it Works / Replay tutorial: go where the tour's first step is, then play it.
+  function startTour() {
+    const startPage = tourStartPage(role, tourMode);
+    if (startPage) navigate(startPage);
+    setShowQuickStart(true);
+  }
+
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
   //
   // React's synthetic onTouchMove is passive (e.preventDefault() silently
@@ -535,7 +542,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={() => setShowQuickStart(true)}
+        onTutorial={startTour}
         role={role}
         onSwitchRole={onSwitchRole}
         docked={desktop}
@@ -673,7 +680,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); setShowQuickStart(true); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); startTour(); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}

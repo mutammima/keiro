@@ -60,3 +60,31 @@ describe('file name', () => {
     expect((await generatePDFBlob({ ...base, storeName: 'Sunrise Deli' })).filename).toBe('Invoice_1042_Sunrise_Deli.pdf');
   });
 });
+
+describe('long deliveries', () => {
+  /** The y (from the top) and page where `text` was drawn, read from jsPDF's page streams. */
+  function placeOf(doc, text) {
+    const pageH = doc.internal.pageSize.getHeight();
+    for (let p = 1; p <= doc.getNumberOfPages(); p++) {
+      // Each text draw is one entry: "BT … <x> <y> Td (<text>) Tj ET", y from the bottom.
+      const op = doc.internal.pages[p].find(l => l.includes(`(${text}) Tj`));
+      const m = op && /(-?[\d.]+) (-?[\d.]+) Td/.exec(op);
+      if (m) return { page: p, y: pageH - parseFloat(m[2]) };
+    }
+    return null;
+  }
+
+  it('the template never prints Paid by, Notes or the signatures off the bottom of a page', async () => {
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    for (const count of [10, 12, 14, 16, 18]) {
+      const items = Array.from({ length: count }, (_, i) => ({ id: String(i), name: `Item ${i + 1}`, qty: 1, price: 1 }));
+      const { doc } = await generatePDFBlob({ ...base, storeName: '', notes: '', items });
+      const bottom = doc.internal.pageSize.getHeight() - 60; // above the footer rule
+      for (const text of ['Paid by:', 'Notes:', 'Buyer / Recipient Signature']) {
+        const at = placeOf(doc, text);
+        expect(at, `${text} with ${count} items`).not.toBeNull();
+        expect(at.y, `${text} with ${count} items`).toBeLessThan(bottom - (text.startsWith('Buyer') ? 70 : 0));
+      }
+    }
+  });
+});

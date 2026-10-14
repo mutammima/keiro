@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { storeNameOf, groupInvoicesByStore, revenueByStore, unassignedStoreNote, subtotalOf } from '../utils/invoiceUtils';
+import { storeNameOf, storeLabelOf, groupInvoicesByStore, revenueByStore, unassignedStoreNote, subtotalOf } from '../utils/invoiceUtils';
 
 const inv = (storeName, total, status = 'unpaid', date = 'October 10, 2026') =>
   ({ storeName, date, paymentStatus: status, items: [{ name: 'x', qty: 1, price: total }] });
@@ -53,5 +53,13 @@ describe('unassignedStoreNote', () => {
   it('reads naturally for one or many', () => {
     expect(unassignedStoreNote(1)).toBe('1 invoice has no store. Open it and tap ⋯ → Edit to add it.');
     expect(unassignedStoreNote(3)).toBe('3 invoices have no store. Open one and tap ⋯ → Edit to add it.');
+  });
+});
+
+describe('storeLabelOf', () => {
+  it('names the store, or says there is none instead of a blank title', () => {
+    expect(storeLabelOf({ storeName: 'Sunrise Deli' })).toBe('Sunrise Deli');
+    expect(storeLabelOf({ storeName: '' })).toBe('No store');
+    expect(storeLabelOf({ store_name: '  ' })).toBe('No store');
   });
 });

@@ -242,7 +242,18 @@ async function buildPDF(invoice) {
     0
   );
 
-  const finalY = doc.lastAutoTable.finalY + 16;
+  let finalY = doc.lastAutoTable.finalY + 16;
+  // The template's totals, Paid-by, Notes and signature lines take ~210pt
+  // below the table. On a long delivery, start them on a fresh page instead
+  // of printing past the footer.
+  if (template) {
+    const noteLines = notes && notes.trim() ? doc.splitTextToSize(notes.trim(), pageW - margin * 2 - 48).length : 1;
+    const tailHeight = 212 + (noteLines - 1) * 13;
+    if (finalY + tailHeight > pageH - 60) {
+      doc.addPage();
+      finalY = margin;
+    }
+  }
   const labelX = pageW - margin - 110;
   const valueX = pageW - margin;
   const rowH = 18;

@@ -152,6 +152,11 @@ export function storeNameOf(inv) {
   return String(inv?.storeName || inv?.store_name || '').trim();
 }
 
+/** An invoice's title in lists: its store, or "No store" rather than a blank. */
+export function storeLabelOf(inv) {
+  return storeNameOf(inv) || 'No store';
+}
+
 /** The later of two invoice dates (as stored, e.g. "October 9, 2026"). */
 function laterDate(a, b) {
   const ta = Date.parse(a || '') || 0;

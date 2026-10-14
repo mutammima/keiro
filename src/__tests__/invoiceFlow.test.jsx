@@ -49,7 +49,7 @@ vi.mock('../utils/connectionOrderStorage', () => ({
 }));
 vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 
-import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode, getInvoices } from '../utils/storage';
+import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode, getInvoices, getStoreDetails, saveStoreDetails } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
@@ -452,6 +452,43 @@ describe('useInvoiceForm — Easy invoice', () => {
       number: 1042, storeName: 'Corner Store', storePhone: '718-555-0123', storeAddress: '1 Main St',
       customerName: 'Sam', notes: 'Back door', paymentMethod: 'card', paymentStatus: 'paid',
     });
+  });
+
+  it('a cancelled scan’s late lookup does not land on the next item', async () => {
+    let finishA;
+    lookupBarcode.mockReturnValueOnce(new Promise(resolve => { finishA = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+
+    let pendingA;
+    act(() => { pendingA = result.current.handleScan('0071181000240'); });          // A: not in his catalog
+    await waitFor(() => expect(result.current.productName).toBe(LOOKING_UP_TEXT));
+    act(() => { result.current.clearAddForm(); });                                   // Cancel
+
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil 1 5W-30 5qt', lastPrice: 24.99 });
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); }); // B
+    await act(async () => { finishA({ name: 'Some Other Thing', status: 'found' }); await pendingA; });
+
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.price).toBe('24.99');
+    act(() => { result.current.addItem(); });
+    expect(saveProductBarcode).toHaveBeenCalledWith('071924145009', 'Mobil 1 5W-30 5qt', 24.99);
+  });
+
+  it('changing the store clears the previous store’s phone, address and contact', async () => {
+    getStoreDetails
+      .mockResolvedValueOnce({ phone: '718-555-0001', address: '1 Sunrise Ave' })  // Sunrise Deli
+      .mockResolvedValueOnce({ phone: '', address: '' });                          // Corner Mart
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    act(() => { result.current.handleStoreNameChange('Sunrise Deli'); });
+    await waitFor(() => expect(result.current.storePhone).toBe('718-555-0001'), { timeout: 3000 });
+    act(() => { result.current.setCustomerName('Sam'); });
+
+    act(() => { result.current.handleStoreNameChange('Corner Mart'); });
+    addLine(result);
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice.mock.calls.at(-1)[0]).toMatchObject({ storeName: 'Corner Mart', storePhone: '', storeAddress: '', customerName: '' });
+    expect(saveStoreDetails).not.toHaveBeenCalled();
   });
 
   it('normal mode still requires a store name', async () => {

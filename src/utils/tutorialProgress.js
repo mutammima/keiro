@@ -53,3 +53,12 @@ export function markTourSeen(mode) { setFlag(TOUR_SEEN_KEYS[mode]); }
 export function pendingModeTour(role, mode) {
   return role !== 'store_owner' && !isTourSeen(mode);
 }
+
+/**
+ * Where a replayed tour must start. The Easy tour's first step taps + New,
+ * which only exists on Route; the full tour's first step taps the Route tab
+ * itself, so it can start anywhere.
+ */
+export function tourStartPage(role, mode) {
+  return role !== 'store_owner' && mode === 'easy' ? 'route' : null;
+}
