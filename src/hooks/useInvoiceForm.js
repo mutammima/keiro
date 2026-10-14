@@ -33,7 +33,7 @@ import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSugges
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
 import {
   STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE,
-  UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE,
+  UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT,
 } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -63,9 +63,13 @@ function uid() {
  *
  * @param {function} onGenerated - Callback called with the saved invoice object
  *   once the invoice is successfully generated.
- * @returns {object} All state values and handler functions needed by NewInvoice.jsx.
+ * @param {{ easy?: boolean }} [options] - `easy`: the Easy Mode invoice
+ *   (EasyInvoice.jsx) — no store name required, and scanning a barcode already
+ *   on the list reopens that line with +1 instead of looking it up again.
+ * @returns {object} All state values and handler functions needed by the
+ *   invoice screens.
  */
-export function useInvoiceForm(onGenerated) {
+export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   // ── Business info state ──────────────────────────────────────────────────
   // Business name/phone are synchronous localStorage reads — no async needed.
   const [businessName, setBusinessName]       = useState(() => getBusinessName());
@@ -128,6 +132,20 @@ export function useInvoiceForm(onGenerated) {
     getInvoices().then(list => setAllInvoices(list || [])).catch(() => {});
   }, []);
 
+  // The driver's 3 most recently invoiced stores, newest first — one-tap
+  // buttons on the Easy invoice. Blank and repeated (case-insensitive) names skipped.
+  const recentStores = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    [...allInvoices]
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .forEach(inv => {
+        const name = (inv.storeName || '').trim();
+        if (name && !seen.has(name.toLowerCase())) { seen.add(name.toLowerCase()); out.push(name); }
+      });
+    return out.slice(0, 3);
+  }, [allInvoices]);
+
   // ── Add-item form state ───────────────────────────────────────────────────
   // Declared before the prefill effect below so its setItems is in scope when
   // that effect restores a multi-line prefill (react-hooks/immutability).
@@ -141,6 +159,9 @@ export function useInvoiceForm(onGenerated) {
   // True after a scan whose lookup couldn't run, so the form can offer Try again.
   const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [items, setItems]             = useState([]);
+  // Easy invoice: the id of the line the add-item fields are editing (a tapped
+  // or rescanned line). null = the next addItem() appends a new line.
+  const [replaceLineId, setReplaceLineId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
 
   // Pre-fill form from a Duplicate or Bridge Request (written to inv_prefill before navigation).
@@ -253,6 +274,27 @@ export function useInvoiceForm(onGenerated) {
   }
 
   /**
+   * Puts an existing line into the add-item fields (Easy invoice: a tapped
+   * line, or a rescan with qtyDelta 1). The next addItem() updates that line.
+   */
+  const loadItemIntoForm = useCallback((item, qtyDelta = 0) => {
+    setProductName(item.name);
+    setQty(String(Number(item.qty) + qtyDelta));
+    setPrice(String(item.price));
+    setLastBarcode(item.barcode || '');
+    setReplaceLineId(item.id);
+    setError('');
+    setLookupUnavailable(false);
+    // Setters are stable; listing them lets React Compiler keep the memoization.
+  }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
+
+  /** Empties the add-item fields (Easy invoice: Cancel, Add without scanning). */
+  const clearAddForm = useCallback(() => {
+    setProductName(''); setQty('1'); setPrice(''); setLastBarcode('');
+    setReplaceLineId(null); setError(''); setLookupUnavailable(false);
+  }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
+
+  /**
    * Names a barcode from the remote sources and reports the outcome: a name,
    * "no database has it", or "couldn't check" (which offers Try again).
    * @param {string} barcode - already normalized
@@ -260,7 +302,7 @@ export function useInvoiceForm(onGenerated) {
   const lookUpRemotely = useCallback(async (barcode) => {
     setError('');
     setLookupUnavailable(false);
-    setProductName('Looking up…');
+    setProductName(LOOKING_UP_TEXT);
     setPrice('');
     const { name, status } = await lookupBarcode(barcode);
     if (name) {
@@ -285,7 +327,13 @@ export function useInvoiceForm(onGenerated) {
    */
   const handleScan = useCallback(async (scanned, format) => {
     const barcode = normalizeScannedBarcode(scanned, format);
+    // Easy invoice: a barcode already on the list reopens that line, +1.
+    if (easy) {
+      const onList = items.find(i => i.barcode && i.barcode === barcode);
+      if (onList) { loadItemIntoForm(onList, 1); return; }
+    }
     setLastBarcode(barcode);
+    setReplaceLineId(null);
     setError('');
     setLookupUnavailable(false);
 
@@ -312,7 +360,7 @@ export function useInvoiceForm(onGenerated) {
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler
     // preserve the memoization instead of bailing out.
-  }, [setLastBarcode, setProductName, setPrice, setError, lookUpRemotely]);
+  }, [easy, items, loadItemIntoForm, setLastBarcode, setProductName, setPrice, setError, lookUpRemotely]);
 
   /** Try again after a lookup that couldn't run, for the barcode still shown. */
   const retryLookup = useCallback(async () => {
@@ -320,15 +368,18 @@ export function useInvoiceForm(onGenerated) {
   }, [lastBarcode, lookUpRemotely]);
 
   /**
-   * Validates the current add-item fields and appends a new line item to the
-   * items list. Also persists the product to the cloud catalog.
+   * Validates the add-item fields and appends a line — or, when a line is
+   * loaded (replaceLineId), updates it. Also persists the product to the
+   * catalog. Returns true when a line was added or updated.
    */
   function addItem() {
     setError('');
-    if (!productName.trim()) return setError('Enter a product name.');
+    // Tapped before the scanned name came back: never save "Looking up…".
+    if (productName === LOOKING_UP_TEXT) return false;
+    if (!productName.trim()) { setError('Enter a product name.'); return false; }
     const qtyNum = Number(qty), priceNum = Number(price);
-    if (!qty || isNaN(qtyNum) || qtyNum <= 0) return setError('Enter a valid quantity.');
-    if (price === '' || isNaN(priceNum) || priceNum < 0) return setError('Enter a valid price.');
+    if (!qty || isNaN(qtyNum) || qtyNum <= 0) { setError('Enter a valid quantity.'); return false; }
+    if (price === '' || isNaN(priceNum) || priceNum < 0) { setError('Enter a valid price.'); return false; }
 
     saveProductName(productName.trim());
     const barcodeKey = lastBarcode
@@ -338,12 +389,23 @@ export function useInvoiceForm(onGenerated) {
     // Async — fire and forget; UI doesn't wait
     saveProductBarcode(barcodeKey, productName.trim(), priceNum).catch(() => {});
 
-    setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
-    setProductName(''); setQty('1'); setPrice(''); setLastBarcode(''); setLookupUnavailable(false);
+    // The barcode rides along in memory so a rescan finds the line; db.js maps
+    // item fields explicitly, so it is never sent to invoice_items.
+    const line = { name: productName.trim(), qty: qtyNum, price: priceNum, ...(lastBarcode ? { barcode: lastBarcode } : {}) };
+    if (replaceLineId) {
+      setItems(prev => prev.map(i => (i.id === replaceLineId ? { ...i, ...line } : i)));
+    } else {
+      setItems(prev => [...prev, { id: uid(), ...line }]);
+    }
+    setProductName(''); setQty('1'); setPrice(''); setLastBarcode(''); setLookupUnavailable(false); setReplaceLineId(null);
+    return true;
   }
 
   /** Removes a line item by its unique ID. @param {string} id */
-  function removeItem(id) { setItems(prev => prev.filter(i => i.id !== id)); }
+  function removeItem(id) {
+    setItems(prev => prev.filter(i => i.id !== id));
+    setReplaceLineId(r => (r === id ? null : r));
+  }
 
   // ── Smart order suggestions ────────────────────────────────────────────────
   // Frequent items from this store's recent invoices, minus anything already
@@ -383,7 +445,7 @@ export function useInvoiceForm(onGenerated) {
    */
   async function handleGenerate() {
     setError('');
-    if (!storeName.trim()) return setError('Enter a store name.');
+    if (!easy && !storeName.trim()) return setError('Enter a store name.');
     // Customer name is optional — it never appears on the generated invoice or
     // PDF (only as an optional "Attn:" line in the WhatsApp share text), so it
     // must not block generation.
@@ -434,10 +496,14 @@ export function useInvoiceForm(onGenerated) {
         setError(STORAGE_FULL_MESSAGE);
         return;
       }
-      await saveStoreName(storeName.trim());
-      // Save phone + address in one upsert
-      if (storePhone.trim() || storeAddress.trim()) {
-        await saveStoreDetails(storeName.trim(), storePhone.trim(), storeAddress.trim());
+      const store = storeName.trim();
+      // An Easy invoice can have no store (written on the paper instead).
+      if (store) {
+        await saveStoreName(store);
+        // Save phone + address in one upsert
+        if (storePhone.trim() || storeAddress.trim()) {
+          await saveStoreDetails(store, storePhone.trim(), storeAddress.trim());
+        }
       }
 
       if (!isEdit) {
@@ -474,7 +540,7 @@ export function useInvoiceForm(onGenerated) {
     storePhone, setStorePhone,
     storeAddress, setStoreAddress,
     handleStoreNameChange,
-    storeNames, pinnedStores,
+    storeNames, pinnedStores, recentStores,
 
     // Invoice details
     date, setDate, time, setTime, notes, setNotes,
@@ -490,6 +556,7 @@ export function useInvoiceForm(onGenerated) {
     handleScan,
     retryLookup, lookupUnavailable,
     addItem,
+    loadItemIntoForm, clearAddForm, replaceLineId,
 
     // Items list
     items,

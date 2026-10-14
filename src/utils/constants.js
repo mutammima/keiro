@@ -118,6 +118,9 @@ export const EVENTS = {
 /** Shown when an invoice reached neither the cloud nor this phone. */
 export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
 
+/** Shown in the product field while a scanned barcode is being named remotely. */
+export const LOOKING_UP_TEXT = 'Looking up…';
+
 /** A scan no source could name. addItem() saves the typed name under that barcode. */
 export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";
 
