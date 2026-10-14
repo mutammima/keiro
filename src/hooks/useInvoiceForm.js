@@ -30,7 +30,7 @@ import {
 import { lookupBarcode } from '../utils/barcodeApi';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ export function useInvoiceForm(onGenerated) {
       setProductName(name);
     } else {
       setProductName('');
-      setError('Product not found — enter name manually.');
+      setError(UNKNOWN_BARCODE_MESSAGE);
     }
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler

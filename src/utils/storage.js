@@ -169,36 +169,33 @@ export async function updateInvoicePaymentStatus(number, status) {
 // ─── Product Catalog ──────────────────────────────────────────────────────────
 
 /**
- * Look up a product by barcode.
- * Falls back to localStorage cache on error.
+ * Look up a product by barcode: the cloud catalog first, then this phone's.
+ * The phone's catalog is checked whenever the cloud has no row, not only on an
+ * error — a guest's query doesn't fail, RLS just returns nothing, and a product
+ * saved offline isn't in the cloud until the sync queue uploads it.
  * @param {string} barcode
  * @returns {Promise<{name:string,lastPrice:number}|null>}
  */
 export async function getProductByBarcode(barcode) {
-  const { data, error } = await db.getProductByBarcode(barcode);
-  if (error) {
-    // offline fallback
-    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
-    return catalog[barcode] || null;
-  }
-  return data;
+  const { data } = await db.getProductByBarcode(barcode);
+  if (data) return data;
+  const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
+  return catalog[barcode] || null;
 }
 
 /**
- * Case-insensitive product name search.
+ * Case-insensitive product name search: the cloud catalog first, then this
+ * phone's (see getProductByBarcode for why).
  * @param {string} name
  * @returns {Promise<{name:string,lastPrice:number}|null>}
  */
 export async function getProductByName(name) {
   if (!name?.trim()) return null;
-  const { data, error } = await db.getProductByName(name);
-  if (error) {
-    // offline fallback
-    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
-    const lower = name.trim().toLowerCase();
-    return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
-  }
-  return data;
+  const { data } = await db.getProductByName(name);
+  if (data) return data;
+  const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
+  const lower = name.trim().toLowerCase();
+  return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
 }
 
 /**

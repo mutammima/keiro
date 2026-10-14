@@ -118,6 +118,9 @@ export const EVENTS = {
 /** Shown when an invoice reached neither the cloud nor this phone. */
 export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
 
+/** A scan no source could name. addItem() saves the typed name under that barcode. */
+export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";
+
 /** Gmail-sent sign-in mail lands in Spam more often than domain mail. */
 export const SPAM_HINT = "Can't find it? Check your Spam folder.";
 
