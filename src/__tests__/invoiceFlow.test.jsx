@@ -38,7 +38,7 @@ vi.mock('../utils/storage', () => ({
   saveStoreDetails: vi.fn(async () => {}),
   getPinnedStores: vi.fn(() => []),
 }));
-vi.mock('../utils/barcodeApi', () => ({ lookupBarcode: vi.fn(async () => null) }));
+vi.mock('../utils/barcodeApi', () => ({ lookupBarcode: vi.fn(async () => ({ name: null, status: 'not-found' })) }));
 vi.mock('../utils/orderSuggestions', () => ({
   buildOrderSuggestions: vi.fn(() => []),
   checkInvoiceAnomaly: vi.fn(() => null),
@@ -49,10 +49,11 @@ vi.mock('../utils/connectionOrderStorage', () => ({
 }));
 vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 
-import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode } from '../utils/storage';
+import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode } from '../utils/storage';
+import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE } from '../utils/constants';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -238,5 +239,79 @@ describe('useInvoiceForm — scanning', () => {
     addOneItem(result, { name: 'Motor Oil 5W-30 5qt', qty: '2', price: '24.99' });
 
     expect(saveProductBarcode).toHaveBeenCalledWith('0071181000240', 'Motor Oil 5W-30 5qt', 24.99);
+  });
+
+  it('when the lookup could not run, says so and offers Try again instead of "not in the database"', async () => {
+    lookupBarcode.mockResolvedValueOnce({ name: null, status: 'unavailable' });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('049000006346'); });
+
+    expect(result.current.error).toBe(LOOKUP_UNAVAILABLE_MESSAGE);
+    expect(result.current.lookupUnavailable).toBe(true);
+    expect(result.current.lastBarcode).toBe('049000006346');
+  });
+
+  it('Try again re-runs the lookup for the same barcode and fills the name', async () => {
+    lookupBarcode
+      .mockResolvedValueOnce({ name: null, status: 'unavailable' })
+      .mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('049000006346'); });
+
+    await act(async () => { await result.current.retryLookup(); });
+
+    expect(lookupBarcode).toHaveBeenLastCalledWith('049000006346');
+    expect(result.current.productName).toBe('Coca-Cola Can, 12 fl oz');
+    expect(result.current.error).toBe('');
+    expect(result.current.lookupUnavailable).toBe(false);
+  });
+
+  it('a store-made barcode skips the lookups and says no database will have it', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('212345678900'); });
+
+    expect(lookupBarcode).not.toHaveBeenCalled();
+    expect(result.current.error).toBe(STORE_MADE_BARCODE_MESSAGE);
+    expect(result.current.lookupUnavailable).toBe(false);
+  });
+
+  it('a store-made barcode the driver already named still fills from his catalog', async () => {
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Deli turkey 1lb', lastPrice: 8 });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('212345678900'); });
+
+    expect(result.current.productName).toBe('Deli turkey 1lb');
+    expect(result.current.price).toBe('8');
+    expect(result.current.error).toBe('');
+  });
+
+  it('expands a short UPC-E scan and looks up, shows and saves the full code', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('04963406', 'UPC_E'); });
+
+    expect(result.current.lastBarcode).toBe('049000006346');
+    expect(getProductByBarcode).toHaveBeenCalledWith('049000006346');
+    expect(lookupBarcode).toHaveBeenCalledWith('049000006346');
+
+    addOneItem(result, { name: 'Coke can 12oz', qty: '24', price: '1.25' });
+    expect(saveProductBarcode).toHaveBeenCalledWith('049000006346', 'Coke can 12oz', 1.25);
+  });
+
+  it('still finds a product saved under its short code before codes were expanded', async () => {
+    getProductByBarcode
+      .mockResolvedValueOnce(null)                                     // '049000006346'
+      .mockResolvedValueOnce({ name: 'Coke can 12oz', lastPrice: 1.25 }); // '04963406'
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    await act(async () => { await result.current.handleScan('04963406', 'UPC_E'); });
+
+    expect(getProductByBarcode.mock.calls.map(([code]) => code)).toEqual(['049000006346', '04963406']);
+    expect(result.current.productName).toBe('Coke can 12oz');
+    expect(result.current.price).toBe('1.25');
+    expect(lookupBarcode).not.toHaveBeenCalled();
   });
 });

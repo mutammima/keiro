@@ -28,9 +28,13 @@ import {
   getPinnedStores,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
+import { normalizeScannedBarcode, isStoreMadeBarcode } from '../utils/barcodeFormat';
 import { buildOrderSuggestions, checkInvoiceAnomaly } from '../utils/orderSuggestions';
 import { completeActiveConnectionOrder, resolveConnectedStoreUserId } from '../utils/connectionOrderStorage';
-import { STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE } from '../utils/constants';
+import {
+  STORAGE_KEYS, EVENTS, AUTOFILL_DEBOUNCE_MS, STORAGE_FULL_MESSAGE,
+  UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE,
+} from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -134,6 +138,8 @@ export function useInvoiceForm(onGenerated) {
   const [qty, setQty]                 = useState('1');
   const [price, setPrice]             = useState('');
   const [lastBarcode, setLastBarcode] = useState('');
+  // True after a scan whose lookup couldn't run, so the form can offer Try again.
+  const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [items, setItems]             = useState([]);
   const [editingItem, setEditingItem] = useState(null);
 
@@ -247,35 +253,71 @@ export function useInvoiceForm(onGenerated) {
   }
 
   /**
-   * Handles a barcode scan: checks the cloud product catalog first, then
-   * falls back to the remote barcode API.
-   * @param {string} barcode - The scanned barcode string.
+   * Names a barcode from the remote sources and reports the outcome: a name,
+   * "no database has it", or "couldn't check" (which offers Try again).
+   * @param {string} barcode - already normalized
    */
-  const handleScan = useCallback(async (barcode) => {
-    setLastBarcode(barcode);
+  const lookUpRemotely = useCallback(async (barcode) => {
+    setError('');
+    setLookupUnavailable(false);
+    setProductName('Looking up…');
+    setPrice('');
+    const { name, status } = await lookupBarcode(barcode);
+    if (name) {
+      setProductName(name);
+      return;
+    }
+    setProductName('');
+    if (status === 'unavailable') {
+      setLookupUnavailable(true);
+      setError(LOOKUP_UNAVAILABLE_MESSAGE);
+    } else {
+      setError(UNKNOWN_BARCODE_MESSAGE);
+    }
+  }, [setProductName, setPrice, setError]);
 
-    // 1. Check cloud catalog first
-    const cached = await getProductByBarcode(barcode);
+  /**
+   * Handles a barcode scan: checks the product catalog first, then the remote
+   * barcode sources. A short UPC-E is expanded to its UPC-A first (lookup
+   * services only know that form), and the item is shown and saved under it.
+   * @param {string} scanned - The decoded barcode text.
+   * @param {string} [format] - The scanner's reported format, e.g. 'UPC_E'.
+   */
+  const handleScan = useCallback(async (scanned, format) => {
+    const barcode = normalizeScannedBarcode(scanned, format);
+    setLastBarcode(barcode);
+    setError('');
+    setLookupUnavailable(false);
+
+    // 1. The driver's own catalog. Products saved before UPC-E codes were
+    //    expanded are under the short code, so try that too.
+    let cached = await getProductByBarcode(barcode);
+    if (!cached && barcode !== scanned) cached = await getProductByBarcode(scanned);
     if (cached) {
       setProductName(cached.name);
       setPrice(String(cached.lastPrice));
       return;
     }
 
-    // 2. Look up from remote barcode database
-    setProductName('Looking up…');
-    setPrice('');
-    const name = await lookupBarcode(barcode);
-    if (name) {
-      setProductName(name);
-    } else {
+    // 2. Store-made codes are only meaningful in one store; no database has them.
+    if (isStoreMadeBarcode(barcode)) {
       setProductName('');
-      setError(UNKNOWN_BARCODE_MESSAGE);
+      setPrice('');
+      setError(STORE_MADE_BARCODE_MESSAGE);
+      return;
     }
+
+    // 3. Remote barcode sources.
+    await lookUpRemotely(barcode);
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler
     // preserve the memoization instead of bailing out.
-  }, [setLastBarcode, setProductName, setPrice, setError]);
+  }, [setLastBarcode, setProductName, setPrice, setError, lookUpRemotely]);
+
+  /** Try again after a lookup that couldn't run, for the barcode still shown. */
+  const retryLookup = useCallback(async () => {
+    if (lastBarcode) await lookUpRemotely(lastBarcode);
+  }, [lastBarcode, lookUpRemotely]);
 
   /**
    * Validates the current add-item fields and appends a new line item to the
@@ -297,7 +339,7 @@ export function useInvoiceForm(onGenerated) {
     saveProductBarcode(barcodeKey, productName.trim(), priceNum).catch(() => {});
 
     setItems(prev => [...prev, { id: uid(), name: productName.trim(), qty: qtyNum, price: priceNum }]);
-    setProductName(''); setQty('1'); setPrice(''); setLastBarcode('');
+    setProductName(''); setQty('1'); setPrice(''); setLastBarcode(''); setLookupUnavailable(false);
   }
 
   /** Removes a line item by its unique ID. @param {string} id */
@@ -446,6 +488,7 @@ export function useInvoiceForm(onGenerated) {
     lastBarcode,
     productNames,
     handleScan,
+    retryLookup, lookupUnavailable,
     addItem,
 
     // Items list

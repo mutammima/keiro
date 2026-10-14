@@ -8,7 +8,8 @@
  * from the server instead.
  *
  *   GET /api/barcode?code=<8–14 digits>
- *     200 { name }       name is null when UPCitemdb doesn't know the code
+ *     200 { name }       name is null when UPCitemdb doesn't know the code, or
+ *                        for a store-made barcode (never sent to UPCitemdb)
  *     400 { error }      not a barcode — UPCitemdb is never called
  *     502 { error }      UPCitemdb unreachable or out of quota — try again later
  *
@@ -17,6 +18,8 @@
  * product only costs one lookup: a found name for 30 days, a miss for a day.
  * Failures are never cached.
  */
+
+import { isStoreMadeBarcode } from '../src/utils/barcodeFormat.js';
 
 const UPCITEMDB = 'https://api.upcitemdb.com/prod/trial/lookup?upc=';
 const BARCODE = /^\d{8,14}$/;
@@ -39,6 +42,9 @@ function reply(status, body, cacheControl) {
 export async function GET(request) {
   const code = new URL(request.url).searchParams.get('code') ?? '';
   if (!BARCODE.test(code)) return reply(400, { error: 'code must be 8-14 digits' }, 'no-store');
+  // No database names a store-made code. The app skips these itself; this
+  // keeps older app builds from spending the shared quota on them.
+  if (isStoreMadeBarcode(code)) return reply(200, { name: null }, MISS_CACHE);
 
   let res;
   try {

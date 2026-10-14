@@ -56,7 +56,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     productName, setProductName,
     qty, setQty, price, setPrice,
     lastBarcode, productNames,
-    handleScan, addItem,
+    handleScan, retryLookup, lookupUnavailable, addItem,
     items, removeItem,
     suggestions, addSuggestedItem,
     anomaly,
@@ -397,9 +397,17 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               </button>
             </div>
             {lastBarcode && (
-              <p style={{ ...s.barcodeTag, background: C.tagBg, color: C.textMuted }}>
-                Barcode: {lastBarcode}
-              </p>
+              <div style={s.barcodeRow}>
+                <p style={{ ...s.barcodeTag, background: C.tagBg, color: C.textMuted }}>
+                  Barcode: {lastBarcode}
+                </p>
+                {lookupUnavailable && (
+                  <button type="button" onClick={retryLookup}
+                    style={{ ...s.retryBtn, color: ACCENT, borderColor: C.inputBorder }}>
+                    Try again
+                  </button>
+                )}
+              </div>
             )}
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
@@ -609,9 +617,15 @@ const s = {
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 20, WebkitTapHighlightColor: 'transparent',
   },
+  barcodeRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '-4px 0 8px' },
   barcodeTag: {
     fontSize: 12, padding: '3px 8px', borderRadius: 6,
-    margin: '-4px 0 8px', fontFamily: 'monospace',
+    margin: 0, fontFamily: 'monospace',
+  },
+  retryBtn: {
+    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+    background: 'transparent', border: '1px solid', cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   },
   error: { fontSize: 13, margin: '8px 0 0', fontWeight: 600 },
   addItemBtn: {

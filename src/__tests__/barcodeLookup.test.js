@@ -91,6 +91,14 @@ describe('api/barcode.js (server route)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('answers name: null for a store-made barcode without calling UPCitemdb', async () => {
+    const res = await GET(routeRequest('212345678900'));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ name: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('reports a failure (out of quota) as 502 and never caches it', async () => {
     fetchMock.mockResolvedValue(jsonResponse(429, { code: 'TOO_FAST' }));
 
@@ -111,17 +119,20 @@ describe('api/barcode.js (server route)', () => {
 });
 
 describe('lookupBarcode (in the app)', () => {
+  const offDown = () => jsonResponse(503, { error: 'Page temporarily unavailable' });
+  const offNotFound = () => jsonResponse(404, { status: 0, status_verbose: 'product not found' });
+
   it('uses Open Food Facts first and stops there when it knows the product', async () => {
     fetchMock.mockResolvedValueOnce(offHit('Chunky Salsa Mild', 'Tostitos'));
 
-    expect(await lookupBarcode('028400055970')).toBe('Tostitos Chunky Salsa Mild');
+    expect(await lookupBarcode('028400055970')).toEqual({ name: 'Tostitos Chunky Salsa Mild', status: 'found' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('asks Keiro’s own route when Open Food Facts has nothing, never UPCitemdb directly', async () => {
     fetchMock.mockResolvedValueOnce(offMiss()).mockResolvedValueOnce(jsonResponse(200, { name: 'Mobil 1 5W-30' }));
 
-    expect(await lookupBarcode('071924145009')).toBe('Mobil 1 5W-30');
+    expect(await lookupBarcode('071924145009')).toEqual({ name: 'Mobil 1 5W-30', status: 'found' });
     const urls = fetchMock.mock.calls.map(([url]) => url);
     expect(urls[1]).toBe('/api/barcode?code=071924145009');
     expect(urls.some(u => u.includes('upcitemdb.com'))).toBe(false);
@@ -136,15 +147,45 @@ describe('lookupBarcode (in the app)', () => {
     expect(fetchMock.mock.calls[1][0]).toBe('https://keiro-mutammimas-projects.vercel.app/api/barcode?code=071924145009');
   });
 
-  it('returns null when neither source knows the product', async () => {
+  it('is not-found when both sources answered and neither knows the product', async () => {
     fetchMock.mockResolvedValueOnce(offMiss()).mockResolvedValueOnce(jsonResponse(200, { name: null }));
 
-    expect(await lookupBarcode('0071181000240')).toBeNull();
+    expect(await lookupBarcode('0071181000240')).toEqual({ name: null, status: 'not-found' });
   });
 
-  it('returns null when the route fails', async () => {
+  it('counts Open Food Facts’ 404 as an answer (it means "no such product")', async () => {
+    fetchMock.mockResolvedValueOnce(offNotFound()).mockResolvedValueOnce(jsonResponse(200, { name: null }));
+
+    expect(await lookupBarcode('0071181000240')).toEqual({ name: null, status: 'not-found' });
+  });
+
+  it('counts the route rejecting the code (400) as an answer', async () => {
+    fetchMock.mockResolvedValueOnce(offMiss()).mockResolvedValueOnce(jsonResponse(400, { error: 'code must be 8-14 digits' }));
+
+    expect(await lookupBarcode('ABC-123')).toEqual({ name: null, status: 'not-found' });
+  });
+
+  it('is unavailable when the route fails (UPCitemdb down or out of quota)', async () => {
     fetchMock.mockResolvedValueOnce(offMiss()).mockResolvedValueOnce(jsonResponse(502, { error: 'lookup unavailable' }));
 
-    expect(await lookupBarcode('071924145009')).toBeNull();
+    expect(await lookupBarcode('071924145009')).toEqual({ name: null, status: 'unavailable' });
+  });
+
+  it('is unavailable when Open Food Facts is down and the route has nothing', async () => {
+    fetchMock.mockResolvedValueOnce(offDown()).mockResolvedValueOnce(jsonResponse(200, { name: null }));
+
+    expect(await lookupBarcode('049000006346')).toEqual({ name: null, status: 'unavailable' });
+  });
+
+  it('is unavailable with no connection', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    expect(await lookupBarcode('049000006346')).toEqual({ name: null, status: 'unavailable' });
+  });
+
+  it('is found when one source is down but the other knows the product', async () => {
+    fetchMock.mockResolvedValueOnce(offDown()).mockResolvedValueOnce(jsonResponse(200, { name: 'Coca-Cola Can, 12 fl oz' }));
+
+    expect(await lookupBarcode('049000006346')).toEqual({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
   });
 });
