@@ -60,7 +60,8 @@ import { loadConnectionOrdersFromCloud, loadSharedInvoicesFromCloud } from './ut
 import { ensureBadgesInitialized, markSeen, computeBadges, BADGE_KEYS } from './utils/eventBadges';
 import { isGuest } from './utils/guestMode';
 import { setCrashScreen } from './utils/crashReporter';
-import { tabIdsForRole } from './components/navigation/tabs';
+import { tabIdsForRole, tabTargetFor } from './components/navigation/tabs';
+import { easyModeFor } from './utils/easyMode';
 import { useBreakpoint, BP } from './hooks/useBreakpoint';
 import './App.css';
 
@@ -101,21 +102,17 @@ function OfflineBanner({ dark }) {
 
 // ── Main app ──────────────────────────────────────────────────────────────────
 
-function isEasyMode() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
-}
-
 function AppInner({ role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const easyMode = isEasyMode();
+  const easyMode = easyModeFor(role);
 
   // Layout tier. Desktop swaps the whole shell: a docked side rail instead of
   // TopNav, and a single rendered tab instead of the swipeable 4× strip.
   const bp = useBreakpoint();
   const desktop = bp === BP.DESKTOP;
 
-  const TABS = tabIdsForRole(role);
+  const TABS = tabIdsForRole(role, easyMode);
 
   // Dashboards are now tab 0 for both roles — no dashboard overlay on launch.
   // In easy mode the driver lands on the Route tab (invoice list + "+ New").
@@ -262,8 +259,9 @@ function AppInner({ role, onSwitchRole }) {
     if (page === 'home' && homePulse) { setHomePulse(false); setHomePulseState(false); }
   }, [page, homePulse]);
 
-  // Tab strip index — easy-mode driver starts on Route (index 1), else tab 0
-  const [tabIdx, setTabIdx] = useState(() => (role !== 'store_owner' && easyMode ? 1 : 0));
+  // Tab strip index — tab 0 is Home (full) or Route (Easy Mode), which is
+  // exactly where each starts.
+  const [tabIdx, setTabIdx] = useState(0);
 
   // tabsRef — lets swipe handlers always read the current TABS without re-registering
   const tabsRef = useRef(TABS);
@@ -278,7 +276,9 @@ function AppInner({ role, onSwitchRole }) {
   useEffect(() => { setCrashScreen(page); }, [page]);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const navigate = useCallback((p) => {
+  const navigate = useCallback((target) => {
+    // A tab hidden in this mode (Home in Easy Mode) lands on the first tab.
+    const p = tabTargetFor(tabsRef.current, target);
     const ti = tabIndex(tabsRef.current, p);
     if (ti !== -1) {
       setTabIdx(ti);
@@ -482,7 +482,7 @@ function AppInner({ role, onSwitchRole }) {
   // The four tab pages for this role, in tab order. Hoisted out of the JSX
   // because both layouts need them: phone/tablet lay all four side by side in
   // the swipe strip, desktop renders only the active one.
-  const tabEls = role === 'store_owner' ? [
+  const allTabEls = role === 'store_owner' ? [
     <SOHome      key="so-home"     onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
     <SOOrders    key="so-orders"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
     <SODrivers   key="so-drivers"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
@@ -493,6 +493,8 @@ function AppInner({ role, onSwitchRole }) {
     <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
     <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ];
+  // Only the tabs this mode shows (Easy Mode hides Home); keys are the tab ids.
+  const tabEls = allTabEls.filter(el => TABS.includes(el.key));
 
   // Desktop insets every content surface past the docked rail; phone/tablet
   // start at the left edge as before.
