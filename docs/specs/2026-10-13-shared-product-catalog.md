@@ -9,14 +9,19 @@ Two parts, built at different times:
 
 **Status**
 - [x] Design written (2026-10-13)
-- [ ] Part A: owner picks items → built, tested, merged
-- [ ] Part B: owner decisions answered
+- [x] Part A: owner picks items → built, tested, merged (#189, live c9cc5ef)
+- [x] Part B: owner decisions answered (2026-10-14: recommendations accepted)
 - [ ] Part B: privacy policy updated (required before it ships)
 - [ ] Part B: SQL run in Supabase (via a cowork prompt) and probed
 - [ ] Part B: client built, tested, merged
 - [ ] Part B: checked on two phones with two real accounts
 
 **Depends on:** PR #187 (api/barcode.js, phone-catalog fallback, "type it once" message) merged.
+
+**Part B decisions (owner, 2026-10-14):** K = 2 · signed-in only · no opt-out · "from other drivers"
+label. **Since Easy Mode (#190):** the Easy check card already asks (editable name, Add / Cancel), so
+in Easy Mode the "Is this it?" step is the card plus a source line; the separate card is normal mode
+only. The "(you)" suggestion tag isn't built.
 
 ---
 
