@@ -491,6 +491,29 @@ describe('useInvoiceForm — Easy invoice', () => {
     expect(saveStoreDetails).not.toHaveBeenCalled();
   });
 
+  it('the scanned barcode helps the draft but is not saved with the invoice', async () => {
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil 1 5W-30 5qt', lastPrice: 24.99 });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    act(() => { result.current.addItem(); });
+    expect(result.current.items[0].barcode).toBe('071924145009');
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice.mock.calls.at(-1)[0].items[0]).not.toHaveProperty('barcode');
+  });
+
+  it('recentStores also orders cloud invoices, which carry created_at', async () => {
+    getInvoices.mockResolvedValueOnce([
+      { storeName: 'Old Mart',     created_at: '2026-10-01T10:00:00Z' },
+      { storeName: 'Sunrise Deli', created_at: '2026-10-13T10:00:00Z' },
+      { storeName: 'Corner Mart',  created_at: '2026-10-12T10:00:00Z' },
+      { storeName: 'Bodega 1',     created_at: '2026-10-10T10:00:00Z' },
+    ]);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await waitFor(() => expect(result.current.recentStores).toEqual(['Sunrise Deli', 'Corner Mart', 'Bodega 1']));
+  });
+
   it('normal mode still requires a store name', async () => {
     const { result } = renderHook(() => useInvoiceForm(vi.fn()));
     addLine(result);

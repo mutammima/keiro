@@ -74,6 +74,24 @@ describe('long deliveries', () => {
     return null;
   }
 
+  it('a normal invoice also never prints its totals or signatures off the bottom of a page', async () => {
+    for (const count of [12, 14, 16, 18]) {
+      const items = Array.from({ length: count }, (_, i) => ({ id: String(i), name: `Item ${i + 1}`, qty: 1, price: 1 }));
+      const { doc } = await generatePDFBlob({ ...base, storeName: 'Sunrise Deli', notes: 'Back door', items });
+      const bottom = doc.internal.pageSize.getHeight() - 60;
+      for (const text of ['Subtotal', 'Notes:', 'Buyer / Recipient Signature']) {
+        const at = placeOf(doc, text);
+        expect(at, `${text} with ${count} items`).not.toBeNull();
+        expect(at.y, `${text} with ${count} items`).toBeLessThan(bottom - (text.startsWith('Buyer') ? 70 : 0));
+      }
+    }
+  });
+
+  it('a short normal invoice stays on one page', async () => {
+    const { doc } = await generatePDFBlob({ ...base, storeName: 'Sunrise Deli', notes: '' });
+    expect(doc.getNumberOfPages()).toBe(1);
+  });
+
   it('the template never prints Paid by, Notes or the signatures off the bottom of a page', async () => {
     localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
     for (const count of [10, 12, 14, 16, 18]) {
@@ -86,5 +104,20 @@ describe('long deliveries', () => {
         expect(at.y, `${text} with ${count} items`).toBeLessThan(bottom - (text.startsWith('Buyer') ? 70 : 0));
       }
     }
+  });
+});
+
+describe('template fields that are too long', () => {
+  it('are cut to fit with "..." instead of running into the next label or off the page', async () => {
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    const contact = 'Alexandra Konstantinopoulos-Vanderbilt Jr., Purchasing Manager';
+    const address = '12345 North Very Long Boulevard Name Extension, Building 7, Suite 1200, Springfield Gardens, NY 11413';
+    const { doc } = await generatePDFBlob({ ...base, storeName: 'Sunrise Deli', customerName: contact, storeAddress: address, notes: '' });
+    const out = doc.output();
+    expect(out).not.toContain(`(${contact})`);
+    expect(out).toContain('(Alexandra');
+    expect(out).toMatch(/\(Alexandra[^)]*\.\.\.\)/);
+    expect(out).not.toContain(`(${address})`);
+    expect(out).toMatch(/\(12345 North[^)]*\.\.\.\)/);
   });
 });

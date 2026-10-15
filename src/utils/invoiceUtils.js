@@ -207,3 +207,10 @@ export function unassignedStoreNote(count) {
     ? '1 invoice has no store. Open it and tap ⋯ → Edit to add it.'
     : `${count} invoices have no store. Open one and tap ⋯ → Edit to add it.`;
 }
+
+/** What the Stores tab's Total Outstanding covers, including invoices with no store. */
+export function outstandingScopeLine(storeCount, unassignedCount) {
+  const stores = storeCount ? `${storeCount} store${storeCount > 1 ? 's' : ''}` : '';
+  const noStore = unassignedCount ? `${unassignedCount} invoice${unassignedCount > 1 ? 's' : ''} with no store` : '';
+  return `across ${[stores, noStore].filter(Boolean).join(' and ')}`;
+}

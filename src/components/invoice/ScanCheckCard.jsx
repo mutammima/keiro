@@ -33,8 +33,9 @@ export default function ScanCheckCard({ form, onAdd, onCancel, onRemove }) {
           <div style={s.stepper}>
             <button type="button" aria-label="Less" style={stepBtn}
               onClick={() => form.setQty(String(Math.max(1, qtyNum - 1)))}>−</button>
-            <input aria-label="Quantity" inputMode="numeric" style={{ ...field, width: 64, textAlign: 'center' }}
-              value={form.qty} onChange={e => form.setQty(e.target.value.replace(/[^0-9]/g, ''))} />
+            {/* Digits and one decimal point (2.5 lb, 1.5 cases). */}
+            <input aria-label="Quantity" inputMode="decimal" style={{ ...field, width: 64, textAlign: 'center' }}
+              value={form.qty} onChange={e => form.setQty(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))} />
             <button type="button" aria-label="More" style={stepBtn}
               onClick={() => form.setQty(String(qtyNum + 1))}>+</button>
           </div>

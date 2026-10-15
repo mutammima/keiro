@@ -21,7 +21,8 @@ const Settings     = lazy(() => import('./pages/Settings'));
 // One-time onboarding tour — lazy so it doesn't weigh on first paint.
 const QuickStart = lazy(() => import('./components/tutorial/QuickStart'));
 import useOnboarding from './hooks/useOnboarding';
-import { isHomePulse, setHomePulse, markTourSeen, pendingModeTour, tourStartPage } from './utils/tutorialProgress';
+import { isHomePulse, setHomePulse } from './utils/tutorialProgress';
+import { useQuickStart } from './hooks/useQuickStart';
 import SplashScreen from './components/ui/SplashScreen';
 import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
@@ -126,7 +127,6 @@ function AppInner({ role, onSwitchRole }) {
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [currentInvoice, setCurrentInvoice] = useState(null);
   const [selectedStore,  setSelectedStore]  = useState(null);
-  const [showQuickStart, setShowQuickStart] = useState(false); // replay from Settings/drawer
   const [homePulse,      setHomePulseState] = useState(() => isHomePulse());
   // WhatsNew starts hidden — only shown after onboarding is complete so the
   // two overlays never fight each other and block all interaction.
@@ -336,34 +336,13 @@ function AppInner({ role, onSwitchRole }) {
     setPage(tabsRef.current[tabIdx]);
   }
 
-  // ── Quick Start (shared by first-run, a mode's first tour, and replay) ──────
-  // Drivers get one tour per mode: switching Easy Mode on or off (which
-  // reloads the app) plays that mode's tour once. Replays: How it Works.
+  // ── Quick Start (first run, a mode's first tour, and replays) ─────────────
   const tourMode = easyMode ? 'easy' : 'full';
-  const [modeTourPending, setModeTourPending] = useState(() => pendingModeTour(role, tourMode));
-  const isFirstRunQuickStart = shouldShowOnboarding;
-  function finishQuickStart(skipped) {
-    if (role !== 'store_owner') markTourSeen(tourMode);
-    if (isFirstRunQuickStart) {
-      skipped ? skipOnboarding() : markOnboardingComplete();
-      // Pulse the Home tab afterward to point the driver at their dashboard
-      // (Easy Mode has no Home tab).
-      if (!skipped && role !== 'store_owner' && tourMode === 'full') { setHomePulse(true); setHomePulseState(true); }
-      navigate(role === 'store_owner' ? 'so-orders' : 'route');
-    } else if (modeTourPending) {
-      navigate('route');
-    }
-    setModeTourPending(false);
-    setShowQuickStart(false);
-  }
-  const quickStartVisible = shouldShowOnboarding || showQuickStart || modeTourPending;
-
-  // How it Works / Replay tutorial: go where the tour's first step is, then play it.
-  function startTour() {
-    const startPage = tourStartPage(role, tourMode);
-    if (startPage) navigate(startPage);
-    setShowQuickStart(true);
-  }
+  const quickStart = useQuickStart({
+    role, mode: tourMode, navigate,
+    onboarding: { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding },
+    onPulseHome: () => { setHomePulse(true); setHomePulseState(true); },
+  });
 
   // ── Swipe gesture — non-passive so preventDefault() actually works ───────────
   //
@@ -542,7 +521,7 @@ function AppInner({ role, onSwitchRole }) {
         onClose={() => setDrawerOpen(false)}
         onNav={navigate}
         currentPage={page}
-        onTutorial={startTour}
+        onTutorial={quickStart.start}
         role={role}
         onSwitchRole={onSwitchRole}
         docked={desktop}
@@ -680,7 +659,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); startTour(); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); quickStart.start(); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -699,14 +678,14 @@ function AppInner({ role, onSwitchRole }) {
       <OfflineBanner dark={dark} />
 
       {/* ── Onboarding tour — the only thing that teaches the user anything ───── */}
-      {quickStartVisible && (
+      {quickStart.visible && (
         <Suspense fallback={null}>
           <QuickStart
             role={role}
             mode={tourMode}
             onNav={navigate}
-            onComplete={() => finishQuickStart(false)}
-            onSkip={() => finishQuickStart(true)}
+            onComplete={() => quickStart.finish(false)}
+            onSkip={() => quickStart.finish(true)}
           />
         </Suspense>
       )}

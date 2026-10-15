@@ -15,6 +15,7 @@ import AutofillInput from '../ui/AutofillInput';
 import { GuestCapModal } from '../auth/GuestUpsell';
 import ScanCheckCard from './ScanCheckCard';
 import ZeroTotalConfirm from './ZeroTotalConfirm';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 // Lazy-loaded so html5-qrcode is only fetched when the camera first opens.
 const BarcodeScanner = lazy(() => import('../ui/BarcodeScanner'));
@@ -27,6 +28,8 @@ export default function EasyInvoice({ onGenerated, onBack }) {
   // Where the open check card came from: null (closed) | 'scan' | 'manual' | 'line'.
   // Only a scan's card sends the driver back to the camera.
   const [cardFrom, setCardFrom] = useState(null);
+  // ← with lines on the invoice asks first; a scan loop builds long lists.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const total = form.items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0);
 
@@ -56,6 +59,10 @@ export default function EasyInvoice({ onGenerated, onBack }) {
     form.clearAddForm();
     setCardFrom('manual');
   }
+  function back() {
+    if (form.items.length > 0) setConfirmDiscard(true);
+    else onBack();
+  }
   function openLine(item) {
     form.loadItemIntoForm(item);
     setCardFrom('line');
@@ -71,10 +78,18 @@ export default function EasyInvoice({ onGenerated, onBack }) {
       {cardFrom && <ScanCheckCard form={form} onAdd={add} onCancel={cancel} onRemove={remove} />}
       <GuestCapModal open={form.guestWall} onClose={() => form.setGuestWall(false)} />
       <ZeroTotalConfirm open={form.zeroConfirm} onCancel={() => form.setZeroConfirm(false)} onConfirm={form.confirmZeroTotal} />
+      <ConfirmDialog
+        open={confirmDiscard} danger
+        title={form.editNumber != null ? 'Discard your changes?' : 'Discard this invoice?'}
+        cancelLabel="Keep it" confirmLabel="Discard"
+        onCancel={() => setConfirmDiscard(false)} onConfirm={() => { setConfirmDiscard(false); onBack(); }}
+      >
+        {form.items.length === 1 ? 'The item you added will be lost.' : `The ${form.items.length} items you added will be lost.`}
+      </ConfirmDialog>
 
       <div data-tutorial="easy-invoice" style={{ ...s.page, background: C.bg }}>
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <button onClick={onBack} aria-label="Back" style={{ ...s.back, color: C.text }}>←</button>
+          <button onClick={back} aria-label="Back" style={{ ...s.back, color: C.text }}>←</button>
           <span style={{ ...s.title, color: C.text }}>
             {form.editNumber != null ? `Edit invoice #${form.editNumber}` : 'New invoice'}
           </span>

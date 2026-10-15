@@ -16,10 +16,15 @@ import { STORAGE_KEYS } from '../utils/constants';
 vi.mock('../hooks/useSafeSignOut', () => ({
   useSafeSignOut: () => ({ requestSignOut: vi.fn(), signOutPrompt: null, signingOut: false }),
 }));
-vi.mock('../utils/storage', () => ({ getPinnedStores: () => [] }));
+vi.mock('../utils/storage', () => ({
+  getPinnedStores: () => [],
+  // Mirrors storage.lsSet: JSON-encode, report whether it was stored.
+  lsSet: vi.fn((key, value) => { localStorage.setItem(key, JSON.stringify(value)); return true; }),
+}));
 
 import NavDrawer from '../components/navigation/NavDrawer.jsx';
 import EasyModeSetting, { EASY_MODE_DESCRIPTION } from '../components/settings/EasyModeSetting.jsx';
+import { lsSet } from '../utils/storage';
 
 function renderDrawer(role) {
   render(
@@ -73,6 +78,16 @@ describe('Settings → Easy Mode', () => {
     fireEvent.click(buttons[buttons.length - 1]); // the toggle (the first button is the section header)
     expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBe('true');
     expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('writes through lsSet (which frees space on a full phone), and does not reload if nothing was saved', () => {
+    lsSet.mockReturnValueOnce(false);
+    const onChange = vi.fn();
+    render(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);
+    const buttons = screen.getAllByRole('button');
+    fireEvent.click(buttons[buttons.length - 1]);
+    expect(lsSet).toHaveBeenCalledWith(STORAGE_KEYS.EASY_MODE, true);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('is not shown to store owners', () => {
