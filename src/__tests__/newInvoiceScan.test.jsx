@@ -48,6 +48,7 @@ vi.mock('../components/ui/BarcodeScanner', () => ({
 
 import NewInvoice from '../components/invoice/NewInvoice.jsx';
 import { lookupBarcode } from '../utils/barcodeApi';
+import { getSharedProductName, getSharedProductSuggestions } from '../utils/storage';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -69,5 +70,38 @@ describe('NewInvoice — scanning', () => {
   it('+ Add Item is enabled otherwise', () => {
     render(<ThemeProvider><NewInvoice onGenerated={vi.fn()} onNav={vi.fn()} onBack={vi.fn()} /></ThemeProvider>);
     expect(screen.getByRole('button', { name: '+ Add Item' })).toBeEnabled();
+  });
+});
+
+describe('NewInvoice — Is this it?', () => {
+  it('a name from other drivers is asked about; Yes fills the field', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    render(<ThemeProvider><NewInvoice onGenerated={vi.fn()} onNav={vi.fn()} onBack={vi.fn()} /></ThemeProvider>);
+    fireEvent.click(document.querySelector('[data-tip="barcode"]'));
+    fireEvent.click(await screen.findByText('fake-scan'));
+
+    expect(await screen.findByText('Is this it?')).toBeInTheDocument();
+    expect(screen.getByText('Mobil 1 5W-30 5qt')).toBeInTheDocument();
+    expect(screen.getByText('from other Keiro drivers')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, use it' }));
+    expect(screen.getByDisplayValue('Mobil 1 5W-30 5qt')).toBeInTheDocument();
+    expect(screen.queryByText('Is this it?')).toBeNull();
+  });
+
+  it('No leaves the field empty to type', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    render(<ThemeProvider><NewInvoice onGenerated={vi.fn()} onNav={vi.fn()} onBack={vi.fn()} /></ThemeProvider>);
+    fireEvent.click(document.querySelector('[data-tip="barcode"]'));
+    fireEvent.click(await screen.findByText('fake-scan'));
+    fireEvent.click(await screen.findByRole('button', { name: 'No, I’ll type it' }));
+    expect(screen.queryByText('Is this it?')).toBeNull();
+    expect(screen.queryByDisplayValue('Mobil 1 5W-30 5qt')).toBeNull();
+  });
+
+  it('typing shows other drivers’ names in the suggestions', async () => {
+    getSharedProductSuggestions.mockResolvedValue(['Mobil 1 5W-30 5qt']);
+    render(<ThemeProvider><NewInvoice onGenerated={vi.fn()} onNav={vi.fn()} onBack={vi.fn()} /></ThemeProvider>);
+    fireEvent.change(screen.getByPlaceholderText('GMan V Cut T-Shirt'), { target: { value: 'mobil' } });
+    expect(await screen.findByText('Mobil 1 5W-30 5qt', {}, { timeout: 2000 })).toBeInTheDocument();
   });
 });

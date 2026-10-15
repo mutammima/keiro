@@ -125,6 +125,9 @@ export const LOOKING_UP_TEXT = 'Looking up…';
 
 /** A scan no source could name. addItem() saves the typed name under that barcode. */
 export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";
+/** Under a looked-up name on the Easy check card (spec #188 Decision 4). */
+export const NAME_FROM_DRIVERS  = 'From other Keiro drivers. Edit it if it’s wrong.';
+export const NAME_FROM_DATABASE = 'From a product database. Edit it if it’s wrong.';
 
 /** A lookup that couldn't run (offline, service down, out of quota) — the product may well exist. */
 export const LOOKUP_UNAVAILABLE_MESSAGE = "Couldn't check right now (no signal, or the lookup service is busy). Type the name, or tap Try again.";
