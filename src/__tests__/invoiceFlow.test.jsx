@@ -30,6 +30,8 @@ vi.mock('../utils/storage', () => ({
   saveProductName: vi.fn(() => {}),
   getStoreNames: vi.fn(async () => []),
   getProductNames: vi.fn(() => []),
+  getSharedProductName: vi.fn(async () => null),
+  getSharedProductSuggestions: vi.fn(async () => []),
   getBusinessName: vi.fn(() => ''),
   saveBusinessName: vi.fn(() => {}),
   getBusinessPhone: vi.fn(() => ''),
@@ -49,7 +51,7 @@ vi.mock('../utils/connectionOrderStorage', () => ({
 }));
 vi.mock('../utils/guestMode', () => ({ canSaveGuestEntry: vi.fn(() => true) }));
 
-import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode, getInvoices, getStoreDetails, saveStoreDetails } from '../utils/storage';
+import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, getProductByBarcode, getInvoices, getStoreDetails, saveStoreDetails, getSharedProductName, getSharedProductSuggestions, getProductNames } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
@@ -252,7 +254,7 @@ describe('useInvoiceForm — scanning', () => {
     expect(result.current.lastBarcode).toBe('049000006346');
   });
 
-  it('Try again re-runs the lookup for the same barcode and fills the name', async () => {
+  it('Try again re-runs the lookup for the same barcode and offers the name', async () => {
     lookupBarcode
       .mockResolvedValueOnce({ name: null, status: 'unavailable' })
       .mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
@@ -262,7 +264,8 @@ describe('useInvoiceForm — scanning', () => {
     await act(async () => { await result.current.retryLookup(); });
 
     expect(lookupBarcode).toHaveBeenLastCalledWith('049000006346');
-    expect(result.current.productName).toBe('Coca-Cola Can, 12 fl oz');
+    expect(result.current.productName).toBe('');
+    expect(result.current.pendingName).toEqual({ name: 'Coca-Cola Can, 12 fl oz', source: 'database' });
     expect(result.current.error).toBe('');
     expect(result.current.lookupUnavailable).toBe(false);
   });
@@ -520,5 +523,127 @@ describe('useInvoiceForm — Easy invoice', () => {
     await act(async () => { await result.current.handleGenerate(); });
     expect(result.current.error).toBe('Enter a store name.');
     expect(saveInvoice).not.toHaveBeenCalled();
+  });
+});
+
+describe('useInvoiceForm — names from other drivers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    canSaveGuestEntry.mockReturnValue(true);
+    getNextInvoiceNumber.mockResolvedValue(1001);
+  });
+
+  it('Easy Mode: a shared name fills the card, price empty, labeled, and no database lookup', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.price).toBe('');
+    expect(result.current.nameSource).toBe('drivers');
+    expect(lookupBarcode).not.toHaveBeenCalled();
+  });
+
+  it('his own catalog wins: no question, no shared lookup', async () => {
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil oil', lastPrice: 24.99 });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(getSharedProductName).not.toHaveBeenCalled();
+    expect(result.current.productName).toBe('Mobil oil');
+    expect(result.current.pendingName).toBeNull();
+  });
+
+  it('his own catalog still fills straight in (no question) in normal mode', async () => {
+    getProductByBarcode.mockResolvedValueOnce({ name: 'Mobil oil', lastPrice: 24.99 });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.price).toBe('24.99');
+    expect(result.current.pendingName).toBeNull();
+  });
+
+  it('store-made codes never ask other drivers', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('212345678900'); });
+    expect(getSharedProductName).not.toHaveBeenCalled();
+  });
+
+  it('no shared name → the database lookup, labeled as a database name in Easy Mode', async () => {
+    lookupBarcode.mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('049000006346'); });
+    expect(getSharedProductName).toHaveBeenCalledWith('049000006346');
+    expect(result.current.productName).toBe('Coca-Cola Can, 12 fl oz');
+    expect(result.current.nameSource).toBe('database');
+  });
+
+  it('normal mode: a looked-up name is a question; Yes fills it, No leaves it empty', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.productName).toBe('');
+    expect(result.current.pendingName).toEqual({ name: 'Mobil 1 5W-30 5qt', source: 'drivers' });
+
+    act(() => { result.current.acceptPendingName(); });
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.pendingName).toBeNull();
+
+    lookupBarcode.mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+    await act(async () => { await result.current.handleScan('049000006346'); });
+    expect(result.current.pendingName).toEqual({ name: 'Coca-Cola Can, 12 fl oz', source: 'database' });
+    act(() => { result.current.rejectPendingName(); });
+    expect(result.current.pendingName).toBeNull();
+    expect(result.current.productName).toBe('');
+  });
+
+  it('typing over a looked-up name drops its label', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    act(() => { result.current.setProductName('Mobil 1 High Mileage'); });
+    expect(result.current.nameSource).toBeNull();
+  });
+
+  it('a late shared answer after Cancel is ignored', async () => {
+    let answer;
+    getSharedProductName.mockReturnValueOnce(new Promise(resolve => { answer = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    let pending;
+    act(() => { pending = result.current.handleScan('071924145009', 'UPC_A'); });
+    await waitFor(() => expect(getSharedProductName).toHaveBeenCalled());
+    act(() => { result.current.clearAddForm(); });
+    await act(async () => { answer('Mobil 1 5W-30 5qt'); await pending; });
+    expect(result.current.productName).toBe('');
+    expect(result.current.nameSource).toBeNull();
+    expect(lookupBarcode).not.toHaveBeenCalled();
+  });
+
+  it('suggestions: his own names first, then other drivers’, without repeats', async () => {
+    getProductNames.mockReturnValueOnce(['Mobil oil', 'Coke can']); // read once, at mount
+    getSharedProductSuggestions.mockResolvedValueOnce(['mobil oil', 'Mobil 1 5W-30 5qt']);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    act(() => { result.current.setProductName('mobil'); });
+    await waitFor(() => expect(result.current.productSuggestions).toEqual(['Mobil oil', 'Coke can', 'Mobil 1 5W-30 5qt']), { timeout: 2000 });
+    expect(getSharedProductSuggestions).toHaveBeenCalledWith('mobil');
+  });
+
+  it('under 2 characters, other drivers aren’t asked', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    act(() => { result.current.setProductName('m'); });
+    await new Promise(r => setTimeout(r, 400));
+    expect(getSharedProductSuggestions).not.toHaveBeenCalled();
+  });
+
+  it('a stale suggestion answer is ignored', async () => {
+    let slow;
+    getSharedProductSuggestions
+      .mockReturnValueOnce(new Promise(resolve => { slow = resolve; }))  // for "mo"
+      .mockResolvedValueOnce(['Mobil 1 5W-30 5qt']);                     // for "mobil 1"
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    act(() => { result.current.setProductName('mo'); });
+    await waitFor(() => expect(getSharedProductSuggestions).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    act(() => { result.current.setProductName('mobil 1'); });
+    await waitFor(() => expect(result.current.productSuggestions).toContain('Mobil 1 5W-30 5qt'), { timeout: 2000 });
+    await act(async () => { slow(['Motor oil generic']); });
+    expect(result.current.productSuggestions).not.toContain('Motor oil generic');
   });
 });
