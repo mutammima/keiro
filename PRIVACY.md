@@ -46,6 +46,11 @@ The App does not process payments.
 - Data is stored in your account in **Supabase** (our cloud database provider)
   and protected by per-user **Row Level Security**, so each account can only
   access its own data.
+- **Two exceptions — what other users can see.** Anything you publish to **Marketplace** is readable
+  by every signed-in Keiro user (see the in-app policy for exactly what a post shows). And the
+  **product name** you give a barcode can be suggested to other signed-in Keiro users who scan or
+  type the same product, once at least two accounts have used that name. Your prices, quantities,
+  stores, and which account saved it are never shared.
 - A copy may also be cached **locally on your device** so the App works offline.
   Local data stays on your device until you clear it or sign out.
 
@@ -68,6 +73,8 @@ We share information only:
   Supabase for authentication and database hosting, and Sentry for crash
   reports), strictly to provide the
   service.
+- **Barcode lookups.** When a barcode you scan isn't in your catalog, its number (only the number)
+  is sent to Open Food Facts and, through our server, to UPCitemdb to look up the product's name.
 - **When required by law**, such as to comply with a valid legal request.
 
 Any invoice you choose to share (for example, exporting a PDF or sending a
