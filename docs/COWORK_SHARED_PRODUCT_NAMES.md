@@ -10,10 +10,10 @@ If its URL doesn't resolve, the free project is paused; open the dashboard and c
 1. Supabase Dashboard → project `dcfplaqknngtnixvsiju` → SQL Editor → New query.
 2. Paste the whole of the SQL below → Run.
    If the editor complains about multiple statements, run it in 4 pastes:
-   - the index (lines 1–4 below)
-   - `shared_product_name` function (lines 6–19 below)
-   - `suggest_product_names` function (lines 21–34 below)
-   - the four revoke/grant lines (lines 36–39 below)
+   - from `create index if not exists idx_products_gtin` through its `;`
+   - from `create or replace function shared_product_name(p_barcode text)` through the `$$;` that ends it
+   - from `create or replace function suggest_product_names(p_query text)` through the `$$;` that ends it
+   - the four `revoke …` / `grant …` lines
 
 ```sql
 -- Barcode lookups across accounts; the partial index matches the function's WHERE.
