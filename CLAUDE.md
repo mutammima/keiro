@@ -312,6 +312,7 @@ src/
 | `src/utils/pdfGenerator.js` | jsPDF invoice generation; `sharePDFBlob()` hands the result to the native share sheet on iOS (blob: URLs don't work in the wrapper) or the browser/Web Share API on web |
 | `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
 | `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
+| `supabase-shared-product-names.sql` | `shared_product_name(barcode)` / `suggest_product_names(query)`: other drivers' product names (name only, once 2 accounts agree, signed-in only). Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`. The app treats a missing function as "no shared name" |
 | `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
 | `src/utils/easyMode.js` | The one reader for Easy Mode (`isEasyMode`, `easyModeFor(role)`, drivers only). Feeds `tabs.js`, the ☰ menu, the invoice screen, the PDF template and the tour |
 | `src/components/invoice/EasyInvoice.jsx` | Easy Mode's invoice: optional store with type-to-search + recent stores, Scan item → `ScanCheckCard` (name/qty/price) → Add → camera reopens; built on `useInvoiceForm(…, { easy: true })`. Spec: `docs/specs/2026-10-14-easy-mode-design.md` |
