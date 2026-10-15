@@ -54,8 +54,9 @@ import { canSaveGuestEntry } from '../utils/guestMode';
 
 function renderEasy() {
   const onGenerated = vi.fn();
-  render(<ThemeProvider><EasyInvoice onGenerated={onGenerated} onBack={vi.fn()} /></ThemeProvider>);
-  return { onGenerated };
+  const onBack = vi.fn();
+  render(<ThemeProvider><EasyInvoice onGenerated={onGenerated} onBack={onBack} /></ThemeProvider>);
+  return { onGenerated, onBack };
 }
 
 async function scan(code) {
@@ -202,5 +203,60 @@ describe('EasyInvoice', () => {
 
     expect(await screen.findByText('Generate a $0.00 invoice?')).toBeInTheDocument();
     expect(saveInvoice).not.toHaveBeenCalled();
+  });
+
+  it('a quantity can be a decimal, like 2.5', async () => {
+    renderEasy();
+    fireEvent.click(screen.getByText('+ Add without scanning'));
+    fireEvent.change(screen.getByPlaceholderText('Product name'), { target: { value: 'Ice (lb)' } });
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '2.5.' } });
+    expect(screen.getByLabelText('Quantity')).toHaveValue('2.5');
+    fireEvent.change(screen.getByLabelText('Price'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(await screen.findByText('2.5 × 2.00')).toBeInTheDocument();
+  });
+
+  it('← with items asks before throwing the invoice away', async () => {
+    const { onBack } = renderEasy();
+    fireEvent.click(screen.getByText('+ Add without scanning'));
+    fireEvent.change(screen.getByPlaceholderText('Product name'), { target: { value: 'Gildan tee' } });
+    fireEvent.change(screen.getByLabelText('Price'), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Discard this invoice?')).toBeInTheDocument();
+    expect(onBack).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+    expect(screen.queryByText('Discard this invoice?')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('← with nothing on it just goes back', () => {
+    const { onBack } = renderEasy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('a store-made barcode says so on the card', async () => {
+    renderEasy();
+    fireEvent.click(screen.getByText('Scan item'));
+    await scan('212345678900');
+    expect(await screen.findByText(/This is a store-made barcode/)).toBeInTheDocument();
+    expect(lookupBarcode).not.toHaveBeenCalled();
+  });
+
+  it('a lookup that could not run says so on the card, and Try again fills the name', async () => {
+    lookupBarcode
+      .mockResolvedValueOnce({ name: null, status: 'unavailable' })
+      .mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+    renderEasy();
+    fireEvent.click(screen.getByText('Scan item'));
+    await scan('049000006346');
+    expect(await screen.findByText(/Couldn't check right now/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByDisplayValue('Coca-Cola Can, 12 fl oz')).toBeInTheDocument();
   });
 });

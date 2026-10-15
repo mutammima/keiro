@@ -16,3 +16,11 @@ export function isEasyMode() {
 export function easyModeFor(role) {
   return role !== 'store_owner' && isEasyMode();
 }
+
+/**
+ * The label for a "share this invoice's PDF" button. In Easy Mode the driver
+ * prints from the iPhone share sheet, so every such button says Print / Share.
+ */
+export function shareLabel(defaultLabel) {
+  return isEasyMode() ? 'Print / Share' : defaultLabel;
+}

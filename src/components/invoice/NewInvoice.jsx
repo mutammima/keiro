@@ -16,7 +16,7 @@ import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
 import ZeroTotalConfirm from './ZeroTotalConfirm';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
-import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, LOOKING_UP_TEXT } from '../../utils/constants';
 
 // Lazy-loaded so html5-qrcode (the heavy scanner dependency) is split into its
 // own chunk and only fetched when the user actually taps the scan button.
@@ -408,7 +408,9 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               </div>
             )}
             {error && <p style={{ ...s.error, color: C.danger }}>{error}</p>}
-            <button data-tutorial="invoice-add-item-btn" style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub }} onClick={addItem} type="button">
+            {/* Disabled until a scanned name comes back (addItem refuses "Looking up…" anyway). */}
+            <button data-tutorial="invoice-add-item-btn" disabled={productName === LOOKING_UP_TEXT}
+              style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub, opacity: productName === LOOKING_UP_TEXT ? 0.5 : 1 }} onClick={addItem} type="button">
               + Add Item
             </button>
           </div>

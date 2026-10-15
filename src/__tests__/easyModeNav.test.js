@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { tabsForRole, tabIdsForRole, tabTargetFor } from '../components/navigation/tabs';
-import { isEasyMode, easyModeFor } from '../utils/easyMode';
+import { isEasyMode, easyModeFor, shareLabel } from '../utils/easyMode';
 import { STORAGE_KEYS } from '../utils/constants';
 
 beforeEach(() => localStorage.clear());
@@ -68,5 +68,14 @@ describe('tabTargetFor', () => {
     expect(tabTargetFor(easyTabs, 'products')).toBe('products');
     expect(tabTargetFor(easyTabs, 'invoice')).toBe('invoice');
     expect(tabTargetFor(['home', 'route', 'stores', 'reports'], 'home')).toBe('home');
+  });
+});
+
+describe('shareLabel', () => {
+  it('says Print / Share in Easy Mode, everywhere a PDF is shared', () => {
+    expect(shareLabel('Share PDF')).toBe('Share PDF');
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    expect(shareLabel('Share PDF')).toBe('Print / Share');
+    expect(shareLabel('Share')).toBe('Print / Share');
   });
 });

@@ -2,9 +2,9 @@
 
 **Status**
 - [x] Design agreed with the owner in chat (2026-10-14)
-- [ ] Spec reviewed by the owner
-- [ ] Implementation plan written
-- [ ] Built test-first, verified on the real screens, merged
+- [x] Spec reviewed by the owner
+- [x] Implementation plan written (docs/superpowers/plans/2026-10-14-easy-mode.md)
+- [x] Built test-first, verified on the real screens, merged (PR #190, live e01fe72)
 - [ ] One real invoice made on the driver's phone
 
 **Scope:** drivers only. Store-owner accounts are unchanged, and the Easy Mode switch is hidden

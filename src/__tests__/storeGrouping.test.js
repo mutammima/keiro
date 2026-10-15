@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { storeNameOf, storeLabelOf, groupInvoicesByStore, revenueByStore, unassignedStoreNote, subtotalOf } from '../utils/invoiceUtils';
+import { storeNameOf, storeLabelOf, groupInvoicesByStore, revenueByStore, unassignedStoreNote, outstandingScopeLine, subtotalOf } from '../utils/invoiceUtils';
 
 const inv = (storeName, total, status = 'unpaid', date = 'October 10, 2026') =>
   ({ storeName, date, paymentStatus: status, items: [{ name: 'x', qty: 1, price: total }] });
@@ -61,5 +61,14 @@ describe('storeLabelOf', () => {
     expect(storeLabelOf({ storeName: 'Sunrise Deli' })).toBe('Sunrise Deli');
     expect(storeLabelOf({ storeName: '' })).toBe('No store');
     expect(storeLabelOf({ store_name: '  ' })).toBe('No store');
+  });
+});
+
+describe('outstandingScopeLine', () => {
+  it('says what the Total Outstanding covers, including invoices with no store', () => {
+    expect(outstandingScopeLine(2, 0)).toBe('across 2 stores');
+    expect(outstandingScopeLine(1, 0)).toBe('across 1 store');
+    expect(outstandingScopeLine(2, 1)).toBe('across 2 stores and 1 invoice with no store');
+    expect(outstandingScopeLine(0, 3)).toBe('across 3 invoices with no store');
   });
 });

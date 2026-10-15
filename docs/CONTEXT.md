@@ -246,7 +246,7 @@ src/
     auth/                 AuthGate, OnboardingFlow (sign-up screens), GuestUpsell
     connections/          InviteModal
     dashboard/            DashboardCharts (BarChart, DonutRing, HorizBar)
-    tutorial/             QuickStart (the entire tutorial, one 7-step tour per role), Spotlight, DimPanels, TutorialTooltip, Confetti
+    tutorial/             QuickStart (the entire tutorial: a 7-step tour per role, and per mode for drivers), Spotlight, DimPanels, TutorialTooltip, Confetti
     settings/             PinLock, ThemeToggle
     ui/                   SplashScreen, UpdateBanner, WhatsNew, SyncToast, BarcodeScanner, etc.
     onboarding/           RoleSelector
@@ -306,11 +306,13 @@ End-of-Day summary.
 ## 9. Onboarding / tutorial system (one tour — `components/tutorial/`)
 
 1. **RoleSelector** — first launch, pick driver vs store owner.
-2. **QuickStart** (`QuickStart.jsx`) — a single **7-step, role-aware spotlight tour**, taught in one
-   sitting right after signup, ending in a confetti success screen. First-run gated by `useOnboarding`
-   (`inv_onboarding_complete`); replayable from the drawer ("How it Works") and Settings → Help
-   ("Replay tutorial") — both relaunch the identical tour. On finish (driver only) a pulse dot appears
-   on the Home tab.
+2. **QuickStart** (`QuickStart.jsx`) — a **7-step, role-aware spotlight tour**, taught in one
+   sitting right after signup, ending in a confetti success screen. Drivers get one per mode: the full
+   tour, or the Easy Mode tour (the scan-first invoice). First-run gated by `useOnboarding`
+   (`inv_onboarding_complete`); switching Easy Mode plays that mode's tour once
+   (`inv_tour_seen_full` / `inv_tour_seen_easy`); replayable from the drawer ("How it Works") and
+   Settings → Help ("Replay tutorial"), the Easy tour from Route. The logic lives in
+   `hooks/useQuickStart.js`. On finish (driver, full mode) a pulse dot appears on the Home tab.
 
 **This replaced a four-layer system** (a 3-step QuickStart + 20 contextual tips throttled to "2 per
 session" so the rest trickled in over future days + a Settings checklist + an 836-line self-driving

@@ -138,7 +138,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     const seen = new Set();
     const out = [];
     [...allInvoices]
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .sort((a, b) => String(b.createdAt || b.created_at || '').localeCompare(String(a.createdAt || a.created_at || '')))
       .forEach(inv => {
         const name = (inv.storeName || '').trim();
         if (name && !seen.has(name.toLowerCase())) { seen.add(name.toLowerCase()); out.push(name); }
@@ -493,7 +493,9 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
         customerName: customerName.trim(),
         storePhone: storePhone.trim(),
         storeAddress: storeAddress.trim(),
-        date, time, items,
+        date, time,
+        // The scanned barcode only helps the draft (a rescan finds its line); it isn't part of the invoice.
+        items: items.map(({ barcode: _barcode, ...line }) => line),
         notes: notes.trim(),
         paymentMethod,
         // Preserve the existing status/created time on an edit; a new invoice
