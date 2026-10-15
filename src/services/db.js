@@ -381,6 +381,38 @@ export async function getProductByName(name) {
 }
 
 /**
+ * What other Keiro drivers call this barcode — a name only, once two accounts
+ * agree (supabase-shared-product-names.sql). Signed-in only.
+ * @param {string} barcode
+ * @returns {Promise<{ data: string|null, error: object|null }>}
+ */
+export async function getSharedProductName(barcode) {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase.rpc('shared_product_name', { p_barcode: barcode });
+    return { data: error ? null : (data ?? null), error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Product names other drivers use that contain `query` (at most 8; same
+ * two-account rule). Signed-in only.
+ * @param {string} query
+ * @returns {Promise<{ data: string[], error: object|null }>}
+ */
+export async function suggestProductNames(query) {
+  if (await noSession()) return { data: [], error: new Error('no session') };
+  try {
+    const { data, error } = await supabase.rpc('suggest_product_names', { p_query: query });
+    return { data: error ? [] : (data ?? []), error };
+  } catch (err) {
+    return { data: [], error: err };
+  }
+}
+
+/**
  * Upsert (insert or update) a product by barcode.
  * @param {string} barcode
  * @param {string} name
