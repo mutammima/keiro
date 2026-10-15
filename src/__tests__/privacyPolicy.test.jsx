@@ -26,4 +26,10 @@ describe('privacy policy', () => {
     render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
     expect(screen.getByText(/its number \(only the number\) is sent to Open Food Facts and, through our server, to UPCitemdb/i)).toBeInTheDocument();
   });
+
+  it('storage section points to the product-name exception', () => {
+    render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
+    expect(screen.getByText(/except the product names described under What other users can see/i)).toBeInTheDocument();
+    expect(screen.queryByText(/the one exception/i)).toBeNull();
+  });
 });

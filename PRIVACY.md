@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: June 8, 2026**
+**Last updated: October 15, 2026**
 
 This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
 and protects information when you use the App. By using Keiro you agree to the
