@@ -46,11 +46,12 @@ The App does not process payments.
 - Data is stored in your account in **Supabase** (our cloud database provider)
   and protected by per-user **Row Level Security**, so each account can only
   access its own data.
-- **Two exceptions — what other users can see.** Anything you publish to **Marketplace** is readable
-  by every signed-in Keiro user (see the in-app policy for exactly what a post shows). And the
-  **product name** you give a barcode can be suggested to other signed-in Keiro users who scan or
-  type the same product, once at least two accounts have used that name. Your prices, quantities,
-  stores, and which account saved it are never shared.
+- **What other users can see.** Anything you publish to **Marketplace** is readable
+  by every signed-in Keiro user (see the in-app policy for exactly what a post shows).
+  Product names: the names of products in your catalog — including names you give a barcode — can
+  be suggested to other signed-in Keiro users who scan or type the same product, once at least two
+  other accounts have used the same name. Your prices, quantities, stores, and which account saved
+  it are never shared. Invoices you send to a connected store are visible to that store's account.
 - A copy may also be cached **locally on your device** so the App works offline.
   Local data stays on your device until you clear it or sign out.
 
