@@ -28,13 +28,16 @@ beforeEach(async () => {
   supabase.rpc.mockReset();
   storage = await import('../utils/storage');
 });
+// supabase-js's rpc() returns a builder; the app chains .abortSignal() before awaiting it.
+const rpcResolves = value => supabase.rpc.mockReturnValue({ abortSignal: () => Promise.resolve(value) });
+const rpcRejects = err => supabase.rpc.mockReturnValue({ abortSignal: () => Promise.reject(err) });
 const signedIn = () => supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
 const signedOut = () => supabase.auth.getUser.mockResolvedValue({ data: { user: null } });
 
 describe('shared product names', () => {
   it('asks Supabase for the barcode\'s shared name when signed in', async () => {
     signedIn();
-    supabase.rpc.mockResolvedValue({ data: '  Mobil 1 5W-30 5qt ', error: null });
+    rpcResolves({ data: '  Mobil 1 5W-30 5qt ', error: null });
     expect(await storage.getSharedProductName('071924145009')).toBe('Mobil 1 5W-30 5qt');
     expect(supabase.rpc).toHaveBeenCalledWith('shared_product_name', { p_barcode: '071924145009' });
   });
@@ -48,27 +51,27 @@ describe('shared product names', () => {
 
   it('an RPC error means no shared name (e.g. before the SQL is run)', async () => {
     signedIn();
-    supabase.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+    rpcResolves({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
     expect(await storage.getSharedProductName('071924145009')).toBeNull();
     expect(await storage.getSharedProductSuggestions('mobil')).toEqual([]);
   });
 
   it('a thrown network error means no shared name', async () => {
     signedIn();
-    supabase.rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    rpcRejects(new TypeError('Failed to fetch'));
     expect(await storage.getSharedProductName('071924145009')).toBeNull();
     expect(await storage.getSharedProductSuggestions('mobil')).toEqual([]);
   });
 
   it('nobody has named it → null', async () => {
     signedIn();
-    supabase.rpc.mockResolvedValue({ data: null, error: null });
+    rpcResolves({ data: null, error: null });
     expect(await storage.getSharedProductName('0071181000240')).toBeNull();
   });
 
   it('suggestions come back trimmed, blanks dropped', async () => {
     signedIn();
-    supabase.rpc.mockResolvedValue({ data: ['Mobil 1 5W-30 5qt ', '', '  ', 'Mobil 1 0W-20'], error: null });
+    rpcResolves({ data: ['Mobil 1 5W-30 5qt ', '', '  ', 'Mobil 1 0W-20'], error: null });
     expect(await storage.getSharedProductSuggestions('mobil')).toEqual(['Mobil 1 5W-30 5qt', 'Mobil 1 0W-20']);
     expect(supabase.rpc).toHaveBeenCalledWith('suggest_product_names', { p_query: 'mobil' });
   });

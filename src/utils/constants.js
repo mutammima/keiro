@@ -154,6 +154,8 @@ export const DEFAULT_FLAG_DAYS = 7;
  * one per keystroke. The input setState stays immediate (no input lag).
  */
 export const AUTOFILL_DEBOUNCE_MS = 250;
+/** Longest the shared-product-name RPCs may take before the app carries on without them. */
+export const SHARED_RPC_TIMEOUT_MS = 4000;
 
 /**
  * How long (ms) a deleted invoice stays recoverable via the "Undo" snackbar

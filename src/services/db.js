@@ -9,7 +9,7 @@
  */
 
 import { supabase } from './supabase';
-import { INVOICE_NUMBER_START } from '../utils/constants';
+import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS } from '../utils/constants';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -389,7 +389,9 @@ export async function getProductByName(name) {
 export async function getSharedProductName(barcode) {
   if (await noSession()) return { data: null, error: new Error('no session') };
   try {
-    const { data, error } = await supabase.rpc('shared_product_name', { p_barcode: barcode });
+    const { data, error } = await supabase
+      .rpc('shared_product_name', { p_barcode: barcode })
+      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? null : (data ?? null), error };
   } catch (err) {
     return { data: null, error: err };
@@ -405,7 +407,9 @@ export async function getSharedProductName(barcode) {
 export async function suggestProductNames(query) {
   if (await noSession()) return { data: [], error: new Error('no session') };
   try {
-    const { data, error } = await supabase.rpc('suggest_product_names', { p_query: query });
+    const { data, error } = await supabase
+      .rpc('suggest_product_names', { p_query: query })
+      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? [] : (data ?? []), error };
   } catch (err) {
     return { data: [], error: err };

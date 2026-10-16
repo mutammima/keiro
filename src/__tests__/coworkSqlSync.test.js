@@ -6,7 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const root = resolve(__dirname, '../..');
+// eslint-disable-next-line no-undef -- Node global; vitest runs from the repo root
+const root = process.cwd();
 const norm = s => s.replace(/\r\n/g, '\n').trim();
 
 describe('shared product names SQL', () => {

@@ -611,8 +611,8 @@ const s = {
   pendingTitle:  { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 },
   pendingName:   { fontSize: 15, fontWeight: 700, margin: '4px 0 2px' },
   pendingSource: { fontSize: 12, margin: '0 0 10px' },
-  pendingYes:    { flex: 1, height: 40, border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
-  pendingNo:     { flex: 1, height: 40, background: 'transparent', border: '1px solid', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  pendingYes:    { flex: 1, height: 44, border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  pendingNo:     { flex: 1, height: 44, background: 'transparent', border: '1px solid', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   barcodeRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '-4px 0 8px' },
   barcodeTag: {
     fontSize: 12, padding: '3px 8px', borderRadius: 6,
