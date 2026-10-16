@@ -11,7 +11,7 @@ Two parts, built at different times:
 - [x] Design written (2026-10-13)
 - [x] Part A: owner picks items → built, tested, merged (#189, live c9cc5ef)
 - [x] Part B: owner decisions answered (2026-10-14: recommendations accepted)
-- [ ] Part B: privacy policy updated (required before it ships)
+- [x] Part B: privacy policy updated (required before it ships)
 - [ ] Part B: SQL run in Supabase (via a cowork prompt) and probed
 - [ ] Part B: client built, tested, merged
 - [ ] Part B: checked on two phones with two real accounts

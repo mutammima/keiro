@@ -340,6 +340,7 @@ names), so re-running is always safe:
 - `supabase-connection-orders.sql` — cross-account orders; INSERT gated on an active connection linking store → driver
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
 - `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
+- `supabase-shared-product-names.sql` — `shared_product_name(barcode)` / `suggest_product_names(query)` SECURITY DEFINER RPCs (authenticated only): another driver's product name, name only, once two OTHER accounts agree. Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`; the app treats a missing function as "no shared name"
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant

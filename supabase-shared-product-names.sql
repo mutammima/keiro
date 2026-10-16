@@ -6,9 +6,10 @@
 --
 -- Lets a signed-in driver ask "what do Keiro drivers call this barcode?" and get
 -- back ONLY a product name — never a price, quantity, store, or who saved it —
--- and only once at least two different accounts use that name (one driver's
--- one-off label never reaches anyone). Computed live from `products`, so deleting
--- an account (on delete cascade) removes its contributions.
+-- and only once at least two OTHER accounts (not the caller's own) use that name
+-- (one driver's one-off label never reaches anyone). Matches every row in the
+-- `products` catalog, including manual items typed without scanning. Computed live
+-- from `products`, so deleting an account (on delete cascade) removes its contributions.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- Barcode lookups across accounts; the partial index matches the function's WHERE.
@@ -21,12 +22,14 @@ returns text
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   with candidates as (
     select name, user_id, updated_at
     from products
     where auth.uid() is not null
+      and user_id <> auth.uid()                -- other accounts only: your own copy never counts
+      and btrim(name) <> ''                    -- blank names are never shared
       and p_barcode ~ '^[0-9]{8,14}$'          -- lpad truncates longer input; never match it
       and barcode ~ '^[0-9]{8,14}$'            -- skips manual_… catalog keys
       and lpad(barcode, 14, '0') = lpad(p_barcode, 14, '0')   -- 12- and 13-digit forms match
@@ -42,7 +45,7 @@ as $$
           where lower(btrim(c.name)) = g.key
           order by c.updated_at desc limit 1)
   from grouped g
-  where g.accounts >= 2                         -- K = 2 (owner, 2026-10-14)
+  where g.accounts >= 2                         -- K = 2 other accounts (owner, 2026-10-14)
   order by g.accounts desc, g.last_used desc
   limit 1;
 $$;
@@ -53,12 +56,14 @@ returns setof text
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   with matches as (
     select lower(btrim(name)) as key, name, user_id, updated_at
     from products
     where auth.uid() is not null
+      and user_id <> auth.uid()                -- other accounts only
+      and btrim(name) <> ''                    -- blank names are never shared
       and length(btrim(p_query)) >= 2
       and strpos(lower(name), lower(btrim(p_query))) > 0   -- substring, like AutofillInput
   ),

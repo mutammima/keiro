@@ -26,12 +26,14 @@ returns text
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   with candidates as (
     select name, user_id, updated_at
     from products
     where auth.uid() is not null
+      and user_id <> auth.uid()                -- other accounts only: your own copy never counts
+      and btrim(name) <> ''                    -- blank names are never shared
       and p_barcode ~ '^[0-9]{8,14}$'          -- lpad truncates longer input; never match it
       and barcode ~ '^[0-9]{8,14}$'            -- skips manual_… catalog keys
       and lpad(barcode, 14, '0') = lpad(p_barcode, 14, '0')   -- 12- and 13-digit forms match
@@ -47,7 +49,7 @@ as $$
           where lower(btrim(c.name)) = g.key
           order by c.updated_at desc limit 1)
   from grouped g
-  where g.accounts >= 2                         -- K = 2 (owner, 2026-10-14)
+  where g.accounts >= 2                         -- K = 2 other accounts (owner, 2026-10-14)
   order by g.accounts desc, g.last_used desc
   limit 1;
 $$;
@@ -58,12 +60,14 @@ returns setof text
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   with matches as (
     select lower(btrim(name)) as key, name, user_id, updated_at
     from products
     where auth.uid() is not null
+      and user_id <> auth.uid()                -- other accounts only
+      and btrim(name) <> ''                    -- blank names are never shared
       and length(btrim(p_query)) >= 2
       and strpos(lower(name), lower(btrim(p_query))) > 0   -- substring, like AutofillInput
   ),
@@ -90,15 +94,16 @@ grant execute on function suggest_product_names(text) to authenticated;
 
 ## 2. Check it (nothing is kept: everything runs inside a transaction that is rolled back)
 
-Find two real user ids: `select id, email from auth.users order by created_at limit 5;`
-Pick any two (A and B). A and B are two different `id` values from that query, pasted inside single quotes.
+Find three real user ids: `select id, email from auth.users order by created_at limit 5;`
+Pick any three (A, B and C). A, B and C are three different `id` values from that query, pasted inside single quotes.
+The function counts only accounts other than the one asking, so the test needs two accounts that "use" the name (B and C) and a third account (A) that asks.
 
 ### Run 1: test the authenticated case
 
 ```sql
 begin;
 insert into products (user_id, barcode, name, last_price) values
-  ('A', '000000000017', 'COWORK TEST NAME', 1), ('B', '0000000000017', 'cowork test name', 2);
+  ('B', '000000000017', 'COWORK TEST NAME', 1), ('C', '0000000000017', 'cowork test name', 2);
 set local role authenticated;
 set local request.jwt.claim.sub = 'A';
 select shared_product_name('000000000017')  as shared,
@@ -108,6 +113,10 @@ rollback;
 
 Expected: `shared` = `COWORK TEST NAME` or `cowork test name` (one of the two spellings you entered);
 `suggested` = an array with one name (the shared name).
+
+Then repeat the same block with the `set local request.jwt.claim.sub` line changed from `'A'` to `'B'`
+(still inside `begin; … rollback;`, with the same two inserts). Expected this time: `shared` is empty (null) and
+`suggested` is empty, because B alone sees only one other account (C) using the name.
 
 If the insert errors because another column is required, add that column with any valid value and run it again; everything is rolled back.
 
@@ -124,5 +133,5 @@ Expected: `ERROR: permission denied for function shared_product_name`.
 
 ## 3. Report back
 
-Paste the Run 1 result row (the `shared` and `suggested` columns) and the Run 2 error message into the chat. Claude then checks from
+Paste both Run 1 result rows (the `shared` and `suggested` columns, as A and as B) and the Run 2 error message into the chat. Claude then checks from
 outside that the functions exist and refuse anonymous callers.
