@@ -2,7 +2,7 @@
 
 **Status**
 - [x] Design agreed with the owner in chat (2026-10-16)
-- [ ] Spec reviewed by the owner
+- [x] Spec reviewed by the owner (2026-10-16)
 - [ ] Implementation plan written
 - [ ] Built test-first, verified on the real screens
 - [ ] Stripe test-mode checks passed (pay, cancel, failed renewal, yearly)
@@ -120,6 +120,12 @@ customer portal (cancel, switch between the two prices, update card) and the rec
 register the webhook endpoint. Everything runs on Stripe test mode first. Sales tax collection is
 off at launch (Stripe can add it later — ask an accountant once real money comes in).
 
+**Privacy policy and Terms** (in-app `Legal.jsx`, `PRIVACY.md`, `TERMS.md`): Stripe takes Pro
+payments and Keiro never sees or stores card numbers; what Keiro keeps (plan, renewal date, Stripe
+customer number, this month's invoice count); Pro renews until cancelled, cancel anytime, Pro lasts
+to the end of the paid period. Today's text says "the app does not process payments", which stops
+being true.
+
 **App Store:** this works because the app is sideloaded. If Keiro goes on the App Store, Apple's
 in-app purchase rules must be revisited before submitting.
 
@@ -129,8 +135,8 @@ in-app purchase rules must be revisited before submitting.
 - **`subscriptions`** — one row per paying or switched account: `user_id` (PK, → `auth.users`,
   cascade), `source` (`'stripe'` | `'manual'`), `status` (Stripe's subscription status, or
   `'active'` for manual), `pro_until` (timestamptz; **null with `source='manual'` = forever**),
-  `interval` (`'month'` | `'year'`, Stripe only), `stripe_customer_id`, `stripe_subscription_id`,
-  `updated_at`.
+  `interval` (`'month'` | `'year'`, Stripe only), `cancels` (cancelled: Pro ends at `pro_until`
+  instead of renewing), `stripe_customer_id`, `stripe_subscription_id`, `updated_at`.
 - **`invoice_usage`** — `user_id`, `month` (first day of the UTC month), `count`; PK
   (`user_id`, `month`).
 - **RLS:** a user can **read only their own rows** in both tables and **write neither**. Only the
@@ -143,9 +149,15 @@ in-app purchase rules must be revisited before submitting.
   (`past_due` = renewal retries in progress; `pro_until` = the end of the paid period).
 
 **The server count and backstop** (triggers on `invoices`):
+- **Only this month's invoices count.** An inserted invoice counts (and can be refused) only when
+  its own `created_at` falls in the current UTC month. Uploads of older invoices — a guest's
+  history moving into a new account, a restored backup, an invoice made offline last month —
+  never count and are never refused. (Backdating `created_at` needs a modified app, the same
+  accepted gap as the feature locks below.)
 - **AFTER INSERT:** add 1 to this account's `invoice_usage` for the current UTC month. AFTER
   INSERT fires only for rows actually inserted, so the app's upsert of an existing invoice (an
-  edit) never counts. Deletes never subtract.
+  edit) never counts. Deletes never subtract. Pro accounts' invoices count too, so a driver whose
+  Pro ends mid-month is already past 20 for the rest of that month.
 - **BEFORE INSERT:** if the account is not Pro and this month's count is already **25**, refuse
   with the message `KEIRO_FREE_LIMIT`. **It must first let through an upsert of an invoice that
   already exists** (same `user_id` + `invoice_number`): Postgres fires BEFORE INSERT triggers on
@@ -154,8 +166,9 @@ in-app purchase rules must be revisited before submitting.
 - The 5 spare (25 vs 20) absorb offline invoices that upload after the 1st, the UTC vs local month
   edge, and two phones used at once. Normally only tampering reaches it.
 
-**`my_plan()`** — one RPC the app calls: `{ pro, source, status, pro_until, interval,
-used_this_month, free_limit: 20 }` for the signed-in account (reads only the caller's rows).
+**`my_plan()`** — one RPC the app calls: `{ pro, source, status, pro_until, interval, cancels,
+used_this_month, month, free_limit: 20 }` for the signed-in account (reads only the caller's
+rows; `month` is the UTC month `used_this_month` belongs to).
 
 **Server functions** (Vercel Functions in `api/`, next to `api/barcode.js`; Node.js runtime):
 - **`api/checkout`** — POST, `Authorization: Bearer <Supabase access token>`, body
@@ -205,8 +218,8 @@ invoices.
   the other sheets.
 - **Sign-up plan screen** — `OnboardingFlow`'s `PLANS` become two cards: **Free** (Easy Mode, 20
   invoices a month) and **Pro** ($4.99 a month or $49.99 a year). **Start free** is selected by
-  default; picking Pro opens the Upgrade sheet once the account exists. If the role isn't chosen
-  yet when this screen shows, a line under the cards says "Store owners: Keiro is free."
+  default; picking Pro opens the Upgrade sheet once the account exists. Store owners skip this
+  screen (the role is chosen on the step before it).
 - **New drivers start in Easy Mode** and get the Easy tour (today they start in normal mode).
 - **Settings → Plan** (drivers only), one of:
   - Free: "12 of 20 invoices used this month · resets Nov 1" + **Upgrade**
