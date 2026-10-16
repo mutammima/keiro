@@ -228,6 +228,8 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     latestProductNameRef.current = val;
     setProductName(val); // immediate — controlled input, no lag
     setNameSource(null);
+    setPendingName(null);   // typing over an "Is this it?" question dismisses it
+    scanSeqRef.current += 1; // typing cancels any barcode lookup still in flight
     // Debounced cloud lookup: fires once after the user pauses, not per keystroke.
     // Still guarded by the ref so a stale response never overwrites a newer name.
     clearTimeout(productLookupTimer.current);
@@ -362,7 +364,6 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setError('');
     setLookupUnavailable(false);
     setProductName(LOOKING_UP_TEXT);
-    setPrice('');
     const { name, status } = await lookupBarcode(barcode);
     if (seq !== scanSeqRef.current) return; // the driver moved on: drop the late answer
     if (name) {
@@ -376,7 +377,27 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     } else {
       setError(UNKNOWN_BARCODE_MESSAGE);
     }
-  }, [offerName, setProductName, setPrice, setError]);
+  }, [offerName, setProductName, setError]);
+
+  /**
+   * What other Keiro drivers call a barcode (name only, once two other accounts
+   * agree); if nobody does, the remote barcode sources. Shared by the first
+   * scan and Try again, so a retry also asks the drivers.
+   * @param {string} barcode - already normalized
+   * @param {number} seq - the scan this belongs to; a stale answer is dropped
+   */
+  const askDriversThenDatabase = useCallback(async (barcode, seq) => {
+    setError('');
+    setLookupUnavailable(false);
+    setProductName(LOOKING_UP_TEXT);
+    const shared = await getSharedProductName(barcode);
+    if (seq !== scanSeqRef.current) return; // a newer scan, typing or Cancel came first
+    if (shared) {
+      offerName(shared, 'drivers');
+      return;
+    }
+    await lookUpRemotely(barcode, seq);
+  }, [offerName, lookUpRemotely, setError, setProductName]);
 
   /**
    * Handles a barcode scan: checks the product catalog first, then the remote
@@ -420,26 +441,17 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
       return;
     }
 
-    // 3. What other Keiro drivers call it (name only, once two accounts agree).
-    setProductName(LOOKING_UP_TEXT);
-    const shared = await getSharedProductName(barcode);
-    if (seq !== scanSeqRef.current) return; // a newer scan or Cancel came first
-    if (shared) {
-      offerName(shared, 'drivers');
-      return;
-    }
-
-    // 4. Remote barcode sources.
-    await lookUpRemotely(barcode, seq);
+    // 3 + 4. Other drivers' name, then the remote barcode sources.
+    await askDriversThenDatabase(barcode, seq);
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler
     // preserve the memoization instead of bailing out.
-  }, [easy, items, loadItemIntoForm, setLastBarcode, setProductName, setPrice, setError, setNameSource, setPendingName, offerName, lookUpRemotely]);
+  }, [easy, items, loadItemIntoForm, setLastBarcode, setProductName, setPrice, setError, setNameSource, setPendingName, askDriversThenDatabase]);
 
   /** Try again after a lookup that couldn't run, for the barcode still shown. */
   const retryLookup = useCallback(async () => {
-    if (lastBarcode) await lookUpRemotely(lastBarcode, ++scanSeqRef.current);
-  }, [lastBarcode, lookUpRemotely]);
+    if (lastBarcode) await askDriversThenDatabase(lastBarcode, ++scanSeqRef.current);
+  }, [lastBarcode, askDriversThenDatabase]);
 
   /**
    * Validates the add-item fields and appends a line — or, when a line is

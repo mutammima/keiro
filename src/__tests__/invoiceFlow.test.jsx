@@ -617,6 +617,78 @@ describe('useInvoiceForm — names from other drivers', () => {
     expect(lookupBarcode).not.toHaveBeenCalled();
   });
 
+  it('Try again asks other drivers first and offers their name without calling the database', async () => {
+    lookupBarcode.mockResolvedValueOnce({ name: '', status: 'unavailable' });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.lookupUnavailable).toBe(true);
+    expect(lookupBarcode).toHaveBeenCalledTimes(1);
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    await act(async () => { await result.current.retryLookup(); });
+    expect(lookupBarcode).toHaveBeenCalledTimes(1);
+    expect(result.current.productName).toBe('Mobil 1 5W-30 5qt');
+    expect(result.current.nameSource).toBe('drivers');
+  });
+
+  it('a price typed while the shared lookup is pending survives', async () => {
+    let answer;
+    getSharedProductName.mockReturnValueOnce(new Promise(resolve => { answer = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    let pending;
+    act(() => { pending = result.current.handleScan('071924145009', 'UPC_A'); });
+    await waitFor(() => expect(getSharedProductName).toHaveBeenCalled());
+    act(() => { result.current.setPrice('12.50'); });
+    lookupBarcode.mockResolvedValueOnce({ name: '', status: 'unknown' });
+    await act(async () => { answer(null); await pending; });
+    expect(result.current.price).toBe('12.50');
+  });
+
+  it('Try again does not wipe a typed price', async () => {
+    lookupBarcode.mockResolvedValueOnce({ name: '', status: 'unavailable' });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    act(() => { result.current.setPrice('9.99'); });
+    lookupBarcode.mockResolvedValueOnce({ name: '', status: 'unavailable' });
+    await act(async () => { await result.current.retryLookup(); });
+    expect(result.current.price).toBe('9.99');
+  });
+
+  it('a name typed while a lookup is pending is not replaced by the late answer', async () => {
+    let answer;
+    getSharedProductName.mockReturnValueOnce(new Promise(resolve => { answer = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn(), { easy: true }));
+    let pending;
+    act(() => { pending = result.current.handleScan('071924145009', 'UPC_A'); });
+    await waitFor(() => expect(getSharedProductName).toHaveBeenCalled());
+    act(() => { result.current.setProductName('My own name'); });
+    await act(async () => { answer('Mobil 1 5W-30 5qt'); await pending; });
+    expect(result.current.productName).toBe('My own name');
+    expect(result.current.nameSource).toBeNull();
+    expect(lookupBarcode).not.toHaveBeenCalled();
+  });
+
+  it('a name typed while the database lookup is pending is not blanked by the late answer', async () => {
+    let answer;
+    lookupBarcode.mockReturnValueOnce(new Promise(resolve => { answer = resolve; }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    let pending;
+    act(() => { pending = result.current.handleScan('049000006346'); });
+    await waitFor(() => expect(lookupBarcode).toHaveBeenCalled());
+    act(() => { result.current.setProductName('Coke'); });
+    await act(async () => { answer({ name: '', status: 'unknown' }); await pending; });
+    expect(result.current.productName).toBe('Coke');
+  });
+
+  it('typing dismisses a visible "Is this it?" question', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await act(async () => { await result.current.handleScan('071924145009', 'UPC_A'); });
+    expect(result.current.pendingName).not.toBeNull();
+    act(() => { result.current.setProductName('M'); });
+    expect(result.current.pendingName).toBeNull();
+    expect(result.current.productName).toBe('M');
+  });
+
   it('suggestions: his own names first, then other drivers’, without repeats', async () => {
     getProductNames.mockReturnValueOnce(['Mobil oil', 'Coke can']); // read once, at mount
     getSharedProductSuggestions.mockResolvedValueOnce(['mobil oil', 'Mobil 1 5W-30 5qt']);
