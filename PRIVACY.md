@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: June 8, 2026**
+**Last updated: October 15, 2026**
 
 This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
 and protects information when you use the App. By using Keiro you agree to the
@@ -46,6 +46,12 @@ The App does not process payments.
 - Data is stored in your account in **Supabase** (our cloud database provider)
   and protected by per-user **Row Level Security**, so each account can only
   access its own data.
+- **What other users can see.** Anything you publish to **Marketplace** is readable
+  by every signed-in Keiro user (see the in-app policy for exactly what a post shows).
+  Product names: the names of products in your catalog — including names you give a barcode — can
+  be suggested to other signed-in Keiro users who scan or type the same product, once at least two
+  other accounts have used the same name. Your prices, quantities, stores, and which account saved
+  it are never shared. Invoices you send to a connected store are visible to that store's account.
 - A copy may also be cached **locally on your device** so the App works offline.
   Local data stays on your device until you clear it or sign out.
 
@@ -68,6 +74,8 @@ We share information only:
   Supabase for authentication and database hosting, and Sentry for crash
   reports), strictly to provide the
   service.
+- **Barcode lookups.** When a barcode you scan isn't in your catalog, its number (only the number)
+  is sent to Open Food Facts and, through our server, to UPCitemdb to look up the product's name.
 - **When required by law**, such as to comply with a valid legal request.
 
 Any invoice you choose to share (for example, exporting a PDF or sending a

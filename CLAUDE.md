@@ -312,6 +312,7 @@ src/
 | `src/utils/pdfGenerator.js` | jsPDF invoice generation; `sharePDFBlob()` hands the result to the native share sheet on iOS (blob: URLs don't work in the wrapper) or the browser/Web Share API on web |
 | `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
 | `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
+| `supabase-shared-product-names.sql` | `shared_product_name(barcode)` / `suggest_product_names(query)`: other drivers' product names (name only, once 2 accounts agree, signed-in only). Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`. The app treats a missing function as "no shared name" |
 | `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
 | `src/utils/easyMode.js` | The one reader for Easy Mode (`isEasyMode`, `easyModeFor(role)`, drivers only). Feeds `tabs.js`, the ☰ menu, the invoice screen, the PDF template and the tour |
 | `src/components/invoice/EasyInvoice.jsx` | Easy Mode's invoice: optional store with type-to-search + recent stores, Scan item → `ScanCheckCard` (name/qty/price) → Add → camera reopens; built on `useInvoiceForm(…, { easy: true })`. Spec: `docs/specs/2026-10-14-easy-mode-design.md` |
@@ -339,6 +340,7 @@ names), so re-running is always safe:
 - `supabase-connection-orders.sql` — cross-account orders; INSERT gated on an active connection linking store → driver
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
 - `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
+- `supabase-shared-product-names.sql` — `shared_product_name(barcode)` / `suggest_product_names(query)` SECURITY DEFINER RPCs (authenticated only): another driver's product name, name only, once two OTHER accounts agree. Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`; the app treats a missing function as "no shared name"
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant

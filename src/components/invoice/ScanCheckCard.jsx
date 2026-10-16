@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import AutofillInput from '../ui/AutofillInput';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { LOOKING_UP_TEXT } from '../../utils/constants';
+import { LOOKING_UP_TEXT, NAME_FROM_DRIVERS, NAME_FROM_DATABASE } from '../../utils/constants';
 
 export default function ScanCheckCard({ form, onAdd, onCancel, onRemove }) {
   const { dark } = useTheme();
@@ -24,9 +24,14 @@ export default function ScanCheckCard({ form, onAdd, onCancel, onRemove }) {
         <AutofillInput
           label="Product" placeholder="Product name"
           value={lookingUp ? '' : form.productName} onChange={form.setProductName}
-          suggestions={form.productNames} dark={dark}
+          suggestions={form.productSuggestions} dark={dark}
         />
         {lookingUp && <p style={{ ...s.hint, color: C.textMuted }}>{LOOKING_UP_TEXT}</p>}
+        {!lookingUp && form.nameSource && (
+          <p style={{ ...s.hint, color: C.textMuted }}>
+            {form.nameSource === 'drivers' ? NAME_FROM_DRIVERS : NAME_FROM_DATABASE}
+          </p>
+        )}
 
         <div style={s.row}>
           <span style={{ ...s.label, color: C.textSub }}>Qty</span>

@@ -26,6 +26,8 @@ import {
   getStoreDetails,
   saveStoreDetails,
   getPinnedStores,
+  getSharedProductName,
+  getSharedProductSuggestions,
 } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { normalizeScannedBarcode, isStoreMadeBarcode } from '../utils/barcodeFormat';
@@ -158,6 +160,15 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   const [lastBarcode, setLastBarcode] = useState('');
   // True after a scan whose lookup couldn't run, so the form can offer Try again.
   const [lookupUnavailable, setLookupUnavailable] = useState(false);
+  // Where the add-item name came from when it wasn't his own catalog:
+  // 'drivers' (other Keiro drivers) | 'database' (Open Food Facts / UPCitemdb).
+  // Easy Mode labels it on the check card; cleared when he types.
+  const [nameSource, setNameSource] = useState(null);
+  // Normal mode: a looked-up name is offered ("Is this it?") instead of being
+  // silently filled in. { name, source } | null.
+  const [pendingName, setPendingName] = useState(null);
+  // Other drivers' names matching what he's typing (>= 2 characters).
+  const [sharedSuggestions, setSharedSuggestions] = useState([]);
   const [items, setItems]             = useState([]);
   // Easy invoice: the id of the line the add-item fields are editing (a tapped
   // or rescanned line). null = the next addItem() appends a new line.
@@ -216,6 +227,9 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
   function handleProductNameChange(val) {
     latestProductNameRef.current = val;
     setProductName(val); // immediate — controlled input, no lag
+    setNameSource(null);
+    setPendingName(null);   // typing over an "Is this it?" question dismisses it
+    scanSeqRef.current += 1; // typing cancels any barcode lookup still in flight
     // Debounced cloud lookup: fires once after the user pauses, not per keystroke.
     // Still guarded by the ref so a stale response never overwrites a newer name.
     clearTimeout(productLookupTimer.current);
@@ -226,6 +240,14 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
           setPrice(String(saved.lastPrice));
         }
       }).catch(() => {});
+      // Other drivers' names containing what he typed; a stale answer is dropped.
+      if (val.trim().length >= 2) {
+        getSharedProductSuggestions(val.trim()).then(list => {
+          if (latestProductNameRef.current === val) setSharedSuggestions(list);
+        }).catch(() => {});
+      } else {
+        setSharedSuggestions([]);
+      }
     }, AUTOFILL_DEBOUNCE_MS);
   }
 
@@ -293,16 +315,45 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setReplaceLineId(item.id);
     setError('');
     setLookupUnavailable(false);
+    setNameSource(null); setPendingName(null);
     scanSeqRef.current += 1;
     // Setters are stable; listing them lets React Compiler keep the memoization.
-  }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
+  }, [setProductName, setQty, setPrice, setLastBarcode, setError, setNameSource, setPendingName]);
 
   /** Empties the add-item fields (Easy invoice: Cancel, Add without scanning). */
   const clearAddForm = useCallback(() => {
     setProductName(''); setQty('1'); setPrice(''); setLastBarcode('');
     setReplaceLineId(null); setError(''); setLookupUnavailable(false);
+    setNameSource(null); setPendingName(null);
     scanSeqRef.current += 1;
-  }, [setProductName, setQty, setPrice, setLastBarcode, setError]);
+  }, [setProductName, setQty, setPrice, setLastBarcode, setError, setNameSource, setPendingName]);
+
+  /** Normal mode "Is this it?" → Yes: use the offered name (fills his price if he has one). */
+  function acceptPendingName() {
+    if (!pendingName) return;
+    handleProductNameChange(pendingName.name);
+    setPendingName(null);
+  }
+
+  /** Normal mode "Is this it?" → No: leave the name for him to type. */
+  function rejectPendingName() {
+    setPendingName(null);
+  }
+
+  /**
+   * A name from other drivers or a product database: Easy Mode fills the
+   * check card (the card is the question); normal mode asks "Is this it?".
+   */
+  const offerName = useCallback((name, source) => {
+    if (easy) {
+      setProductName(name);
+      setNameSource(source);
+    } else {
+      setProductName('');
+      setPendingName({ name, source });
+    }
+    // Setters are stable; listing them keeps React Compiler's memoization.
+  }, [easy, setProductName, setNameSource, setPendingName]);
 
   /**
    * Names a barcode from the remote sources and reports the outcome: a name,
@@ -313,11 +364,10 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setError('');
     setLookupUnavailable(false);
     setProductName(LOOKING_UP_TEXT);
-    setPrice('');
     const { name, status } = await lookupBarcode(barcode);
     if (seq !== scanSeqRef.current) return; // the driver moved on: drop the late answer
     if (name) {
-      setProductName(name);
+      offerName(name, 'database');
       return;
     }
     setProductName('');
@@ -327,7 +377,27 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     } else {
       setError(UNKNOWN_BARCODE_MESSAGE);
     }
-  }, [setProductName, setPrice, setError]);
+  }, [offerName, setProductName, setError]);
+
+  /**
+   * What other Keiro drivers call a barcode (name only, once two other accounts
+   * agree); if nobody does, the remote barcode sources. Shared by the first
+   * scan and Try again, so a retry also asks the drivers.
+   * @param {string} barcode - already normalized
+   * @param {number} seq - the scan this belongs to; a stale answer is dropped
+   */
+  const askDriversThenDatabase = useCallback(async (barcode, seq) => {
+    setError('');
+    setLookupUnavailable(false);
+    setProductName(LOOKING_UP_TEXT);
+    const shared = await getSharedProductName(barcode);
+    if (seq !== scanSeqRef.current) return; // a newer scan, typing or Cancel came first
+    if (shared) {
+      offerName(shared, 'drivers');
+      return;
+    }
+    await lookUpRemotely(barcode, seq);
+  }, [offerName, lookUpRemotely, setError, setProductName]);
 
   /**
    * Handles a barcode scan: checks the product catalog first, then the remote
@@ -350,6 +420,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setLookupUnavailable(false);
     setProductName('');
     setPrice('');
+    setNameSource(null); setPendingName(null);
 
     // 1. The driver's own catalog. Products saved before UPC-E codes were
     //    expanded are under the short code, so try that too.
@@ -370,17 +441,17 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
       return;
     }
 
-    // 3. Remote barcode sources.
-    await lookUpRemotely(barcode, seq);
+    // 3 + 4. Other drivers' name, then the remote barcode sources.
+    await askDriversThenDatabase(barcode, seq);
     // useState setters are referentially stable, so these deps never actually
     // change handleScan's identity — listing them just lets React Compiler
     // preserve the memoization instead of bailing out.
-  }, [easy, items, loadItemIntoForm, setLastBarcode, setProductName, setPrice, setError, lookUpRemotely]);
+  }, [easy, items, loadItemIntoForm, setLastBarcode, setProductName, setPrice, setError, setNameSource, setPendingName, askDriversThenDatabase]);
 
   /** Try again after a lookup that couldn't run, for the barcode still shown. */
   const retryLookup = useCallback(async () => {
-    if (lastBarcode) await lookUpRemotely(lastBarcode, ++scanSeqRef.current);
-  }, [lastBarcode, lookUpRemotely]);
+    if (lastBarcode) await askDriversThenDatabase(lastBarcode, ++scanSeqRef.current);
+  }, [lastBarcode, askDriversThenDatabase]);
 
   /**
    * Validates the add-item fields and appends a line — or, when a line is
@@ -413,6 +484,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
       setItems(prev => [...prev, { id: uid(), ...line }]);
     }
     setProductName(''); setQty('1'); setPrice(''); setLastBarcode(''); setLookupUnavailable(false); setReplaceLineId(null);
+    setNameSource(null); setPendingName(null);
     scanSeqRef.current += 1;
     return true;
   }
@@ -422,6 +494,17 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setItems(prev => prev.filter(i => i.id !== id));
     setReplaceLineId(r => (r === id ? null : r));
   }
+
+  // His own names first, then other drivers' names, without case-insensitive repeats.
+  const productSuggestions = useMemo(() => {
+    const seen = new Set();
+    return [...productNames, ...sharedSuggestions].filter(n => {
+      const key = n.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [productNames, sharedSuggestions]);
 
   // ── Smart order suggestions ────────────────────────────────────────────────
   // Frequent items from this store's recent invoices, minus anything already
@@ -571,6 +654,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     price, setPrice,
     lastBarcode,
     productNames,
+    nameSource, pendingName, acceptPendingName, rejectPendingName, productSuggestions,
     handleScan,
     retryLookup, lookupUnavailable,
     addItem,

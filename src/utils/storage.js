@@ -199,6 +199,28 @@ export async function getProductByName(name) {
 }
 
 /**
+ * What other Keiro drivers call this barcode, trimmed — or null (not shared
+ * yet, guest, offline, or the cloud function isn't there). Never throws.
+ * @param {string} barcode
+ * @returns {Promise<string|null>}
+ */
+export async function getSharedProductName(barcode) {
+  const { data } = await db.getSharedProductName(barcode);
+  return typeof data === 'string' && data.trim() ? data.trim() : null;
+}
+
+/**
+ * Product names other drivers use that contain `query`, trimmed, blanks
+ * dropped. [] on any problem. Never throws.
+ * @param {string} query
+ * @returns {Promise<string[]>}
+ */
+export async function getSharedProductSuggestions(query) {
+  const { data } = await db.suggestProductNames(query);
+  return Array.isArray(data) ? data.filter(n => typeof n === 'string' && n.trim()).map(n => n.trim()) : [];
+}
+
+/**
  * Upsert a product in the cloud catalog, falling back to localStorage if not authenticated.
  * @param {string} barcode
  * @param {string} name

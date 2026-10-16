@@ -26,6 +26,8 @@ vi.mock('../utils/storage', () => ({
   saveProductName: vi.fn(() => {}),
   getStoreNames: vi.fn(async () => []),
   getProductNames: vi.fn(() => []),
+  getSharedProductName: vi.fn(async () => null),
+  getSharedProductSuggestions: vi.fn(async () => []),
   getBusinessName: vi.fn(() => ''),
   saveBusinessName: vi.fn(() => {}),
   getBusinessPhone: vi.fn(() => ''),
@@ -48,7 +50,7 @@ vi.mock('../components/ui/BarcodeScanner', () => ({
 }));
 
 import EasyInvoice from '../components/invoice/EasyInvoice.jsx';
-import { saveInvoice, getProductByBarcode, saveProductBarcode, getInvoices } from '../utils/storage';
+import { saveInvoice, getProductByBarcode, saveProductBarcode, getInvoices, getSharedProductName } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { canSaveGuestEntry } from '../utils/guestMode';
 
@@ -258,5 +260,22 @@ describe('EasyInvoice', () => {
     expect(await screen.findByText(/Couldn't check right now/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByDisplayValue('Coca-Cola Can, 12 fl oz')).toBeInTheDocument();
+  });
+
+  it('a name from other drivers says so on the card', async () => {
+    getSharedProductName.mockResolvedValueOnce('Mobil 1 5W-30 5qt');
+    renderEasy();
+    fireEvent.click(screen.getByText('Scan item'));
+    await scan('071924145009');
+    expect(await screen.findByDisplayValue('Mobil 1 5W-30 5qt')).toBeInTheDocument();
+    expect(screen.getByText('From other Keiro drivers. Edit it if it’s wrong.')).toBeInTheDocument();
+  });
+
+  it('a name from a product database says so on the card', async () => {
+    lookupBarcode.mockResolvedValueOnce({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+    renderEasy();
+    fireEvent.click(screen.getByText('Scan item'));
+    await scan('049000006346');
+    expect(await screen.findByText('From a product database. Edit it if it’s wrong.')).toBeInTheDocument();
   });
 });

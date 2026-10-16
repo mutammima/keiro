@@ -9,7 +9,7 @@
  */
 
 import { supabase } from './supabase';
-import { INVOICE_NUMBER_START } from '../utils/constants';
+import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS } from '../utils/constants';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -377,6 +377,42 @@ export async function getProductByName(name) {
     return { data: { name: data.name, lastPrice: data.last_price }, error: null };
   } catch (err) {
     return { data: null, error: err };
+  }
+}
+
+/**
+ * What other Keiro drivers call this barcode — a name only, once two accounts
+ * agree (supabase-shared-product-names.sql). Signed-in only.
+ * @param {string} barcode
+ * @returns {Promise<{ data: string|null, error: object|null }>}
+ */
+export async function getSharedProductName(barcode) {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .rpc('shared_product_name', { p_barcode: barcode })
+      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+    return { data: error ? null : (data ?? null), error };
+  } catch (err) {
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Product names other drivers use that contain `query` (at most 8; same
+ * two-account rule). Signed-in only.
+ * @param {string} query
+ * @returns {Promise<{ data: string[], error: object|null }>}
+ */
+export async function suggestProductNames(query) {
+  if (await noSession()) return { data: [], error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .rpc('suggest_product_names', { p_query: query })
+      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+    return { data: error ? [] : (data ?? []), error };
+  } catch (err) {
+    return { data: [], error: err };
   }
 }
 

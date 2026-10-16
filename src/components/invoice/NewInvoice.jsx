@@ -55,7 +55,8 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     paymentMethod, setPaymentMethod,
     productName, setProductName,
     qty, setQty, price, setPrice,
-    lastBarcode, productNames,
+    lastBarcode,
+    productSuggestions, pendingName, acceptPendingName, rejectPendingName,
     handleScan, retryLookup, lookupUnavailable, addItem,
     items, removeItem,
     suggestions, addSuggestedItem,
@@ -361,7 +362,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
             <div style={s.productRow}>
               <div data-tip="product-name" style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
-                  value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
+                  value={productName} onChange={setProductName} suggestions={productSuggestions} required dark={dark}
                   enterKeyHint="next" onKeyDown={focusNext} />
               </div>
               <button data-tip="barcode" style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
@@ -380,6 +381,20 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
                     Try again
                   </button>
                 )}
+              </div>
+            )}
+            {/* A looked-up name is a question, never silently filled in (spec #188 Part B). */}
+            {pendingName && (
+              <div style={{ ...s.pendingCard, background: C.inputBg, borderColor: C.inputBorder }}>
+                <p style={{ ...s.pendingTitle, color: C.textMuted }}>Is this it?</p>
+                <p style={{ ...s.pendingName, color: C.text }}>{pendingName.name}</p>
+                <p style={{ ...s.pendingSource, color: C.textMuted }}>
+                  {pendingName.source === 'drivers' ? 'from other Keiro drivers' : 'from a product database'}
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={acceptPendingName} style={{ ...s.pendingYes, background: ACCENT }}>Yes, use it</button>
+                  <button type="button" onClick={rejectPendingName} style={{ ...s.pendingNo, borderColor: C.inputBorder, color: C.text }}>No, I’ll type it</button>
+                </div>
               </div>
             )}
             <div style={s.twoCol}>
@@ -592,6 +607,12 @@ const s = {
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 20, WebkitTapHighlightColor: 'transparent',
   },
+  pendingCard:   { border: '1px solid', borderRadius: 12, padding: '12px 14px', margin: '0 0 10px' },
+  pendingTitle:  { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 },
+  pendingName:   { fontSize: 15, fontWeight: 700, margin: '4px 0 2px' },
+  pendingSource: { fontSize: 12, margin: '0 0 10px' },
+  pendingYes:    { flex: 1, height: 44, border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  pendingNo:     { flex: 1, height: 44, background: 'transparent', border: '1px solid', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
   barcodeRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '-4px 0 8px' },
   barcodeTag: {
     fontSize: 12, padding: '3px 8px', borderRadius: 6,
