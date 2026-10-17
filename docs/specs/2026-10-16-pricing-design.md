@@ -111,7 +111,10 @@ subscription ends and he is Free.
 
 **The owner's switch** (a cowork prompt, like other Supabase dashboard work — no admin screen yet):
 - **Free forever:** Settings shows "Pro (free)", no Manage button.
-- **Pro until a date:** Settings shows "Pro until Dec 1"; after that date the account is Free.
+- **Pro until a date:** Settings shows "Pro until Dec 1"; Pro lasts through that whole day (New
+  York time), then the account is Free.
+- Switching someone who already pays by card: cancel their Stripe subscription first, or Stripe
+  keeps charging them.
 - Refunds: from the Stripe dashboard (a refund with cancel-now ends Pro through the webhook).
 
 **Owner's one-time setup (rollout step 2):** create the Stripe account through the Vercel
@@ -163,6 +166,10 @@ in-app purchase rules must be revisited before submitting.
   already exists** (same `user_id` + `invoice_number`): Postgres fires BEFORE INSERT triggers on
   `insert … on conflict do update` even when the row ends up updated, and an over-limit free
   driver must still be able to edit and mark old invoices paid.
+- **A request that inserts several invoices at once is checked as a whole** (a statement-level
+  AFTER INSERT guard): if it would take a non-Pro account past 25 this month, the whole request is
+  refused, so a bulk upload can't slip past the per-row check. (The app itself only ever uploads one
+  invoice per request.)
 - The 5 spare (25 vs 20) absorb offline invoices that upload after the 1st, the UTC vs local month
   edge, and two phones used at once. Normally only tampering reaches it.
 
