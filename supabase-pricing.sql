@@ -8,7 +8,8 @@
 -- subscriptions  — who is Pro: Stripe subscribers (written by api/stripe-webhook
 --                  with the service-role key) and the owner's switch (by hand).
 -- invoice_usage  — new invoices per account per UTC month, kept by triggers.
--- A free account's upload is refused past 25 in a month (the app stops at 20).
+-- A free account's upload is refused past 25 in a month (the app stops at 20), and a
+-- request inserting many invoices at once is refused whole if it would pass 25.
 -- Only invoices whose own created_at is in the current UTC month count or can be
 -- refused, so a guest's history, a restored backup or last month's offline
 -- invoice always uploads. Users read their own rows in both tables, write neither.
@@ -119,6 +120,33 @@ begin
 end
 $$;
 
+-- One request can insert many invoices at once, and invoices_free_limit() only sees the
+-- count from before the request. The row-level AFTER triggers (the counting) fire first,
+-- then this statement-level one checks the total: a free account past 25 this month is
+-- refused and the whole request is rolled back.
+create or replace function invoices_free_limit_batch()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_month date := (date_trunc('month', now() at time zone 'utc'))::date;
+begin
+  if exists (
+    select 1
+    from (select distinct r.user_id from new_rows r
+           where r.created_at is not null
+             and (date_trunc('month', r.created_at at time zone 'utc'))::date = v_month) n
+    join invoice_usage u on u.user_id = n.user_id and u.month = v_month
+    where u.count > 25 and not is_pro(n.user_id)) then
+    raise exception 'KEIRO_FREE_LIMIT'
+      using errcode = 'P0001', hint = 'Free plan: 20 new invoices a month.';
+  end if;
+  return null;
+end
+$$;
+
 drop trigger if exists trg_invoices_free_limit on invoices;
 create trigger trg_invoices_free_limit
   before insert on invoices
@@ -129,6 +157,13 @@ drop trigger if exists trg_invoices_count_usage on invoices;
 create trigger trg_invoices_count_usage
   after insert on invoices
   for each row execute function invoices_count_usage();
+
+-- new_rows holds only the rows this request inserted (an edit is an update, not an insert).
+drop trigger if exists trg_invoices_free_limit_batch on invoices;
+create trigger trg_invoices_free_limit_batch
+  after insert on invoices
+  referencing new table as new_rows
+  for each statement execute function invoices_free_limit_batch();
 
 create or replace function my_plan()
 returns json
@@ -157,5 +192,6 @@ $$;
 revoke execute on function is_pro(uuid) from public, anon, authenticated;
 revoke execute on function invoices_free_limit() from public, anon, authenticated;
 revoke execute on function invoices_count_usage() from public, anon, authenticated;
+revoke execute on function invoices_free_limit_batch() from public, anon, authenticated;
 revoke execute on function my_plan() from public, anon;
 grant execute on function my_plan() to authenticated;

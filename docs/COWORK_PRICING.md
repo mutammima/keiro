@@ -1,6 +1,6 @@
 # Cowork: turn on Keiro's free plan and Pro in Supabase
 
-Self-contained instructions for a cowork session. It adds two tables, four functions and two triggers, and changes no existing rows except one new Pro record (the owner's dad, step 2). The SQL is safe to re-run.
+Self-contained instructions for a cowork session. It adds two tables, five functions and three triggers, and changes no existing rows except one new Pro record (the owner's dad, step 2). The SQL is safe to re-run.
 
 **Project:** Keiro, Supabase project ref `dcfplaqknngtnixvsiju`.
 If its URL doesn't resolve, the free project is paused; open the dashboard and click Restore first.
@@ -121,6 +121,33 @@ begin
 end
 $$;
 
+-- One request can insert many invoices at once, and invoices_free_limit() only sees the
+-- count from before the request. The row-level AFTER triggers (the counting) fire first,
+-- then this statement-level one checks the total: a free account past 25 this month is
+-- refused and the whole request is rolled back.
+create or replace function invoices_free_limit_batch()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_month date := (date_trunc('month', now() at time zone 'utc'))::date;
+begin
+  if exists (
+    select 1
+    from (select distinct r.user_id from new_rows r
+           where r.created_at is not null
+             and (date_trunc('month', r.created_at at time zone 'utc'))::date = v_month) n
+    join invoice_usage u on u.user_id = n.user_id and u.month = v_month
+    where u.count > 25 and not is_pro(n.user_id)) then
+    raise exception 'KEIRO_FREE_LIMIT'
+      using errcode = 'P0001', hint = 'Free plan: 20 new invoices a month.';
+  end if;
+  return null;
+end
+$$;
+
 drop trigger if exists trg_invoices_free_limit on invoices;
 create trigger trg_invoices_free_limit
   before insert on invoices
@@ -131,6 +158,13 @@ drop trigger if exists trg_invoices_count_usage on invoices;
 create trigger trg_invoices_count_usage
   after insert on invoices
   for each row execute function invoices_count_usage();
+
+-- new_rows holds only the rows this request inserted (an edit is an update, not an insert).
+drop trigger if exists trg_invoices_free_limit_batch on invoices;
+create trigger trg_invoices_free_limit_batch
+  after insert on invoices
+  referencing new table as new_rows
+  for each statement execute function invoices_free_limit_batch();
 
 create or replace function my_plan()
 returns json
@@ -159,6 +193,7 @@ $$;
 revoke execute on function is_pro(uuid) from public, anon, authenticated;
 revoke execute on function invoices_free_limit() from public, anon, authenticated;
 revoke execute on function invoices_count_usage() from public, anon, authenticated;
+revoke execute on function invoices_free_limit_batch() from public, anon, authenticated;
 revoke execute on function my_plan() from public, anon;
 grant execute on function my_plan() to authenticated;
 ```
@@ -229,9 +264,11 @@ Paste into the chat: whether the SQL ran (or the exact error), the dad's row cou
 
 Kept for reference. **Never run any of this during setup.**
 
+If the person already pays by card, cancel their subscription in Stripe first (Stripe dashboard → Customers → their subscription → Cancel), otherwise Stripe keeps charging them.
+
 **Free forever:** step 2's statement with that person's email.
 
-**Pro until a date:** the same statement, with `null` replaced by a date like `'2026-12-01'` in both places.
+**Pro until a date:** step 2's statement with that person's email, with `null` replaced by the end of that day in New York time, like `'2026-12-01 23:59:59 America/New_York'` (put in the date wanted), in both places. In plain words: Pro lasts through that whole day, and the account is Free from the next day.
 
 **Back to Free** (removes only a switch, never a Stripe subscription), with that person's email in place of `EMAIL`:
 
