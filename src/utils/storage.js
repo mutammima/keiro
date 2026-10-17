@@ -10,7 +10,7 @@
  */
 
 import * as db from '../services/db';
-import { enqueueSync, forgetHeldInvoice } from './syncQueue';
+import { enqueueSync, forgetInvoiceUploads } from './syncQueue';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
 import { writeLocal } from './storageRoom';
 
@@ -131,8 +131,8 @@ export async function deleteInvoice(number) {
   // Local-first: remove immediately so the delete survives offline
   const list = lsGet(STORAGE_KEYS.LIST, []);
   lsSet(STORAGE_KEYS.LIST, list.filter(i => (i.number || i.invoice_number) !== number));
-  // An upload held for the free plan's limit has nothing left to upload now.
-  forgetHeldInvoice(number);
+  // Nothing left to upload for it, whether the save is queued, set aside or held.
+  forgetInvoiceUploads(number);
   // Best-effort cloud delete — there is no retry queue, so a failure here
   // means the cloud copy survives and the invoice reappears on next load.
   // Tell the user instead of failing silently.

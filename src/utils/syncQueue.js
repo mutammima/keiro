@@ -42,7 +42,7 @@ const FAILED_KEY = STORAGE_KEYS.SYNC_FAILED;
 const HELD_KEY = STORAGE_KEYS.SYNC_HELD;
 const MAX_RETRIES = 5;
 
-/** Fired whenever the set-aside list changes (SyncAttentionBanner listens). */
+/** Fired whenever the set-aside or held list changes (SyncAttentionBanner listens). */
 export const SYNC_ATTENTION_EVENT = 'inv-sync-attention';
 
 /**
@@ -66,6 +66,11 @@ function isRejection(err) {
 /** The server refused a free account's upload past the monthly backstop. */
 function isFreeLimitRefusal(err) {
   return String(err?.message || '').includes(FREE_LIMIT_ERROR);
+}
+
+/** Both are saves of the same invoice (by number). */
+function sameInvoiceSave(a, b) {
+  return a.type === 'save_invoice' && b.type === 'save_invoice' && a.payload?.invoice?.number === b.payload?.invoice?.number;
 }
 
 // ── Each action type maps to the db.* call that performs it ───────────────────
@@ -209,13 +214,14 @@ export function retryFailedSyncs() {
  * or edit made while it was held isn't overwritten by the old copy. If the
  * phone's list doesn't have it, the held copy goes up as it is and is never
  * dropped here: it may be the only copy (the phone was full when it was saved,
- * or its list is unreadable). Deleting an invoice is forgetHeldInvoice's job.
+ * or its list is unreadable). Deleting an invoice is forgetInvoiceUploads' job.
  * @param {(item: object) => boolean} [which] - all held items by default
  */
 export function releaseHeldSyncs(which = () => true) {
   const heldList = getHeldSyncs();
   const going = heldList.filter(which);
   if (going.length === 0) return;
+  const keep = heldList.filter(item => !going.includes(item)); // `which` is asked once: a month rollover mid-release can't lose one
   const local = readList(STORAGE_KEYS.LIST);
   const fresh = going.map(({ heldMonth: _heldMonth, ...item }) => {
     if (item.type !== 'save_invoice') return item;
@@ -223,17 +229,31 @@ export function releaseHeldSyncs(which = () => true) {
     return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
   });
   if (!write([...fresh, ...read()])) return;
-  writeList(HELD_KEY, heldList.filter(item => !which(item)));
+  writeList(HELD_KEY, keep);
   announceAttention();
 }
 
-/** Deleting an invoice before its held upload went out means there is nothing to upload. */
-export function forgetHeldInvoice(number) {
-  const heldList = getHeldSyncs();
-  const kept = heldList.filter(item => !(item.type === 'save_invoice' && item.payload?.invoice?.number === number));
-  if (kept.length === heldList.length) return;
-  writeList(HELD_KEY, kept);
-  announceAttention();
+/**
+ * Deleting an invoice cancels every pending upload of it: queued, set aside or
+ * held. Otherwise a later retry or release would put the deleted invoice back in
+ * the cloud (deleting a row the cloud never had does nothing there).
+ * @param {number} number - invoice number
+ */
+export function forgetInvoiceUploads(number) {
+  const isIt = (item) => item.type === 'save_invoice' && item.payload?.invoice?.number === number;
+  const queued = read();
+  const keptQueued = queued.filter(item => !isIt(item));
+  if (keptQueued.length !== queued.length) write(keptQueued);
+  // The banner shows the set-aside and held lists, not the queue: only they announce.
+  let shown = false;
+  for (const key of [FAILED_KEY, HELD_KEY]) {
+    const list = readList(key);
+    const kept = list.filter(item => !isIt(item));
+    if (kept.length === list.length) continue;
+    writeList(key, kept);
+    shown = true;
+  }
+  if (shown) announceAttention();
 }
 
 let processing = false;
@@ -280,8 +300,10 @@ export async function processSyncQueue() {
         if (idx < 0) {
           failed = true;
         } else if (isFreeLimitRefusal(err)) {
-          // Held, never set aside or deleted; it doesn't block the rest.
-          if (writeList(HELD_KEY, [...getHeldSyncs(), { ...cur[idx], lastError, heldMonth: localMonth() }])) {
+          // Held, never set aside or deleted; it doesn't block the rest. An
+          // invoice is held once: this copy replaces any older held one of it.
+          const entry = { ...cur[idx], lastError, heldMonth: localMonth() };
+          if (writeList(HELD_KEY, [...getHeldSyncs().filter(h => !sameInvoiceSave(h, entry)), entry])) {
             cur.splice(idx, 1);
             write(cur);
             announceAttention();

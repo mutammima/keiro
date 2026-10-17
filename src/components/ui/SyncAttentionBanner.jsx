@@ -12,7 +12,7 @@
  * and BENEATH every bottom sheet, dialog and the drawer (z-index 150; sheets
  * start at 200), so an open sheet's backdrop covers it rather than the banner
  * covering the sheet's inputs and buttons. "Later" hides it until another
- * change is set aside.
+ * change is set aside or held.
  */
 
 import { useEffect, useState } from 'react';

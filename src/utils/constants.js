@@ -259,6 +259,8 @@ export const PLAN_COPY = {
   leftLine: (n) => `${n} free invoice${n === 1 ? '' : 's'} left this month`,
   usedLine: (used, reset) => `${used} of ${FREE_INVOICES_PER_MONTH} invoices used this month · resets ${reset}`,
   heldLine: (n) => `${n} invoice${n === 1 ? ' waits' : 's wait'} for Pro to upload`,
+  signOutHeldAll: (n) => n === 1 ? "Stay signed in: it'll upload once you're on Pro, or next month." : "Stay signed in: they'll upload once you're on Pro, or next month.",
+  signOutHeldSome: (online, held) => `Stay signed in: ${online} will upload when you're back online, and the ${held} invoice${held === 1 ? '' : 's'} waiting for Pro once you're on Pro, or next month.`,
   finishing: 'Finishing up…',
   youArePro: "You're on Pro.",
   finishLater: "We'll finish this in the background — check Settings → Plan.",

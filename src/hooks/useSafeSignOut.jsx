@@ -23,6 +23,7 @@ import { LIGHT, DARK, ACCENT } from '../theme';
 import { signOut } from '../services/auth';
 import { processSyncQueue, getUnsyncedCount, getHeldSyncs } from '../utils/syncQueue';
 import { isGuest, guestEntryCount, promptAccount } from '../utils/guestMode';
+import { PLAN_COPY } from '../utils/constants';
 
 export function useSafeSignOut({ onSignedOut = () => window.location.reload() } = {}) {
   const { dark } = useTheme();
@@ -57,8 +58,8 @@ export function useSafeSignOut({ onSignedOut = () => window.location.reload() } 
   // wait for a signal: they go up once the driver is on Pro, or next month.
   const stayLine = (count, held) => {
     if (held === 0) return "Stay signed in and they'll upload when you're back online.";
-    if (held === count) return "Stay signed in: they'll upload once you're on Pro, or next month.";
-    return `Stay signed in and they'll upload when you're back online (the ${held} invoice${plural(held)} waiting for Pro: once you're on Pro, or next month).`;
+    if (held === count) return PLAN_COPY.signOutHeldAll(held);
+    return PLAN_COPY.signOutHeldSome(count - held, held);
   };
   const text = !prompt ? null : prompt.kind === 'guest'
     ? {

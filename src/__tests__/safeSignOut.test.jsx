@@ -101,30 +101,32 @@ describe('useSafeSignOut', () => {
     expect(body).not.toHaveTextContent('Pro');
   });
 
-  it('says held changes upload once on Pro or next month, when all of them are held', async () => {
-    getUnsyncedCount.mockReturnValue(2);
-    getHeldSyncs.mockReturnValue([{ id: 'h1' }, { id: 'h2' }]);
+  it.each([
+    [1, "Stay signed in: it'll upload once you're on Pro, or next month."],
+    [2, "Stay signed in: they'll upload once you're on Pro, or next month."],
+  ])('says held changes upload once on Pro or next month, when all %i of them are held', async (n, sentence) => {
+    getUnsyncedCount.mockReturnValue(n);
+    getHeldSyncs.mockReturnValue(Array.from({ length: n }, (_, i) => ({ id: `h${i}` })));
     render(<SignOutButton onSignedOut={vi.fn()} />);
 
     fireEvent.click(screen.getByText('Sign Out'));
 
-    const body = await screen.findByText(/2 changes haven't been saved/);
-    expect(body).toHaveTextContent("Stay signed in: they'll upload once you're on Pro, or next month.");
-    expect(body).not.toHaveTextContent('back online');
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent(sentence);
+    expect(dialog).not.toHaveTextContent('back online');
   });
 
   it.each([
-    [1, 'the 1 invoice waiting for Pro'],
-    [2, 'the 2 invoices waiting for Pro'],
-  ])('with %i of 3 changes held, names the wait for Pro next to the usual one', async (held, phrase) => {
+    [1, "Stay signed in: 2 will upload when you're back online, and the 1 invoice waiting for Pro once you're on Pro, or next month."],
+    [2, "Stay signed in: 1 will upload when you're back online, and the 2 invoices waiting for Pro once you're on Pro, or next month."],
+  ])('with %i of 3 changes held, says what waits for a signal and what waits for Pro', async (held, sentence) => {
     getUnsyncedCount.mockReturnValue(3);
     getHeldSyncs.mockReturnValue(Array.from({ length: held }, (_, i) => ({ id: `h${i}` })));
     render(<SignOutButton onSignedOut={vi.fn()} />);
 
     fireEvent.click(screen.getByText('Sign Out'));
 
-    const body = await screen.findByText(/3 changes haven't been saved/);
-    expect(body).toHaveTextContent(`Stay signed in and they'll upload when you're back online (${phrase}: once you're on Pro, or next month).`);
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent(sentence);
   });
 
   it('signs out after an explicit "Sign out anyway"', async () => {
