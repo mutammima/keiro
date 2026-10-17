@@ -12,6 +12,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 vi.mock('../utils/syncQueue', () => ({
   SYNC_ATTENTION_EVENT: 'inv-sync-attention',
   getFailedSyncs: vi.fn(() => []),
+  getHeldSyncs: vi.fn(() => []),
   retryFailedSyncs: vi.fn(),
   processSyncQueue: vi.fn(async () => {}),
 }));

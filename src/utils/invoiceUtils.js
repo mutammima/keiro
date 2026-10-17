@@ -214,3 +214,12 @@ export function outstandingScopeLine(storeCount, unassignedCount) {
   const noStore = unassignedCount ? `${unassignedCount} invoice${unassignedCount > 1 ? 's' : ''} with no store` : '';
   return `across ${[stores, noStore].filter(Boolean).join(' and ')}`;
 }
+
+/**
+ * The local calendar month as 'YYYY-MM' — the free plan's counting month.
+ * @param {Date} [now]
+ * @returns {string}
+ */
+export function localMonth(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}

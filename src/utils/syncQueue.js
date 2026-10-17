@@ -16,6 +16,9 @@
  *     (`inv_sync_failed`) so the rest of the queue can go on. Set-aside changes
  *     are kept, surfaced by SyncAttentionBanner, and retryFailedSyncs() puts
  *     them back. Nothing is ever deleted unsaved.
+ *   • refused for the free plan's limit (KEIRO_FREE_LIMIT, supabase-pricing.sql):
+ *     never counts — the change moves to the held list (`inv_sync_held`),
+ *     re-sent once the account is Pro (plan.js) or the month changes.
  * It runs on the `online` event, on app foreground, on a 60s interval while
  * online, and once on startup (see SyncQueueRunner).
  *
@@ -28,13 +31,15 @@
  */
 
 import * as db from '../services/db';
-import { STORAGE_KEYS } from './constants';
+import { STORAGE_KEYS, FREE_LIMIT_ERROR } from './constants';
+import { localMonth } from './invoiceUtils';
 import { isGuest } from './guestMode';
 import { notifySyncSuccess } from './syncNotify';
 import { writeLocal, markSignatureSynced } from './storageRoom';
 
 const KEY = STORAGE_KEYS.SYNC_QUEUE;
 const FAILED_KEY = STORAGE_KEYS.SYNC_FAILED;
+const HELD_KEY = STORAGE_KEYS.SYNC_HELD;
 const MAX_RETRIES = 5;
 
 /** Fired whenever the set-aside list changes (SyncAttentionBanner listens). */
@@ -56,6 +61,11 @@ function isRejection(err) {
   if (/^PGRST[03]/.test(code)) return false;
   if (/^(08|40|53|57|58)/.test(code)) return false;
   return true;
+}
+
+/** The server refused a free account's upload past the monthly backstop. */
+function isFreeLimitRefusal(err) {
+  return String(err?.message || '').includes(FREE_LIMIT_ERROR);
 }
 
 // ── Each action type maps to the db.* call that performs it ───────────────────
@@ -167,9 +177,14 @@ export function getFailedSyncs() {
   return readList(FAILED_KEY);
 }
 
-/** Every change not yet in the cloud: still queued, or set aside. */
+/** Uploads refused for the free plan's limit, waiting for Pro or next month. */
+export function getHeldSyncs() {
+  return readList(HELD_KEY);
+}
+
+/** Every change not yet in the cloud: queued, set aside, or held for the free limit. */
 export function getUnsyncedCount() {
-  return read().length + getFailedSyncs().length;
+  return read().length + getFailedSyncs().length + getHeldSyncs().length;
 }
 
 /**
@@ -188,6 +203,27 @@ export function retryFailedSyncs() {
   announceAttention();
 }
 
+/**
+ * Held uploads go back to the FRONT of the queue (they are older than what
+ * is queued). A held invoice is re-sent as the phone has it now, so a status
+ * or edit made while it was held isn't overwritten by the old copy.
+ * @param {(item: object) => boolean} [which] - all held items by default
+ */
+export function releaseHeldSyncs(which = () => true) {
+  const heldList = getHeldSyncs();
+  const going = heldList.filter(which);
+  if (going.length === 0) return;
+  const local = readList(STORAGE_KEYS.LIST);
+  const fresh = going.map(({ heldMonth: _heldMonth, ...item }) => {
+    if (item.type !== 'save_invoice') return item;
+    const now = local.find(i => (i.number ?? i.invoice_number) === item.payload?.invoice?.number);
+    return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
+  });
+  if (!write([...fresh, ...read()])) return;
+  writeList(HELD_KEY, heldList.filter(item => !which(item)));
+  announceAttention();
+}
+
 let processing = false;
 
 /**
@@ -198,6 +234,8 @@ export async function processSyncQueue() {
   if (processing) return;
   if (isGuest()) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  // A new month: last month's held uploads are under the limit again.
+  releaseHeldSyncs(item => item.heldMonth !== localMonth());
   if (read().length === 0) return;
 
   processing = true;
@@ -228,6 +266,15 @@ export async function processSyncQueue() {
         const idx = cur.findIndex(x => x.id === item.id);
         const lastError = String(err?.message || err);
         if (idx < 0) {
+          failed = true;
+        } else if (isFreeLimitRefusal(err)) {
+          // Held, never set aside or deleted; it doesn't block the rest.
+          if (writeList(HELD_KEY, [...getHeldSyncs(), { ...cur[idx], lastError, heldMonth: localMonth() }])) {
+            cur.splice(idx, 1);
+            write(cur);
+            announceAttention();
+            continue;
+          }
           failed = true;
         } else if (!isRejection(err)) {
           // Unreachable: wait for the next trigger without spending a retry.
