@@ -206,10 +206,10 @@ export function retryFailedSyncs() {
 /**
  * Held uploads go back to the FRONT of the queue (they are older than what
  * is queued). A held invoice is re-sent as the phone has it now, so a status
- * or edit made while it was held isn't overwritten by the old copy. One that
- * is no longer on the phone (not in the invoice list, by number) was deleted
- * while it was held: it is dropped, never re-sent, so the delete isn't undone
- * in the cloud.
+ * or edit made while it was held isn't overwritten by the old copy. If the
+ * phone's list doesn't have it, the held copy goes up as it is and is never
+ * dropped here: it may be the only copy (the phone was full when it was saved,
+ * or its list is unreadable). Deleting an invoice is forgetHeldInvoice's job.
  * @param {(item: object) => boolean} [which] - all held items by default
  */
 export function releaseHeldSyncs(which = () => true) {
@@ -217,13 +217,22 @@ export function releaseHeldSyncs(which = () => true) {
   const going = heldList.filter(which);
   if (going.length === 0) return;
   const local = readList(STORAGE_KEYS.LIST);
-  const fresh = going.flatMap(({ heldMonth: _heldMonth, ...item }) => {
-    if (item.type !== 'save_invoice') return [item];
+  const fresh = going.map(({ heldMonth: _heldMonth, ...item }) => {
+    if (item.type !== 'save_invoice') return item;
     const now = local.find(i => (i.number ?? i.invoice_number) === item.payload?.invoice?.number);
-    return now ? [{ ...item, payload: { ...item.payload, invoice: now } }] : [];
+    return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
   });
-  if (fresh.length > 0 && !write([...fresh, ...read()])) return;
+  if (!write([...fresh, ...read()])) return;
   writeList(HELD_KEY, heldList.filter(item => !which(item)));
+  announceAttention();
+}
+
+/** Deleting an invoice before its held upload went out means there is nothing to upload. */
+export function forgetHeldInvoice(number) {
+  const heldList = getHeldSyncs();
+  const kept = heldList.filter(item => !(item.type === 'save_invoice' && item.payload?.invoice?.number === number));
+  if (kept.length === heldList.length) return;
+  writeList(HELD_KEY, kept);
   announceAttention();
 }
 

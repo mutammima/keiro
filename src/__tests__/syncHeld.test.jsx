@@ -1,16 +1,18 @@
 /**
  * Uploads the server refuses for the free plan's limit (KEIRO_FREE_LIMIT) are
  * held on the phone — never retried into the set-aside list, never deleted —
- * and go back to the front of the queue once Pro or next month. An invoice the
- * driver deletes on the phone while it is held is dropped, not re-sent.
+ * and go back to the front of the queue once Pro or next month. Deleting an
+ * invoice on the phone forgets its held upload; one that is merely missing from
+ * the phone's list is still re-sent, because the held copy may be the only one.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-vi.mock('../services/db', () => ({ saveInvoice: vi.fn() }));
+vi.mock('../services/db', () => ({ saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })) }));
 
 import * as db from '../services/db';
-import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs } from '../utils/syncQueue';
+import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs, SYNC_ATTENTION_EVENT } from '../utils/syncQueue';
+import { deleteInvoice } from '../utils/storage';
 import SyncAttentionBanner from '../components/ui/SyncAttentionBanner';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { STORAGE_KEYS, EVENTS } from '../utils/constants';
@@ -64,13 +66,37 @@ describe('held uploads', () => {
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
   });
 
-  it('a held invoice deleted on this phone is dropped, never re-sent', async () => {
-    // Held in a past month, and STORAGE_KEYS.LIST has no 1021: it was deleted while held.
+  it('a held invoice missing from this phone\'s list is still re-sent (it may be the only copy)', async () => {
+    // Held in a past month, and there is no invoice list on the phone at all.
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2000-01')]));
+    db.saveInvoice.mockResolvedValueOnce({ error: null });
     await processSyncQueue();
     expect(getHeldSyncs()).toEqual([]);
-    expect(db.saveInvoice).not.toHaveBeenCalled();
-    expect(getQueueLength()).toBe(0);
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+    expect(db.saveInvoice).toHaveBeenCalledWith({ number: 1021 });
+  });
+
+  it('deleting an invoice forgets its held upload', async () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2000-01'), held(1022, '2000-01')]));
+    localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1021 }, { number: 1022 }]));
+    const heard = vi.fn();
+    window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+    await deleteInvoice(1021);
+    window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+    expect(getHeldSyncs().map(a => a.payload.invoice.number)).toEqual([1022]);
+    expect(heard).toHaveBeenCalled(); // the banner counts again
+    await processSyncQueue(); // the month changed since: what is still held goes up now
+    expect(db.saveInvoice.mock.calls.map(([inv]) => inv.number)).toEqual([1022]); // never 1021
+  });
+
+  it('forgets the held upload right away, without waiting for the cloud delete', async () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    let cloudAnswers;
+    db.deleteInvoice.mockReturnValueOnce(new Promise(resolve => { cloudAnswers = resolve; }));
+    const deleting = deleteInvoice(1021);
+    expect(getHeldSyncs()).toEqual([]); // offline, the cloud can take a long time to answer
+    cloudAnswers({ error: null });
+    await deleting;
   });
 
   it('this month\'s held uploads stay held', async () => {
