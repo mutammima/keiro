@@ -21,13 +21,13 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../theme';
 import { signOut } from '../services/auth';
-import { processSyncQueue, getUnsyncedCount } from '../utils/syncQueue';
+import { processSyncQueue, getUnsyncedCount, getHeldSyncs } from '../utils/syncQueue';
 import { isGuest, guestEntryCount, promptAccount } from '../utils/guestMode';
 
 export function useSafeSignOut({ onSignedOut = () => window.location.reload() } = {}) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const [prompt, setPrompt] = useState(null); // { kind: 'unsynced' | 'guest', count }
+  const [prompt, setPrompt] = useState(null); // { kind: 'unsynced', count, held } | { kind: 'guest', count }
   const [busy, setBusy] = useState(false);
 
   async function finish() {
@@ -48,11 +48,18 @@ export function useSafeSignOut({ onSignedOut = () => window.location.reload() } 
     try { await processSyncQueue(); } catch { /* still unsynced — counted below */ }
     setBusy(false);
     const count = getUnsyncedCount();
-    if (count > 0) { setPrompt({ kind: 'unsynced', count }); return; }
+    if (count > 0) { setPrompt({ kind: 'unsynced', count, held: getHeldSyncs().length }); return; }
     return finish();
   }
 
   const plural = n => (n === 1 ? '' : 's');
+  // What "Stay signed in" promises. Uploads held for the free plan's limit don't
+  // wait for a signal: they go up once the driver is on Pro, or next month.
+  const stayLine = (count, held) => {
+    if (held === 0) return "Stay signed in and they'll upload when you're back online.";
+    if (held === count) return "Stay signed in: they'll upload once you're on Pro, or next month.";
+    return `Stay signed in and they'll upload when you're back online (the ${held} invoice${plural(held)} waiting for Pro: once you're on Pro, or next month).`;
+  };
   const text = !prompt ? null : prompt.kind === 'guest'
     ? {
         title: 'Delete everything on this phone?',
@@ -62,7 +69,7 @@ export function useSafeSignOut({ onSignedOut = () => window.location.reload() } 
       }
     : {
         title: 'Some changes aren\'t saved yet',
-        body: `${prompt.count} change${plural(prompt.count)} ${prompt.count === 1 ? "hasn't" : "haven't"} been saved to your account yet. Signing out deletes ${prompt.count === 1 ? 'it' : 'them'} from this phone. Stay signed in and they'll upload when you're back online.`,
+        body: `${prompt.count} change${plural(prompt.count)} ${prompt.count === 1 ? "hasn't" : "haven't"} been saved to your account yet. Signing out deletes ${prompt.count === 1 ? 'it' : 'them'} from this phone. ${stayLine(prompt.count, prompt.held)}`,
         keep: 'Stay signed in', onKeep: () => setPrompt(null),
         leave: 'Sign out anyway',
       };

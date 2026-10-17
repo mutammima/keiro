@@ -1,7 +1,8 @@
 /**
  * Uploads the server refuses for the free plan's limit (KEIRO_FREE_LIMIT) are
  * held on the phone — never retried into the set-aside list, never deleted —
- * and go back to the front of the queue once Pro or next month.
+ * and go back to the front of the queue once Pro or next month. An invoice the
+ * driver deletes on the phone while it is held is dropped, not re-sent.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -56,10 +57,20 @@ describe('held uploads', () => {
 
   it('a new month releases them before the next round', async () => {
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2000-01')]));
+    localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1021 }]));
     db.saveInvoice.mockResolvedValueOnce({ error: null });
     await processSyncQueue();
     expect(getHeldSyncs()).toEqual([]);
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it('a held invoice deleted on this phone is dropped, never re-sent', async () => {
+    // Held in a past month, and STORAGE_KEYS.LIST has no 1021: it was deleted while held.
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2000-01')]));
+    await processSyncQueue();
+    expect(getHeldSyncs()).toEqual([]);
+    expect(db.saveInvoice).not.toHaveBeenCalled();
+    expect(getQueueLength()).toBe(0);
   });
 
   it('this month\'s held uploads stay held', async () => {
@@ -80,5 +91,12 @@ describe('the banner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
     expect(opened).toHaveBeenCalledTimes(1);
     window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+
+  it('only held uploads: no Try again button, only Later and Upgrade', () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['Later', 'Upgrade']);
   });
 });

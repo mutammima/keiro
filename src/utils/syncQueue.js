@@ -206,7 +206,10 @@ export function retryFailedSyncs() {
 /**
  * Held uploads go back to the FRONT of the queue (they are older than what
  * is queued). A held invoice is re-sent as the phone has it now, so a status
- * or edit made while it was held isn't overwritten by the old copy.
+ * or edit made while it was held isn't overwritten by the old copy. One that
+ * is no longer on the phone (not in the invoice list, by number) was deleted
+ * while it was held: it is dropped, never re-sent, so the delete isn't undone
+ * in the cloud.
  * @param {(item: object) => boolean} [which] - all held items by default
  */
 export function releaseHeldSyncs(which = () => true) {
@@ -214,12 +217,12 @@ export function releaseHeldSyncs(which = () => true) {
   const going = heldList.filter(which);
   if (going.length === 0) return;
   const local = readList(STORAGE_KEYS.LIST);
-  const fresh = going.map(({ heldMonth: _heldMonth, ...item }) => {
-    if (item.type !== 'save_invoice') return item;
+  const fresh = going.flatMap(({ heldMonth: _heldMonth, ...item }) => {
+    if (item.type !== 'save_invoice') return [item];
     const now = local.find(i => (i.number ?? i.invoice_number) === item.payload?.invoice?.number);
-    return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
+    return now ? [{ ...item, payload: { ...item.payload, invoice: now } }] : [];
   });
-  if (!write([...fresh, ...read()])) return;
+  if (fresh.length > 0 && !write([...fresh, ...read()])) return;
   writeList(HELD_KEY, heldList.filter(item => !which(item)));
   announceAttention();
 }

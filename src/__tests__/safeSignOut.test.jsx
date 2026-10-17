@@ -16,6 +16,7 @@ vi.mock('../services/auth', () => ({ signOut: vi.fn(async () => ({ error: null }
 vi.mock('../utils/syncQueue', () => ({
   processSyncQueue: vi.fn(async () => {}),
   getUnsyncedCount: vi.fn(() => 0),
+  getHeldSyncs: vi.fn(() => []),
 }));
 vi.mock('../utils/guestMode', () => ({
   isGuest: vi.fn(() => false),
@@ -24,7 +25,7 @@ vi.mock('../utils/guestMode', () => ({
 }));
 
 import { signOut } from '../services/auth';
-import { processSyncQueue, getUnsyncedCount } from '../utils/syncQueue';
+import { processSyncQueue, getUnsyncedCount, getHeldSyncs } from '../utils/syncQueue';
 import { isGuest, guestEntryCount, promptAccount } from '../utils/guestMode';
 import { useSafeSignOut } from '../hooks/useSafeSignOut';
 
@@ -43,6 +44,7 @@ beforeEach(() => {
   // clearAllMocks keeps implementations; one test makes the upload succeed.
   processSyncQueue.mockImplementation(async () => {});
   getUnsyncedCount.mockReturnValue(0);
+  getHeldSyncs.mockReturnValue([]);
   isGuest.mockReturnValue(false);
   guestEntryCount.mockReturnValue(0);
 });
@@ -84,6 +86,45 @@ describe('useSafeSignOut', () => {
     await waitFor(() => expect(screen.queryByText(/haven't been saved/)).not.toBeInTheDocument());
     expect(signOut).not.toHaveBeenCalled();
     expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  // Uploads held for the free plan's limit don't wait for a signal: they go up
+  // once the driver is on Pro, or next month. "Stay signed in" must say so.
+  it('keeps the usual wording when none of the changes are held', async () => {
+    getUnsyncedCount.mockReturnValue(3);
+    render(<SignOutButton onSignedOut={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Sign Out'));
+
+    const body = await screen.findByText(/3 changes haven't been saved/);
+    expect(body).toHaveTextContent("Stay signed in and they'll upload when you're back online.");
+    expect(body).not.toHaveTextContent('Pro');
+  });
+
+  it('says held changes upload once on Pro or next month, when all of them are held', async () => {
+    getUnsyncedCount.mockReturnValue(2);
+    getHeldSyncs.mockReturnValue([{ id: 'h1' }, { id: 'h2' }]);
+    render(<SignOutButton onSignedOut={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Sign Out'));
+
+    const body = await screen.findByText(/2 changes haven't been saved/);
+    expect(body).toHaveTextContent("Stay signed in: they'll upload once you're on Pro, or next month.");
+    expect(body).not.toHaveTextContent('back online');
+  });
+
+  it.each([
+    [1, 'the 1 invoice waiting for Pro'],
+    [2, 'the 2 invoices waiting for Pro'],
+  ])('with %i of 3 changes held, names the wait for Pro next to the usual one', async (held, phrase) => {
+    getUnsyncedCount.mockReturnValue(3);
+    getHeldSyncs.mockReturnValue(Array.from({ length: held }, (_, i) => ({ id: `h${i}` })));
+    render(<SignOutButton onSignedOut={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Sign Out'));
+
+    const body = await screen.findByText(/3 changes haven't been saved/);
+    expect(body).toHaveTextContent(`Stay signed in and they'll upload when you're back online (${phrase}: once you're on Pro, or next month).`);
   });
 
   it('signs out after an explicit "Sign out anyway"', async () => {
