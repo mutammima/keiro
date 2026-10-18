@@ -3,10 +3,22 @@
 **Status**
 - [x] Design agreed with the owner in chat (2026-10-16)
 - [x] Spec reviewed by the owner (2026-10-16)
-- [ ] Implementation plan written
+- [x] Implementation plan written (`docs/superpowers/plans/2026-10-16-pricing.md`)
+- [x] Owner decision (2026-10-17): **no payment integration yet** — see below
 - [ ] Built test-first, verified on the real screens
-- [ ] Stripe test-mode checks passed (pay, cancel, failed renewal, yearly)
-- [ ] Rolled out in the order below; live payments on
+- [ ] Rolled out: cowork SQL (dad free forever), then the app update
+- [ ] Later: payments (Stripe), in their own plan
+
+> **Owner decision (2026-10-17): payments come later.** Built now: the free plan and its limits
+> (§1), the Pro record, the count and the backstop (§3), and the screens (§4), where **every
+> Upgrade opens a sheet that shows what Pro adds and its price and says "Payments are coming
+> soon."** The sign-up screen shows Pro as "Coming soon" (it can't be picked). Until payments
+> exist, Pro comes only from **the owner's switch** (free forever, or Pro until a date).
+> **Not built now (designed, kept for later):** everything in §2 about Stripe — checkout, Manage
+> plan, failed-card retries and banner, receipts, the return to the app — the three server
+> functions and secrets in §3, the Stripe states of Settings → Plan in §4, the Stripe testing and
+> rollout steps, and the Stripe lines of the privacy policy and terms. The privacy policy keeps
+> saying the app doesn't process payments, and adds what Keiro keeps for the plan.
 
 **Scope:** drivers. Store-owner accounts are unchanged (everything stays free; no Upgrade anywhere).
 Guests are unchanged. "Pay invoices through Keiro + a service fee" is a later phase (end of this
@@ -79,7 +91,11 @@ normal mode keep showing their full details and any signatures (read-only).
 **At launch:** the owner's dad is set to free forever (rollout step 1). Every other existing account
 is Free. A free driver who was in normal mode is moved to Easy Mode with a one-time note (section 4).
 
-## 2. Paying
+## 2. Paying — later (designed, not built now)
+
+**Now (owner decision 2026-10-17):** the Upgrade sheet shows Pro's three perks and "$4.99 a month
+or $49.99 a year", then "Payments are coming soon." and OK. Nothing is sent anywhere. The rest of
+this section is the design for when payments are built.
 
 **Where Upgrade appears:** the limit sheet and the "N left" line, **Settings → Plan**, the locked
 Easy Mode switch, the sign-up plan screen, and the "sign on the phone" line on an invoice.
