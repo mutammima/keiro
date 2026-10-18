@@ -189,10 +189,10 @@ export function guardNewInvoice(go) {
  */
 export function planSummary(plan, now = new Date()) {
   if (!isProNow(plan, now)) {
-    return { label: 'Free', sub: PLAN_COPY.usedLine(invoicesUsedThisMonth(now), resetDateLabel(now)), action: 'upgrade' };
+    return { label: PLAN_COPY.freeLabel, sub: PLAN_COPY.usedLine(invoicesUsedThisMonth(now), resetDateLabel(now)), action: 'upgrade' };
   }
   if (plan.source === 'manual') {
-    return { label: plan.proUntil ? `Pro until ${shortDate(plan.proUntil)}` : 'Pro (free)', sub: '', action: null };
+    return { label: plan.proUntil ? PLAN_COPY.proUntilLabel(shortDate(plan.proUntil)) : PLAN_COPY.proFreeLabel, sub: '', action: null };
   }
-  return { label: 'Pro', sub: '', action: null };
+  return { label: PLAN_COPY.proLabel, sub: '', action: null };
 }

@@ -56,6 +56,8 @@ const EXCLUDE_KEYS = new Set([
   // The server's plan answer for whoever exported. Restoring it onto another
   // account (or after Pro ended) would show Pro offline until the next fetch.
   STORAGE_KEYS.PLAN_CACHE,
+  // Another account's month count or one-time plan note must not ride a backup.
+  STORAGE_KEYS.USAGE, STORAGE_KEYS.PLAN_NOTICE,
 ]);
 
 /**

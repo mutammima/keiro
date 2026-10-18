@@ -257,6 +257,11 @@ export const PLAN_COPY = {
   limitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices this month`,
   limitBody: (reset) => `They reset ${reset}.`,
   leftLine: (n) => `${n} free invoice${n === 1 ? '' : 's'} left this month`,
+  // Settings → Plan row labels (planSummary). A Free row's second line is usedLine.
+  freeLabel: 'Free',
+  proLabel: 'Pro',
+  proFreeLabel: 'Pro (free)',
+  proUntilLabel: (date) => `Pro until ${date}`,
   usedLine: (used, reset) => `${used} of ${FREE_INVOICES_PER_MONTH} invoices used this month · resets ${reset}`,
   heldLine: (n) => `${n} invoice${n === 1 ? ' waits' : 's wait'} for Pro to upload`,
   signOutHeldAll: (n) => n === 1 ? "Stay signed in: it'll upload once you're on Pro, or next month." : "Stay signed in: they'll upload once you're on Pro, or next month.",

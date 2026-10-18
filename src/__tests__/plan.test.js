@@ -9,7 +9,7 @@ vi.mock('../utils/syncQueue', () => ({ releaseHeldSyncs: vi.fn() }));
 
 import * as db from '../services/db';
 import { releaseHeldSyncs } from '../utils/syncQueue';
-import { STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import {
   getCachedPlan, isProNow, isPro, onFreePlan, invoicesUsedThisMonth, freeInvoicesLeft,
   canCreateInvoice, recordNewInvoice, resetDateLabel, refreshPlan, guardNewInvoice,
@@ -211,5 +211,19 @@ describe('Settings', () => {
     expect(planSummary({ pro: true, source: 'manual', proUntil: '2026-12-01T12:00:00Z' }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
     // A paid (Stripe) record can only exist once payments are built; it shows plain Pro.
     expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW)).toEqual({ label: 'Pro', sub: '', action: null });
+  });
+  it('planSummary takes every label from PLAN_COPY (none is written inline)', () => {
+    // Swap the labels for sentinels: a label typed into plan.js would not change.
+    const swapped = { freeLabel: 'F!', proLabel: 'P!', proFreeLabel: 'PF!', proUntilLabel: (date) => `PU! ${date}` };
+    const saved = Object.fromEntries(Object.keys(swapped).map((k) => [k, PLAN_COPY[k]]));
+    Object.assign(PLAN_COPY, swapped);
+    try {
+      expect(planSummary(null, NOW).label).toBe('F!');
+      expect(planSummary({ pro: true, source: 'manual', proUntil: null }, NOW).label).toBe('PF!');
+      expect(planSummary({ pro: true, source: 'manual', proUntil: '2026-12-01T12:00:00Z' }, NOW).label).toBe('PU! Dec 1');
+      expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW).label).toBe('P!');
+    } finally {
+      Object.assign(PLAN_COPY, saved);
+    }
   });
 });
