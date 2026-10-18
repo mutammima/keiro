@@ -2,7 +2,7 @@
  * plan.js — who is Pro, how many free invoices are left, and what a fresh
  * answer from the server changes (docs/specs/2026-10-16-pricing-design.md).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../services/db', () => ({ getMyPlan: vi.fn() }));
 vi.mock('../utils/syncQueue', () => ({ releaseHeldSyncs: vi.fn() }));
@@ -172,6 +172,34 @@ describe('refreshPlan', () => {
     db.getMyPlan.mockResolvedValue(answer());
     await Promise.all([refreshPlan(), refreshPlan()]);
     expect(db.getMyPlan).toHaveBeenCalledTimes(1);
+  });
+
+  // The doc comment promises { ok: false } instead of a rejection: PlanRunner awaits it unguarded.
+  describe('never rejects', () => {
+    let warn;
+    beforeEach(() => { warn = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
+    afterEach(() => warn.mockRestore());
+
+    it('a getMyPlan that throws resolves { ok: false } and leaves the cache, the mode and the notes as they were', async () => {
+      setPlan({ pro: true, source: 'manual', proUntil: null });
+      db.getMyPlan.mockRejectedValue(new Error('boom'));
+      await expect(refreshPlan()).resolves.toEqual({ ok: false });
+      expect(getCachedPlan()).toEqual({ pro: true, source: 'manual', proUntil: null });
+      expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBeNull();
+      expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
+    });
+    it('a release of held uploads that throws resolves { ok: false } too', async () => {
+      db.getMyPlan.mockResolvedValue(answer({ pro: true, source: 'manual' }));
+      vi.mocked(releaseHeldSyncs).mockImplementation(() => { throw new Error('boom'); });
+      await expect(refreshPlan()).resolves.toEqual({ ok: false });
+      expect(releaseHeldSyncs).toHaveBeenCalledTimes(1);
+    });
+    it('after a failure the next call asks the server again', async () => {
+      db.getMyPlan.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(answer());
+      expect((await refreshPlan()).ok).toBe(false);
+      expect((await refreshPlan()).ok).toBe(true);
+      expect(db.getMyPlan).toHaveBeenCalledTimes(2);
+    });
   });
 });
 

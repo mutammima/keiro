@@ -128,12 +128,18 @@ let inflight = null;
 
 /**
  * Asks the server for this account's plan and caches it. Concurrent calls
- * share one request. Resolves { ok: false } offline, signed out, or before
- * supabase-pricing.sql is run — the cache is left as it was.
+ * share one request. Never rejects: it resolves { ok: false } offline, signed
+ * out, before supabase-pricing.sql is run, or when anything throws (a lazy
+ * import that fails, releasing held uploads). With no answer the cache is
+ * left as it was.
  * @returns {Promise<{ ok: boolean, plan?: object }>}
  */
 export function refreshPlan() {
-  if (!inflight) inflight = fetchPlan().finally(() => { inflight = null; });
+  if (!inflight) {
+    inflight = fetchPlan()
+      .catch((err) => { console.warn('refreshPlan failed', err); return { ok: false }; })
+      .finally(() => { inflight = null; });
+  }
   return inflight;
 }
 
