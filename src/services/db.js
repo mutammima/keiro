@@ -9,7 +9,7 @@
  */
 
 import { supabase } from './supabase';
-import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS } from '../utils/constants';
+import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -413,6 +413,24 @@ export async function suggestProductNames(query) {
     return { data: error ? [] : (data ?? []), error };
   } catch (err) {
     return { data: [], error: err };
+  }
+}
+
+/**
+ * This account's plan and this month's invoice count (supabase-pricing.sql,
+ * my_plan()). data is null without a session, before the SQL is run, on a
+ * timeout, or on any error — callers keep what they had.
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function getMyPlan() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .rpc('my_plan')
+      .abortSignal(AbortSignal.timeout(PLAN_RPC_TIMEOUT_MS));
+    return { data: error ? null : (data ?? null), error };
+  } catch (err) {
+    return { data: null, error: err };
   }
 }
 

@@ -53,6 +53,9 @@ const EXCLUDE_KEYS = new Set([
   // a different account flips connection requests between incoming/outgoing
   // until the next cloud refresh re-caches the right uid.
   STORAGE_KEYS.AUTH_UID,
+  // The server's plan answer for whoever exported. Restoring it onto another
+  // account (or after Pro ended) would show Pro offline until the next fetch.
+  STORAGE_KEYS.PLAN_CACHE,
 ]);
 
 /**

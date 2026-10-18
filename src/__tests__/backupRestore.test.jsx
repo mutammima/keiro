@@ -38,4 +38,14 @@ describe('backup restore', () => {
     expect(localStorage.getItem('inv_sig_index')).toBe(backup.inv_sig_index);
     expect(localStorage.getItem('inv_business_name')).toBe(backup.inv_business_name);
   });
+
+  it('never restores a plan answer (a backup must not carry Pro to another account)', async () => {
+    const backup = { inv_plan_cache: JSON.stringify({ pro: true, source: 'manual', proUntil: null }), inv_business_name: JSON.stringify('Corner Shop') };
+    const { result } = renderHook(() => useBackup());
+    const file = new File([JSON.stringify(backup)], 'keiro-backup.json', { type: 'application/json' });
+    act(() => result.current.handleImportFile({ target: { files: [file], value: 'x' } }));
+    await vi.waitFor(() => expect(result.current.backupMsg).toMatch(/Restore complete/));
+    expect(localStorage.getItem('inv_plan_cache')).toBeNull();
+    expect(localStorage.getItem('inv_business_name')).toBe(backup.inv_business_name);
+  });
 });
