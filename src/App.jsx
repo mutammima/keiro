@@ -28,6 +28,8 @@ import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
 import StorageBanner from './components/ui/StorageBanner';
 import SyncQueueRunner from './components/ui/SyncQueueRunner';
+import PlanRunner from './components/plan/PlanRunner';
+import PlanNotices from './components/plan/PlanNotices';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
 import Home from './pages/Home';
 const StoreMap = lazy(() => import('./pages/StoreMap'));
@@ -509,6 +511,9 @@ function AppInner({ role, onSwitchRole }) {
         position: 'relative',
       }}
     >
+      {/* Pricing: keep the plan fresh, and show its one-time notes. */}
+      <PlanRunner role={role} easyMode={easyMode} />
+      <PlanNotices />
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner

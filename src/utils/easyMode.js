@@ -6,15 +6,20 @@
  * (see EasyModeSetting), so reading it at call time is always current.
  */
 import { STORAGE_KEYS } from './constants';
+import { onFreePlan } from './plan';
 
 /** Whether Easy Mode is switched on on this device. */
 export function isEasyMode() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)) === true; } catch { return false; }
 }
 
-/** Easy Mode only shapes the driver app; store owners never get it. */
+/**
+ * Easy Mode only shapes the driver app; store owners never get it. A
+ * signed-in driver on the free plan is always in it: normal mode is part of
+ * Pro (docs/specs/2026-10-16-pricing-design.md §1).
+ */
 export function easyModeFor(role) {
-  return role !== 'store_owner' && isEasyMode();
+  return role !== 'store_owner' && (isEasyMode() || onFreePlan());
 }
 
 /**
