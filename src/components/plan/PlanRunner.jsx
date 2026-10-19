@@ -24,6 +24,7 @@ function isGuestNow() {
 const reload = () => window.location.reload();
 
 export default function PlanRunner({ role, easyMode, onModeChange = reload }) {
+  // Captured once, like AppInner's own mode: both rely on the shell being remounted per role (RoleGate's key={role}).
   const [builtEasy] = useState(easyMode);
   useEffect(() => {
     if (role === 'store_owner' || isGuestNow()) return undefined;

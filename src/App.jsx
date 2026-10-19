@@ -110,7 +110,13 @@ function OfflineBanner({ dark }) {
 function AppInner({ role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const easyMode = easyModeFor(role);
+  // The mode this shell is built for, decided ONCE per mount. The tabs, the starting page, the
+  // tour and the invoice screen all follow it, and only a reload rebuilds them, so a later change
+  // of the plan cache must not flip any of them: the next routine re-render (a badge refresh, the
+  // drawer opening) would swap <EasyInvoice/> for <NewInvoice/> and empty a half-made invoice
+  // while the reload waits for it to close. PlanRunner reloads when an answer changes the mode.
+  // RoleGate keys this component by role, so a role switch remounts it and decides again.
+  const [easyMode] = useState(() => easyModeFor(role));
 
   // Layout tier. Desktop swaps the whole shell: a docked side rail instead of
   // TopNav, and a single rendered tab instead of the swipeable 4× strip.
@@ -534,6 +540,7 @@ function AppInner({ role, onSwitchRole }) {
         currentPage={page}
         onTutorial={quickStart.start}
         role={role}
+        easyMode={easyMode}
         onSwitchRole={onSwitchRole}
         docked={desktop}
         badges={badges}
@@ -684,7 +691,7 @@ function AppInner({ role, onSwitchRole }) {
       {/* Hide top nav on overlay pages — they have their own headers — and on
           desktop, where the docked rail carries the tabs instead. */}
       {overlayPage === null && !desktop && (
-        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} pulse={homePulse ? { home: true } : {}} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} easyMode={easyMode} badges={badges} pulse={homePulse ? { home: true } : {}} />
       )}
       <OfflineBanner dark={dark} />
 
