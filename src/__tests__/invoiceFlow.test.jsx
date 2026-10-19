@@ -350,6 +350,19 @@ describe('useInvoiceForm — create → generate', () => {
     expect(phoneCount()).toBe(1);
   });
 
+  it('one the cloud refused but this phone kept (offline, queued to sync) is counted', async () => {
+    // Every offline save looks like this (storage.js saveInvoice: the cache write succeeds, then the upload is queued),
+    // and this phone's own count is the only one that sees these invoices before they sync.
+    saveInvoice.mockResolvedValueOnce({ error: new Error('offline'), savedLocally: true });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe('');
+    expect(phoneCount()).toBe(1);
+  });
+
   it.each([
     ['a Pro driver', () => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: true, source: 'manual', proUntil: null, usedThisMonth: 40, month: monthNow() }))],
     ['a guest', () => localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true')],
