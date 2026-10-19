@@ -68,7 +68,6 @@ export const STORAGE_KEYS = {
   PLAN_CACHE:         'inv_plan_cache',    // the server's my_plan() answer + fetchedAt (never backed up)
   USAGE:              'inv_usage',         // { month: 'YYYY-MM' (local), count } — new invoices made on this phone
   PLAN_NOTICE:        'inv_plan_notice',   // one-time plan note still to show: 'moved' | 'ended'
-  UPGRADE_AFTER_SIGNUP: 'inv_upgrade_after_signup', // Pro was picked on the sign-up plan screen
   // Which invoice numbers carry a signature. Cheap stand-in for the full
   // base64 blobs so the history list can lock editing without downloading them.
   SIG_INDEX:          'inv_sig_index',
@@ -118,7 +117,6 @@ export const EVENTS = {
   PLAN_CHANGE:     'inv-plan-change',      // the cached plan or this month's count changed
   OPEN_UPGRADE:    'inv-open-upgrade',     // detail: { title? } — UpgradeHost shows the Upgrade sheet
   OPEN_FREE_LIMIT: 'inv-open-free-limit',  // UpgradeHost shows "You've used your 20 free invoices"
-  CHECKOUT_RETURN: 'inv-checkout-return',  // detail: { result: 'done' | 'cancel' | 'portal' }
   // Onboarding/tutorial milestones — dispatched by feature sites, consumed by the
   // milestone bridge (tutorialProgress) and walkthrough settle steps.
   ONBOARDING_INVOICE_CREATED: 'inv-onboarding-invoice-created',
@@ -224,12 +222,10 @@ export const FREE_WARN_AT_LEFT = 5;
 export const OFFLINE_PRO_GRACE_DAYS = 3;
 /** my_plan() gives up after this long on a weak signal; the cached plan stands. */
 export const PLAN_RPC_TIMEOUT_MS = 8000;
-/** After paying, how long "Finishing up…" waits for the server to say Pro. */
-export const CHECKOUT_FINISH_WAIT_MS = 30000;
 /** The server's refusal of a free account's upload past the backstop (supabase-pricing.sql). */
 export const FREE_LIMIT_ERROR = 'KEIRO_FREE_LIMIT';
-/** Shown prices. Stripe's price ids are server-side only (api/checkout). */
-export const PRO_PRICE = { month: '$4.99', year: '$49.99', yearSaving: '$9.89' };
+/** Shown prices. Payments are coming soon (owner decision 2026-10-17). */
+export const PRO_PRICE = { month: '$4.99', year: '$49.99' };
 /** Every plan message, in one place. */
 export const PLAN_COPY = {
   upgradeTitle: 'Keiro Pro',
@@ -239,21 +235,11 @@ export const PLAN_COPY = {
     'Normal mode: Home, the full invoice form, Store Info, Notes, Marketplace',
     'Sign invoices on the phone',
   ],
-  monthly: 'Monthly',
-  yearly: 'Yearly',
-  perMonth: `${PRO_PRICE.month} a month`,
-  perYear: `${PRO_PRICE.year} a year · save ${PRO_PRICE.yearSaving}`,
-  continue: 'Continue',
-  opening: 'Opening…',
+  priceLine: `${PRO_PRICE.month} a month or ${PRO_PRICE.year} a year`,
+  comingSoon: 'Payments are coming soon.',
   notNow: 'Not now',
   ok: 'OK',
   upgrade: 'Upgrade',
-  manage: 'Manage plan',
-  updateCard: 'Update card',
-  guestFirst: 'Make a free account first',
-  checkoutError: "Couldn't open the payment page. Check your signal and try again.",
-  portalError: "Couldn't open your plan page. Check your signal and try again.",
-  alreadyPro: "You're already on Pro.",
   limitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices this month`,
   limitBody: (reset) => `They reset ${reset}.`,
   leftLine: (n) => `${n} free invoice${n === 1 ? '' : 's'} left this month`,
@@ -266,17 +252,9 @@ export const PLAN_COPY = {
   heldLine: (n) => `${n} invoice${n === 1 ? ' waits' : 's wait'} for Pro to upload`,
   signOutHeldAll: (n) => n === 1 ? "Stay signed in: it'll upload once you're on Pro, or next month." : "Stay signed in: they'll upload once you're on Pro, or next month.",
   signOutHeldSome: (online, held) => `Stay signed in: ${online} will upload when you're back online, and the ${held} invoice${held === 1 ? '' : 's'} waiting for Pro once you're on Pro, or next month.`,
-  finishing: 'Finishing up…',
-  youArePro: "You're on Pro.",
-  finishLater: "We'll finish this in the background — check Settings → Plan.",
-  switchToNormal: 'Switch to normal mode?',
-  switchYes: 'Switch',
-  switchNo: 'Keep Easy Mode',
   movedNote: "Keiro now has a free plan and a Pro plan. You're on Free, so you're in Easy Mode. Settings → Plan to upgrade.",
   endedNote: `Your Pro plan ended. You're back on Free: Easy Mode, ${FREE_INVOICES_PER_MONTH} invoices a month. Nothing was deleted.`,
   planNoticeLabel: 'Your plan',   // the accessible name of the one-time plan note (PlanNotices)
-  cardFailing: "Your card didn't go through. Update it to keep Pro.",
-  cardFailingShort: "Your card didn't go through",
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
   tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
 };

@@ -11,6 +11,9 @@
  *
  * The whole backend is faked: every call answers "no data", which the app already
  * handles by falling back to localStorage. Nothing here needs a Supabase .env.
+ *
+ * It also holds the one check that the shell mounts UpgradeHost (the Upgrade and
+ * limit sheets), because this is the file that renders the whole app.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -45,7 +48,8 @@ vi.mock('../services/auth', () => fakeModule({
 }));
 
 import App from '../App.jsx';
-import { STORAGE_KEYS } from '../utils/constants';
+import { STORAGE_KEYS, PLAN_COPY } from '../utils/constants';
+import { openUpgrade, openFreeLimit } from '../utils/plan';
 import { givePro } from './helpers/givePro';
 
 // jsdom has no ResizeObserver, which the swipe strip measures with.
@@ -139,5 +143,24 @@ describe('the shell decides its mode once per mount', () => {
 
     const tabs = [...container.querySelectorAll('[data-qs-tab]')].map(b => b.getAttribute('data-qs-tab'));
     expect(tabs).toEqual(['route', 'stores', 'reports']);
+  });
+});
+
+describe('the shell hosts the Upgrade and limit sheets', () => {
+  // Every Upgrade button only dispatches an event (plan.js openUpgrade / openFreeLimit); UpgradeHost, mounted once
+  // in the shell, opens the sheet. Without that mount every one of those buttons would do nothing.
+  it('openUpgrade() and openFreeLimit() each open their sheet over the app', async () => {
+    const { container } = render(<App />);
+    await found(container, '[data-qs-tab="route"]');
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    act(() => { openUpgrade(PLAN_COPY.normalModeTitle); });
+    const upgrade = screen.getByRole('dialog', { name: PLAN_COPY.normalModeTitle });
+    expect(within(upgrade).getByText(PLAN_COPY.comingSoon)).toBeInTheDocument();
+    fireEvent.click(within(upgrade).getByRole('button', { name: PLAN_COPY.ok }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    act(() => { openFreeLimit(); });
+    expect(screen.getByRole('dialog', { name: PLAN_COPY.limitTitle })).toBeInTheDocument();
   });
 });

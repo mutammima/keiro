@@ -30,6 +30,7 @@ import StorageBanner from './components/ui/StorageBanner';
 import SyncQueueRunner from './components/ui/SyncQueueRunner';
 import PlanRunner from './components/plan/PlanRunner';
 import PlanNotices from './components/plan/PlanNotices';
+import UpgradeHost from './components/plan/UpgradeHost';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
 import Home from './pages/Home';
 const StoreMap = lazy(() => import('./pages/StoreMap'));
@@ -523,9 +524,10 @@ function AppInner({ role, onSwitchRole }) {
         position: 'relative',
       }}
     >
-      {/* Pricing: keep the plan fresh, and show its one-time notes. */}
+      {/* Pricing: keep the plan fresh, show its one-time notes, and host the Upgrade and limit sheets. */}
       <PlanRunner role={role} easyMode={easyMode} onModeChange={reloadForPlan} />
       <PlanNotices />
+      <UpgradeHost />
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
