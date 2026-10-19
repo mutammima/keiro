@@ -38,6 +38,7 @@ import {
   UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT,
 } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { canCreateInvoice, recordNewInvoice, openFreeLimit } from '../utils/plan';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -564,6 +565,8 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     // Guest hard cap: block the save and surface the account-upsell modal.
     // Edits add no new entry, so they're never capped.
     if (!isEdit && !canSaveGuestEntry()) { setGuestWall(true); return; }
+    // Free plan: 20 new invoices a month (Duplicate included). Edits never count.
+    if (!isEdit && !canCreateInvoice()) { openFreeLimit(); return; }
 
     setGenerating(true);
     try {
@@ -597,6 +600,7 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
         setError(STORAGE_FULL_MESSAGE);
         return;
       }
+      if (!isEdit) recordNewInvoice();
       const store = storeName.trim();
       // An Easy invoice can have no store (written on the paper instead).
       if (store) {

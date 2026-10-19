@@ -12,8 +12,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
+import { STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { givePro } from './helpers/givePro';
 
 vi.mock('../utils/storage', () => ({
   getNextInvoiceNumber: vi.fn(async () => 1001),
@@ -53,6 +55,18 @@ import EasyInvoice from '../components/invoice/EasyInvoice.jsx';
 import { saveInvoice, getProductByBarcode, saveProductBarcode, getInvoices, getSharedProductName } from '../utils/storage';
 import { lookupBarcode } from '../utils/barcodeApi';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { recordNewInvoice } from '../utils/plan';
+
+/** This local month as plan.js keys it: 'YYYY-MM'. */
+function monthNow() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+/** The server's cached answer: a free account with `used` new invoices this month. */
+function seedFreePlan(used) {
+  localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: used, month: monthNow() }));
+}
+const LEFT_LINE = /free invoices? left this month/;
 
 function renderEasy() {
   const onGenerated = vi.fn();
@@ -277,5 +291,97 @@ describe('EasyInvoice', () => {
     fireEvent.click(screen.getByText('Scan item'));
     await scan('049000006346');
     expect(await screen.findByText('From a product database. Edit it if it’s wrong.')).toBeInTheDocument();
+  });
+
+  it('free plan: from 5 left, says how many free invoices are left this month, with Upgrade', () => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: 16, month }));
+    const opened = vi.fn();
+    window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
+    renderEasy();
+    expect(screen.getByText('4 free invoices left this month')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+
+  it('no "left" line with plenty left, or on Pro', () => {
+    renderEasy();
+    expect(screen.queryByText(/free invoices? left this month/)).toBeNull();
+    givePro();
+    renderEasy();
+    // givePro() has 0 counted, so this half would pass without the Pro check; the Pro case with 17 counted is below.
+    expect(screen.queryByText(/free invoices? left this month/)).toBeNull();
+  });
+
+  it('the Upgrade link asks for the plain Upgrade sheet, with no title of its own', () => {
+    seedFreePlan(16);
+    const opened = vi.fn();
+    window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
+    try {
+      renderEasy();
+      fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
+      expect(opened).toHaveBeenCalledTimes(1);
+      expect(opened.mock.calls[0][0].detail).toEqual({ title: undefined });
+    } finally {
+      window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+    }
+  });
+
+  it.each([
+    [14, null],                                // 6 left: nothing yet
+    [15, '5 free invoices left this month'],   // the line starts at 5 left
+    [19, '1 free invoice left this month'],    // "invoice", not "invoices"
+    [20, null],                                // none left: the limit sheet speaks, not this line
+  ])('with %i used this month the line is: %s', (used, line) => {
+    seedFreePlan(used);
+    renderEasy();
+    if (line) expect(screen.getByText(line)).toBeInTheDocument();
+    else expect(screen.queryByText(LEFT_LINE)).toBeNull();
+  });
+
+  it.each([
+    ['Pro', () => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: true, source: 'manual', proUntil: null, usedThisMonth: 17, month: monthNow() }))],
+    ['a guest', () => { seedFreePlan(17); localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true'); }],
+    ['a store owner', () => { seedFreePlan(17); localStorage.setItem(STORAGE_KEYS.USER_ROLE, JSON.stringify('store_owner')); }],
+  ])('no "left" line for %s, even with 17 counted', (_who, setUp) => {
+    setUp();
+    renderEasy();
+    expect(screen.queryByText(LEFT_LINE)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+  });
+
+  it('the line follows the count: an invoice made on this phone counts it down', () => {
+    localStorage.setItem(STORAGE_KEYS.USAGE, JSON.stringify({ month: monthNow(), count: 15 }));
+    renderEasy();
+    expect(screen.getByText('5 free invoices left this month')).toBeInTheDocument();
+
+    act(() => { recordNewInvoice(); });
+
+    expect(screen.getByText('4 free invoices left this month')).toBeInTheDocument();
+    expect(screen.queryByText('5 free invoices left this month')).toBeNull();
+  });
+
+  it('free plan at 20: Make invoice opens the limit sheet, saves nothing and keeps the lines', async () => {
+    seedFreePlan(20);
+    const limit = vi.fn();
+    window.addEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    try {
+      const { onGenerated } = renderEasy();
+      fireEvent.click(screen.getByText('+ Add without scanning'));
+      fireEvent.change(screen.getByPlaceholderText('Product name'), { target: { value: 'Gildan tee' } });
+      fireEvent.change(screen.getByLabelText('Price'), { target: { value: '6' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+      fireEvent.click(screen.getByText('Make invoice'));
+
+      await waitFor(() => expect(limit).toHaveBeenCalledTimes(1));
+      expect(saveInvoice).not.toHaveBeenCalled();
+      expect(onGenerated).not.toHaveBeenCalled();
+      expect(screen.getByText('Gildan tee')).toBeInTheDocument();
+    } finally {
+      window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    }
   });
 });

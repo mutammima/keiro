@@ -18,6 +18,7 @@ import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrd
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines, storeLabelOf } from '../../utils/invoiceUtils';
 import { shareLabel } from '../../utils/easyMode';
+import { guardNewInvoice } from '../../utils/plan';
 import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -84,6 +85,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
 
   // ── Duplicate invoice ─────────────────────────────────────────────────────
   function handleDuplicate(inv) {
+    // Free plan: a duplicate is a new invoice.
+    if (!guardNewInvoice(() => {})) { setOpenMenu(null); return; }
     const prefill = {
       storeName:    inv.storeName    || inv.store_name    || '',
       storePhone:   inv.storePhone   || inv.store_phone   || '',
@@ -669,7 +672,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         <div style={{ width: 36 }} />
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         {onNewInvoice ? (
-          <button data-qs="new-invoice" onClick={onNewInvoice} style={s.newBtn}>+ New</button>
+          <button data-qs="new-invoice" onClick={() => guardNewInvoice(onNewInvoice)} style={s.newBtn}>+ New</button>
         ) : (
           <div style={{ width: 36 }} />
         )}

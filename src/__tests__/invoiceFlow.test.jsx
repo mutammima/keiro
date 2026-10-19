@@ -55,7 +55,7 @@ import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, g
 import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT, STORAGE_KEYS, EVENTS } from '../utils/constants';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -64,6 +64,38 @@ function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
   act(() => { result.current.setQty(qty); });
   act(() => { result.current.setPrice(price); });
   act(() => { result.current.addItem(); });
+}
+
+// ─── The free plan's monthly limit ────────────────────────────────────────────
+// plan.js reads localStorage directly, so these seed the same keys it reads.
+
+/** This local month as plan.js keys it: 'YYYY-MM'. */
+function monthNow() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+/** The server's cached answer: a free account with `used` new invoices this month. */
+function seedFreePlan(used) {
+  localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: used, month: monthNow() }));
+}
+/** This phone's own count of the new invoices it made this month. */
+function seedPhoneCount(count) {
+  localStorage.setItem(STORAGE_KEYS.USAGE, JSON.stringify({ month: monthNow(), count }));
+}
+const phoneCount = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.USAGE)).count;
+/** Runs `run` and returns how many times it asked for the limit sheet (UpgradeHost opens it on this event). */
+async function limitSheetOpens(run) {
+  const opened = vi.fn();
+  window.addEventListener(EVENTS.OPEN_FREE_LIMIT, opened);
+  try { await run(); } finally { window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, opened); }
+  return opened.mock.calls.length;
+}
+/** Puts invoice #1042 up for editing, the way Edit in the history does. */
+function prefillEdit() {
+  localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify({
+    storeName: 'Corner Store', editNumber: 1042, paymentStatus: 'paid',
+    createdAt: '2026-10-01T00:00:00.000Z', items: [{ id: 'a', name: 'Widget', qty: 3, price: 5 }],
+  }));
 }
 
 describe('useInvoiceForm — create → generate', () => {
@@ -215,6 +247,123 @@ describe('useInvoiceForm — create → generate', () => {
     expect(saved.number).toBe(1042);
     expect(saved.paymentStatus).toBe('paid'); // preserved from the edited invoice, not reset to 'unpaid'
     expect(completeActiveConnectionOrder).not.toHaveBeenCalled(); // edits never complete a connection order
+  });
+
+  it('free plan: at 20 new invoices this month Make invoice opens the limit sheet and saves nothing', async () => {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: 20, month }));
+    const limit = vi.fn();
+    window.addEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+    window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    expect(limit).toHaveBeenCalledTimes(1);
+    expect(saveInvoice).not.toHaveBeenCalled();
+  });
+
+  it('each new invoice is counted on this phone; an edit is not', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.USAGE)).count).toBe(1);
+  });
+
+  it('an edit is not counted', async () => {
+    seedPhoneCount(7);
+    prefillEdit();
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.editNumber).toBe(1042));
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(7);
+  });
+
+  it('an edit still saves when the month’s 20 are used up', async () => {
+    seedFreePlan(20);
+    seedPhoneCount(20);
+    prefillEdit();
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.editNumber).toBe(1042));
+
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(saveInvoice.mock.calls[0][0].number).toBe(1042);
+    expect(phoneCount()).toBe(20);
+  });
+
+  it('a duplicate counts like any other new invoice', async () => {
+    // Duplicate hands the form the old invoice's lines with no editNumber, so it is a fresh create.
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify({
+      storeName: 'Corner Store', items: [{ id: 'dup_1', name: 'Widget', qty: 3, price: 5 }],
+    }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(1);
+  });
+
+  it('the 20th new invoice goes through and the 21st opens the limit sheet', async () => {
+    seedPhoneCount(19);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    addOneItem(result);
+    const first = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(first).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(20);
+
+    addOneItem(result);
+    const second = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(second).toBe(1);
+    expect(saveInvoice).toHaveBeenCalledTimes(1); // still only the 20th
+    expect(phoneCount()).toBe(20);
+    expect(result.current.items).toHaveLength(1); // nothing the driver typed is lost
+  });
+
+  it('an invoice that reached neither the cloud nor this phone is not counted', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: new Error('offline'), savedLocally: false });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe(STORAGE_FULL_MESSAGE);
+    expect(localStorage.getItem(STORAGE_KEYS.USAGE)).toBeNull();
+  });
+
+  it('one only the cloud saved (this phone is full) is counted', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: null, savedLocally: false });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(phoneCount()).toBe(1);
+  });
+
+  it.each([
+    ['a Pro driver', () => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: true, source: 'manual', proUntil: null, usedThisMonth: 40, month: monthNow() }))],
+    ['a guest', () => localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true')],
+    ['a store owner', () => localStorage.setItem(STORAGE_KEYS.USER_ROLE, JSON.stringify('store_owner'))],
+  ])('%s is never stopped by the plan, however many are counted', async (_who, setUp) => {
+    setUp();
+    seedPhoneCount(40);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
   });
 });
 
