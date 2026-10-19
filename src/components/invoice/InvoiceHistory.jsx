@@ -206,6 +206,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   }
 
   function handleFillFromConnOrder(o) {
+    // Free plan: an invoice made from an order is a new invoice. Ask first, before the order is accepted or latched.
+    if (!guardNewInvoice(() => {})) return;
     // Price 0 prompts the driver to set the real sale price unless the store
     // suggested one. Parking the order id lets handleGenerate flip it to
     // 'delivered' with the invoice number once the invoice actually saves.
@@ -228,6 +230,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   }
 
   function handleFillFromRequest(req) {
+    // Free plan: an invoice made from a request is a new invoice. Ask first, before the request is dismissed.
+    if (!guardNewInvoice(() => {})) return;
     // Note: price is intentionally omitted so the driver sees "0.00" and is
     // prompted to enter the actual sale price before generating the invoice.
     // Items with price 0 are flagged visually in the form.
