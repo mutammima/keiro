@@ -274,6 +274,7 @@ export const PLAN_COPY = {
   switchNo: 'Keep Easy Mode',
   movedNote: "Keiro now has a free plan and a Pro plan. You're on Free, so you're in Easy Mode. Settings → Plan to upgrade.",
   endedNote: `Your Pro plan ended. You're back on Free: Easy Mode, ${FREE_INVOICES_PER_MONTH} invoices a month. Nothing was deleted.`,
+  planNoticeLabel: 'Your plan',   // the accessible name of the one-time plan note (PlanNotices)
   cardFailing: "Your card didn't go through. Update it to keep Pro.",
   cardFailingShort: "Your card didn't go through",
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',

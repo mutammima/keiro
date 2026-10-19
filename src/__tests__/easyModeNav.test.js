@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { tabsForRole, tabIdsForRole, tabTargetFor } from '../components/navigation/tabs';
 import { isEasyMode, easyModeFor, shareLabel } from '../utils/easyMode';
 import { STORAGE_KEYS } from '../utils/constants';
+import { givePro } from './helpers/givePro';
 
 beforeEach(() => localStorage.clear());
 
@@ -43,7 +44,15 @@ describe('tab sets', () => {
     expect(tabIdsForRole('store_owner', true)).toEqual(['so-home', 'so-orders', 'so-drivers', 'so-invoices']);
   });
 
+  it('gives a free driver the Easy tabs whatever the switch says', () => {
+    // No plan answer on this phone is Free, and a free driver is always in Easy Mode.
+    expect(tabIdsForRole('driver')).toEqual(['route', 'stores', 'reports']);
+    expect(tabsForRole('driver').map(t => t.id)).toEqual(['route', 'stores', 'reports']);
+  });
+
   it('reads the Easy Mode flag when not told, and ignores it for store owners', () => {
+    givePro();   // a Pro driver follows the switch; without this the free default would hide a flag that is ignored
+    expect(tabIdsForRole('driver')).toEqual(['home', 'route', 'stores', 'reports']);
     localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
     expect(tabIdsForRole('driver')).toEqual(['route', 'stores', 'reports']);
     expect(tabsForRole('driver').map(t => t.id)).toEqual(['route', 'stores', 'reports']);

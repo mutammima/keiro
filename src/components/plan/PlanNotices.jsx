@@ -28,7 +28,7 @@ export default function PlanNotices() {
   }
 
   return (
-    <PlanSheet open onClose={dismiss} label="Your plan">
+    <PlanSheet open onClose={dismiss} label={PLAN_COPY.planNoticeLabel}>
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55 }}>
         {notice === 'ended' ? PLAN_COPY.endedNote : PLAN_COPY.movedNote}
       </p>

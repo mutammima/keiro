@@ -14,12 +14,15 @@ import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { easyModeFor } from '../utils/easyMode';
 import PlanRunner from '../components/plan/PlanRunner';
 import PlanNotices from '../components/plan/PlanNotices';
-import PlanSheet from '../components/plan/PlanSheet';
+import PlanSheet, { PrimaryBtn, TextBtn } from '../components/plan/PlanSheet';
+import { useSafeReload } from '../hooks/useSafeReload';
 import { givePro } from './helpers/givePro';
 
 const answer = (o = {}) => ({ data: { pro: false, source: null, status: null, pro_until: null, interval: null, cancels: false, used_this_month: 0, month: '2026-10', free_limit: 20, ...o }, error: null });
 
-const settle = () => new Promise(r => setTimeout(r, 0));   // one macrotask: every pending promise step has run
+// A few macrotask turns: getMyPlan is reached only after a lazy import and a couple of awaits, so a test that
+// expects it NOT to be called must wait this out first, or it passes whatever the code does.
+const settle = async () => { for (let i = 0; i < 5; i += 1) await new Promise(r => setTimeout(r, 0)); };
 const setVisibility = (value) => Object.defineProperty(document, 'visibilityState', { value, configurable: true });
 
 beforeEach(() => {
@@ -67,11 +70,15 @@ describe('PlanRunner', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(2));
   });
-  it('guests and store owners never ask', () => {
+  it('a guest never asks', async () => {
     localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
     render(<PlanRunner role="driver" easyMode={false} onModeChange={vi.fn()} />);
-    localStorage.removeItem(STORAGE_KEYS.GUEST_MODE);
+    await settle();
+    expect(db.getMyPlan).not.toHaveBeenCalled();
+  });
+  it('a store owner never asks', async () => {
     render(<PlanRunner role="store_owner" easyMode={false} onModeChange={vi.fn()} />);
+    await settle();
     expect(db.getMyPlan).not.toHaveBeenCalled();
   });
 });
@@ -145,6 +152,90 @@ describe('PlanRunner: when it must not reload', () => {
   });
 });
 
+describe('PlanRunner: the mode the shell was built with', () => {
+  // AppInner recomputes `easyMode` on every render, but its tab and page state only follow a reload. A render
+  // between the plan being cached and the check must not make "the mode changed" look like "nothing changed".
+  it.each([
+    { name: 'Pro starts while the shell is in Easy Mode', built: true, later: false, setup: () => {}, plan: { pro: true, source: 'manual' } },
+    { name: 'Pro ends while the shell is in normal mode', built: false, later: true, setup: givePro, plan: {} },
+  ])('still reloads when $name, even if the prop changes before the answer lands', async ({ built, later, setup, plan }) => {
+    setup();
+    let answerNow;
+    db.getMyPlan.mockReturnValue(new Promise(resolve => { answerNow = resolve; }));
+    const onModeChange = vi.fn();
+    const { rerender } = render(<PlanRunner role="driver" easyMode={built} onModeChange={onModeChange} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    rerender(<PlanRunner role="driver" easyMode={later} onModeChange={onModeChange} />);
+    answerNow(answer(plan));
+    await waitFor(() => expect(onModeChange).toHaveBeenCalledTimes(1));
+    expect(db.getMyPlan).toHaveBeenCalledTimes(1);   // and changing the prop did not ask the server again
+  });
+  it('a re-render with the same props neither asks again nor reloads', async () => {
+    db.getMyPlan.mockResolvedValue(answer());
+    const onModeChange = vi.fn();
+    const { rerender } = render(<PlanRunner role="driver" easyMode onModeChange={onModeChange} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    rerender(<PlanRunner role="driver" easyMode onModeChange={onModeChange} />);
+    await settle();
+    expect(db.getMyPlan).toHaveBeenCalledTimes(1);
+    expect(onModeChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlanRunner behind useSafeReload (how the shell wires it)', () => {
+  // The shell's reload goes through PlanRunner's onModeChange and nowhere else; useSafeReload holds it while
+  // an invoice is being made, so a half-scanned invoice is never thrown away by a plan change.
+  function Shell({ makingInvoice, reload }) {
+    const onModeChange = useSafeReload(makingInvoice, reload);
+    return <PlanRunner role="driver" easyMode onModeChange={onModeChange} />;
+  }
+  const proAnswerCached = () => new Promise(resolve => window.addEventListener(EVENTS.PLAN_CHANGE, resolve, { once: true }));
+
+  it('a mode change that arrives during an invoice reloads only after that screen closes', async () => {
+    db.getMyPlan.mockResolvedValue(answer({ pro: true, source: 'manual' }));
+    const reload = vi.fn();
+    const cached = proAnswerCached();
+    const { rerender } = render(<Shell makingInvoice reload={reload} />);
+    await cached;
+    await settle();   // PlanRunner has seen the new mode and asked for a reload
+    expect(reload).not.toHaveBeenCalled();
+    rerender(<Shell makingInvoice={false} reload={reload} />);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+  it('and reloads at once when no invoice is being made', async () => {
+    db.getMyPlan.mockResolvedValue(answer({ pro: true, source: 'manual' }));
+    const reload = vi.fn();
+    render(<Shell makingInvoice={false} reload={reload} />);
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('plan sheets take their names from PLAN_COPY', () => {
+  // Swap the copy for sentinels: a name typed into a component would not change.
+  function withCopy(swapped, check) {
+    const saved = Object.fromEntries(Object.keys(swapped).map(k => [k, PLAN_COPY[k]]));
+    Object.assign(PLAN_COPY, swapped);
+    try { check(); } finally { Object.assign(PLAN_COPY, saved); }
+  }
+  it('PlanSheet falls back to PLAN_COPY.upgradeTitle', () => {
+    withCopy({ upgradeTitle: 'Title!' }, () => {
+      render(<ThemeProvider><PlanSheet open><p>x</p></PlanSheet></ThemeProvider>);
+      expect(screen.getByRole('dialog', { name: 'Title!' })).toBeInTheDocument();
+    });
+  });
+  it('the one-time note is named PLAN_COPY.planNoticeLabel', () => {
+    localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify('moved'));
+    withCopy({ planNoticeLabel: 'Note!' }, () => {
+      render(<ThemeProvider><PlanNotices /></ThemeProvider>);
+      expect(screen.getByRole('dialog', { name: 'Note!' })).toBeInTheDocument();
+    });
+  });
+  it('and the names themselves are unchanged', () => {
+    expect(PLAN_COPY.upgradeTitle).toBe('Keiro Pro');
+    expect(PLAN_COPY.planNoticeLabel).toBe('Your plan');
+  });
+});
+
 describe('PlanNotices: edges', () => {
   it('shows nothing without a note, or with one it does not know', () => {
     const { unmount } = render(<ThemeProvider><PlanNotices /></ThemeProvider>);
@@ -173,14 +264,18 @@ describe('PlanNotices: edges', () => {
 });
 
 describe('PlanSheet', () => {
-  it('is a dialog portaled to the page, above the nav, the drawer and the offline banner', () => {
+  it('is a dialog portaled to the page, above the nav, the drawer, the offline banner and the tour', () => {
     const { container } = render(<ThemeProvider><PlanSheet open title="Keiro Pro"><p>hello</p></PlanSheet></ThemeProvider>);
     const dialog = screen.getByRole('dialog', { name: 'Keiro Pro' });
     const backdrop = dialog.parentElement;
     expect(container).not.toContainElement(dialog);   // portaled: no overflow:hidden ancestor can clip it on iOS
     expect(backdrop.parentElement).toBe(document.body);
-    // TopNav 1000, the drawer 1600 and the bottom offline banner 8000 all sit in the same stacking context.
-    expect(Number(backdrop.style.zIndex)).toBeGreaterThan(8000);
+    // One stacking context holds TopNav (1000), the sliding drawer (1600), the bottom offline banner (8000) and the
+    // Quick Start tour (tap-blocking dim panels 9000, ring 9001, tooltip 9002, Skip 9003): a note under any of them
+    // can't be tapped. The sign-out prompt (9500) and ConfirmDialog (9600) must still sit above the sheet.
+    const z = Number(backdrop.style.zIndex);
+    expect(z).toBeGreaterThan(9003);
+    expect(z).toBeLessThan(9500);
   });
   it('is named by its label, else its title, else Keiro Pro', () => {
     const { unmount } = render(<ThemeProvider><PlanSheet open label="Your plan" title="Ignored"><p>x</p></PlanSheet></ThemeProvider>);
@@ -196,6 +291,23 @@ describe('PlanSheet', () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('dialog').parentElement);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+  it('scrolls instead of growing past the screen, and keeps its buttons their size', () => {
+    render(<ThemeProvider><PlanSheet open title="Keiro Pro"><p>x</p><PrimaryBtn onClick={vi.fn()}>Go</PrimaryBtn></PlanSheet></ThemeProvider>);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.maxHeight).toBe('85vh');
+    expect(dialog.style.overflowY).toBe('auto');
+    // In a column flex box that scrolls, a fixed-height button would be squashed (50px to 20px, seen in
+    // Chromium) before the sheet scrolled, unless it refuses to shrink.
+    expect(screen.getByRole('button', { name: 'Go' }).style.flexShrink).toBe('0');
+    expect(screen.getByText('Keiro Pro').style.flexShrink).toBe('0');
+  });
+  it('its buttons meet the 44px minimum tap target', () => {
+    render(<ThemeProvider><PlanSheet open><PrimaryBtn onClick={vi.fn()}>Go</PrimaryBtn><TextBtn onClick={vi.fn()}>Not now</TextBtn></PlanSheet></ThemeProvider>);
+    const text = screen.getByRole('button', { name: 'Not now' });
+    expect(text.style.minHeight).toBe('44px');
+    expect(text.style.flexShrink).toBe('0');
+    expect(parseInt(screen.getByRole('button', { name: 'Go' }).style.height, 10)).toBeGreaterThanOrEqual(44);
   });
   it('renders nothing while closed', () => {
     render(<ThemeProvider><PlanSheet open={false}><p>inside</p></PlanSheet></ThemeProvider>);

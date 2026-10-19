@@ -42,6 +42,7 @@ import { isPinEnabled } from './utils/pinStorage';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
+import { useSafeReload } from './hooks/useSafeReload';
 import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS, SIDE_NAV_WIDTH } from './utils/constants';
 import { supabase } from './services/supabase';
 // Store Owner role
@@ -137,6 +138,11 @@ function AppInner({ role, onSwitchRole }) {
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires EVENTS.VERSION_UPDATE event when server has a newer build
+
+  // A plan change that flips the mode reloads the app (PlanRunner). Never under a half-made
+  // invoice: it waits until that screen closes — the same condition the update banner uses to
+  // say "Finish your invoice first" (isMidInvoice below).
+  const reloadForPlan = useSafeReload(page === 'invoice');
 
   // ── Cross-account event badges (tab-strip unread counts) ───────────────────
   const [badges, setBadges] = useState({});
@@ -512,7 +518,7 @@ function AppInner({ role, onSwitchRole }) {
       }}
     >
       {/* Pricing: keep the plan fresh, and show its one-time notes. */}
-      <PlanRunner role={role} easyMode={easyMode} />
+      <PlanRunner role={role} easyMode={easyMode} onModeChange={reloadForPlan} />
       <PlanNotices />
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {(updateAvailable || versionUpdateAvailable) && (

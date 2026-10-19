@@ -4,8 +4,14 @@
  * answer changes which mode the app should be in (Pro started or ended), the
  * app reloads, exactly as the Easy Mode switch does. Guests and store owners
  * have no plan to ask about.
+ *
+ * `easyMode` is the mode the shell was BUILT for: only its value at mount
+ * counts. The shell recomputes the prop on every render, but its tabs and page
+ * state only follow a reload, so a later value must never stand in for "the
+ * mode did not change". `onModeChange` is how a reload is asked for; the shell
+ * passes one that waits while an invoice is being made (useSafeReload).
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { refreshPlan } from '../../utils/plan';
 import { easyModeFor } from '../../utils/easyMode';
 import { STORAGE_KEYS } from '../../utils/constants';
@@ -18,17 +24,18 @@ function isGuestNow() {
 const reload = () => window.location.reload();
 
 export default function PlanRunner({ role, easyMode, onModeChange = reload }) {
+  const [builtEasy] = useState(easyMode);
   useEffect(() => {
     if (role === 'store_owner' || isGuestNow()) return undefined;
     let cancelled = false;
     const run = async () => {
       const r = await refreshPlan();
-      if (!cancelled && r.ok && easyModeFor(role) !== easyMode) onModeChange();
+      if (!cancelled && r.ok && easyModeFor(role) !== builtEasy) onModeChange();
     };
     run();
     const onVisible = () => { if (document.visibilityState === 'visible') run(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [role, easyMode, onModeChange]);
+  }, [role, builtEasy, onModeChange]);
   return null;
 }
