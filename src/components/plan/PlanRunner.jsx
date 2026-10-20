@@ -1,18 +1,22 @@
 /**
  * PlanRunner — keeps the cached plan fresh (plan.js). Renders nothing.
- * Asks at launch and whenever the app comes back to the foreground; if the
+ * Asks at launch and whenever the app comes back to the foreground; with no
+ * answer cached yet (a launch on a weak signal) it also asks each time the
+ * signal returns, so a Pro driver gets Pro without restarting the app. If the
  * answer changes which mode the app should be in (Pro started or ended), the
  * app reloads, exactly as the Easy Mode switch does. Guests and store owners
  * have no plan to ask about.
  *
  * `easyMode` is the mode the shell was BUILT for: only its value at mount
- * counts. The shell recomputes the prop on every render, but its tabs and page
- * state only follow a reload, so a later value must never stand in for "the
- * mode did not change". `onModeChange` is how a reload is asked for; the shell
- * passes one that waits while an invoice is being made (useSafeReload).
+ * counts. The shell decides its mode once per mount (App.jsx, AppInner) and its
+ * tabs and page state only follow a reload, so this is that mode, never a later
+ * reading of the plan cache, which can already say otherwise. It is captured
+ * once here too, so even a changed prop can't stand in for "the mode did not
+ * change". `onModeChange` is how a reload is asked for; the shell passes one
+ * that waits while an invoice is being made or shared (useSafeReload).
  */
 import { useEffect, useState } from 'react';
-import { refreshPlan } from '../../utils/plan';
+import { refreshPlan, getCachedPlan } from '../../utils/plan';
 import { easyModeFor } from '../../utils/easyMode';
 import { STORAGE_KEYS } from '../../utils/constants';
 
@@ -35,8 +39,15 @@ export default function PlanRunner({ role, easyMode, onModeChange = reload }) {
     };
     run();
     const onVisible = () => { if (document.visibilityState === 'visible') run(); };
+    // No answer on this phone yet (the launch read timed out): ask again as soon as the signal is back.
+    const onOnline = () => { if (!getCachedPlan()) run(); };
     document.addEventListener('visibilitychange', onVisible);
-    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVisible); };
+    window.addEventListener('online', onOnline);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
   }, [role, builtEasy, onModeChange]);
   return null;
 }

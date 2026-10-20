@@ -9,7 +9,7 @@ vi.mock('../utils/syncQueue', () => ({ releaseHeldSyncs: vi.fn() }));
 
 import * as db from '../services/db';
 import { releaseHeldSyncs } from '../utils/syncQueue';
-import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, PLAN_COPY, PLAN_REFRESH_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
 import {
   getCachedPlan, isProNow, isPro, onFreePlan, invoicesUsedThisMonth, freeInvoicesLeft,
   canCreateInvoice, recordNewInvoice, resetDateLabel, refreshPlan, guardNewInvoice,
@@ -199,6 +199,72 @@ describe('refreshPlan', () => {
       expect((await refreshPlan()).ok).toBe(false);
       expect((await refreshPlan()).ok).toBe(true);
       expect(db.getMyPlan).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // The shared request is held for every caller, so one that hangs before the call is made (supabase-js
+  // waits on its session lock while the auth server is unreachable) used to block every later refresh
+  // for the rest of the session. The whole attempt now has a deadline.
+  describe('a request that hangs', () => {
+    beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }); });
+    afterEach(() => { vi.useRealTimers(); });
+    /** What a promise has done so far, without waiting for it. */
+    const watch = (promise) => { const seen = { done: false, value: undefined }; promise.then((value) => { seen.done = true; seen.value = value; }); return seen; };
+
+    it('is given up on after PLAN_REFRESH_TIMEOUT_MS with { ok: false }, for everyone sharing it', async () => {
+      db.getMyPlan.mockReturnValueOnce(new Promise(() => {}));   // never answers
+      const first = watch(refreshPlan());
+      const joined = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(PLAN_REFRESH_TIMEOUT_MS - 1);
+      expect(first.done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(first).toEqual({ done: true, value: { ok: false } });
+      expect(joined).toEqual({ done: true, value: { ok: false } });
+      expect(db.getMyPlan).toHaveBeenCalledTimes(1);
+    });
+
+    it('...and the next refresh asks the server again instead of waiting on the dead one', async () => {
+      db.getMyPlan.mockReturnValueOnce(new Promise(() => {}));
+      const hung = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(PLAN_REFRESH_TIMEOUT_MS);
+      expect(hung.done).toBe(true);
+      db.getMyPlan.mockResolvedValue(answer());
+      const next = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(0);
+      expect(next.value?.ok).toBe(true);
+      expect(db.getMyPlan).toHaveBeenCalledTimes(2);
+    });
+
+    it('...and the old request answering late does not disturb the new one, but its answer is kept', async () => {
+      let lateAnswer;
+      db.getMyPlan.mockReturnValueOnce(new Promise((resolve) => { lateAnswer = resolve; }));
+      const hung = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(PLAN_REFRESH_TIMEOUT_MS);
+      expect(hung.value).toEqual({ ok: false });
+      db.getMyPlan.mockReturnValueOnce(new Promise(() => {}));   // the new request is still out when the old one lands
+      const fresh = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(0);
+      lateAnswer(answer({ used_this_month: 7 }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(getCachedPlan()).toMatchObject({ usedThisMonth: 7 });   // a real answer from the server is still a real answer
+      const joined = refreshPlan();                                  // and asking now shares the new request, not a third one
+      await vi.advanceTimersByTimeAsync(10);                         // (a third request would reach getMyPlan after its lazy import)
+      expect(db.getMyPlan).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(PLAN_REFRESH_TIMEOUT_MS);
+      expect(fresh.value).toEqual({ ok: false });
+      await expect(joined).resolves.toEqual({ ok: false });
+    });
+
+    it('an answer in time is not cut off, and leaves no timer behind', async () => {
+      db.getMyPlan.mockResolvedValue(answer());
+      const done = watch(refreshPlan());
+      await vi.advanceTimersByTimeAsync(0);
+      expect(done.value?.ok).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('the deadline leaves the call\'s own timeout its chance first', () => {
+      expect(PLAN_REFRESH_TIMEOUT_MS).toBeGreaterThan(PLAN_RPC_TIMEOUT_MS);
     });
   });
 });

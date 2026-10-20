@@ -147,9 +147,10 @@ function AppInner({ role, onSwitchRole }) {
   useVersionCheck(); // fires EVENTS.VERSION_UPDATE event when server has a newer build
 
   // A plan change that flips the mode reloads the app (PlanRunner). Never under a half-made
-  // invoice: it waits until that screen closes — the same condition the update banner uses to
-  // say "Finish your invoice first" (isMidInvoice below).
-  const reloadForPlan = useSafeReload(page === 'invoice');
+  // invoice, and not while he shares or prints the one he just made either: Make invoice opens
+  // 'invoice-view', and a reload there would interrupt the share sheet and could cut off a
+  // connected order's fire-and-forget "delivered" update. It waits until both screens are closed.
+  const reloadForPlan = useSafeReload(page === 'invoice' || page === 'invoice-view');
 
   // ── Cross-account event badges (tab-strip unread counts) ───────────────────
   const [badges, setBadges] = useState({});

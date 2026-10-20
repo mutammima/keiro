@@ -221,6 +221,11 @@ export const FREE_WARN_AT_LEFT = 5;
 export const OFFLINE_PRO_GRACE_DAYS = 3;
 /** my_plan() gives up after this long on a weak signal; the cached plan stands. */
 export const PLAN_RPC_TIMEOUT_MS = 8000;
+/**
+ * refreshPlan() as a whole gives up after this long (the lazy import, the wait for the session
+ * and the call), so one hung attempt can't block every later refresh for the session.
+ */
+export const PLAN_REFRESH_TIMEOUT_MS = 20000;
 /** The server's refusal of a free account's upload past the backstop (supabase-pricing.sql). */
 export const FREE_LIMIT_ERROR = 'KEIRO_FREE_LIMIT';
 /** Shown prices. Payments are coming soon (owner decision 2026-10-17). */

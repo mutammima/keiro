@@ -152,6 +152,73 @@ describe('PlanRunner: when it must not reload', () => {
   });
 });
 
+describe('PlanRunner: a driver whose first answer never came', () => {
+  // A launch on a weak signal ends with no plan answer: the driver is Free and in Easy Mode until one arrives, and a
+  // Pro driver (the owner's dad) must not have to restart the app to get Pro. The signal coming back asks again.
+  const goOnline = () => window.dispatchEvent(new Event('online'));
+  const NO_ANSWER = { data: null, error: new Error('timed out') };
+  const setPlan = (p) => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify(p));
+
+  it('asks again when the signal returns, and reloads if the answer changes the mode', async () => {
+    db.getMyPlan.mockResolvedValueOnce(NO_ANSWER).mockResolvedValue(answer({ pro: true, source: 'manual' }));
+    const onModeChange = vi.fn();
+    render(<PlanRunner role="driver" easyMode onModeChange={onModeChange} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(onModeChange).not.toHaveBeenCalled();
+    goOnline();
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onModeChange).toHaveBeenCalledTimes(1));
+  });
+  it('asks at every return of the signal until an answer lands, then no more', async () => {
+    db.getMyPlan.mockResolvedValueOnce(NO_ANSWER).mockResolvedValueOnce(NO_ANSWER).mockResolvedValue(answer());
+    render(<PlanRunner role="driver" easyMode onModeChange={vi.fn()} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    await settle();
+    goOnline();
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(2));
+    await settle();
+    goOnline();
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(3));   // this one lands
+    await settle();
+    goOnline();
+    await settle();
+    expect(db.getMyPlan).toHaveBeenCalledTimes(3);
+  });
+  it('does not ask when the signal returns if the phone already has a plan answer', async () => {
+    setPlan({ pro: false, source: null, status: null, proUntil: null, usedThisMonth: 0, month: '2026-10', fetchedAt: '2026-10-16T12:00:00.000Z' });
+    db.getMyPlan.mockResolvedValue(NO_ANSWER);   // the launch read fails, but the cached answer stands
+    render(<PlanRunner role="driver" easyMode onModeChange={vi.fn()} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    await settle();
+    goOnline();
+    await settle();
+    expect(db.getMyPlan).toHaveBeenCalledTimes(1);
+  });
+  it('a guest and a store owner do not ask when the signal returns either', async () => {
+    localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
+    const guest = render(<PlanRunner role="driver" easyMode={false} onModeChange={vi.fn()} />);
+    goOnline();
+    await settle();
+    guest.unmount();
+    localStorage.removeItem(STORAGE_KEYS.GUEST_MODE);
+    render(<PlanRunner role="store_owner" easyMode={false} onModeChange={vi.fn()} />);
+    goOnline();
+    await settle();
+    expect(db.getMyPlan).not.toHaveBeenCalled();
+  });
+  it('stops listening once the app is gone', async () => {
+    db.getMyPlan.mockResolvedValue(NO_ANSWER);
+    const { unmount } = render(<PlanRunner role="driver" easyMode onModeChange={vi.fn()} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(1));
+    await settle();
+    unmount();
+    goOnline();
+    await settle();
+    expect(db.getMyPlan).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PlanRunner: the mode the shell was built with', () => {
   // AppInner recomputes `easyMode` on every render, but its tab and page state only follow a reload. A render
   // between the plan being cached and the check must not make "the mode changed" look like "nothing changed".

@@ -17,7 +17,7 @@
  */
 import {
   STORAGE_KEYS, EVENTS, MS_PER_DAY, FREE_INVOICES_PER_MONTH, OFFLINE_PRO_GRACE_DAYS,
-  PLAN_COPY,
+  PLAN_COPY, PLAN_REFRESH_TIMEOUT_MS,
 } from './constants';
 import { localMonth } from './invoiceUtils';
 
@@ -126,19 +126,31 @@ export async function applyFreshPlan(prev, next) {
 
 let inflight = null;
 
+/** `promise`, or { ok: false } if it has not settled after `ms`. */
+function orGiveUp(promise, ms) {
+  let timer;
+  const gaveUp = new Promise((resolve) => { timer = setTimeout(() => resolve({ ok: false }), ms); });
+  return Promise.race([promise, gaveUp]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Asks the server for this account's plan and caches it. Concurrent calls
  * share one request. Never rejects: it resolves { ok: false } offline, signed
- * out, before supabase-pricing.sql is run, or when anything throws (a lazy
- * import that fails, releasing held uploads). With no answer the cache is
+ * out, before supabase-pricing.sql is run, when anything throws (a lazy
+ * import that fails, releasing held uploads), or when nothing has answered
+ * after PLAN_REFRESH_TIMEOUT_MS: the shared request would otherwise be held
+ * for every caller, so one that hangs before the call is made (supabase-js
+ * waits on its session lock while the auth server is unreachable) would block
+ * every later refresh for the session. A request given up on may still answer
+ * late; a real answer is cached whenever it lands. With no answer the cache is
  * left as it was.
  * @returns {Promise<{ ok: boolean, plan?: object }>}
  */
 export function refreshPlan() {
   if (!inflight) {
-    inflight = fetchPlan()
-      .catch((err) => { console.warn('refreshPlan failed', err); return { ok: false }; })
-      .finally(() => { inflight = null; });
+    const request = fetchPlan()
+      .catch((err) => { console.warn('refreshPlan failed', err); return { ok: false }; });
+    inflight = orGiveUp(request, PLAN_REFRESH_TIMEOUT_MS).finally(() => { inflight = null; });
   }
   return inflight;
 }
