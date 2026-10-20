@@ -18,7 +18,9 @@
  *     them back. Nothing is ever deleted unsaved.
  *   • refused for the free plan's limit (KEIRO_FREE_LIMIT, supabase-pricing.sql):
  *     never counts — the change moves to the held list (`inv_sync_held`),
- *     re-sent once the account is Pro (plan.js) or the month changes.
+ *     re-sent once the account is Pro (plan.js) or the UTC month (the server's
+ *     month, not the phone's) changes. A guest's invoice refused on sign-up
+ *     (migration.js) is held the same way.
  * It runs on the `online` event, on app foreground, on a 60s interval while
  * online, and once on startup (see SyncQueueRunner).
  *
