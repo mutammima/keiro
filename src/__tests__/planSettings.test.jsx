@@ -21,7 +21,7 @@ const planArrives = (p) => act(() => {
 });
 const wrap = (el) => render(<ThemeProvider>{el}</ThemeProvider>);
 // The Toggle is drawn on by sliding its knob right (it has no other visible state).
-const switchIsDrawnOn = () => screen.getByRole('button', { name: 'Easy Mode switch' }).firstChild.style.transform === 'translateX(18px)';
+const switchIsDrawnOn = () => screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }).firstChild.style.transform === 'translateX(18px)';
 beforeEach(() => { localStorage.clear(); });
 
 describe('Settings → Plan', () => {
@@ -76,8 +76,8 @@ describe('the Easy Mode switch on Free', () => {
     window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
     const onChange = vi.fn();
     wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);
-    expect(screen.getByLabelText('Part of Pro')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Easy Mode switch' }));
+    expect(screen.getByLabelText(PLAN_COPY.proLockLabel)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));
     expect(opened.mock.calls[0][0].detail.title).toBe(PLAN_COPY.normalModeTitle);
     expect(onChange).not.toHaveBeenCalled();
     expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBeNull();
@@ -90,9 +90,9 @@ describe('the Easy Mode switch on Free', () => {
   });
   it('the lock lifts when a Pro answer lands while Settings is open', () => {
     wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={vi.fn()} />);
-    expect(screen.getByLabelText('Part of Pro')).toBeInTheDocument();
+    expect(screen.getByLabelText(PLAN_COPY.proLockLabel)).toBeInTheDocument();
     planArrives({ pro: true, source: 'manual', proUntil: null });
-    expect(screen.queryByLabelText('Part of Pro')).toBeNull();
+    expect(screen.queryByLabelText(PLAN_COPY.proLockLabel)).toBeNull();
     expect(switchIsDrawnOn()).toBe(false); // Pro with the flag off: the switch shows what it says
   });
 });
@@ -104,9 +104,9 @@ describe('the Easy Mode switch where the plan does not lock it', () => {
     window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
     const onChange = vi.fn();
     wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);
-    expect(screen.queryByLabelText('Part of Pro')).toBeNull();
+    expect(screen.queryByLabelText(PLAN_COPY.proLockLabel)).toBeNull();
     expect(switchIsDrawnOn()).toBe(false); // shows the stored flag, which is not set
-    fireEvent.click(screen.getByRole('button', { name: 'Easy Mode switch' }));
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));
     expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBe('true');
     expect(onChange).toHaveBeenCalledWith(true);
     expect(opened).not.toHaveBeenCalled();
@@ -118,11 +118,41 @@ describe('the Easy Mode switch where the plan does not lock it', () => {
     window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
     const onChange = vi.fn();
     wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);
-    expect(screen.queryByLabelText('Part of Pro')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Easy Mode switch' }));
+    expect(screen.queryByLabelText(PLAN_COPY.proLockLabel)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));
     expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBe('true');
     expect(onChange).toHaveBeenCalledWith(true);
     expect(opened).not.toHaveBeenCalled();
     window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+});
+
+describe('the Settings rows take their words from PLAN_COPY', () => {
+  // Swap the copy for sentinels: a name typed into a component would not change.
+  function withCopy(swapped, check) {
+    const saved = Object.fromEntries(Object.keys(swapped).map(k => [k, PLAN_COPY[k]]));
+    Object.assign(PLAN_COPY, swapped);
+    try { check(); } finally { Object.assign(PLAN_COPY, saved); }
+  }
+
+  it('the lock beside the Easy Mode switch, and the switch itself, are named from PLAN_COPY', () => {
+    withCopy({ proLockLabel: 'Lock!', easySwitchLabel: 'Switch!' }, () => {
+      wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={vi.fn()} />);
+      expect(screen.getByLabelText('Lock!')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Switch!' })).toBeInTheDocument();
+    });
+  });
+
+  it('the Plan section is titled from PLAN_COPY', () => {
+    withCopy({ planSectionTitle: 'Section!' }, () => {
+      wrap(<PlanSetting role="driver" C={LIGHT} />);
+      expect(screen.getByText('Section!')).toBeInTheDocument();
+    });
+  });
+
+  it('and the real words are unchanged', () => {
+    expect(PLAN_COPY.proLockLabel).toBe('Part of Pro');
+    expect(PLAN_COPY.easySwitchLabel).toBe('Easy Mode switch');
+    expect(PLAN_COPY.planSectionTitle).toBe('Plan');
   });
 });

@@ -335,8 +335,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
           )}
           {showSigs && sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sellerSig && <img src={sellerSig} alt="Driver / Deliverer signature" style={s.sigImg} />}
-              {buyerSig && <img src={buyerSig} alt="Store Manager signature" style={s.sigImg} />}
+              {sellerSig && <img src={sellerSig} alt={PLAN_COPY.sellerSigAlt} style={s.sigImg} />}
+              {buyerSig && <img src={buyerSig} alt={PLAN_COPY.buyerSigAlt} style={s.sigImg} />}
             </div>
           )}
           {showSigs && !sigLocked && (

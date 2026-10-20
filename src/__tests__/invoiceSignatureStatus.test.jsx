@@ -23,7 +23,7 @@ vi.mock('../utils/signatureStorage', () => ({
 
 import InvoiceView from '../components/invoice/InvoiceView';
 import { saveSignatures, getSignatures } from '../utils/signatureStorage';
-import { STORAGE_FULL_MESSAGE, STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { givePro } from './helpers/givePro';
 
 const invoice = { number: 1050, date: 'October 7, 2026', storeName: 'Corner Shop', items: [{ id: 1, name: 'Bread', qty: 2, price: 3 }] };
@@ -87,12 +87,29 @@ describe('signature save status', () => {
     localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
     getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' });
     render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
-    expect(screen.getByAltText('Driver / Deliverer signature')).toHaveAttribute('src', 'data:image/png;base64,SELLER');
-    expect(screen.getByAltText('Store Manager signature')).toHaveAttribute('src', 'data:image/png;base64,BUYER');
+    expect(screen.getByAltText(PLAN_COPY.sellerSigAlt)).toHaveAttribute('src', 'data:image/png;base64,SELLER');
+    expect(screen.getByAltText(PLAN_COPY.buyerSigAlt)).toHaveAttribute('src', 'data:image/png;base64,BUYER');
     expect(screen.queryByRole('button', { name: /^sign / })).toBeNull();      // the pads (mocked as "sign …" buttons)
     expect(screen.getByRole('button', { name: 'Hide' })).toBeInTheDocument(); // the card still folds
     expect(screen.queryByText(/Signature lines print blank/)).toBeNull();     // they are signed: nothing prints blank
     expect(saveSignatures).not.toHaveBeenCalled();                            // showing them re-uploads nothing
+  });
+
+  it('the read-only signature images are named from PLAN_COPY, and the real names are unchanged', () => {
+    expect(PLAN_COPY.sellerSigAlt).toBe('Driver / Deliverer signature');
+    expect(PLAN_COPY.buyerSigAlt).toBe('Store Manager signature');
+    // Swap the names for sentinels: an alt typed into InvoiceView would not change.
+    const saved = { sellerSigAlt: PLAN_COPY.sellerSigAlt, buyerSigAlt: PLAN_COPY.buyerSigAlt };
+    Object.assign(PLAN_COPY, { sellerSigAlt: 'Seller!', buyerSigAlt: 'Buyer!' });
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+      getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' });
+      render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+      expect(screen.getByAltText('Seller!')).toHaveAttribute('src', 'data:image/png;base64,SELLER');
+      expect(screen.getByAltText('Buyer!')).toHaveAttribute('src', 'data:image/png;base64,BUYER');
+    } finally {
+      Object.assign(PLAN_COPY, saved);
+    }
   });
 
   it('the Sign button follows the plan when a Pro answer lands while the invoice is open', () => {

@@ -20,7 +20,7 @@ export default function PlanSetting({ role, C }) {
 
   const v = planSummary(plan);
   return (
-    <Section title="Plan" C={C} defaultOpen>
+    <Section title={PLAN_COPY.planSectionTitle} C={C} defaultOpen>
       <Row label={v.label} sub={v.sub || null} C={C}>
         {v.action === 'upgrade' && (
           <button type="button" onClick={() => openUpgrade()} style={{ ...s.btn, background: ACCENT, color: '#fff' }}>

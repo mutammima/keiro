@@ -43,8 +43,8 @@ export default function EasyModeSetting({ role, C, dark, onChange = () => window
             <div style={{ ...s.desc, color: C.textMuted }}>{EASY_MODE_DESCRIPTION}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            {locked && <span role="img" aria-label="Part of Pro" style={{ fontSize: 13 }}>🔒</span>}
-            <Toggle on={locked || isEasyMode()} onChange={toggle} C={C} dark={dark} label="Easy Mode switch" />
+            {locked && <span role="img" aria-label={PLAN_COPY.proLockLabel} style={{ fontSize: 13 }}>🔒</span>}
+            <Toggle on={locked || isEasyMode()} onChange={toggle} C={C} dark={dark} label={PLAN_COPY.easySwitchLabel} />
           </div>
         </div>
       </div>

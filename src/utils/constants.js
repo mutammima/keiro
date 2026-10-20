@@ -243,7 +243,8 @@ export const PLAN_COPY = {
   limitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices this month`,
   limitBody: (reset) => `They reset ${reset}.`,
   leftLine: (n) => `${n} free invoice${n === 1 ? '' : 's'} left this month`,
-  // Settings → Plan row labels (planSummary). A Free row's second line is usedLine.
+  // Settings → Plan: the section's title, then its row labels (planSummary). A Free row's second line is usedLine.
+  planSectionTitle: 'Plan',
   freeLabel: 'Free',
   proLabel: 'Pro',
   proFreeLabel: 'Pro (free)',
@@ -255,6 +256,10 @@ export const PLAN_COPY = {
   movedNote: "Keiro now has a free plan and a Pro plan. You're on Free, so you're in Easy Mode. Settings → Plan to upgrade.",
   endedNote: `Your Pro plan ended. You're back on Free: Easy Mode, ${FREE_INVOICES_PER_MONTH} invoices a month. Nothing was deleted.`,
   planNoticeLabel: 'Your plan',   // the accessible name of the one-time plan note (PlanNotices)
+  proLockLabel: 'Part of Pro',    // the accessible name of the lock beside a locked switch (Settings → Easy Mode)
+  easySwitchLabel: 'Easy Mode switch', // the accessible name of Settings' Easy Mode switch
+  sellerSigAlt: 'Driver / Deliverer signature', // alt text of a saved signature shown read-only on Free (InvoiceView)
+  buyerSigAlt: 'Store Manager signature',
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
   tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
 };
