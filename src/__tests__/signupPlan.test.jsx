@@ -4,12 +4,14 @@
  * The sign-up plan screen shows Free, and Pro as "Coming soon": payments are
  * not built yet (owner decision 2026-10-17), so Pro can't be picked. Store
  * owners skip the screen, and nothing writes the old `inv_plan` value any more.
+ * Every word on the screen is PLAN_COPY's (constants.js).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { DARK } from '../theme';
+import { PLAN_COPY } from '../utils/constants';
 
 // The real auth module imports the real Supabase client, which throws at
 // import without a URL — CI has no .env. The client isn't used here.
@@ -31,20 +33,60 @@ describe('sign-up plan screen', () => {
   it('shows Free, and Pro as coming soon; Start free goes ahead', () => {
     const onStart = vi.fn();
     show(onStart);
-    expect(screen.getByText('Free')).toBeInTheDocument();
-    expect(screen.getByText('Pro')).toBeInTheDocument();
-    expect(screen.getByText('20 invoices a month')).toBeInTheDocument();
-    expect(screen.getByText('$4.99 a month or $49.99 a year')).toBeInTheDocument();
-    expect(screen.getByText('Coming soon')).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.signupTitle)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.signupSubtitle)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.freeLabel)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.proLabel)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.freePrice)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.priceLine)).toBeInTheDocument();
+    for (const bullet of [...PLAN_COPY.freeBullets, ...PLAN_COPY.proBullets]) expect(screen.getByText(bullet)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.comingSoonBadge)).toBeInTheDocument();
     expect(screen.queryByText(/Business|\$12/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Start free' }));
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.startFree }));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
   it('Pro can\'t be picked yet', () => {
     show(vi.fn());
-    fireEvent.click(screen.getByText('Pro'));
-    expect(screen.getByRole('button', { name: 'Start free' })).toBeInTheDocument();
+    fireEvent.click(screen.getByText(PLAN_COPY.proLabel));
+    expect(screen.getByRole('button', { name: PLAN_COPY.startFree })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Continue to Pro/ })).toBeNull();
+  });
+});
+
+describe('the sign-up plan screen takes every word from PLAN_COPY', () => {
+  // Swap the copy for sentinels: a word typed into the component would not change.
+  function withCopy(swapped, check) {
+    const saved = Object.fromEntries(Object.keys(swapped).map(k => [k, PLAN_COPY[k]]));
+    Object.assign(PLAN_COPY, swapped);
+    try { check(); } finally { Object.assign(PLAN_COPY, saved); }
+  }
+
+  it('the heading, the line under it, both cards, the badge and the button', () => {
+    withCopy({
+      signupTitle: 'Title!', signupSubtitle: 'Subtitle!',
+      freeLabel: 'Gratis!', proLabel: 'Premium!', freePrice: 'Zero!', priceLine: 'Price!',
+      freeBullets: ['Free one!', 'Free two!'], proBullets: ['Pro one!', 'Pro two!'],
+      comingSoonBadge: 'Badge!', startFree: 'Go free!',
+    }, () => {
+      show(vi.fn());
+      for (const text of ['Title!', 'Subtitle!', 'Gratis!', 'Premium!', 'Zero!', 'Price!', 'Free one!', 'Free two!', 'Pro one!', 'Pro two!', 'Badge!']) {
+        expect(screen.getByText(text)).toBeInTheDocument();
+      }
+      expect(screen.getByRole('button', { name: 'Go free!' })).toBeInTheDocument();
+    });
+  });
+
+  it('and the real words are unchanged', () => {
+    expect(PLAN_COPY.signupTitle).toBe('Your plan');
+    expect(PLAN_COPY.signupSubtitle).toBe('Start free. Pro is coming soon.');
+    expect(PLAN_COPY.freeLabel).toBe('Free');
+    expect(PLAN_COPY.proLabel).toBe('Pro');
+    expect(PLAN_COPY.freePrice).toBe('$0');
+    expect(PLAN_COPY.priceLine).toBe('$4.99 a month or $49.99 a year');
+    expect(PLAN_COPY.freeBullets).toEqual(['Easy Mode: scan items, print or share invoices', '20 invoices a month', 'Store balances and reports']);
+    expect(PLAN_COPY.proBullets).toEqual(['Unlimited invoices', 'Normal mode and the full invoice form', 'Sign invoices on the phone']);
+    expect(PLAN_COPY.comingSoonBadge).toBe('Coming soon');
+    expect(PLAN_COPY.startFree).toBe('Start free');
   });
 });
 
@@ -72,9 +114,9 @@ describe('the sign-up flow around the plan screen', () => {
 
   it('a driver gets the plan screen after the profile, and Start free enters the app', async () => {
     await fillProfileAs('driver');
-    expect(await screen.findByText('Your plan')).toBeInTheDocument();
+    expect(await screen.findByText(PLAN_COPY.signupTitle)).toBeInTheDocument();
     expect(onAuthed).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Start free' }));
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.startFree }));
     expect(onAuthed).toHaveBeenCalledTimes(1);
     expect(onAuthed).toHaveBeenCalledWith(user);
     expect(localStorage.getItem('inv_onboarding_done')).toBe('true');
@@ -85,8 +127,8 @@ describe('the sign-up flow around the plan screen', () => {
     await fillProfileAs('store_owner');
     await waitFor(() => expect(onAuthed).toHaveBeenCalledWith(user));
     expect(onAuthed).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText('Your plan')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Start free' })).toBeNull();
+    expect(screen.queryByText(PLAN_COPY.signupTitle)).toBeNull();
+    expect(screen.queryByRole('button', { name: PLAN_COPY.startFree })).toBeNull();
     expect(localStorage.getItem('inv_onboarding_done')).toBe('true');
     expect(localStorage.getItem('inv_plan')).toBeNull();
   });

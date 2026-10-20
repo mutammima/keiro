@@ -34,7 +34,7 @@ import {
 } from '../../services/auth';
 import { setRole } from '../../utils/storeOwnerStorage';
 import { getBusinessName, saveBusinessName } from '../../utils/storage';
-import { SPAM_HINT, FREE_INVOICES_PER_MONTH, PLAN_COPY } from '../../utils/constants';
+import { SPAM_HINT, PLAN_COPY } from '../../utils/constants';
 
 // inv_-prefixed so the backup sweep captures it automatically.
 const ONBOARDING_DONE_KEY = 'inv_onboarding_done';
@@ -539,25 +539,21 @@ function RoleCard({ label, sub, icon, selected, onClick, C }) {
 
 // ── Screen 5: Plan (drivers; store owners skip it) ──────────────────────────
 // Payments aren't built yet (owner decision 2026-10-17): Pro shows as coming soon.
-// The number and the price come from constants.js, so they can't drift from the
-// rest of the app.
-const PLANS = [
-  { id: 'free', name: 'Free', price: '$0', available: true,
-    bullets: ['Easy Mode: scan items, print or share invoices', `${FREE_INVOICES_PER_MONTH} invoices a month`, 'Store balances and reports'] },
-  { id: 'pro', name: 'Pro', price: PLAN_COPY.priceLine, available: false, badge: 'Coming soon',
-    bullets: ['Unlimited invoices', 'Normal mode and the full invoice form', 'Sign invoices on the phone'] },
-];
-
+// Every word here is PLAN_COPY's (constants.js), read when the screen renders.
 export function PlanScreen({ onBack, onStart, loading, C }) {
+  const plans = [
+    { id: 'free', name: PLAN_COPY.freeLabel, price: PLAN_COPY.freePrice, available: true, bullets: PLAN_COPY.freeBullets },
+    { id: 'pro', name: PLAN_COPY.proLabel, price: PLAN_COPY.priceLine, available: false, badge: PLAN_COPY.comingSoonBadge, bullets: PLAN_COPY.proBullets },
+  ];
   return (
     <Screen C={C}>
       <Header onBack={onBack} active={null} totalDots={3} accent={ACCENT} C={C} />
       <Body>
-        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '14px 0 8px', letterSpacing: '-0.01em' }}>Your plan</h2>
-        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 22px', lineHeight: 1.5 }}>Start free. Pro is coming soon.</p>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '14px 0 8px', letterSpacing: '-0.01em' }}>{PLAN_COPY.signupTitle}</h2>
+        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 22px', lineHeight: 1.5 }}>{PLAN_COPY.signupSubtitle}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {PLANS.map((p) => (
+          {plans.map((p) => (
             <div
               key={p.id}
               style={{
@@ -590,7 +586,7 @@ export function PlanScreen({ onBack, onStart, loading, C }) {
         </div>
 
         <div style={{ flex: 1, minHeight: 18 }} />
-        <PrimaryButton onClick={() => onStart()} loading={loading} accent={ACCENT}>Start free</PrimaryButton>
+        <PrimaryButton onClick={() => onStart()} loading={loading} accent={ACCENT}>{PLAN_COPY.startFree}</PrimaryButton>
       </Body>
     </Screen>
   );

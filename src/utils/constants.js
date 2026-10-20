@@ -63,7 +63,6 @@ export const STORAGE_KEYS = {
   ERROR_LOG:          'inv_error_log',
   GUEST_MODE:         'inv_guest_mode',
   AUTH_UID:           'inv_auth_uid',
-  PLAN:               'inv_plan',
   PULSE_HOME:         'inv_pulse_home',
   PLAN_CACHE:         'inv_plan_cache',    // the server's my_plan() answer + fetchedAt (never backed up)
   USAGE:              'inv_usage',         // { month: 'YYYY-MM' (local), count } — new invoices made on this phone
@@ -262,4 +261,12 @@ export const PLAN_COPY = {
   buyerSigAlt: 'Store Manager signature',
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
   tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
+  // The sign-up plan screen (PlanScreen in OnboardingFlow). Its cards are named freeLabel / proLabel, and Pro's price is priceLine.
+  signupTitle: 'Your plan',
+  signupSubtitle: 'Start free. Pro is coming soon.',
+  freePrice: '$0',
+  freeBullets: ['Easy Mode: scan items, print or share invoices', `${FREE_INVOICES_PER_MONTH} invoices a month`, 'Store balances and reports'],
+  proBullets: ['Unlimited invoices', 'Normal mode and the full invoice form', 'Sign invoices on the phone'],
+  comingSoonBadge: 'Coming soon',
+  startFree: 'Start free',
 };
