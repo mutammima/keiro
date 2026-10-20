@@ -6,7 +6,8 @@
  * up until the list is empty, and "Try again" puts those changes back in the
  * queue. Unlike SyncToast it never auto-dismisses: an unsaved change is not
  * something to forget about.
- * Uploads held for the free plan's limit show here too, with Upgrade.
+ * Uploads held for the free plan's limit show here too, saying when they will
+ * go up (the 1st) and with Upgrade.
  *
  * Sits above the bottom-pinned OfflineBanner (App.jsx) so both can show at once,
  * and BENEATH every bottom sheet, dialog and the drawer (z-index 150; sheets
@@ -20,6 +21,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { SYNC_ATTENTION_EVENT, getFailedSyncs, getHeldSyncs, retryFailedSyncs, processSyncQueue } from '../../utils/syncQueue';
 import { EVENTS, PLAN_COPY } from '../../utils/constants';
+import { resetDateLabel } from '../../utils/plan';
 
 export default function SyncAttentionBanner() {
   const { dark } = useTheme();
@@ -62,7 +64,7 @@ export default function SyncAttentionBanner() {
       <span style={{ flex: 1 }}>
         {count > 0 && `${count} change${count === 1 ? '' : 's'} couldn't be saved`}
         {count > 0 && held > 0 && ' · '}
-        {held > 0 && PLAN_COPY.heldLine(held)}
+        {held > 0 && PLAN_COPY.heldLine(held, resetDateLabel())}
       </span>
       <button onClick={() => setHiddenAt(total)} style={{ ...s.btn, color: fg, border: 'none', padding: '0 6px' }}>Later</button>
       {count > 0 && <button onClick={tryAgain} style={{ ...s.btn, color: fg, borderColor: fg }}>Try again</button>}

@@ -249,7 +249,8 @@ export const PLAN_COPY = {
   proFreeLabel: 'Pro (free)',
   proUntilLabel: (date) => `Pro until ${date}`,
   usedLine: (used, reset) => `${used} of ${FREE_INVOICES_PER_MONTH} invoices used this month · resets ${reset}`,
-  heldLine: (n) => `${n} invoice${n === 1 ? ' waits' : 's wait'} for Pro to upload`,
+  // The sync banner's line for uploads the server refused for the limit. `reset` is when the month turns over ("Nov 1").
+  heldLine: (n, reset) => `${n} invoice${n === 1 ? '' : 's'} will upload ${reset}, or with Pro`,
   signOutHeldAll: (n) => n === 1 ? "Stay signed in: it'll upload once you're on Pro, or next month." : "Stay signed in: they'll upload once you're on Pro, or next month.",
   signOutHeldSome: (online, held) => `Stay signed in: ${online} will upload when you're back online, and the ${held} invoice${held === 1 ? '' : 's'} waiting for Pro once you're on Pro, or next month.`,
   movedNote: "Keiro now has a free plan and a Pro plan. You're on Free, so you're in Easy Mode. Settings → Plan to upgrade.",

@@ -5,19 +5,21 @@
  * invoice on the phone cancels every pending upload of it (queued, set aside or
  * held); one that is merely missing from the phone's list is still re-sent,
  * because the held copy may be the only one. An invoice is held once, however
- * often it is edited.
+ * often it is edited. Invoices still waiting to upload stay on every screen
+ * (storage.getInvoices lays them over the cloud's list), and the banner says
+ * when they will go up.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-vi.mock('../services/db', () => ({ saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })) }));
+vi.mock('../services/db', () => ({ saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })), getInvoices: vi.fn() }));
 
 import * as db from '../services/db';
 import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs, SYNC_ATTENTION_EVENT } from '../utils/syncQueue';
-import { deleteInvoice, saveInvoice } from '../utils/storage';
+import { deleteInvoice, saveInvoice, getInvoices } from '../utils/storage';
 import SyncAttentionBanner from '../components/ui/SyncAttentionBanner';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
-import { STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { localMonth } from '../utils/invoiceUtils';
 
 const LIMIT = { code: 'P0001', message: 'KEIRO_FREE_LIMIT' };
@@ -31,10 +33,17 @@ function quietConsole() {
   afterEach(() => spies.forEach(s => s.mockRestore()));
 }
 
+/** The calendar is fixed (Oct 16 2026), so "Nov 1" reads the same on every run. Only Date is faked: timers and promises run. */
+function fixedCalendar() {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 9, 16, 12)); });
+  afterEach(() => { vi.useRealTimers(); });
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(db.saveInvoice).mockReset();
   vi.mocked(db.deleteInvoice).mockReset();
+  vi.mocked(db.getInvoices).mockReset();
   db.deleteInvoice.mockImplementation(async () => ({ error: null }));
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
 });
@@ -231,6 +240,7 @@ describe('a deleted invoice stays deleted', () => {
 
 describe('one entry per invoice', () => {
   quietConsole();
+  fixedCalendar();
 
   it('an invoice refused and then edited is held once, not once per edit', async () => {
     db.saveInvoice.mockResolvedValue({ error: LIMIT });
@@ -243,7 +253,7 @@ describe('one entry per invoice', () => {
     expect(getHeldSyncs().map(a => a.payload.invoice.total)).toEqual([14]); // one entry: the newest copy
     expect(getUnsyncedCount()).toBe(1);
     render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
-    expect(screen.getByText('1 invoice waits for Pro to upload')).toBeInTheDocument();
+    expect(screen.getByText('1 invoice will upload Nov 1, or with Pro')).toBeInTheDocument();
   });
 
   it('holding another invoice keeps the ones already held', async () => {
@@ -256,16 +266,155 @@ describe('one entry per invoice', () => {
   });
 });
 
+describe('invoices not in the cloud yet stay on every screen (storage.getInvoices)', () => {
+  // The Route list, Stores, Reports, End of Day, Home and Store Map all read getInvoices(), and while online it
+  // returned the cloud's list alone: an invoice held for the free limit (or still queued) was nowhere until it
+  // uploaded. Everything already made must stay usable (spec §1), so the phone's copy is laid over the cloud's.
+  quietConsole();
+  const at = (day) => `2026-10-${String(day).padStart(2, '0')}T12:00:00.000Z`;
+  // A cloud row has both spellings of its fields (db.getInvoices shapes it so); the phone's copy has the app's own.
+  const cloudRow = (number, extra = {}) => ({ number, invoice_number: number, storeName: 'Cloud Deli', created_at: at(number - 1000), items: [], ...extra });
+  const phoneCopy = (number, extra = {}) => ({ number, storeName: 'Phone Deli', createdAt: at(number - 1000), items: [], ...extra });
+  const cloudHas = (...rows) => db.getInvoices.mockResolvedValue({ data: rows, error: null });
+  const phoneHas = (...list) => localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify(list));
+  const waiting = (key, ...numbers) => localStorage.setItem(key, JSON.stringify(numbers.map(n => ({ id: `${key}-${n}`, type: 'save_invoice', payload: { invoice: { number: n } }, ts: 1, retries: 0 }))));
+  const numbers = (list) => list.map(i => i.number);
+
+  it('a held invoice the cloud does not have is listed from the phone', async () => {
+    cloudHas(cloudRow(1020), cloudRow(1019)); // the cloud lists newest first
+    phoneHas(phoneCopy(1021), phoneCopy(1020), phoneCopy(1019));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    const list = await getInvoices();
+    expect(numbers(list)).toEqual([1021, 1020, 1019]);
+    expect(list[0].storeName).toBe('Phone Deli');
+    expect(list.slice(1).every(i => i.storeName === 'Cloud Deli')).toBe(true); // only the held one comes from the phone
+  });
+
+  it('...and is put where its date puts it, so the list stays newest first', async () => {
+    cloudHas(cloudRow(1022), cloudRow(1020));
+    phoneHas(phoneCopy(1022), phoneCopy(1021), phoneCopy(1020));
+    waiting(STORAGE_KEYS.SYNC_QUEUE, 1021); // made offline, not up yet, between two that are
+    expect(numbers(await getInvoices())).toEqual([1022, 1021, 1020]);
+  });
+
+  it('a queued save puts its newer phone copy over the cloud row, in the same place', async () => {
+    cloudHas(cloudRow(1022), cloudRow(1021, { paymentStatus: 'unpaid' }), cloudRow(1020));
+    phoneHas(phoneCopy(1022), phoneCopy(1021, { paymentStatus: 'paid', storeName: 'Edited offline' }), phoneCopy(1020));
+    waiting(STORAGE_KEYS.SYNC_QUEUE, 1021);
+    const list = await getInvoices();
+    expect(numbers(list)).toEqual([1022, 1021, 1020]); // no duplicate, same slot
+    expect(list[1]).toMatchObject({ paymentStatus: 'paid', storeName: 'Edited offline' });
+    expect(list[0].storeName).toBe('Cloud Deli'); // the others are the cloud's
+  });
+
+  it('a set-aside save counts too', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas(phoneCopy(1021), phoneCopy(1020));
+    waiting(STORAGE_KEYS.SYNC_FAILED, 1021);
+    expect(numbers(await getInvoices())).toEqual([1021, 1020]);
+  });
+
+  it('with nothing waiting, the cloud\'s list comes back untouched (the phone\'s copies are not mixed in)', async () => {
+    const rows = [cloudRow(1020), cloudRow(1019)];
+    cloudHas(...rows);
+    phoneHas(phoneCopy(1021), phoneCopy(1020, { storeName: 'Stale copy' }), phoneCopy(1019));
+    const list = await getInvoices();
+    expect(list).toEqual(rows);
+    expect(list[0].storeName).toBe('Cloud Deli');
+  });
+
+  it('only a waiting save counts: other queued changes leave the cloud row alone', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas(phoneCopy(1020, { storeName: 'Stale copy' }));
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([
+      { id: 'q1', type: 'update_payment_status', payload: { number: 1020, status: 'paid' }, ts: 1, retries: 0 },
+      { id: 'q2', type: 'delete_invoice', payload: { number: 1020 }, ts: 2, retries: 0 },
+    ]));
+    expect((await getInvoices())[0].storeName).toBe('Cloud Deli');
+  });
+
+  it('no duplicates: an invoice waiting in two lists, or already in the cloud, is listed once', async () => {
+    cloudHas(cloudRow(1020), cloudRow(1019));
+    phoneHas(phoneCopy(1021), phoneCopy(1020));
+    waiting(STORAGE_KEYS.SYNC_QUEUE, 1021, 1020);
+    waiting(STORAGE_KEYS.SYNC_HELD, 1021);
+    waiting(STORAGE_KEYS.SYNC_FAILED, 1020);
+    expect(numbers(await getInvoices())).toEqual([1021, 1020, 1019]);
+  });
+
+  it('a waiting save the phone has no copy of adds nothing', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas(phoneCopy(1020));
+    waiting(STORAGE_KEYS.SYNC_HELD, 1099);
+    expect(numbers(await getInvoices())).toEqual([1020]);
+  });
+
+  it('an invoice deleted while it was held stays gone', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas(phoneCopy(1021), phoneCopy(1020));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    expect(numbers(await getInvoices())).toEqual([1021, 1020]);
+    await deleteInvoice(1021);
+    expect(numbers(await getInvoices())).toEqual([1020]);
+  });
+
+  it('once it has uploaded, the cloud\'s row is the one shown again', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas(phoneCopy(1021), phoneCopy(1020));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2000-01')]));
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue(); // a new month: released and sent
+    cloudHas(cloudRow(1021, { storeName: 'Uploaded' }), cloudRow(1020));
+    const list = await getInvoices();
+    expect(list.map(i => i.storeName)).toEqual(['Uploaded', 'Cloud Deli']);
+  });
+
+  it('offline it is still the phone\'s list, as before', async () => {
+    db.getInvoices.mockResolvedValue({ data: null, error: new Error('no session') });
+    phoneHas(phoneCopy(1021), phoneCopy(1020));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    expect(numbers(await getInvoices())).toEqual([1021, 1020]);
+  });
+
+  it('a copy with no date goes first rather than being lost', async () => {
+    cloudHas(cloudRow(1020));
+    phoneHas({ number: 1021, storeName: 'Phone Deli' }, phoneCopy(1020));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    expect(numbers(await getInvoices())).toEqual([1021, 1020]);
+  });
+});
+
 describe('the banner', () => {
-  it('says how many invoices wait for Pro, and Upgrade opens the Upgrade sheet', () => {
+  fixedCalendar();
+
+  it('says how many invoices will upload, and when, and Upgrade opens the Upgrade sheet', () => {
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021), held(1022)]));
     const opened = vi.fn();
     window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
     render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
-    expect(screen.getByText('2 invoices wait for Pro to upload')).toBeInTheDocument();
+    expect(screen.getByText('2 invoices will upload Nov 1, or with Pro')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
     expect(opened).toHaveBeenCalledTimes(1);
     window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+
+  it('the date is the 1st of next month, whatever today is', () => {
+    vi.setSystemTime(new Date(2026, 11, 31, 12));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
+    expect(screen.getByText('1 invoice will upload Jan 1, or with Pro')).toBeInTheDocument();
+  });
+
+  it('beside set-aside changes, the sentence carries on after the dot', () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_FAILED, JSON.stringify([{ id: 'f1', type: 'save_invoice', payload: { invoice: { number: 1030 } }, ts: 1, retries: 5 }]));
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent("1 change couldn't be saved · 1 invoice will upload Nov 1, or with Pro");
+  });
+
+  it('the words are PLAN_COPY.heldLine: one invoice or many, and the date it is given', () => {
+    expect(PLAN_COPY.heldLine(1, 'Nov 1')).toBe('1 invoice will upload Nov 1, or with Pro');
+    expect(PLAN_COPY.heldLine(3, 'Dec 1')).toBe('3 invoices will upload Dec 1, or with Pro');
   });
 
   it('only held uploads: no Try again button, only Later and Upgrade', () => {

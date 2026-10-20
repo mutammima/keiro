@@ -193,6 +193,23 @@ export function getUnsyncedCount() {
 }
 
 /**
+ * The numbers of the invoices whose save has not reached the cloud yet: still
+ * queued, set aside, or held for the free limit. Until the cloud has them, this
+ * phone's copy is the only one (storage.getInvoices shows it on every screen).
+ * @returns {Set<number>}
+ */
+export function pendingInvoiceNumbers() {
+  const numbers = new Set();
+  for (const list of [read(), getFailedSyncs(), getHeldSyncs()]) {
+    for (const item of list) {
+      const number = item.type === 'save_invoice' ? item.payload?.invoice?.number : undefined;
+      if (number != null) numbers.add(number);
+    }
+  }
+  return numbers;
+}
+
+/**
  * "Try again": set-aside changes go back to the FRONT of the queue, retries
  * reset. A change is only ever set aside from the head, so it is older than
  * everything still queued; replaying it after them could let an old save undo
