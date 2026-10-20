@@ -5,6 +5,10 @@
  * - First run: the current mode's tour (full or Easy) for drivers, the owner
  *   tour for store owners.
  * - Switching Easy Mode (which reloads the app) plays that mode's tour once.
+ *   Not while the Easy shell is only a stopgap: a returning driver with no plan
+ *   answer cached yet and the Easy flag off is in Easy Mode because an account
+ *   with no answer counts as Free, and a Pro answer reloads him into normal mode
+ *   a moment later. The tour plays on a later launch if he is in Easy Mode then.
  * - How it Works / Replay tutorial: any time — the Easy tour from Route,
  *   where its first step (+ New) is.
  *
@@ -13,10 +17,17 @@
  */
 import { useState } from 'react';
 import { markTourSeen, pendingModeTour, tourStartPage } from '../utils/tutorialProgress';
+import { isEasyMode } from '../utils/easyMode';
+import { getCachedPlan } from '../utils/plan';
+
+/** The Easy shell comes only from "no plan answer yet counts as Free": nothing says he is in Easy Mode for good. */
+function easyOnlyForNow(mode) {
+  return mode === 'easy' && !isEasyMode() && !getCachedPlan();
+}
 
 export function useQuickStart({ role, mode, navigate, onboarding, onPulseHome }) {
   const [replaying, setReplaying] = useState(false);
-  const [modeTourPending, setModeTourPending] = useState(() => pendingModeTour(role, mode));
+  const [modeTourPending, setModeTourPending] = useState(() => pendingModeTour(role, mode) && !easyOnlyForNow(mode));
   const isFirstRun = onboarding.shouldShow;
 
   /** Done or Skip on the tour. */
