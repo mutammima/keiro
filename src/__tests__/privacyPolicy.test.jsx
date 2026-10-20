@@ -6,8 +6,8 @@
  * accounts agree) and what never is — and list the barcode lookups.
  *
  * It also says what Keiro keeps for the plan, still says the app takes no
- * payments, and the terms describe the free plan (Pro is coming soon). PRIVACY.md
- * and TERMS.md carry the same sentences.
+ * payments, and the terms describe the free plan for drivers (Pro is coming
+ * soon). PRIVACY.md and TERMS.md carry the same sentences.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -15,10 +15,17 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
+import { FREE_INVOICES_PER_MONTH } from '../utils/constants';
 
 vi.mock('../components/navigation/AppFooter', () => ({ default: () => null }));
 
 import Legal from '../pages/Legal.jsx';
+
+// The words the owner reads, in the app and in the two .md files. The Terms say the
+// limit as a number, so it is built from the constant here: changing the limit fails
+// these tests until the Terms (and their date) are changed on purpose.
+const PLAN_KEPT = "For your plan, Keiro keeps whether you're on Free or Pro (and until when) and how many invoices you made each month.";
+const PLANS_TERMS = `Keiro has a free plan for drivers: Easy Mode and ${FREE_INVOICES_PER_MONTH} new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.`;
 
 describe('privacy policy', () => {
   it('says what shared product names expose, and what they never do', () => {
@@ -43,14 +50,15 @@ describe('privacy policy', () => {
 
   it('says what Keiro keeps for the plan, and still that the app takes no payments', () => {
     render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
-    expect(screen.getByText(/For your plan, Keiro keeps whether you're on Free or Pro \(and until when\) and how many invoices you made this month/)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes(PLAN_KEPT))).toBeInTheDocument();
     expect(screen.getByText(/the app does not process payments/)).toBeInTheDocument();
   });
 
-  it('the terms describe the free plan and say Pro is coming soon', () => {
+  it('the terms describe the free plan for drivers and say Pro is coming soon', () => {
     render(<ThemeProvider><Legal section="terms" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
-    expect(screen.getByText(/Keiro has a free plan: Easy Mode and 20 new invoices a month/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Keiro has a free plan for drivers: Easy Mode and ${FREE_INVOICES_PER_MONTH} new invoices a month`))).toBeInTheDocument();
     expect(screen.getByText(/Keiro Pro .* is coming soon/)).toBeInTheDocument();
+    expect(screen.getByText(PLANS_TERMS)).toBeInTheDocument(); // the whole Plans paragraph, word for word
   });
 });
 
@@ -63,9 +71,9 @@ describe('PRIVACY.md and TERMS.md', () => {
   it('say what the app says about the plan', () => {
     const privacy = markdown('PRIVACY.md');
     expect(privacy).toContain('The App does not process payments.');
-    expect(privacy).toContain("For your plan, Keiro keeps whether you're on Free or Pro (and until when) and how many invoices you made this month.");
+    expect(privacy).toContain(PLAN_KEPT);
     const terms = markdown('TERMS.md');
     expect(terms).toMatch(/## \d+\. Plans Keiro has a free plan/); // its own numbered section
-    expect(terms).toContain('Keiro has a free plan: Easy Mode and 20 new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.');
+    expect(terms).toContain(PLANS_TERMS);
   });
 });

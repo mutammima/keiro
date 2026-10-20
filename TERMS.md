@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: October 19, 2026**
+**Last updated: October 20, 2026**
 
 These Terms of Service ("Terms") govern your use of Keiro (the "App"). By
 using the App, you agree to these Terms. If you do not agree, do not use the
@@ -53,8 +53,8 @@ obligations.
 
 ## 6. Plans
 
-Keiro has a free plan: Easy Mode and 20 new invoices a month. Keiro Pro
-(unlimited invoices, the full app and signing on the phone) is coming soon;
+Keiro has a free plan for drivers: Easy Mode and 20 new invoices a month. Keiro
+Pro (unlimited invoices, the full app and signing on the phone) is coming soon;
 when payments are available, the price will be shown in the app before you pay.
 What each plan includes may change; we will tell you in the app before a change
 affects you.

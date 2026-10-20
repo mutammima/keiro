@@ -45,11 +45,24 @@ describe('sign-up plan screen', () => {
     fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.startFree }));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
-  it('Pro can\'t be picked yet', () => {
-    show(vi.fn());
-    fireEvent.click(screen.getByText(PLAN_COPY.proLabel));
+  it('Pro can\'t be picked yet: tapping its card starts nothing, and the card is not a button', () => {
+    const onStart = vi.fn();
+    show(onStart);
+    expect(screen.getByText(PLAN_COPY.proLabel).closest('button')).toBeNull();
+    // Tap everything on the Pro card: its name, price, badge and bullets.
+    for (const text of [PLAN_COPY.proLabel, PLAN_COPY.priceLine, PLAN_COPY.comingSoonBadge, ...PLAN_COPY.proBullets]) {
+      fireEvent.click(screen.getByText(text));
+    }
+    expect(onStart).not.toHaveBeenCalled();
+    // The only buttons on the screen are Back and Start free.
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: PLAN_COPY.startFree })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Continue to Pro/ })).toBeNull();
+    // The spy does hear Start free (so "not called" above means something), with no arguments.
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.startFree }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith();
   });
 });
 
