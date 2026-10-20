@@ -49,6 +49,15 @@ function fixedUtc() {
   afterEach(() => { vi.useRealTimers(); });
 }
 
+/** Writes to `key` fail like a full phone (QuotaExceededError, also on the retry after freeing room). */
+function fullPhone(key) {
+  const realSetItem = Storage.prototype.setItem;
+  return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (k, v) {
+    if (k === key) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    return realSetItem.call(this, k, v);
+  });
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(db.saveInvoice).mockReset();
@@ -229,6 +238,102 @@ describe('held uploads are released by the server\'s (UTC) month, whatever the p
     await processSyncQueue();
     expect(db.saveInvoice.mock.calls.map(([inv]) => inv.number).sort()).toEqual([1021, 1022]);
     expect(getHeldSyncs()).toEqual([]);
+  });
+});
+
+describe('holding and releasing on a full phone, and telling the banner', () => {
+  // Each move between lists writes the destination first and shrinks the source after, so a phone that runs
+  // out of room in between leaves the invoice on BOTH lists (a repeat upload at worst), never on neither.
+  const numbersIn = (list) => list.map(a => a.payload.invoice.number);
+  const queued = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]');
+  const FULL = 'localStorage is full; not saved';
+  let consoleError;
+  let phone;
+  beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}); });
+  afterEach(() => { phone?.mockRestore(); phone = undefined; consoleError.mockRestore(); });
+  // A loop that keeps sending the same upload is a bug; cap the calls so a regression ends instead of hanging the run.
+  const refuseCapped = () => db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 3 ? { error: OFFLINE } : { error: LIMIT }));
+
+  it('hold: the held list is written first, so when the queue cannot shrink the invoice is on both lists', async () => {
+    refuseCapped();
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+    phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
+    await processSyncQueue();
+    expect(numbersIn(getHeldSyncs())).toEqual([1021]);
+    expect(numbersIn(queued())).toEqual([1021]); // a duplicate, not a loss
+    expect(getUnsyncedCount()).toBe(2);
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1); // the round stopped: it is not sent again and again
+    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_QUEUE, expect.anything()); // and the phone said so
+  });
+
+  it('hold: when the held list cannot be written, the invoice stays in the queue (nothing is lost)', async () => {
+    refuseCapped();
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+    phone = fullPhone(STORAGE_KEYS.SYNC_HELD);
+    const heard = vi.fn();
+    window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+    await processSyncQueue();
+    window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+    expect(numbersIn(queued())).toEqual([1021]);
+    expect(getHeldSyncs()).toEqual([]);
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+    expect(heard).not.toHaveBeenCalled(); // nothing moved, so there is nothing to tell the banner
+    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_HELD, expect.anything());
+  });
+
+  it('release: the queue is written first, so when the held list cannot shrink the invoice is on both lists', () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    phone = fullPhone(STORAGE_KEYS.SYNC_HELD);
+    releaseHeldSyncs();
+    expect(numbersIn(queued())).toEqual([1021]);
+    expect(numbersIn(getHeldSyncs())).toEqual([1021]); // a duplicate, not a loss
+    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_HELD, expect.anything());
+    phone.mockRestore(); phone = undefined; // room again: the next release finishes the move
+    releaseHeldSyncs();
+    expect(getHeldSyncs()).toEqual([]);
+    expect(new Set(queued().map(a => a.id))).toEqual(new Set(['h1021'])); // still the one upload (same id), at most twice in the queue
+  });
+
+  it('release: when the queue cannot be written, the invoice stays held (nothing is lost)', () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
+    phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
+    const heard = vi.fn();
+    window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+    releaseHeldSyncs();
+    window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+    expect(numbersIn(getHeldSyncs())).toEqual([1021]);
+    expect(queued()).toEqual([]);
+    expect(heard).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_QUEUE, expect.anything());
+  });
+
+  it('set-aside: the same order, and a queue that cannot shrink stops the round instead of repeating the upload', async () => {
+    db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 8 ? { error: OFFLINE } : { error: { code: '42501', message: 'permission denied' } }));
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([{ id: 'q1', type: 'save_invoice', payload: { invoice: { number: 1021 } }, ts: 1, retries: 4 }]));
+    phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
+    await processSyncQueue(); // the fifth rejection sets it aside; the queue cannot be written
+    expect(numbersIn(getFailedSyncs())).toEqual([1021]);
+    expect(numbersIn(queued())).toEqual([1021]); // a duplicate, not a loss
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it('holding tells the banner; so does releasing; releasing nothing does not', async () => {
+    const heard = vi.fn();
+    window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+    try {
+      db.saveInvoice.mockResolvedValue({ error: LIMIT });
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      expect(heard).not.toHaveBeenCalled(); // queueing alone is not shown by the banner
+      await processSyncQueue(); // held
+      expect(heard).toHaveBeenCalledTimes(1);
+      releaseHeldSyncs(); // released
+      expect(heard).toHaveBeenCalledTimes(2);
+      releaseHeldSyncs(); // nothing held any more
+      releaseHeldSyncs(() => false);
+      expect(heard).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+    }
   });
 });
 

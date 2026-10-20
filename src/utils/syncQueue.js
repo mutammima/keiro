@@ -405,9 +405,11 @@ export async function processSyncQueue() {
           // invoice is held once: this copy replaces any older held one of it.
           if (holdEntry(cur[idx], lastError)) {
             cur.splice(idx, 1);
-            write(cur);
+            const shrunk = write(cur);
             announceAttention();
-            continue;
+            if (shrunk) continue;
+            // The queue could not shrink (a full phone): the invoice is on both lists, never on
+            // neither. Stop the round; going on would send it again and again.
           }
           failed = true;
         } else if (!isRejection(err)) {
@@ -417,20 +419,21 @@ export async function processSyncQueue() {
           failed = true;
         } else {
           const retries = (cur[idx].retries || 0) + 1;
-          if (retries >= MAX_RETRIES) {
-            // Set aside — kept for "Try again" — and let the rest of the queue go on.
-            // The set-aside list is written first, and the queue shrunk only
-            // after: on a full phone the first write can fail, and the change
-            // then stays queued rather than vanishing.
-            if (writeList(FAILED_KEY, [...getFailedSyncs(), { ...cur[idx], retries, lastError }])) {
-              cur.splice(idx, 1);
-              write(cur);
-              announceAttention();
-              continue;
-            }
+          // Set aside — kept for "Try again" — and let the rest of the queue go on.
+          // The set-aside list is written first, and the queue shrunk only
+          // after: on a full phone the first write can fail, and the change
+          // then stays queued rather than vanishing.
+          if (retries >= MAX_RETRIES && writeList(FAILED_KEY, [...getFailedSyncs(), { ...cur[idx], retries, lastError }])) {
+            cur.splice(idx, 1);
+            const shrunk = write(cur);
+            announceAttention();
+            if (shrunk) continue;
+            // The queue could not shrink: the change is on both lists. Stop the round
+            // rather than send it again and set it aside again.
+          } else {
+            cur[idx] = { ...cur[idx], retries, lastError };
+            write(cur);
           }
-          cur[idx] = { ...cur[idx], retries, lastError };
-          write(cur);
           failed = true;
         }
       }
