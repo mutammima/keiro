@@ -30,7 +30,8 @@ function write(key, value) {
 function announce() {
   try { window.dispatchEvent(new CustomEvent(EVENTS.PLAN_CHANGE)); } catch { /* no DOM */ }
 }
-function isGuestNow() {
+/** Whether this phone is in guest mode (no account): guests have their own cap, not the plan's. */
+export function isGuestNow() {
   try { return localStorage.getItem(STORAGE_KEYS.GUEST_MODE) === 'true'; } catch { return false; }
 }
 function isStoreOwner() {

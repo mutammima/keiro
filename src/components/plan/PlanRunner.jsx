@@ -16,13 +16,8 @@
  * that waits while an invoice is being made or shared (useSafeReload).
  */
 import { useEffect, useState } from 'react';
-import { refreshPlan, getCachedPlan } from '../../utils/plan';
+import { refreshPlan, getCachedPlan, isGuestNow } from '../../utils/plan';
 import { easyModeFor } from '../../utils/easyMode';
-import { STORAGE_KEYS } from '../../utils/constants';
-
-function isGuestNow() {
-  try { return localStorage.getItem(STORAGE_KEYS.GUEST_MODE) === 'true'; } catch { return false; }
-}
 
 // Module-level so the default is the same function every render (it is an effect dependency).
 const reload = () => window.location.reload();

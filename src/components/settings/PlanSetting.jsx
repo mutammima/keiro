@@ -6,13 +6,9 @@
  */
 import { ACCENT } from '../../theme';
 import { Section, Row } from '../ui/SettingsUI';
-import { PLAN_COPY, STORAGE_KEYS } from '../../utils/constants';
-import { planSummary, openUpgrade } from '../../utils/plan';
+import { PLAN_COPY } from '../../utils/constants';
+import { planSummary, openUpgrade, isGuestNow } from '../../utils/plan';
 import { usePlan } from '../../hooks/usePlan';
-
-function isGuestNow() {
-  try { return localStorage.getItem(STORAGE_KEYS.GUEST_MODE) === 'true'; } catch { return false; }
-}
 
 export default function PlanSetting({ role, C }) {
   const plan = usePlan();
