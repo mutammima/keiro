@@ -40,10 +40,14 @@ function shortDate(isoString) {
   return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** The plan in a stored PLAN_CACHE text, or null when there is none (or it is not an object). */
+export function parseCachedPlan(text) {
+  try { const p = text ? JSON.parse(text) : null; return p && typeof p === 'object' ? p : null; } catch { return null; }
+}
+
 /** The cached my_plan() answer, or null when the server never answered on this phone. */
 export function getCachedPlan() {
-  const p = read(STORAGE_KEYS.PLAN_CACHE);
-  return p && typeof p === 'object' ? p : null;
+  try { return parseCachedPlan(localStorage.getItem(STORAGE_KEYS.PLAN_CACHE)); } catch { return null; }
 }
 
 /**
