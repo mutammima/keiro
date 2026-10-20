@@ -174,6 +174,51 @@ describe('refreshPlan', () => {
     await refreshPlan();
     expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
   });
+  describe('the one-time notes', () => {
+    it('"moved" is not repeated: the next Free answer, after the note was shown and cleared, leaves none', async () => {
+      localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1001 }]));
+      db.getMyPlan.mockResolvedValue(answer());
+      await refreshPlan();
+      expect(json(STORAGE_KEYS.PLAN_NOTICE)).toBe('moved');
+      localStorage.removeItem(STORAGE_KEYS.PLAN_NOTICE);        // PlanNotices: OK clears it for good
+      await refreshPlan();
+      expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
+    });
+    it('...nor does a driver already in Easy Mode by choice get it', async () => {
+      localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1001 }]));
+      localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+      db.getMyPlan.mockResolvedValue(answer());
+      await refreshPlan();
+      expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
+    });
+    it('"moved" is not shown over "ended": Pro ending for a driver with invoices says "ended" only', async () => {
+      localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1001 }]));
+      setPlan({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-10-01T12:00:00Z' });
+      db.getMyPlan.mockResolvedValue(answer({ source: 'stripe', status: 'canceled' }));
+      await refreshPlan();
+      expect(json(STORAGE_KEYS.PLAN_NOTICE)).toBe('ended');
+      expect(json(STORAGE_KEYS.EASY_MODE)).toBe(true);
+    });
+  });
+  it('a Free answer does not release the uploads held for the limit', async () => {
+    db.getMyPlan.mockResolvedValue(answer());
+    await refreshPlan();
+    expect(releaseHeldSyncs).not.toHaveBeenCalled();
+  });
+  it('a stale Free cache and a refresh that fails leave the cache, the mode and the notes as they were', async () => {
+    const stale = { pro: false, source: null, status: null, proUntil: null, interval: null, cancels: false, usedThisMonth: 7, month: '2026-09', fetchedAt: '2026-09-20T12:00:00.000Z' };
+    setPlan(stale);
+    const before = localStorage.getItem(STORAGE_KEYS.PLAN_CACHE);
+    for (const failure of [{ data: null, error: new Error('offline') }, { data: null, error: null }, { data: 'not a plan', error: null }]) {
+      db.getMyPlan.mockResolvedValue(failure);
+      expect((await refreshPlan()).ok).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.PLAN_CACHE)).toBe(before);
+    }
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_MODE)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
+    expect(releaseHeldSyncs).not.toHaveBeenCalled();
+  });
   it('Pro ending gives the "ended" note', async () => {
     setPlan({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-10-01T12:00:00Z' });
     db.getMyPlan.mockResolvedValue(answer({ source: 'stripe', status: 'canceled' }));
