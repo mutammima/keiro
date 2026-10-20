@@ -288,6 +288,65 @@ describe('a deleted invoice stays deleted', () => {
     expect(heard).not.toHaveBeenCalled(); // the banner shows set-aside and held uploads, not the queue
   });
 
+  describe('a delete that races an upload already on the wire', () => {
+    // The queue sent save_invoice N and is waiting for the answer when N is deleted. Forgetting the queued copy
+    // cannot recall the request: if the cloud delete lands first, the save then puts N back on the server.
+    let landSave;
+    const saveInFlight = () => db.saveInvoice.mockImplementation((inv) => new Promise((resolve) => {
+      landSave = (result = { error: null }) => { if (!result.error) cloud.set(inv.number, inv); resolve(result); };
+    }));
+
+    it('the delete is sent again once the upload has finished, so the server ends without the invoice', async () => {
+      cloudTakesDeletes();
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      expect(db.saveInvoice).toHaveBeenCalledTimes(1); // on the wire
+      await deleteInvoice(1021); // this delete reaches the server first
+      expect(db.deleteInvoice).toHaveBeenCalledTimes(1);
+      landSave(); // ...then the upload does, and creates the invoice again
+      await round;
+      expect(db.deleteInvoice).toHaveBeenCalledTimes(2);
+      expect(db.deleteInvoice.mock.invocationCallOrder[1]).toBeGreaterThan(db.saveInvoice.mock.invocationCallOrder[0]);
+      expect(cloud.has(1021)).toBe(false);
+      expect(getUnsyncedCount()).toBe(0);
+    });
+
+    it('an upload that did not get an answer may still have landed: the delete waits in the queue', async () => {
+      cloudTakesDeletes();
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      await deleteInvoice(1021);
+      landSave({ error: OFFLINE });
+      await round;
+      expect(queued().map(a => `${a.type}:${a.payload.number ?? a.payload.invoice?.number}`)).toEqual(['delete_invoice:1021']);
+    });
+
+    it('an upload of another invoice, or of this one when nothing was deleted, sends no extra delete', async () => {
+      cloudTakesDeletes();
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      await deleteInvoice(1099); // some other invoice
+      landSave();
+      await round;
+      expect(db.deleteInvoice.mock.calls).toEqual([[1099]]);
+      expect(cloud.has(1021)).toBe(true);
+    });
+
+    it('only the round that was on the wire counts: a later upload of the same number is left alone', async () => {
+      cloudTakesDeletes();
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      landSave();
+      await round;
+      await deleteInvoice(1021); // after the upload finished: nothing in flight, the ordinary delete is enough
+      expect(db.deleteInvoice).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('everything else queued for the invoice', () => {
     // What the invoice's own uploads are: its save, its status change and its payments. A payment replayed after
     // the invoice is gone leaves an invoice_payments row with no invoice. Deletes (the invoice's, a payment's, the

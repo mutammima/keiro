@@ -277,6 +277,8 @@ function uploadedInvoiceNumber(item) {
  * @param {number} number - invoice number
  */
 export function forgetInvoiceUploads(number) {
+  // An upload of it already on the wire can't be recalled: processSyncQueue sends the delete again when it finishes.
+  if (onTheWire && Number(onTheWire.number) === Number(number)) onTheWire.deleted = true;
   const isIt = (item) => {
     const n = uploadedInvoiceNumber(item);
     return n != null && Number(n) === Number(number);
@@ -297,6 +299,28 @@ export function forgetInvoiceUploads(number) {
 }
 
 let processing = false;
+
+/**
+ * The save_invoice request being waited on right now, and whether its invoice
+ * was deleted on this phone meanwhile. The request lives only in this session,
+ * so memory is enough.
+ * @type {{ number: number, deleted: boolean } | null}
+ */
+let onTheWire = null;
+
+/**
+ * Called when a save_invoice upload has finished (landed or not). If the invoice
+ * was deleted while it was on the wire, the cloud delete may have reached the
+ * server BEFORE the save, which then put the invoice back: delete it again, so
+ * the server ends without it whichever request landed first. A failed upload
+ * may have landed too (a timeout), so it counts the same. The delete goes on the
+ * queue, so it is retried as long as it takes.
+ */
+async function deleteAgainIfRaced(sent) {
+  if (!sent?.deleted) return;
+  if (enqueueSync({ type: 'delete_invoice', payload: { number: sent.number } })) return;
+  try { await db.deleteInvoice(sent.number); } catch { /* the phone is full and the cloud unreachable: the next delete of it retries */ }
+}
 
 /**
  * Replays the queue against Supabase. Safe to call often; self-guards against
@@ -332,9 +356,16 @@ export async function processSyncQueue() {
       }
 
       let failed = false;
+      const sent = item.type === 'save_invoice' ? { number: item.payload?.invoice?.number, deleted: false } : null;
       try {
-        const res = await handler(item.payload);
-        if (res && res.error) throw res.error;
+        try {
+          onTheWire = sent;
+          const res = await handler(item.payload);
+          if (res && res.error) throw res.error;
+        } finally {
+          onTheWire = null;
+          await deleteAgainIfRaced(sent);
+        }
       } catch (err) {
         const cur = read();
         const idx = cur.findIndex(x => x.id === item.id);
