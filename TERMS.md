@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: June 8, 2026**
+**Last updated: October 19, 2026**
 
 These Terms of Service ("Terms") govern your use of Keiro (the "App"). By
 using the App, you agree to these Terms. If you do not agree, do not use the
@@ -51,43 +51,51 @@ substitute for professional advice. You are solely responsible for the
 correctness of your invoices and for meeting your own legal, tax, and accounting
 obligations.
 
-## 6. Third-party services
+## 6. Plans
+
+Keiro has a free plan: Easy Mode and 20 new invoices a month. Keiro Pro
+(unlimited invoices, the full app and signing on the phone) is coming soon;
+when payments are available, the price will be shown in the app before you pay.
+What each plan includes may change; we will tell you in the app before a change
+affects you.
+
+## 7. Third-party services
 
 The App relies on third-party providers (including Supabase for authentication
 and data hosting). Your use of features that interact with other apps (such as
 sharing a PDF or sending a WhatsApp message) is also subject to those third
 parties' terms. We are not responsible for third-party services.
 
-## 7. Availability
+## 8. Availability
 
 We aim to keep the App available and reliable, but we provide it on an "as is"
 and "as available" basis. We do not guarantee that the App will be
 uninterrupted, error-free, or that data will never be lost. **You are
 responsible for keeping your own backups of important data.**
 
-## 8. Disclaimer of warranties
+## 9. Disclaimer of warranties
 
 To the maximum extent permitted by law, the App is provided without warranties
 of any kind, whether express or implied, including fitness for a particular
 purpose and non-infringement.
 
-## 9. Limitation of liability
+## 10. Limitation of liability
 
 To the maximum extent permitted by law, we are not liable for any indirect,
 incidental, special, or consequential damages, or for lost profits, revenue,
 data, or goodwill, arising from your use of the App.
 
-## 10. Termination
+## 11. Termination
 
 You may stop using the App at any time. We may suspend or terminate access if
 you violate these Terms or to protect the App and its users.
 
-## 11. Changes to these Terms
+## 12. Changes to these Terms
 
 We may update these Terms from time to time. Material changes will be reflected
 by the "Last updated" date above. Continued use of the App after changes take
 effect constitutes acceptance.
 
-## 12. Contact
+## 13. Contact
 
 Questions about these Terms: **alomonds@gmail.com**

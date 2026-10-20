@@ -6,7 +6,8 @@
  *   1. Welcome   — Continue with Google / Sign up with email / Log in / guest
  *   2. About you — name / email / role / conditional store|business name → profiles
  *      (names + email prefill from the provider when available)
- *   3. Plan      — Basic (free, selected); Pro/Business "coming soon" → into the app
+ *   3. Plan      — Free, and Pro shown as "coming soon" (it can't be picked yet) →
+ *                  into the app. Drivers only: store owners skip it.
  *
  * Google's redirect leg: signInWithOAuth navigates away; on return supabase-js
  * (detectSessionInUrl) restores the session and AuthGate remounts this flow with
@@ -33,10 +34,9 @@ import {
 } from '../../services/auth';
 import { setRole } from '../../utils/storeOwnerStorage';
 import { getBusinessName, saveBusinessName } from '../../utils/storage';
-import { SPAM_HINT } from '../../utils/constants';
+import { SPAM_HINT, FREE_INVOICES_PER_MONTH, PLAN_COPY } from '../../utils/constants';
 
-// inv_-prefixed so the backup sweep captures them automatically.
-const PLAN_KEY = 'inv_plan';
+// inv_-prefixed so the backup sweep captures it automatically.
 const ONBOARDING_DONE_KEY = 'inv_onboarding_done';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -537,68 +537,60 @@ function RoleCard({ label, sub, icon, selected, onClick, C }) {
   );
 }
 
-// ── Screen 5: Plan ───────────────────────────────────────────────────────────
+// ── Screen 5: Plan (drivers; store owners skip it) ──────────────────────────
+// Payments aren't built yet (owner decision 2026-10-17): Pro shows as coming soon.
+// The number and the price come from constants.js, so they can't drift from the
+// rest of the app.
 const PLANS = [
-  { id: 'basic', name: 'Basic', price: 'Free', available: true, badge: 'Free during beta',
-    bullets: ['Up to 50 invoices per month', 'Connect with up to 3 drivers or stores', 'PDF generation', 'WhatsApp sharing'] },
-  { id: 'pro', name: 'Pro', price: '$12/mo', available: false, badge: 'Coming soon',
-    bullets: ['Unlimited invoices', 'Unlimited connections', 'Priority support', 'Analytics dashboard'] },
-  { id: 'business', name: 'Business', price: '$29/mo', available: false, badge: 'Coming soon',
-    bullets: ['Everything in Pro', 'Multi-driver management', 'Custom branding on invoices', 'Dedicated account manager'] },
+  { id: 'free', name: 'Free', price: '$0', available: true,
+    bullets: ['Easy Mode: scan items, print or share invoices', `${FREE_INVOICES_PER_MONTH} invoices a month`, 'Store balances and reports'] },
+  { id: 'pro', name: 'Pro', price: PLAN_COPY.priceLine, available: false, badge: 'Coming soon',
+    bullets: ['Unlimited invoices', 'Normal mode and the full invoice form', 'Sign invoices on the phone'] },
 ];
 
-function PlanScreen({ onBack, onStart, loading, C }) {
-  const [selected, setSelected] = useState('basic');
+export function PlanScreen({ onBack, onStart, loading, C }) {
   return (
     <Screen C={C}>
       <Header onBack={onBack} active={null} totalDots={3} accent={ACCENT} C={C} />
       <Body>
-        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '14px 0 8px', letterSpacing: '-0.01em' }}>Pick a plan</h2>
-        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 22px', lineHeight: 1.5 }}>Free during beta. Change anytime.</p>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '14px 0 8px', letterSpacing: '-0.01em' }}>Your plan</h2>
+        <p style={{ fontSize: 15, color: C.textMuted, margin: '0 0 22px', lineHeight: 1.5 }}>Start free. Pro is coming soon.</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {PLANS.map((p) => {
-            const isSel = selected === p.id && p.available;
-            return (
-              <button
-                key={p.id}
-                onClick={() => p.available && setSelected(p.id)}
-                disabled={!p.available}
-                style={{
-                  textAlign: 'left', width: '100%', cursor: p.available ? 'pointer' : 'default',
-                  WebkitTapHighlightColor: 'transparent', position: 'relative',
-                  background: isSel ? `${ACCENT}10` : C.card,
-                  border: `1.5px solid ${isSel ? ACCENT : C.cardBorder}`,
-                  borderRadius: 18, padding: '16px 16px', opacity: p.available ? 1 : 0.55,
-                  transition: 'border-color 0.15s, background 0.15s',
-                }}
-              >
+          {PLANS.map((p) => (
+            <div
+              key={p.id}
+              style={{
+                position: 'relative',
+                background: p.available ? `${ACCENT}10` : C.card,
+                border: `1.5px solid ${p.available ? ACCENT : C.cardBorder}`,
+                borderRadius: 18, padding: '16px 16px', opacity: p.available ? 1 : 0.6,
+              }}
+            >
+              {p.badge && (
                 <span style={{
                   position: 'absolute', top: 14, right: 14, fontSize: 10.5, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                  color: p.available ? '#16a34a' : C.textMuted,
-                  background: p.available ? (C.bg === DARK.bg ? '#0D2B20' : '#f0fdf4') : C.nestedCard,
-                  borderRadius: 8, padding: '4px 8px',
+                  textTransform: 'uppercase', letterSpacing: '0.04em', color: C.textMuted,
+                  background: C.nestedCard, borderRadius: 8, padding: '4px 8px',
                 }}>{p.badge}</span>
-
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-                  <span style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{p.name}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: p.id === 'basic' ? ACCENT : C.textSub }}>{p.price}</span>
-                </div>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {p.bullets.map((b) => (
-                    <li key={b} style={{ fontSize: 13, color: C.textSub, display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.4 }}>
-                      <span style={{ color: p.available ? ACCENT : C.textMuted, fontWeight: 900, flexShrink: 0 }}>·</span>{b}
-                    </li>
-                  ))}
-                </ul>
-              </button>
-            );
-          })}
+              )}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10, flexWrap: 'wrap', paddingRight: p.badge ? 96 : 0 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{p.name}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: p.available ? ACCENT : C.textSub }}>{p.price}</span>
+              </div>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {p.bullets.map((b) => (
+                  <li key={b} style={{ fontSize: 13, color: C.textSub, display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <span style={{ color: p.available ? ACCENT : C.textMuted, fontWeight: 900, flexShrink: 0 }}>·</span><span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div style={{ flex: 1, minHeight: 18 }} />
-        <PrimaryButton onClick={onStart} loading={loading} accent={ACCENT}>Start for free</PrimaryButton>
+        <PrimaryButton onClick={() => onStart()} loading={loading} accent={ACCENT}>Start free</PrimaryButton>
       </Body>
     </Screen>
   );
@@ -786,7 +778,6 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
     try {
       setRole(p.role);
       localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
-      localStorage.setItem(PLAN_KEY, p.plan || 'basic');
       const name = p.role === 'store_owner' ? p.store_name : p.business_name;
       if (name && !getBusinessName()) saveBusinessName(name);
     } catch { /* ignore */ }
@@ -804,7 +795,6 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
   function finish() {
     setFinishing(true);
     try {
-      localStorage.setItem(PLAN_KEY, 'basic');
       localStorage.setItem(ONBOARDING_DONE_KEY, 'true');
     } catch { /* ignore */ }
     onAuthed(authUser);
@@ -826,7 +816,7 @@ export default function OnboardingFlow({ session, onAuthed, onGuest }) {
     case 'otp':
       return <OtpScreen key="otp" fullPhone={fullPhone} displayPhone={displayPhone} onBack={() => setStep('phone')} onVerified={onVerified} C={C} />;
     case 'profile':
-      return <ProfileScreen key="profile" authUser={authUser} data={data} setData={setData} onSaved={() => setStep('plan')} C={C} />;
+      return <ProfileScreen key="profile" authUser={authUser} data={data} setData={setData} onSaved={() => (data.role === 'store_owner' ? finish() : setStep('plan'))} C={C} />;
     case 'plan':
       return <PlanScreen key="plan" onBack={() => setStep('profile')} onStart={finish} loading={finishing} C={C} />;
     case 'email':

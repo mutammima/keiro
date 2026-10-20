@@ -24,6 +24,8 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { onFreePlan } from '../../utils/plan';
+import { PLAN_COPY } from '../../utils/constants';
 import Spotlight from './Spotlight';
 import Confetti from './Confetti';
 
@@ -209,6 +211,7 @@ export default function QuickStart({ role, mode = 'full', onNav, onComplete, onS
         <div style={{ fontSize: 21, fontWeight: 900, color: dark ? '#fff' : '#111', marginBottom: 8 }}>You’re ready!</div>
         <div style={{ fontSize: 14, lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 22 }}>
           {SUCCESS_TEXT[isOwner ? 'store_owner' : (isEasy ? 'easy' : 'driver')]}
+          {!isOwner && isEasy && onFreePlan() && ` ${PLAN_COPY.tourFree}`}
         </div>
         <button
           data-tutorial-ui="quickstart-done"

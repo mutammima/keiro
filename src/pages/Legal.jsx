@@ -4,6 +4,8 @@
  * Renders the same content as the repo's PRIVACY.md / TERMS.md so the docs are
  * reachable from inside the app (footer links) before anyone signs up. A
  * segmented toggle switches between the two; `section` sets the initial view.
+ * When the text changes here, change it in both .md files and bump the date in
+ * all three (privacyPolicy.test.jsx pins the plan sentences against the files).
  */
 
 import { useState } from 'react';
@@ -11,13 +13,13 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
 
-const LAST_UPDATED = 'October 15, 2026';
+const LAST_UPDATED = 'October 19, 2026';
 const CONTACT = 'alomonds@gmail.com';
 
 const PRIVACY = {
   intro: 'This Privacy Policy explains how Keiro collects, uses, and protects your information. By using Keiro you agree to the practices described here.',
   sections: [
-    { h: 'Information we collect', b: 'Your sign-in email (handled by our authentication provider, Supabase) and the business data you enter: business name and phone, invoice details, customer/store names, store phone numbers and addresses, payment records, notes, and signatures. We do not collect payment card numbers, bank details, or government IDs, and the app does not process payments. If the app crashes, a report is sent to Sentry: the error, the app version, web or iPhone app, device and browser type, and the screen it happened on; never invoice contents, names, emails, phone numbers, your IP address or invite codes. You can switch this off in Settings → Terms & Privacy.' },
+    { h: 'Information we collect', b: 'Your sign-in email (handled by our authentication provider, Supabase) and the business data you enter: business name and phone, invoice details, customer/store names, store phone numbers and addresses, payment records, notes, and signatures. We do not collect payment card numbers, bank details, or government IDs, and the app does not process payments. For your plan, Keiro keeps whether you\'re on Free or Pro (and until when) and how many invoices you made this month. If the app crashes, a report is sent to Sentry: the error, the app version, web or iPhone app, device and browser type, and the screen it happened on; never invoice contents, names, emails, phone numbers, your IP address or invite codes. You can switch this off in Settings → Terms & Privacy.' },
     { h: 'How your data is stored', b: 'Your invoices, products, stores, notes, payment records and signatures are stored in your account in Supabase and protected by per-user Row Level Security, so no other account can read them, except as described under What other users can see. A copy is also cached locally on your device so the app works offline.' },
     { h: 'What other users can see', b: 'Some of what you create is visible to other Keiro users. Marketplace is a public noticeboard inside the app: anything you publish there — a driver listing or a store request — is readable by every signed-in Keiro user, not only the ones you are connected to. That includes the business name and phone number you publish with it, the product, the price or quantity, your notes, and, if you allowed location access, the coordinates recorded when you created it, which is what powers near-me sorting. Treat a Marketplace post as public: do not put anything in one you would not show a stranger. Product names: the names of products in your catalog — including names you give a barcode — can be suggested to other signed-in Keiro users who scan or type the same product, once at least two other accounts have used the same name. Your prices, quantities, stores, and which account saved it are never shared. Invoices you send to a connected store are visible to that store\'s account. Nothing else you keep is exposed this way.' },
     { h: 'How we use your information', b: 'Solely to operate the app: creating, storing, and displaying your invoices and related records, syncing across your own devices, and keeping your account secure. We do not sell, rent, or share your data with advertisers.' },
@@ -36,6 +38,7 @@ const TERMS = {
     { h: 'Your data and content', b: 'You own the business data you enter. You grant us a limited license to store and process it solely to operate the app for you. You are responsible for the accuracy and lawfulness of the invoices you generate and send.' },
     { h: 'Acceptable use', b: 'Do not use the app for unlawful or deceptive purposes, attempt to access data belonging to other users, circumvent security, disrupt the service, or misuse it beyond what the law permits.' },
     { h: 'Invoices and financial records', b: 'Keiro includes tools to generate and share delivery invoices. It does not process payments and does not provide accounting, tax, or financial advice. You are solely responsible for the correctness of your invoices and for meeting your own legal, tax, and accounting obligations.' },
+    { h: 'Plans', b: 'Keiro has a free plan: Easy Mode and 20 new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.' },
     { h: 'Availability & backups', b: 'The app is provided "as is" and "as available." We do not guarantee it will be uninterrupted, error-free, or that data will never be lost. You are responsible for keeping your own backups of important data.' },
     { h: 'Disclaimer & liability', b: 'To the maximum extent permitted by law, the app is provided without warranties of any kind, and we are not liable for any indirect, incidental, or consequential damages, or for lost profits, revenue, data, or goodwill.' },
     { h: 'Termination', b: 'You may stop using the app anytime. We may suspend or terminate access if you violate these Terms or to protect the app and its users.' },
