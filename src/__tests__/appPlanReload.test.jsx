@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, configure } from '@testing-library/react';
 
 const { fakeClient, fakeModule, getMyPlan } = vi.hoisted(() => {
   const NO_DATA = { data: null, error: { message: 'backend is faked in this test' } };
@@ -71,6 +71,12 @@ import { markWhatsNewSeen } from '../utils/whatsNewState';
 // jsdom has no ResizeObserver, which the swipe strip measures with.
 globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 
+// These tests mount the whole app and wait on lazy screens and on React's effect flushes. On a busy machine
+// (a full suite running in parallel) those take longer than testing-library's 1 s default for findBy* / waitFor,
+// which made them fail for being slow, not for being wrong. A wait that is not slow returns as soon as it can.
+configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 20000 });
+
 function signedIn() {
   const set = (k, v) => localStorage.setItem(k, v);
   set(STORAGE_KEYS.USER_ROLE, JSON.stringify('driver'));
@@ -91,12 +97,16 @@ const settle = async () => { await act(async () => { for (let i = 0; i < 8; i +=
 const PRO_ANSWER = { data: { pro: true, source: 'manual', status: 'active', pro_until: null, interval: null, cancels: false, used_this_month: 0, month: '2026-10', free_limit: 20 }, error: null };
 
 let reload;
+let answerNow;   // sends the plan answer the shell is waiting for
 /** A shell built in Easy Mode (no plan answer yet), whose plan answer arrives later and says Pro. */
 async function easyShellWithAPlanAnswerComing() {
-  let answerNow;
   getMyPlan.mockReturnValue(new Promise(resolve => { answerNow = resolve; }));
   const view = render(<App />);
   await found(view.container, '[data-qs="new-invoice"]');
+  // The shell draws before React runs its effects (later still on a busy machine). Its launch read of the plan
+  // is made by an effect, so once that read is out every effect of the first draw has run: its listeners are
+  // attached, and an event or an answer sent from here is heard, not lost.
+  await waitFor(() => expect(getMyPlan).toHaveBeenCalledTimes(1));
   const cached = new Promise(resolve => window.addEventListener(EVENTS.PLAN_CHANGE, resolve, { once: true }));
   return {
     ...view,
@@ -113,7 +123,15 @@ beforeEach(() => {
   reload = vi.fn();
   vi.stubGlobal('location', { ...window.location, reload });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(async () => {
+  // plan.js shares ONE request between callers until it ends. A test that finishes with its answer still unsent
+  // (the banner tests) would leave that request open, and the next test's shell would join it: getMyPlan is
+  // never called again, so the answer that test sends goes nowhere. Answering "no answer" ends it.
+  answerNow?.({ data: null, error: new Error('the test is over') });
+  answerNow = undefined;
+  await settle();
+  vi.unstubAllGlobals();
+});
 
 describe('the reload a plan change asks for waits through the whole invoice flow', () => {
   it('on a screen with no invoice open, it reloads at once', async () => {
@@ -181,5 +199,23 @@ describe('the "Update available" banner uses the same hold', () => {
     updateReady();
     expect(await screen.findByText(FINISH_FIRST)).toBeInTheDocument();
     expect(screen.queryByText(IDLE_TEXT)).toBeNull();
+  });
+});
+
+describe('after the reload', () => {
+  // Loop safety, at the app level. The reload rebuilds the shell from the cache the answer wrote, in the new mode,
+  // so the same answer arriving at that launch must not ask for another reload, or the app would reload for ever.
+  it('a fresh app on the same cached plan, getting the same answer again, does not reload again', async () => {
+    const shell = await easyShellWithAPlanAnswerComing();
+    await shell.proAnswerArrives();
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    shell.unmount();                                       // the page reloads
+
+    getMyPlan.mockResolvedValue(PRO_ANSWER);               // the launch asks again and gets the same answer
+    const view = render(<App />);
+    await found(view.container, '[data-qs-tab="home"]');   // built in normal mode this time, from the cache the answer wrote
+    await waitFor(() => expect(getMyPlan).toHaveBeenCalledTimes(2));
+    await settle();
+    expect(reload).toHaveBeenCalledTimes(1);               // still the one
   });
 });
