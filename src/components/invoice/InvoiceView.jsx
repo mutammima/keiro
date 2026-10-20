@@ -9,6 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
+import ReadOnlySignature from './ReadOnlySignature';
 import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE, PLAN_COPY } from '../../utils/constants';
@@ -335,8 +336,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
           )}
           {showSigs && sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sellerSig && <img src={sellerSig} alt={PLAN_COPY.sellerSigAlt} style={s.sigImg} />}
-              {buyerSig && <img src={buyerSig} alt={PLAN_COPY.buyerSigAlt} style={s.sigImg} />}
+              {sellerSig && <ReadOnlySignature src={sellerSig} alt={PLAN_COPY.sellerSigAlt} />}
+              {buyerSig && <ReadOnlySignature src={buyerSig} alt={PLAN_COPY.buyerSigAlt} />}
             </div>
           )}
           {showSigs && !sigLocked && (
@@ -493,6 +494,8 @@ const s = {
     borderRadius: 14, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
-  inlineLink: { background: 'none', border: 'none', padding: 0, color: ACCENT, fontWeight: 700, fontSize: 12, cursor: 'pointer' },
-  sigImg: { width: '100%', maxHeight: 140, objectFit: 'contain', background: '#fff', borderRadius: 10 },
+  // A 12px link with a ≥44px hit box (its 14-15px line plus 24 above and 8 below: 47px measured in Chromium). Each
+  // side's padding is cancelled by an equal negative margin, so the line looks and sits exactly as it did; the box
+  // grows mostly upward, over text, and its 8px below stays inside the card's own bottom padding.
+  inlineLink: { background: 'none', border: 'none', padding: '24px 10px 8px', margin: '-24px -10px -8px', color: ACCENT, fontWeight: 700, fontSize: 12, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
 };
