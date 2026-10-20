@@ -26,6 +26,47 @@ describe('pricing SQL', () => {
   });
 });
 
+describe('the pricing SQL keeps each shared rule in one place', () => {
+  const sql = readFileSync(resolve(root, 'supabase-pricing.sql'), 'utf8');
+  const code = sql.split('\n').map(line => line.replace(/--.*$/, '')).join('\n');   // comments don't count
+  const times = (re) => (code.match(re) || []).length;
+
+  it('the free cap (25) is written once', () => {
+    expect(times(/\b25\b/g)).toBe(1);
+  });
+
+  it('the UTC month is worked out once', () => {
+    expect(times(/date_trunc\('month'/g)).toBe(1);
+    expect(times(/at time zone 'utc'/g)).toBe(1);
+  });
+
+  it('the refusal (message, error code and hint) is written once', () => {
+    expect(times(/KEIRO_FREE_LIMIT/g)).toBe(1);
+    expect(times(/Free plan:/g)).toBe(1);
+    expect(times(/errcode/g)).toBe(1);
+  });
+
+  it('every function but my_plan is closed to the public, guests and signed-in users; my_plan is open to signed-in users only', () => {
+    const functions = [...code.matchAll(/create or replace function (\w+)\(([^)]*)\)/g)].map(m => ({ name: m[1], args: m[2] }));
+    expect(functions.map(f => f.name)).toEqual(expect.arrayContaining(['is_pro', 'my_plan', 'free_cap', 'utc_month', 'refuse_free_limit']));
+    for (const { name, args } of functions) {
+      const types = args.split(',').map(a => a.trim().split(/\s+/).pop()).filter(Boolean).join(', ');
+      const signature = `${name}\\(${types.replace(/[()]/g, '\\$&')}\\)`;
+      const revoke = new RegExp(`revoke execute on function ${signature} from public, anon${name === 'my_plan' ? '' : ', authenticated'};`);
+      expect(code, `${name} is revoked`).toMatch(revoke);
+    }
+    expect(code).toMatch(/grant execute on function my_plan\(\) to authenticated;/);
+  });
+
+  it('users and guests are given reading only: every privilege is revoked first, then SELECT is granted to signed-in users', () => {
+    for (const table of ['subscriptions', 'invoice_usage']) {
+      expect(code).toMatch(new RegExp(`revoke all on ${table} from anon, authenticated;`));
+      expect(code).toMatch(new RegExp(`grant select on ${table} to authenticated;`));
+      expect(code).not.toMatch(new RegExp(`grant (?!select\\b)\\w[^;]* on ${table}`));
+    }
+  });
+});
+
 describe('the pricing cowork doc', () => {
   const sql = readFileSync(resolve(root, 'supabase-pricing.sql'), 'utf8');
   const doc = readFileSync(resolve(root, 'docs/COWORK_PRICING.md'), 'utf8');

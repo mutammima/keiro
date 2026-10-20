@@ -48,13 +48,49 @@ drop policy if exists "invoice_usage: read own" on invoice_usage;
 create policy "invoice_usage: read own" on invoice_usage
   for select to authenticated using (user_id = auth.uid());
 
--- Supabase's default privileges open new tables to anon and authenticated.
-revoke all on subscriptions from anon;
-revoke all on invoice_usage from anon;
-revoke insert, update, delete, truncate on subscriptions from authenticated;
-revoke insert, update, delete, truncate on invoice_usage from authenticated;
+-- Supabase's default privileges open new tables to anon and authenticated, with every
+-- privilege (TRUNCATE, REFERENCES and TRIGGER too). Close all of it, then give back reading
+-- only: the policies above limit that to each user's own rows.
+revoke all on subscriptions from anon, authenticated;
+revoke all on invoice_usage from anon, authenticated;
 grant select on subscriptions to authenticated;
 grant select on invoice_usage to authenticated;
+
+-- The rules the functions below share, each written once.
+
+-- The most new invoices a free account can upload in a UTC month. The app stops at 20; the
+-- spare 5 absorb offline invoices that upload after the 1st, the UTC-vs-local month edge and
+-- two phones used at once.
+create or replace function free_cap()
+returns integer
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select 25;
+$$;
+
+-- The UTC month (as its first day) a moment falls in: how invoices are counted and checked.
+create or replace function utc_month(p_at timestamptz)
+returns date
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select (date_trunc('month', p_at at time zone 'utc'))::date;
+$$;
+
+-- The refusal. The app recognises the message KEIRO_FREE_LIMIT; the hint is for people.
+create or replace function refuse_free_limit()
+returns void
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  raise exception 'KEIRO_FREE_LIMIT'
+    using errcode = 'P0001', hint = 'Free plan: 20 new invoices a month.';
+end
+$$;
 
 create or replace function is_pro(p_uid uuid)
 returns boolean
@@ -77,12 +113,13 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_month date := (date_trunc('month', now() at time zone 'utc'))::date;
+  v_month date := utc_month(now());
   v_used  integer;
 begin
+  -- This row-level check stays although the statement-level one below also covers a single
+  -- row: it refuses before the row is stored or counted.
   -- Only invoices made this month can be refused: history uploads never are.
-  if new.created_at is null
-     or (date_trunc('month', new.created_at at time zone 'utc'))::date <> v_month then
+  if new.created_at is null or utc_month(new.created_at) <> v_month then
     return new;
   end if;
   -- An upsert of an invoice that already exists is an edit: never refused.
@@ -96,9 +133,8 @@ begin
   end if;
   select u.count into v_used from invoice_usage u
    where u.user_id = new.user_id and u.month = v_month;
-  if coalesce(v_used, 0) >= 25 then
-    raise exception 'KEIRO_FREE_LIMIT'
-      using errcode = 'P0001', hint = 'Free plan: 20 new invoices a month.';
+  if coalesce(v_used, 0) >= free_cap() then
+    perform refuse_free_limit();
   end if;
   return new;
 end
@@ -111,10 +147,9 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_month date := (date_trunc('month', now() at time zone 'utc'))::date;
+  v_month date := utc_month(now());
 begin
-  if new.created_at is not null
-     and (date_trunc('month', new.created_at at time zone 'utc'))::date = v_month then
+  if new.created_at is not null and utc_month(new.created_at) = v_month then
     insert into invoice_usage as u (user_id, month, count) values (new.user_id, v_month, 1)
     on conflict (user_id, month) do update set count = u.count + 1;
   end if;
@@ -133,17 +168,16 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_month date := (date_trunc('month', now() at time zone 'utc'))::date;
+  v_month date := utc_month(now());
 begin
   if exists (
     select 1
     from (select distinct r.user_id from new_rows r
            where r.created_at is not null
-             and (date_trunc('month', r.created_at at time zone 'utc'))::date = v_month) n
+             and utc_month(r.created_at) = v_month) n
     join invoice_usage u on u.user_id = n.user_id and u.month = v_month
-    where u.count > 25 and not is_pro(n.user_id)) then
-    raise exception 'KEIRO_FREE_LIMIT'
-      using errcode = 'P0001', hint = 'Free plan: 20 new invoices a month.';
+    where u.count > free_cap() and not is_pro(n.user_id)) then
+    perform refuse_free_limit();
   end if;
   return null;
 end
@@ -183,14 +217,17 @@ as $$
     'cancels',         coalesce(s.cancels, false),
     'used_this_month', coalesce((select u.count from invoice_usage u
                                   where u.user_id = auth.uid()
-                                    and u.month = (date_trunc('month', now() at time zone 'utc'))::date), 0),
-    'month',           to_char(now() at time zone 'utc', 'YYYY-MM'),
+                                    and u.month = utc_month(now())), 0),
+    'month',           to_char(utc_month(now()), 'YYYY-MM'),
     'free_limit',      20)
   from (select 1) as one
   left join subscriptions s on s.user_id = auth.uid()
   where auth.uid() is not null;
 $$;
 
+revoke execute on function free_cap() from public, anon, authenticated;
+revoke execute on function utc_month(timestamptz) from public, anon, authenticated;
+revoke execute on function refuse_free_limit() from public, anon, authenticated;
 revoke execute on function is_pro(uuid) from public, anon, authenticated;
 revoke execute on function invoices_free_limit() from public, anon, authenticated;
 revoke execute on function invoices_count_usage() from public, anon, authenticated;
