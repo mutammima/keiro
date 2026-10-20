@@ -5,7 +5,7 @@
 - [x] Spec reviewed by the owner (2026-10-16)
 - [x] Implementation plan written (`docs/superpowers/plans/2026-10-16-pricing.md`)
 - [x] Owner decision (2026-10-17): **no payment integration yet** — see below
-- [ ] Built test-first, verified on the real screens
+- [x] Built test-first, verified on the real screens (PR #193, 2026-10-20)
 - [ ] Rolled out: cowork SQL (dad free forever), then the app update
 - [ ] Later: payments (Stripe), in their own plan
 
