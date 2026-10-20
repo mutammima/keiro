@@ -139,11 +139,14 @@ customer portal (cancel, switch between the two prices, update card) and the rec
 register the webhook endpoint. Everything runs on Stripe test mode first. Sales tax collection is
 off at launch (Stripe can add it later — ask an accountant once real money comes in).
 
-**Privacy policy and Terms** (in-app `Legal.jsx`, `PRIVACY.md`, `TERMS.md`): Stripe takes Pro
-payments and Keiro never sees or stores card numbers; what Keiro keeps (plan, renewal date, Stripe
-customer number, this month's invoice count); Pro renews until cancelled, cancel anytime, Pro lasts
-to the end of the paid period. Today's text says "the app does not process payments", which stops
-being true.
+**Privacy policy and Terms — update them when payments are built** (`src/pages/Legal.jsx`,
+`PRIVACY.md`, `TERMS.md`): Stripe processes the card and Keiro never sees or stores card numbers;
+Keiro keeps the Stripe customer id and subscription id and the subscription's status (the
+`stripe_*` and `status` columns of `subscriptions`), besides the plan, its renewal date and this
+month's invoice count; Pro renews until cancelled, cancel anytime, Pro lasts to the end of the paid
+period. Today's text says "the app does not process payments" and lists only the plan, until when
+and the monthly invoice count, which stops being enough. (`privacyPolicy.test.jsx` pins those plan
+sentences against the files, so it changes with them.)
 
 **App Store:** this works because the app is sideloaded. If Keiro goes on the App Store, Apple's
 in-app purchase rules must be revisited before submitting.
