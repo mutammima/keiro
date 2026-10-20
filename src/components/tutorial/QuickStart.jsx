@@ -24,7 +24,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { onFreePlan } from '../../utils/plan';
+import { onFreePlan, canCreateInvoice, resetDateLabel } from '../../utils/plan';
 import { PLAN_COPY } from '../../utils/constants';
 import Spotlight from './Spotlight';
 import Confetti from './Confetti';
@@ -80,24 +80,26 @@ const DRIVER_STEPS = [
 
 // Easy Mode driver tour — starts on Route (Easy Mode opens there), teaches the
 // scan-first invoice. Targets are on EasyInvoice.jsx (data-qs="easy-…").
+// `invoiceScreen` marks the steps that need the invoice screen open (the tap on
+// + New that opens it, and the three steps on it): none of them is shown at the free limit.
 const EASY_DRIVER_STEPS = [
   {
-    selector: '[data-qs="new-invoice"]', tap: true,
+    selector: '[data-qs="new-invoice"]', tap: true, invoiceScreen: true,
     title: 'Start an invoice',
     desc: 'Tap + New to start an invoice.',
   },
   {
-    selector: '[data-qs="easy-store"]', tap: false,
+    selector: '[data-qs="easy-store"]', tap: false, invoiceScreen: true,
     title: 'Pick the store',
     desc: 'Start typing a store and pick it. Or leave it blank and write it on the paper.',
   },
   {
-    selector: '[data-qs="easy-scan"]', tap: false,
+    selector: '[data-qs="easy-scan"]', tap: false, invoiceScreen: true,
     title: 'Scan each item',
     desc: 'Scan each item. Check the name, quantity and price, then tap Add, and the camera opens for the next one. New product? Type its price once; Keiro remembers it.',
   },
   {
-    selector: '[data-qs="easy-make"]', tap: false, navTo: 'route',
+    selector: '[data-qs="easy-make"]', tap: false, navTo: 'route', invoiceScreen: true,
     title: 'Make the invoice',
     desc: 'Tap Make invoice, then Print / Share. Anything you left empty prints as a blank line to fill in by hand.',
   },
@@ -117,6 +119,20 @@ const EASY_DRIVER_STEPS = [
     desc: 'Your totals for Today, Week, Month or Year. End of Day, at the top, shows what you collected on your route.',
   },
 ];
+
+// At the free limit, tapping + New opens the limit sheet instead of the invoice
+// screen, so the invoice-screen steps have nothing to point at: one Next-button
+// note on + New says when new invoices are back, then the rest of the tour.
+function easyStepsAtLimit() {
+  return [
+    {
+      selector: '[data-qs="new-invoice"]', tap: false,
+      title: PLAN_COPY.tourLimitTitle,
+      desc: PLAN_COPY.tourLimitDesc(resetDateLabel()),
+    },
+    ...EASY_DRIVER_STEPS.filter((step) => !step.invoiceScreen),
+  ];
+}
 
 const OWNER_STEPS = [
   {
@@ -166,7 +182,9 @@ export default function QuickStart({ role, mode = 'full', onNav, onComplete, onS
   const { dark, accent } = useTheme();
   const isOwner = role === 'store_owner';
   const isEasy = !isOwner && mode === 'easy';
-  const steps = isOwner ? OWNER_STEPS : (isEasy ? EASY_DRIVER_STEPS : DRIVER_STEPS);
+  // Decided once, when the tour starts: using the last free invoice mid-tour must not change the steps under him.
+  const [easySteps] = useState(() => (isEasy && !canCreateInvoice() ? easyStepsAtLimit() : EASY_DRIVER_STEPS));
+  const steps = isOwner ? OWNER_STEPS : (isEasy ? easySteps : DRIVER_STEPS);
   const [stepIndex, setStepIndex] = useState(0); // 0..steps.length-1 = spotlight steps, steps.length = success
 
   function advance(step) {

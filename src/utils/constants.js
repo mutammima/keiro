@@ -270,6 +270,9 @@ export const PLAN_COPY = {
   buyerSigAlt: 'Store Manager signature',
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
   tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
+  // The Easy tour's one step on + New when the month's free invoices are used up (tapping + New then opens the limit sheet, not the invoice screen).
+  tourLimitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices`,
+  tourLimitDesc: (reset) => `New invoices are back on ${reset}.`,
   // The sign-up plan screen (PlanScreen in OnboardingFlow). Its cards are named freeLabel / proLabel, and Pro's price is priceLine.
   signupTitle: 'Your plan',
   signupSubtitle: 'Start free. Pro is coming soon.',

@@ -8,11 +8,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import QuickStart from '../components/tutorial/QuickStart.jsx';
 import { isTourSeen, markTourSeen, pendingModeTour, tourStartPage } from '../utils/tutorialProgress';
-import { STORAGE_KEYS } from '../utils/constants';
+import { STORAGE_KEYS, PLAN_COPY, FREE_INVOICES_PER_MONTH } from '../utils/constants';
+import { recordNewInvoice, resetDateLabel } from '../utils/plan';
 import { givePro } from './helpers/givePro';
 
 function FakeAppChrome() {
@@ -137,6 +138,68 @@ describe('Easy tour', () => {
     walkEasyTour();
     expect(screen.getByText(/Products, in the same menu, lets you fix a remembered name or price/)).toBeInTheDocument();
     expect(screen.queryByText(/free invoices a month/)).toBeNull();
+  });
+});
+
+// At the free limit "+ New" opens the limit sheet, not the invoice screen, so the three invoice-screen steps
+// (and the tap on + New that leads to them) have nothing to point at.
+describe('Easy tour at the free limit', () => {
+  const useUpTheMonth = () => { for (let i = 0; i < FREE_INVOICES_PER_MONTH; i++) recordNewInvoice(); };
+
+  it('swaps the + New tap and the invoice-screen steps for one note on + New, and counts only the steps shown', () => {
+    useUpTheMonth();
+    const { onNav, onComplete } = renderTour('driver', 'easy');
+
+    expect(screen.getByText('Step 1 of 4')).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.tourLimitTitle)).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.tourLimitDesc(resetDateLabel()))).toBeInTheDocument();
+    expect(screen.getByText(PLAN_COPY.tourLimitDesc(resetDateLabel()))).toHaveTextContent(`back on ${resetDateLabel()}`);
+    fireEvent.click(screen.getByText('Next'));   // a Next step: tapping + New would only open the limit sheet
+
+    expect(screen.getByText('Step 2 of 4')).toBeInTheDocument();
+    expect(screen.getByText(/Tap ⋯ on one to mark it Paid/)).toBeInTheDocument();
+    expect(screen.queryByText(/Start typing a store/)).toBeNull();
+    fireEvent.click(screen.getByText('Next'));
+
+    expect(screen.getByText('Step 3 of 4')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Stores' }));
+    expect(screen.getByText('Step 4 of 4')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reports' }));
+
+    expect(screen.getByText(/Products, in the same menu/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onNav).not.toHaveBeenCalled();   // no invoice screen was opened, so there is nothing to return from
+  });
+
+  it('with one invoice left it is the full seven steps', () => {
+    for (let i = 0; i < FREE_INVOICES_PER_MONTH - 1; i++) recordNewInvoice();
+    renderTour('driver', 'easy');
+    expect(screen.getByText('Step 1 of 7')).toBeInTheDocument();
+    expect(screen.queryByText(PLAN_COPY.tourLimitTitle)).toBeNull();
+  });
+
+  it('Pro is never at the limit', () => {
+    givePro();
+    useUpTheMonth();
+    renderTour('driver', 'easy');
+    expect(screen.getByText('Step 1 of 7')).toBeInTheDocument();
+  });
+
+  it('is decided when the tour starts: using the last invoice mid-tour does not change its steps', () => {
+    for (let i = 0; i < FREE_INVOICES_PER_MONTH - 1; i++) recordNewInvoice();
+    renderTour('driver', 'easy');
+    fireEvent.click(screen.getByRole('button', { name: '+ New' }));
+    act(() => recordNewInvoice());   // he makes the 20th
+    fireEvent.click(screen.getByText('Next'));   // the tour re-renders on each step
+    expect(screen.getByText('Step 3 of 7')).toBeInTheDocument();
+    expect(screen.getByText(/Scan each item\. Check the name, quantity and price/)).toBeInTheDocument();
+  });
+
+  it('the full tour is not touched by the limit', () => {
+    useUpTheMonth();
+    renderTour('driver', 'full');
+    expect(screen.getByText('Step 1 of 7')).toBeInTheDocument();
   });
 });
 
