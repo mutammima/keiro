@@ -200,7 +200,23 @@ grant execute on function my_plan() to authenticated;
 
 ## 2. Make the owner's dad Pro, free forever
 
-Ask the owner for the email his dad signs in to Keiro with. Put it where `DAD_EMAIL` is (inside the single quotes), then run:
+Ask the owner for the email his dad signs in to Keiro with. Put it where `DAD_EMAIL` is (inside the single quotes) in both statements below.
+
+**First, check it is the right account.** Run:
+
+```
+select u.id as user_id, u.email, u.created_at, u.last_sign_in_at,
+       (select count(*) from invoices i where i.user_id = u.id) as invoices
+from auth.users u
+where lower(u.email) = lower('DAD_EMAIL');
+```
+
+Show the owner the row in plain words: the email, the day the account was created (`created_at`), the day it last signed in (`last_sign_in_at`) and how many invoices it holds (`invoices`). His dad already uses Keiro, so expect an account that has been around a while, signed in recently, with invoices. Ask the owner: "Is this your dad's account?" **Do not go on until the owner says yes.**
+
+- No row at all: no account has that email. Show the owner `select email from auth.users order by created_at;` and ask for the right one.
+- More than one row, or an account that looks wrong (brand new, no invoices, never signed in), or the owner isn't sure: stop and ask. Do not run the next statement.
+
+Only after the owner says yes, run:
 
 ```
 insert into subscriptions (user_id, source, status, pro_until)
@@ -209,13 +225,25 @@ on conflict (user_id) do update set source = 'manual', status = 'active', pro_un
 returning user_id;
 ```
 
-Expected: one result row, his `user_id`. "Success. No rows returned" means no account has that email: show the owner `select email from auth.users order by created_at;` and ask again.
+Expected: one result row, his `user_id`. Keep it: step 4 asks for it.
 
 ## 3. Verify
 
-Nothing is kept: each of Runs 1–3 ends with `rollback;`.
+Runs 1–3 are wrapped in `begin;` … `rollback;`, so nothing is kept. Runs 2 and 3 end in an error on purpose, and an error skips the `rollback;` line, so after each of them run `rollback;` on its own. If any run says `current transaction is aborted, commands ignored until end of transaction block`, that is why: run `rollback;` on its own, then repeat the run that failed.
 
-First get his id, using his email as in step 2. It replaces every `DAD_ID` in Runs 1 and 3 (inside the single quotes):
+### Check: the triggers are there
+
+The dashboard assistant can rewrite SQL before it runs, so look at what the database really has:
+
+```
+select tgname from pg_trigger where tgrelid = 'public.invoices'::regclass and not tgisinternal order by tgname;
+```
+
+Expected: `trg_invoices_count_usage`, `trg_invoices_free_limit`, `trg_invoices_free_limit_batch` and `trg_invoices_updated_at`. The first three come from this setup; the last was already there. If one of the first three is missing, the SQL did not fully run: go back to step 1, run it again (it is safe to re-run), and check again. Do not go on with a trigger missing.
+
+### Get his id
+
+Use his email as in step 2. It replaces every `DAD_ID` in Runs 1 and 3 (inside the single quotes):
 
 ```
 select id from auth.users where lower(email) = lower('DAD_EMAIL');
@@ -250,15 +278,17 @@ Expected: `ERROR: permission denied for function my_plan`.
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = 'DAD_ID';
-update subscriptions set pro_until = now() where user_id = 'DAD_ID';
+update subscriptions set status = status where user_id = 'DAD_ID';
 rollback;
 ```
 
 Expected: `ERROR: permission denied for table subscriptions`.
 
+The update sets `status` to what it already is, on purpose: if the editor ran the lines one at a time and ignored `set local role`, it would run as the admin and still change nothing. Leave it as written.
+
 ## 4. Report back
 
-Paste into the chat: whether the SQL ran (or the exact error), the dad's row count from step 2, and the results of Runs 1–3 verbatim.
+Paste into the chat: whether the SQL ran (or the exact error), the `user_id` that step 2 returned (his id), what the trigger check returned, and the results of Runs 1–3 verbatim.
 
 ## Later: the owner's switch
 
@@ -266,9 +296,11 @@ Kept for reference. **Never run any of this during setup.**
 
 If the person already pays by card, cancel their subscription in Stripe first (Stripe dashboard → Customers → their subscription → Cancel), otherwise Stripe keeps charging them.
 
-**Free forever:** step 2's statement with that person's email.
+Use step 2's check first, to make sure the email is the right account. Then:
 
-**Pro until a date:** step 2's statement with that person's email, with `null` replaced by the end of that day in New York time, like `'2026-12-01 23:59:59 America/New_York'` (put in the date wanted), in both places. In plain words: Pro lasts through that whole day, and the account is Free from the next day.
+**Free forever:** step 2's `insert` statement with that person's email.
+
+**Pro until a date:** step 2's `insert` statement with that person's email, with `null` replaced by the end of that day in New York time, like `'2026-12-01 23:59:59 America/New_York'` (put in the date wanted), in both places. In plain words: Pro lasts through that whole day, and the account is Free from the next day.
 
 **Back to Free** (removes only a switch, never a Stripe subscription), with that person's email in place of `EMAIL`:
 
