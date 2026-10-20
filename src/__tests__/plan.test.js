@@ -19,6 +19,9 @@ import {
 const NOW = new Date(2026, 9, 16, 12, 0, 0);   // Oct 16 2026, local
 const DAY = 86400000;
 const iso = (ms) => new Date(ms).toISOString();
+// Noon on a LOCAL calendar day, as the server's UTC timestamp. A literal like '2026-12-01T12:00:00Z' is
+// Dec 2 on the phone's calendar from UTC+12 eastwards, so what the app shows would depend on where the test runs.
+const localNoonIso = (y, monthIndex, d) => new Date(y, monthIndex, d, 12, 0, 0).toISOString();
 const setPlan = (p) => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify(p));
 const json = (key) => JSON.parse(localStorage.getItem(key));
 const answer = (o = {}) => ({
@@ -31,6 +34,8 @@ beforeEach(() => {
   vi.mocked(db.getMyPlan).mockReset();
   vi.mocked(releaseHeldSyncs).mockReset();
 });
+// A fake clock set inside a test is put back here, so a failed assertion cannot leave it running for the next test.
+afterEach(() => { vi.useRealTimers(); });
 
 describe('who is Pro', () => {
   it('Stripe active or retrying a card, and cancelled-but-paid-up, are Pro', () => {
@@ -110,7 +115,6 @@ describe('the monthly count', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
     expect(guardNewInvoice(go)).toBe(false);
-    vi.useRealTimers();
     expect(go).toHaveBeenCalledTimes(1);
     expect(limit).toHaveBeenCalledTimes(1);
     window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
@@ -315,7 +319,7 @@ describe('Settings', () => {
     setPlan({ pro: false, usedThisMonth: 12, month: '2026-10' });
     expect(planSummary(getCachedPlan(), NOW)).toEqual({ label: 'Free', sub: '12 of 20 invoices used this month · resets Nov 1', action: 'upgrade' });
     expect(planSummary({ pro: true, source: 'manual', proUntil: null }, NOW)).toEqual({ label: 'Pro (free)', sub: '', action: null });
-    expect(planSummary({ pro: true, source: 'manual', proUntil: '2026-12-01T12:00:00Z' }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
+    expect(planSummary({ pro: true, source: 'manual', proUntil: localNoonIso(2026, 11, 1) }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
     // A paid (Stripe) record can only exist once payments are built; it shows plain Pro.
     expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW)).toEqual({ label: 'Pro', sub: '', action: null });
   });
@@ -338,7 +342,7 @@ describe('Settings', () => {
     try {
       expect(planSummary(null, NOW).label).toBe('F!');
       expect(planSummary({ pro: true, source: 'manual', proUntil: null }, NOW).label).toBe('PF!');
-      expect(planSummary({ pro: true, source: 'manual', proUntil: '2026-12-01T12:00:00Z' }, NOW).label).toBe('PU! Dec 1');
+      expect(planSummary({ pro: true, source: 'manual', proUntil: localNoonIso(2026, 11, 1) }, NOW).label).toBe('PU! Dec 1');
       expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW).label).toBe('P!');
     } finally {
       Object.assign(PLAN_COPY, saved);

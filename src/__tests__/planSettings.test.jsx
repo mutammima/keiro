@@ -47,7 +47,8 @@ describe('Settings → Plan', () => {
     expect(screen.getByRole('button', { name: 'Upgrade' }).style.minHeight).toBe('44px');
   });
   it('the owner\'s switch with an end date: Pro until that day, no button', () => {
-    setPlan({ pro: true, source: 'manual', proUntil: '2099-12-01T12:00:00Z' });
+    // Noon on Dec 1 of the phone's own calendar (a UTC literal would read Dec 2 east of UTC+12).
+    setPlan({ pro: true, source: 'manual', proUntil: new Date(2099, 11, 1, 12).toISOString() });
     wrap(<PlanSetting role="driver" C={LIGHT} />);
     expect(screen.getByText('Pro until Dec 1')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
