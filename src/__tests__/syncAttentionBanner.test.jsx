@@ -73,6 +73,20 @@ describe('SyncAttentionBanner', () => {
     expect(screen.getByRole('status')).toHaveTextContent("2 changes couldn't be saved");
   });
 
+  it('"Later" is forgotten down to the current count: after some are saved, one new failure shows it again', () => {
+    getFailedSyncs.mockReturnValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    render(<SyncAttentionBanner />);
+    fireEvent.click(screen.getByText('Later'));
+
+    getFailedSyncs.mockReturnValue([{ id: 'a' }, { id: 'b' }]); // one was saved (Try again from elsewhere): still hidden
+    announce();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    getFailedSyncs.mockReturnValue([{ id: 'a' }, { id: 'b' }, { id: 'd' }]); // a new one fails: 3 again, but not the 3 that was dismissed
+    announce();
+    expect(screen.getByRole('status')).toHaveTextContent("3 changes couldn't be saved");
+  });
+
   it('comes back after "Later" if the list empties and a change is set aside again', () => {
     getFailedSyncs.mockReturnValue([{ id: 'a' }]);
     render(<SyncAttentionBanner />);

@@ -35,7 +35,10 @@ export default function SyncAttentionBanner() {
       const h = getHeldSyncs().length;
       setCount(n);
       setHeld(h);
-      if (n + h === 0) setHiddenAt(null); // a later one is news again
+      // A later one is news again. After "Later" the number to beat is the lowest
+      // count seen since, so a drop (some uploaded) followed by a new failure
+      // shows the banner instead of staying under the old, higher number.
+      setHiddenAt(prev => (prev === null || n + h === 0 ? null : Math.min(prev, n + h)));
     };
     window.addEventListener(SYNC_ATTENTION_EVENT, refresh);
     return () => window.removeEventListener(SYNC_ATTENTION_EVENT, refresh);
