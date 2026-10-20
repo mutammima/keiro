@@ -17,7 +17,7 @@ vi.mock('../utils/syncQueue', () => ({
   processSyncQueue: vi.fn(async () => {}),
 }));
 
-import { getFailedSyncs, retryFailedSyncs, processSyncQueue } from '../utils/syncQueue';
+import { getFailedSyncs, getHeldSyncs, retryFailedSyncs, processSyncQueue } from '../utils/syncQueue';
 import SyncAttentionBanner from '../components/ui/SyncAttentionBanner';
 
 const announce = () => act(() => { window.dispatchEvent(new CustomEvent('inv-sync-attention')); });
@@ -25,6 +25,7 @@ const announce = () => act(() => { window.dispatchEvent(new CustomEvent('inv-syn
 beforeEach(() => {
   vi.clearAllMocks();
   getFailedSyncs.mockReturnValue([]);
+  getHeldSyncs.mockReturnValue([]);
 });
 
 describe('SyncAttentionBanner', () => {
@@ -107,5 +108,50 @@ describe('SyncAttentionBanner', () => {
     announce();
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('SyncAttentionBanner at phone width', () => {
+  // With a failed AND a held line the sentence is long: beside three buttons it got a ~58px column and ran to
+  // 8 lines at 390px (11 at 375px). When both show, the bar wraps: the text takes the whole first row (the
+  // warning sign leads it) and the buttons sit on their own row. One line alone keeps its single row.
+  const FAILED = [{ id: 'a' }];
+  const HELD = [{ id: 'h' }];
+  const textOf = () => screen.getByText(/invoice|change/, { selector: 'span' });
+
+  it('both lines: the bar wraps, the text takes the full row, the buttons follow it on their own row', () => {
+    getFailedSyncs.mockReturnValue(FAILED);
+    getHeldSyncs.mockReturnValue(HELD);
+    render(<SyncAttentionBanner />);
+    const bar = screen.getByRole('status');
+    const text = textOf();
+    expect(bar.style.flexWrap).toBe('wrap');
+    expect(text.style.flexBasis).toBe('100%');
+    expect(text).toHaveTextContent("1 change couldn't be saved · 1 invoice will upload");
+    expect(text.contains(screen.getByText('⚠'))).toBe(true); // the sign leads the text instead of costing it a column
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.map(b => b.textContent)).toEqual(['Later', 'Try again', 'Upgrade']);
+    for (const b of buttons) {
+      expect(text.contains(b)).toBe(false);
+      expect(text.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(b.style.minHeight).toBe('44px');
+    }
+    expect(buttons[0].style.marginLeft).toBe('auto'); // the row of buttons sits at the right
+  });
+
+  it('one line alone: one row as before, the text beside the sign and the buttons', () => {
+    for (const [failed, held] of [[FAILED, []], [[], HELD]]) {
+      getFailedSyncs.mockReturnValue(failed);
+      getHeldSyncs.mockReturnValue(held);
+      const { unmount } = render(<SyncAttentionBanner />);
+      const bar = screen.getByRole('status');
+      const text = textOf();
+      expect(bar.style.flexWrap).toBe('');
+      expect(text.style.flexBasis).not.toBe('100%');
+      expect(text.style.flexGrow).toBe('1');
+      expect(text.contains(screen.getByText('⚠'))).toBe(false);
+      expect(screen.getAllByRole('button')[0].style.marginLeft).toBe('');
+      unmount();
+    }
   });
 });

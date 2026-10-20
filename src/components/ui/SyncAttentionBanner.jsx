@@ -53,23 +53,30 @@ export default function SyncAttentionBanner() {
   }
 
   const fg = dark ? '#fbbf24' : '#b45309';
+  // Both sentences beside three buttons left the text a ~58px column (8 lines at
+  // 390px): then the bar wraps, the text takes the whole first row with the sign
+  // in front of it, and the buttons sit on their own row at the right.
+  const stacked = count > 0 && held > 0;
+  const sign = <span aria-hidden style={{ fontSize: 15, flexShrink: 0 }}>⚠</span>;
   return createPortal(
     <div
       role="status"
       style={{
         ...s.bar,
+        ...(stacked ? s.barStacked : null),
         background: dark ? '#2a1500' : '#fff7ed',
         color: fg,
         border: `1px solid ${dark ? '#3a2000' : '#fed7aa'}`,
       }}
     >
-      <span aria-hidden style={{ fontSize: 15, flexShrink: 0 }}>⚠</span>
-      <span style={{ flex: 1 }}>
+      {!stacked && sign}
+      <span style={stacked ? s.textStacked : s.text}>
+        {stacked && <>{sign}{' '}</>}
         {count > 0 && `${count} change${count === 1 ? '' : 's'} couldn't be saved`}
         {count > 0 && held > 0 && ' · '}
         {held > 0 && PLAN_COPY.heldLine(held, resetDateLabel())}
       </span>
-      <button onClick={() => setHiddenAt(total)} style={{ ...s.btn, color: fg, border: 'none', padding: '0 6px' }}>Later</button>
+      <button onClick={() => setHiddenAt(total)} style={{ ...s.btn, color: fg, border: 'none', padding: '0 6px', ...(stacked ? s.firstOfRow : null) }}>Later</button>
       {count > 0 && <button onClick={tryAgain} style={{ ...s.btn, color: fg, borderColor: fg }}>Try again</button>}
       {held > 0 && (
         <button onClick={() => window.dispatchEvent(new CustomEvent(EVENTS.OPEN_UPGRADE))} style={{ ...s.btn, color: fg, borderColor: fg }}>
@@ -102,6 +109,10 @@ const s = {
     fontSize: 13,
     fontWeight: 600,
   },
+  barStacked: { flexWrap: 'wrap', rowGap: 2 },
+  text: { flex: 1 },
+  textStacked: { flex: '1 1 100%' },
+  firstOfRow: { marginLeft: 'auto' }, // the buttons' row sits at the right
   btn: {
     minHeight: 44,
     padding: '0 14px',
