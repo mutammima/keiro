@@ -223,3 +223,14 @@ export function outstandingScopeLine(storeCount, unassignedCount) {
 export function localMonth(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
+
+/**
+ * The UTC calendar month as 'YYYY-MM' — the month the server counts and refuses
+ * by (supabase-pricing.sql), which is not the phone's month for a few hours
+ * either side of the 1st.
+ * @param {Date} [now]
+ * @returns {string}
+ */
+export function utcMonth(now = new Date()) {
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}

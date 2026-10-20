@@ -20,11 +20,11 @@ import { deleteInvoice, saveInvoice, getInvoices } from '../utils/storage';
 import SyncAttentionBanner from '../components/ui/SyncAttentionBanner';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
-import { localMonth } from '../utils/invoiceUtils';
+import { utcMonth } from '../utils/invoiceUtils';
 
 const LIMIT = { code: 'P0001', message: 'KEIRO_FREE_LIMIT' };
 const OFFLINE = new TypeError('Failed to fetch'); // no code: the request never got an answer
-const held = (number, month = localMonth()) => ({ id: `h${number}`, type: 'save_invoice', payload: { invoice: { number } }, ts: 1, retries: 0, heldMonth: month });
+const held = (number, month = utcMonth()) => ({ id: `h${number}`, type: 'save_invoice', payload: { invoice: { number } }, ts: 1, retries: 0, heldUtcMonth: month });
 
 /** storage.js logs every failed cloud write; the tests below fail them on purpose. */
 function quietConsole() {
@@ -36,6 +36,12 @@ function quietConsole() {
 /** The calendar is fixed (Oct 16 2026), so "Nov 1" reads the same on every run. Only Date is faked: timers and promises run. */
 function fixedCalendar() {
   beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 9, 16, 12)); });
+  afterEach(() => { vi.useRealTimers(); });
+}
+
+/** Only Date is faked (timers and promises run); the test sets the instant itself, in UTC. */
+function fixedUtc() {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); });
   afterEach(() => { vi.useRealTimers(); });
 }
 
@@ -56,7 +62,7 @@ describe('held uploads', () => {
     await processSyncQueue();
     expect(getHeldSyncs().map(a => a.payload.invoice.number)).toEqual([1021]);
     expect(getHeldSyncs()[0].retries).toBe(0);
-    expect(getHeldSyncs()[0].heldMonth).toBe(localMonth());
+    expect(getHeldSyncs()[0].heldUtcMonth).toBe(utcMonth());
     expect(getFailedSyncs()).toEqual([]);
     expect(getQueueLength()).toBe(0);
     expect(db.saveInvoice).toHaveBeenCalledTimes(2);
@@ -128,24 +134,93 @@ describe('held uploads', () => {
   });
 
   it('a month rollover in the middle of a release cannot lose a held upload', () => {
-    // 1021 was held in September and 1022 in October. The release runs on the
-    // last evening of October, and midnight passes while the queue is written.
+    // 1021 was held in September and 1022 in October. The release runs in the
+    // last second of October (UTC), and midnight passes while the queue is written.
     vi.useFakeTimers();
     const realSetItem = Storage.prototype.setItem;
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
-      if (key === STORAGE_KEYS.SYNC_QUEUE) vi.setSystemTime(new Date(2026, 10, 1, 0, 0, 1));
+      if (key === STORAGE_KEYS.SYNC_QUEUE) vi.setSystemTime(new Date('2026-11-01T00:00:01Z'));
       return realSetItem.call(this, key, value);
     });
     try {
-      vi.setSystemTime(new Date(2026, 9, 31, 23, 59, 59));
+      vi.setSystemTime(new Date('2026-10-31T23:59:59Z'));
       localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021, '2026-09'), held(1022, '2026-10')]));
-      releaseHeldSyncs(item => item.heldMonth !== localMonth()); // exactly what processSyncQueue passes
+      releaseHeldSyncs(item => item.heldUtcMonth !== utcMonth()); // exactly what processSyncQueue passes
       expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE)).map(a => a.payload.invoice.number)).toEqual([1021]);
       expect(getHeldSyncs().map(a => a.payload.invoice.number)).toEqual([1022]); // still held, not lost
     } finally {
       spy.mockRestore();
       vi.useRealTimers();
     }
+  });
+});
+
+describe('held uploads are released by the server\'s (UTC) month, whatever the phone\'s time zone', () => {
+  // The server refuses by the UTC month (supabase-pricing.sql). Every instant here is UTC, so these mean the
+  // same under TZ=Asia/Karachi (the local month turns 5 hours early), TZ=America/Los_Angeles (7 hours late) and UTC.
+  fixedUtc();
+  const hold = async (number, at) => {
+    vi.setSystemTime(new Date(at));
+    db.saveInvoice.mockResolvedValue({ error: LIMIT });
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number } } });
+    await processSyncQueue();
+  };
+
+  it('east of UTC: the local month turns first, but the server is still in the old month, so nothing is sent', async () => {
+    await hold(1021, '2026-10-31T17:00:00Z');
+    expect(getHeldSyncs()).toHaveLength(1);
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(new Date('2026-10-31T19:30:00Z')); // 00:30 on Nov 1 in Karachi, still October on the server
+    await processSyncQueue();
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1); // not sent just to be refused and re-held a month late
+    expect(getHeldSyncs()).toHaveLength(1);
+    expect(getHeldSyncs()[0].lastError).toBe('KEIRO_FREE_LIMIT');
+  });
+
+  it('...and goes up as soon as the UTC month turns', async () => {
+    await hold(1021, '2026-10-31T17:00:00Z');
+    vi.setSystemTime(new Date('2026-11-01T00:00:01Z'));
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue();
+    expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+    expect(getHeldSyncs()).toEqual([]);
+    expect(getUnsyncedCount()).toBe(0);
+  });
+
+  it('west of UTC: the server is in the new month while the phone\'s calendar still says the old one, so it goes up', async () => {
+    await hold(1021, '2026-10-31T17:00:00Z');
+    vi.setSystemTime(new Date('2026-11-01T00:30:00Z')); // 17:30 on Oct 31 in Los Angeles, already November on the server
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue();
+    expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+    expect(getHeldSyncs()).toEqual([]);
+  });
+
+  it('refused again after the UTC month turned (still over): held for the NEW month, not stuck', async () => {
+    await hold(1021, '2026-10-31T17:00:00Z');
+    vi.setSystemTime(new Date('2026-11-01T00:00:01Z'));
+    await processSyncQueue(); // sent, refused again
+    expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+    expect(getHeldSyncs()).toHaveLength(1);
+    vi.setSystemTime(new Date('2026-11-15T12:00:00Z'));
+    await processSyncQueue(); // the same month: left alone
+    expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+    vi.setSystemTime(new Date('2026-12-01T00:00:01Z'));
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue();
+    expect(db.saveInvoice).toHaveBeenCalledTimes(3);
+    expect(getHeldSyncs()).toEqual([]);
+  });
+
+  it('an item stored without the month field is released, never stranded', async () => {
+    vi.setSystemTime(new Date('2026-10-31T17:00:00Z'));
+    const { heldUtcMonth: _none, ...bare } = held(1021);
+    const { heldUtcMonth: _older, ...fromOlderBuild } = held(1022);
+    localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([bare, { ...fromOlderBuild, heldMonth: '2026-10' }])); // the older build's local month
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue();
+    expect(db.saveInvoice.mock.calls.map(([inv]) => inv.number).sort()).toEqual([1021, 1022]);
+    expect(getHeldSyncs()).toEqual([]);
   });
 });
 

@@ -32,7 +32,7 @@
 
 import * as db from '../services/db';
 import { STORAGE_KEYS, FREE_LIMIT_ERROR } from './constants';
-import { localMonth } from './invoiceUtils';
+import { utcMonth } from './invoiceUtils';
 import { isGuest } from './guestMode';
 import { notifySyncSuccess } from './syncNotify';
 import { writeLocal, markSignatureSynced } from './storageRoom';
@@ -240,7 +240,7 @@ export function releaseHeldSyncs(which = () => true) {
   if (going.length === 0) return;
   const keep = heldList.filter(item => !going.includes(item)); // `which` is asked once: a month rollover mid-release can't lose one
   const local = readList(STORAGE_KEYS.LIST);
-  const fresh = going.map(({ heldMonth: _heldMonth, ...item }) => {
+  const fresh = going.map(({ heldUtcMonth: _heldUtcMonth, ...item }) => {
     if (item.type !== 'save_invoice') return item;
     const now = local.find(i => (i.number ?? i.invoice_number) === item.payload?.invoice?.number);
     return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
@@ -283,8 +283,10 @@ export async function processSyncQueue() {
   if (processing) return;
   if (isGuest()) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-  // A new month: last month's held uploads are under the limit again.
-  releaseHeldSyncs(item => item.heldMonth !== localMonth());
+  // The server's month turned: last month's held uploads are under the limit again.
+  // The server refuses by the UTC month, not the phone's. An item with no month
+  // (kept by an older build) is released too, never stranded.
+  releaseHeldSyncs(item => item.heldUtcMonth !== utcMonth());
   if (read().length === 0) return;
 
   processing = true;
@@ -319,7 +321,7 @@ export async function processSyncQueue() {
         } else if (isFreeLimitRefusal(err)) {
           // Held, never set aside or deleted; it doesn't block the rest. An
           // invoice is held once: this copy replaces any older held one of it.
-          const entry = { ...cur[idx], lastError, heldMonth: localMonth() };
+          const entry = { ...cur[idx], lastError, heldUtcMonth: utcMonth() };
           if (writeList(HELD_KEY, [...getHeldSyncs().filter(h => !sameInvoiceSave(h, entry)), entry])) {
             cur.splice(idx, 1);
             write(cur);
