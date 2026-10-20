@@ -185,9 +185,14 @@ async function fetchPlan() {
     month: data.month ?? null,
     fetchedAt: new Date().toISOString(),
   };
+  // The cache write is the commit point: from here the new answer stands, so the app is told about it
+  // even if a step after it throws (the caller then gets { ok: false }, see refreshPlan).
   write(STORAGE_KEYS.PLAN_CACHE, next);
-  await applyFreshPlan(prev, next);
-  announce();
+  try {
+    await applyFreshPlan(prev, next);
+  } finally {
+    announce();
+  }
   return { ok: true, plan: next };
 }
 
@@ -215,7 +220,9 @@ export function guardNewInvoice(go) {
  */
 export function planSummary(plan, now = new Date()) {
   if (!isProNow(plan, now)) {
-    return { label: PLAN_COPY.freeLabel, sub: PLAN_COPY.usedLine(invoicesUsedThisMonth(now), resetDateLabel(now)), action: 'upgrade' };
+    // At most the limit: the server's backstop allows a few more and two phones can each count, but "23 of 20" is no help.
+    const used = Math.min(invoicesUsedThisMonth(now), FREE_INVOICES_PER_MONTH);
+    return { label: PLAN_COPY.freeLabel, sub: PLAN_COPY.usedLine(used, resetDateLabel(now)), action: 'upgrade' };
   }
   if (plan.source === 'manual') {
     return { label: plan.proUntil ? PLAN_COPY.proUntilLabel(shortDate(plan.proUntil)) : PLAN_COPY.proFreeLabel, sub: '', action: null };

@@ -215,6 +215,26 @@ describe('refreshPlan', () => {
       await expect(refreshPlan()).resolves.toEqual({ ok: false });
       expect(releaseHeldSyncs).toHaveBeenCalledTimes(1);
     });
+    // The cache write is the commit point: once the new answer is stored it stands, so the app is told
+    // about it even when a step after it (releasing held uploads) throws.
+    it('a step after the cache write that throws still tells the app about the new answer', async () => {
+      db.getMyPlan.mockResolvedValue(answer({ pro: true, source: 'manual' }));
+      vi.mocked(releaseHeldSyncs).mockImplementation(() => { throw new Error('boom'); });
+      const heard = vi.fn();
+      window.addEventListener(EVENTS.PLAN_CHANGE, heard);
+      await expect(refreshPlan()).resolves.toEqual({ ok: false });
+      window.removeEventListener(EVENTS.PLAN_CHANGE, heard);
+      expect(getCachedPlan()).toMatchObject({ pro: true, source: 'manual' });
+      expect(heard).toHaveBeenCalledTimes(1);
+    });
+    it('...but a failure before the cache write announces nothing', async () => {
+      db.getMyPlan.mockRejectedValue(new Error('boom'));
+      const heard = vi.fn();
+      window.addEventListener(EVENTS.PLAN_CHANGE, heard);
+      await refreshPlan();
+      window.removeEventListener(EVENTS.PLAN_CHANGE, heard);
+      expect(heard).not.toHaveBeenCalled();
+    });
     it('after a failure the next call asks the server again', async () => {
       db.getMyPlan.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(answer());
       expect((await refreshPlan()).ok).toBe(false);
@@ -298,6 +318,17 @@ describe('Settings', () => {
     expect(planSummary({ pro: true, source: 'manual', proUntil: '2026-12-01T12:00:00Z' }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
     // A paid (Stripe) record can only exist once payments are built; it shows plain Pro.
     expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW)).toEqual({ label: 'Pro', sub: '', action: null });
+  });
+  // The server's backstop refuses past 25 and two phones can each count: the row never shows more than the limit.
+  it('planSummary shows at most the limit: 23 used is "20 of 20"', () => {
+    setPlan({ pro: false, usedThisMonth: 23, month: '2026-10' });
+    expect(planSummary(getCachedPlan(), NOW).sub).toBe('20 of 20 invoices used this month · resets Nov 1');
+    localStorage.clear();
+    for (let i = 0; i < 23; i++) recordNewInvoice(NOW);
+    expect(planSummary(null, NOW).sub).toBe('20 of 20 invoices used this month · resets Nov 1');
+    setPlan({ pro: false, usedThisMonth: 20, month: '2026-10' });
+    localStorage.removeItem(STORAGE_KEYS.USAGE);
+    expect(planSummary(getCachedPlan(), NOW).sub).toBe('20 of 20 invoices used this month · resets Nov 1');
   });
   it('planSummary takes every label from PLAN_COPY (none is written inline)', () => {
     // Swap the labels for sentinels: a label typed into plan.js would not change.
