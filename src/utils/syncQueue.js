@@ -251,13 +251,36 @@ export function releaseHeldSyncs(which = () => true) {
 }
 
 /**
+ * The invoice a queued change uploads data for (its save, a status change, a
+ * payment), or undefined. Deletes are not uploads: the invoice's own delete, a
+ * payment's delete and the clearing of its payments are the clean-up after a
+ * delete and must still go up. A signature isn't listed either: it replays
+ * from what the phone holds, and deleting an invoice clears that, so it can
+ * only delete (signatureStorage.clearSignatures, run with every delete).
+ */
+function uploadedInvoiceNumber(item) {
+  const p = item.payload || {};
+  switch (item.type) {
+    case 'save_invoice': return p.invoice?.number;
+    case 'update_payment_status': return p.number;
+    case 'save_payment': return p.payment?.invoiceNumber;
+    default: return undefined;
+  }
+}
+
+/**
  * Deleting an invoice cancels every pending upload of it: queued, set aside or
- * held. Otherwise a later retry or release would put the deleted invoice back in
- * the cloud (deleting a row the cloud never had does nothing there).
+ * held — the save, a status change and its payments. Otherwise a later retry or
+ * release would put the deleted invoice back in the cloud (deleting a row the
+ * cloud never had does nothing there), and a queued payment would leave a
+ * payment row with no invoice.
  * @param {number} number - invoice number
  */
 export function forgetInvoiceUploads(number) {
-  const isIt = (item) => item.type === 'save_invoice' && item.payload?.invoice?.number === number;
+  const isIt = (item) => {
+    const n = uploadedInvoiceNumber(item);
+    return n != null && Number(n) === Number(number);
+  };
   const queued = read();
   const keptQueued = queued.filter(item => !isIt(item));
   if (keptQueued.length !== queued.length) write(keptQueued);

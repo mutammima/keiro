@@ -12,7 +12,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-vi.mock('../services/db', () => ({ saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })), getInvoices: vi.fn() }));
+vi.mock('../services/db', () => ({
+  saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })), getInvoices: vi.fn(),
+  saveInvoicePayment: vi.fn(), updateInvoicePaymentStatus: vi.fn(), deleteInvoicePayment: vi.fn(), clearInvoicePayments: vi.fn(),
+  saveSignatureRow: vi.fn(), deleteSignatureRow: vi.fn(),
+}));
 
 import * as db from '../services/db';
 import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs, SYNC_ATTENTION_EVENT } from '../utils/syncQueue';
@@ -51,6 +55,10 @@ beforeEach(() => {
   vi.mocked(db.deleteInvoice).mockReset();
   vi.mocked(db.getInvoices).mockReset();
   db.deleteInvoice.mockImplementation(async () => ({ error: null }));
+  for (const name of ['saveInvoicePayment', 'updateInvoicePaymentStatus', 'deleteInvoicePayment', 'clearInvoicePayments', 'saveSignatureRow', 'deleteSignatureRow']) {
+    vi.mocked(db[name]).mockReset();
+    db[name].mockImplementation(async () => ({ error: null }));
+  }
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
 });
 
@@ -270,14 +278,74 @@ describe('a deleted invoice stays deleted', () => {
     localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([
       queueItem('save_invoice', { invoice: { number: 1021 } }),
       queueItem('save_invoice', { invoice: { number: 1022 } }),
-      queueItem('update_payment_status', { number: 1021, status: 'paid' }), // not a save: left alone
+      queueItem('update_payment_status', { number: 1022, status: 'paid' }), // another invoice's: left alone
     ]));
     const heard = vi.fn();
     window.addEventListener(SYNC_ATTENTION_EVENT, heard);
     await deleteInvoice(1021);
     window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
-    expect(queued().map(a => [a.type, a.payload.invoice?.number ?? a.payload.number])).toEqual([['save_invoice', 1022], ['update_payment_status', 1021]]);
+    expect(queued().map(a => [a.type, a.payload.invoice?.number ?? a.payload.number])).toEqual([['save_invoice', 1022], ['update_payment_status', 1022]]);
     expect(heard).not.toHaveBeenCalled(); // the banner shows set-aside and held uploads, not the queue
+  });
+
+  describe('everything else queued for the invoice', () => {
+    // What the invoice's own uploads are: its save, its status change and its payments. A payment replayed after
+    // the invoice is gone leaves an invoice_payments row with no invoice. Deletes (the invoice's, a payment's, the
+    // clearing of its payments) are the clean-up and must still go up; a signature replays from what the phone
+    // holds, and the delete clears that, so it only ever deletes.
+    const payment = (id, invoiceNumber) => ({ id, amount: 5, note: '', ts: '2026-10-16T12:00:00.000Z', invoiceNumber });
+    const typesFor = (list) => list.map(a => `${a.type}:${a.payload.invoice?.number ?? a.payload.number ?? a.payload.payment?.invoiceNumber ?? a.payload.invoiceNumber ?? a.payload.paymentId}`);
+    const mixed = () => [
+      queueItem('save_payment', { payment: payment('p1', 1021) }),
+      queueItem('save_payment', { payment: payment('p2', 1022) }),
+      queueItem('update_payment_status', { number: 1021, status: 'paid' }),
+      queueItem('update_payment_status', { number: 1022, status: 'paid' }),
+      queueItem('delete_payment', { paymentId: 'p0' }),
+      queueItem('clear_payments', { number: 1021 }),
+      queueItem('sync_signature', { invoiceNumber: 1021 }),
+      queueItem('delete_invoice', { number: 1021 }),
+    ];
+
+    it('a queued payment and status change of a deleted invoice are dropped, so no orphan payment row goes up', async () => {
+      localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(mixed()));
+      await deleteInvoice(1021);
+      expect(typesFor(queued())).toEqual([
+        'save_payment:1022', 'update_payment_status:1022', 'delete_payment:p0', 'clear_payments:1021', 'sync_signature:1021', 'delete_invoice:1021',
+      ]);
+    });
+
+    it('...in the set-aside list too, and the banner is told', async () => {
+      localStorage.setItem(STORAGE_KEYS.SYNC_FAILED, JSON.stringify(mixed()));
+      const heard = vi.fn();
+      window.addEventListener(SYNC_ATTENTION_EVENT, heard);
+      await deleteInvoice(1021);
+      window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
+      expect(typesFor(getFailedSyncs())).toEqual([
+        'save_payment:1022', 'update_payment_status:1022', 'delete_payment:p0', 'clear_payments:1021', 'sync_signature:1021', 'delete_invoice:1021',
+      ]);
+      expect(heard).toHaveBeenCalled();
+    });
+
+    it('...and in the held list', async () => {
+      localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([...mixed(), held(1021)]));
+      await deleteInvoice(1021);
+      expect(typesFor(getHeldSyncs())).toEqual([
+        'save_payment:1022', 'update_payment_status:1022', 'delete_payment:p0', 'clear_payments:1021', 'sync_signature:1021', 'delete_invoice:1021',
+      ]);
+    });
+
+    it('the payment cannot reach the cloud after the invoice is deleted; the clean-up still does', async () => {
+      localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(mixed()));
+      await deleteInvoice(1021);
+      await processSyncQueue();
+      expect(db.saveInvoicePayment.mock.calls.map(([p]) => p.invoiceNumber)).toEqual([1022]); // never 1021
+      expect(db.updateInvoicePaymentStatus.mock.calls).toEqual([[1022, 'paid']]);
+      expect(db.clearInvoicePayments).toHaveBeenCalledWith(1021);
+      expect(db.deleteInvoicePayment).toHaveBeenCalledWith('p0');
+      expect(db.deleteSignatureRow).toHaveBeenCalledWith(1021); // nothing on the phone to upload: it replays as a delete
+      expect(db.saveSignatureRow).not.toHaveBeenCalled();
+      expect(db.deleteInvoice).toHaveBeenCalledWith(1021);
+    });
   });
 
   it('a set-aside save of a deleted invoice is dropped too, and the banner is told', async () => {
