@@ -14,6 +14,9 @@
  * two invoice screens are stand-ins, because the shell's page is what is under
  * test, not how an invoice gets made. location.reload is replaced (jsdom can't
  * stub it any other way), so the reload can be counted.
+ *
+ * The "Update available" banner uses the same hold: its "finish your invoice first" wording
+ * has to cover the share / print screen too, not only the form.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -146,5 +149,36 @@ describe('the reload a plan change asks for waits through the whole invoice flow
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     await settle();
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the "Update available" banner uses the same hold', () => {
+  const FINISH_FIRST = /Finish your invoice first/;
+  const IDLE_TEXT = /Reload to get the latest features and fixes/;
+  const updateReady = () => act(() => { window.dispatchEvent(new Event(EVENTS.VERSION_UPDATE)); });
+
+  it('on a screen with no invoice open it just offers the update', async () => {
+    await easyShellWithAPlanAnswerComing();
+    updateReady();
+    expect(await screen.findByText(IDLE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText(FINISH_FIRST)).toBeNull();
+  });
+
+  it('on the invoice form it says to finish the invoice first', async () => {
+    const shell = await easyShellWithAPlanAnswerComing();
+    shell.startInvoice();
+    await screen.findByRole('button', { name: 'Make invoice (stand-in)' });
+    updateReady();
+    expect(await screen.findByText(FINISH_FIRST)).toBeInTheDocument();
+  });
+
+  it('and so it does on the share / print screen, where a reload would cut the share short', async () => {
+    const shell = await easyShellWithAPlanAnswerComing();
+    shell.startInvoice();
+    fireEvent.click(await screen.findByRole('button', { name: 'Make invoice (stand-in)' }));
+    await screen.findByText('Share or print (stand-in)');
+    updateReady();
+    expect(await screen.findByText(FINISH_FIRST)).toBeInTheDocument();
+    expect(screen.queryByText(IDLE_TEXT)).toBeNull();
   });
 });

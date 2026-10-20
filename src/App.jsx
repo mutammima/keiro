@@ -150,7 +150,8 @@ function AppInner({ role, onSwitchRole }) {
   // invoice, and not while he shares or prints the one he just made either: Make invoice opens
   // 'invoice-view', and a reload there would interrupt the share sheet and could cut off a
   // connected order's fire-and-forget "delivered" update. It waits until both screens are closed.
-  const reloadForPlan = useSafeReload(page === 'invoice' || page === 'invoice-view');
+  const makingInvoice = page === 'invoice' || page === 'invoice-view';
+  const reloadForPlan = useSafeReload(makingInvoice);
 
   // ── Cross-account event badges (tab-strip unread counts) ───────────────────
   const [badges, setBadges] = useState({});
@@ -533,7 +534,7 @@ function AppInner({ role, onSwitchRole }) {
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
           onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
-          isMidInvoice={page === 'invoice'}
+          isMidInvoice={makingInvoice}
         />
       )}
       <NavDrawer
