@@ -266,8 +266,9 @@ invoices.
 - **Tour:** the Easy tour's finish text gains "You get 20 free invoices a month. Settings → Plan
   shows how many are left." (`tourModes.test.jsx` pins the text.)
 - **Store owners:** no Plan row, no Upgrade, no limit lines.
-- **Copy and prices** (`$4.99`, `$49.99`, `save $9.89`, 20, 15, every message above) live in
-  `src/utils/constants.js`. The Stripe price ids are server-side only.
+- **Copy and prices** (`$4.99`, `$49.99`, 20, 15, every message above; `save $9.89` joins them
+  when payments are built, §2) live in `src/utils/constants.js`. The Stripe price ids are
+  server-side only.
 
 ## Testing
 
