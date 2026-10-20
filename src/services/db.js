@@ -37,6 +37,15 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (_cachedUserId) _authUnreachableUntil = 0;
 });
 
+// The signal is back: forget the cached "no session" now rather than when the
+// window runs out, or the sync queue's and PlanRunner's own 'online' handlers
+// would be told "no session" at once and nothing would ask again until the next
+// foreground. Only the negative answer goes; a known session and a lookup
+// already in flight are left alone.
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { _authUnreachableUntil = 0; });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
