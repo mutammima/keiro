@@ -10,6 +10,7 @@
 
 import { supabase } from './supabase';
 import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
+import { timeoutSignal } from '../utils/timeoutSignal';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -391,7 +392,7 @@ export async function getSharedProductName(barcode) {
   try {
     const { data, error } = await supabase
       .rpc('shared_product_name', { p_barcode: barcode })
-      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+      .abortSignal(timeoutSignal(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? null : (data ?? null), error };
   } catch (err) {
     return { data: null, error: err };
@@ -409,7 +410,7 @@ export async function suggestProductNames(query) {
   try {
     const { data, error } = await supabase
       .rpc('suggest_product_names', { p_query: query })
-      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+      .abortSignal(timeoutSignal(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? [] : (data ?? []), error };
   } catch (err) {
     return { data: [], error: err };
@@ -427,7 +428,7 @@ export async function getMyPlan() {
   try {
     const { data, error } = await supabase
       .rpc('my_plan')
-      .abortSignal(AbortSignal.timeout(PLAN_RPC_TIMEOUT_MS));
+      .abortSignal(timeoutSignal(PLAN_RPC_TIMEOUT_MS));
     return { data: error ? null : (data ?? null), error };
   } catch (err) {
     return { data: null, error: err };

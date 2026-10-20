@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { withoutAbortSignalTimeout } from './helpers/withoutAbortSignalTimeout';
 
 vi.mock('../services/supabase', () => ({
   supabase: {
@@ -53,6 +54,41 @@ describe('db.getMyPlan', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('my_plan');
     expect(abortSignal).toHaveBeenCalledTimes(1);
     expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it('on iOS 15 (no AbortSignal.timeout) it still asks my_plan, with a signal, and gets the answer', async () => {
+    // Without this the owner's dad (free forever) was treated as Free: the call threw before the request.
+    signedIn();
+    abortSignal.mockResolvedValue({ data: ANSWER, error: null });
+    await withoutAbortSignalTimeout(async () => {
+      expect(await db.getMyPlan()).toEqual({ data: ANSWER, error: null });
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith('my_plan');
+    expect(abortSignal).toHaveBeenCalledTimes(1);
+    expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it('...and the 8 s limit still applies there: the signal aborts at 8 s, not before', async () => {
+    signedIn();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      abortSignal.mockImplementation(signal => new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }));
+      await withoutAbortSignalTimeout(async () => {
+        const answer = db.getMyPlan();
+        await vi.advanceTimersByTimeAsync(7999);
+        const signal = abortSignal.mock.calls[0][0];
+        expect(signal.aborted).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(signal.aborted).toBe(true);
+        const r = await answer;
+        expect(r.data).toBeNull();
+        expect(r.error).toBeTruthy();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('an RPC error means no data (e.g. before the SQL is run), and the error is passed on', async () => {
