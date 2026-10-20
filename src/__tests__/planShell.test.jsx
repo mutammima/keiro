@@ -237,6 +237,34 @@ describe('PlanRunner: the mode the shell was built with', () => {
     await waitFor(() => expect(onModeChange).toHaveBeenCalledTimes(1));
     expect(db.getMyPlan).toHaveBeenCalledTimes(1);   // and changing the prop did not ask the server again
   });
+  // Loop safety. The reload a mode change asks for rebuilds the shell from the cache that answer wrote, so the
+  // fresh shell is built in the NEW mode; the same answer coming again (launch, foreground) must not ask for a
+  // second reload, or the app would reload for ever.
+  it.each([
+    { name: 'Pro starting', builtFirst: true, setup: () => {}, plan: { pro: true, source: 'manual' } },
+    { name: 'Pro ending', builtFirst: false, setup: givePro, plan: {} },
+  ])('after the reload for $name, a fresh mount on the same cached plan does not ask to reload again', async ({ builtFirst, setup, plan }) => {
+    setup();
+    db.getMyPlan.mockResolvedValue(answer(plan));
+    const firstShell = vi.fn();
+    const before = render(<PlanRunner role="driver" easyMode={builtFirst} onModeChange={firstShell} />);
+    await waitFor(() => expect(firstShell).toHaveBeenCalledTimes(1));
+    before.unmount();                                 // the page reloads
+
+    const rebuilt = easyModeFor('driver');            // the new shell reads the cache the answer wrote
+    expect(rebuilt).toBe(!builtFirst);
+    const secondShell = vi.fn();
+    render(<PlanRunner role="driver" easyMode={rebuilt} onModeChange={secondShell} />);
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(2));
+    await settle();
+    expect(secondShell).not.toHaveBeenCalled();
+
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));   // and coming back to the foreground does not either
+    await waitFor(() => expect(db.getMyPlan).toHaveBeenCalledTimes(3));
+    await settle();
+    expect(secondShell).not.toHaveBeenCalled();
+  });
   it('a re-render with the same props neither asks again nor reloads', async () => {
     db.getMyPlan.mockResolvedValue(answer());
     const onModeChange = vi.fn();
