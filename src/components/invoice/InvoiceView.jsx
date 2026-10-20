@@ -11,9 +11,11 @@ import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
 import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
-import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE, PLAN_COPY } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { shareLabel } from '../../utils/easyMode';
+import { onFreePlan, openUpgrade } from '../../utils/plan';
+import { usePlan } from '../../hooks/usePlan';
 
 export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const { dark } = useTheme();
@@ -26,6 +28,10 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [buyerSig,  setBuyerSig]  = useState(null);
   const [showSigs,  setShowSigs]  = useState(false);
   const [sigStatus, setSigStatus] = useState('');    // '' | 'saved' (flashes) | 'not-saved'
+
+  usePlan(); // re-render when a plan answer lands, so the Sign button follows the plan
+  const sigLocked = onFreePlan(); // signing on the phone is part of Pro
+  const hasSigs = Boolean(sellerSig || buyerSig);
 
   // Values most recently hydrated from cache/cloud. The auto-save effect below
   // compares against these so simply LOADING a signature doesn't immediately
@@ -312,14 +318,28 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
                     : 'Proof of delivery · saved with invoice'}
               </p>
             </div>
-            <button
-              onClick={() => setShowSigs(v => !v)}
-              style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-            >
-              {showSigs ? 'Hide' : (sellerSig || buyerSig) ? 'View' : 'Sign'}
-            </button>
+            {!(sigLocked && !hasSigs) && (
+              <button
+                onClick={() => setShowSigs(v => !v)}
+                style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+              >
+                {showSigs ? 'Hide' : (sellerSig || buyerSig) ? 'View' : 'Sign'}
+              </button>
+            )}
           </div>
-          {showSigs && (
+          {sigLocked && !hasSigs && (
+            <p style={{ color: C.textMuted, fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>
+              {PLAN_COPY.signLocked} ·{' '}
+              <button type="button" onClick={() => openUpgrade()} style={s.inlineLink}>{PLAN_COPY.upgrade}</button>
+            </p>
+          )}
+          {showSigs && sigLocked && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {sellerSig && <img src={sellerSig} alt="Driver / Deliverer signature" style={s.sigImg} />}
+              {buyerSig && <img src={buyerSig} alt="Store Manager signature" style={s.sigImg} />}
+            </div>
+          )}
+          {showSigs && !sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <SignaturePad
                 label="Driver / Deliverer"
@@ -473,4 +493,6 @@ const s = {
     borderRadius: 14, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
+  inlineLink: { background: 'none', border: 'none', padding: 0, color: ACCENT, fontWeight: 700, fontSize: 12, cursor: 'pointer' },
+  sigImg: { width: '100%', maxHeight: 140, objectFit: 'contain', background: '#fff', borderRadius: 10 },
 };

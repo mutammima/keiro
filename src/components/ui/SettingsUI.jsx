@@ -5,7 +5,7 @@
  * (e.g. a future per-section settings page) without re-defining them.
  *
  * Components:
- *   <Toggle on={bool} onChange={fn} />         — iOS-style toggle switch
+ *   <Toggle on={bool} onChange={fn} label="…" /> — iOS-style toggle switch (label = its accessible name)
  *   <Row label="…" sub="…">children</Row>      — label-left / control-right row
  *   <Divider />                                 — 1px horizontal rule
  *   <Section title="…" defaultOpen={bool}>      — collapsible card section
@@ -16,9 +16,10 @@ import { ACCENT } from '../../theme';
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
-export function Toggle({ on, onChange, dark }) {
+export function Toggle({ on, onChange, dark, label }) {
   return (
     <button
+      aria-label={label}
       onClick={() => onChange(!on)}
       style={{
         width: 44, height: 26, borderRadius: 13,

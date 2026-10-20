@@ -15,15 +15,16 @@ vi.mock('../components/ui/SignaturePad', () => ({
 }));
 
 vi.mock('../utils/signatureStorage', () => ({
-  getSignatures: () => ({ seller: null, buyer: null }),
+  getSignatures: vi.fn(() => ({ seller: null, buyer: null })),
   hasSignature: () => false,
   fetchSignatureFromCloud: vi.fn(async () => ({ seller: null, buyer: null })),
   saveSignatures: vi.fn(),
 }));
 
 import InvoiceView from '../components/invoice/InvoiceView';
-import { saveSignatures } from '../utils/signatureStorage';
-import { STORAGE_FULL_MESSAGE } from '../utils/constants';
+import { saveSignatures, getSignatures } from '../utils/signatureStorage';
+import { STORAGE_FULL_MESSAGE, STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { givePro } from './helpers/givePro';
 
 const invoice = { number: 1050, date: 'October 7, 2026', storeName: 'Corner Shop', items: [{ id: 1, name: 'Bread', qty: 2, price: 3 }] };
 
@@ -37,6 +38,7 @@ async function signAsDriver() {
 
 beforeEach(() => {
   localStorage.clear();
+  givePro();
   vi.clearAllMocks();
 });
 
@@ -60,5 +62,63 @@ describe('signature save status', () => {
     await signAsDriver();
     expect(await screen.findByText(/✓ Saved/)).toBeInTheDocument();
     expect(screen.queryByText(STORAGE_FULL_MESSAGE)).toBeNull();
+  });
+
+  it('free plan: no signing on the phone — the lines print blank, with Upgrade', () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull();
+    expect(screen.getByText(/Signature lines print blank, to sign by hand/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upgrade' })).toBeInTheDocument();
+  });
+
+  it('free plan: the Upgrade link opens the plain Upgrade sheet, never with the click event as its title', () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    const opened = vi.fn();
+    window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(opened.mock.calls[0][0].detail.title).toBeUndefined();
+    window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+
+  it('free plan: signatures already on the invoice still show, read-only — no pads', () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' });
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(screen.getByAltText('Driver / Deliverer signature')).toHaveAttribute('src', 'data:image/png;base64,SELLER');
+    expect(screen.getByAltText('Store Manager signature')).toHaveAttribute('src', 'data:image/png;base64,BUYER');
+    expect(screen.queryByRole('button', { name: /^sign / })).toBeNull();      // the pads (mocked as "sign …" buttons)
+    expect(screen.getByRole('button', { name: 'Hide' })).toBeInTheDocument(); // the card still folds
+    expect(screen.queryByText(/Signature lines print blank/)).toBeNull();     // they are signed: nothing prints blank
+    expect(saveSignatures).not.toHaveBeenCalled();                            // showing them re-uploads nothing
+  });
+
+  it('the Sign button follows the plan when a Pro answer lands while the invoice is open', () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull();
+    act(() => {
+      givePro();
+      window.dispatchEvent(new CustomEvent(EVENTS.PLAN_CHANGE));
+    });
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeInTheDocument();
+    expect(screen.queryByText(/Signature lines print blank/)).toBeNull();
+  });
+
+  it('Pro: signing on the phone works as today', () => {
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeInTheDocument();
+    expect(screen.queryByText(/Signature lines print blank/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+  });
+
+  it('a guest can still sign: only signed-in free drivers are locked', () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Sign' })).toBeInTheDocument();
+    expect(screen.queryByText(/Signature lines print blank/)).toBeNull();
   });
 });
