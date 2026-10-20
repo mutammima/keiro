@@ -2,13 +2,14 @@
  * easyMode.js — the driver's Easy Mode switch (Settings → Easy Mode).
  *
  * One reader for the flag that the tab set, the ☰ menu, the invoice screen,
- * the PDF template and the tour all depend on. Toggling it reloads the app
- * (see EasyModeSetting), so reading it at call time is always current.
+ * the PDF template and the tour all depend on. Reading it at call time gives the
+ * flag as it is now. A running shell never changes mode by itself: it changes
+ * only by a reload (the switch in EasyModeSetting, or PlanRunner when a plan
+ * answer flips the mode), which is why the shell can decide its mode once.
  *
- * Only the shell decides the mode: App reads it ONCE per mount and passes it
- * down, and a running shell changes mode only by reload (PlanRunner, the
- * switch). The flag itself can already say otherwise, so a screen must take the
- * mode it is given rather than read the flag (shellModeShare.test scans for it).
+ * So a screen takes the mode it is given (App reads it once per mount and
+ * passes it down) rather than reading the flag, which can already say
+ * otherwise (shellModeShare.test scans for stray readers).
  */
 import { STORAGE_KEYS } from './constants';
 import { onFreePlan } from './plan';

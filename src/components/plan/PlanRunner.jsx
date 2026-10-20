@@ -23,7 +23,9 @@ import { easyModeFor } from '../../utils/easyMode';
 const reload = () => window.location.reload();
 
 export default function PlanRunner({ role, easyMode, onModeChange = reload }) {
-  // Captured once, like AppInner's own mode: both rely on the shell being remounted per role (RoleGate's key={role}).
+  // Captured once, like AppInner's own mode, and relying on the same thing: RoleGate keys the shell by role
+  // (key={role}), so a role switch remounts AppInner and this runner with it, and the mode is captured afresh.
+  // Nothing else rebuilds the shell's mode while it runs except the reload this component asks for.
   const [builtEasy] = useState(easyMode);
   useEffect(() => {
     if (role === 'store_owner' || isGuestNow()) return undefined;

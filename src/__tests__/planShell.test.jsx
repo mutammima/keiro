@@ -220,8 +220,9 @@ describe('PlanRunner: a driver whose first answer never came', () => {
 });
 
 describe('PlanRunner: the mode the shell was built with', () => {
-  // AppInner recomputes `easyMode` on every render, but its tab and page state only follow a reload. A render
-  // between the plan being cached and the check must not make "the mode changed" look like "nothing changed".
+  // AppInner decides `easyMode` once per mount and a running shell changes mode only by reload, so the prop
+  // PlanRunner gets should never change. It still captures the mode at mount, so even a changed prop (a future
+  // shell that re-decided it) can't make "the mode changed" look like "nothing changed".
   it.each([
     { name: 'Pro starts while the shell is in Easy Mode', built: true, later: false, setup: () => {}, plan: { pro: true, source: 'manual' } },
     { name: 'Pro ends while the shell is in normal mode', built: false, later: true, setup: givePro, plan: {} },
