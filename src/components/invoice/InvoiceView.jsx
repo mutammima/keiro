@@ -14,11 +14,12 @@ import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } 
 import { getTotalPaid } from '../../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE, PLAN_COPY } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
-import { shareLabel } from '../../utils/easyMode';
+import { shareLabel, pdfLayoutFor } from '../../utils/easyMode';
 import { onFreePlan, openUpgrade } from '../../utils/plan';
 import { usePlan } from '../../hooks/usePlan';
 
-export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
+// `easyMode` is the mode the shell was built with (App), which decides the share label and the PDF layout.
+export default function InvoiceView({ invoice, easyMode = false, onBack, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -100,7 +101,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   async function getBlob() {
     // Lazy-load the PDF stack (jsPDF + autotable) only on demand.
     const { generatePDFBlob } = await import('../../utils/pdfGenerator');
-    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid });
+    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid, layout: pdfLayoutFor(easyMode) });
   }
 
   /** Lazy-loaded alongside the PDF stack — only fetched once a share/download is triggered. */
@@ -377,7 +378,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             onClick={handleShare}
             disabled={!!busy}
           >
-            {busy === 'share' ? '…' : shareLabel('Share')}
+            {busy === 'share' ? '…' : shareLabel('Share', easyMode)}
           </button>
           <button
             style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.cardBorder }}

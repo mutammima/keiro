@@ -40,6 +40,8 @@ export default function LiveInvoicePreview({
         notes: notes || '',
         sellerSignature: '',
         buyerSignature: '',
+        // NewInvoice, the only place this preview shows, is the normal-mode form: it previews the standard PDF.
+        layout: 'standard',
       };
       // Lazy-load the PDF stack (jsPDF + autotable) only when actually used —
       // keeps ~350 kB out of the initial app bundle.

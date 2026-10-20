@@ -82,9 +82,15 @@ describe('tabTargetFor', () => {
 
 describe('shareLabel', () => {
   it('says Print / Share in Easy Mode, everywhere a PDF is shared', () => {
-    expect(shareLabel('Share PDF')).toBe('Share PDF');
+    expect(shareLabel('Share PDF', false)).toBe('Share PDF');
+    expect(shareLabel('Share PDF', true)).toBe('Print / Share');
+    expect(shareLabel('Share', true)).toBe('Print / Share');
+  });
+  it('follows the mode it is given, not the stored flag (the shell decides the mode, once)', () => {
     localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
-    expect(shareLabel('Share PDF')).toBe('Print / Share');
-    expect(shareLabel('Share')).toBe('Print / Share');
+    expect(shareLabel('Share PDF', false)).toBe('Share PDF');
+    expect(shareLabel('Share PDF')).toBe('Share PDF');
+    localStorage.removeItem(STORAGE_KEYS.EASY_MODE);
+    expect(shareLabel('Share PDF', true)).toBe('Print / Share');
   });
 });

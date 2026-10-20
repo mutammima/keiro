@@ -500,7 +500,7 @@ function AppInner({ role, onSwitchRole }) {
     <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ] : [
     <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-    <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+    <InvoiceHistory key="route"   easyMode={easyMode} onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
     <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
     <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ];
@@ -659,6 +659,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'invoice-view' && currentInvoice && (
             <InvoiceView
               invoice={currentInvoice}
+              easyMode={easyMode}
               onBack={goBackFromOverlay}
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
@@ -685,7 +686,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'store-balance' && selectedStore && (
-            <StoreBalance storeName={selectedStore} onBack={goBackFromOverlay} />
+            <StoreBalance storeName={selectedStore} easyMode={easyMode} onBack={goBackFromOverlay} />
           )}
           </Suspense>
         </div>

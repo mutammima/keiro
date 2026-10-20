@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { generatePDFBlob } from '../utils/pdfGenerator';
+import { pdfLayoutFor } from '../utils/easyMode';
 import { STORAGE_KEYS } from '../utils/constants';
 
 const base = {
@@ -24,24 +25,36 @@ beforeEach(() => localStorage.clear());
 
 describe('Easy Mode template', () => {
   it('prints labeled lines for empty fields, plus Paid by', async () => {
-    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
-    const out = await pdfText({ ...base, storeName: '', notes: '' });
+    const out = await pdfText({ ...base, storeName: '', notes: '', layout: 'template' });
     for (const label of TEMPLATE_LABELS) expect(out).toContain(label);
   });
 
   it('prints filled fields with their values', async () => {
-    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
-    const out = await pdfText({ ...base, storeName: 'Sunrise Deli', storePhone: '718-555-0123', notes: 'Leave at back door' });
+    const out = await pdfText({ ...base, storeName: 'Sunrise Deli', storePhone: '718-555-0123', notes: 'Leave at back door', layout: 'template' });
     expect(out).toContain('(Sunrise Deli)');
     expect(out).toContain('(718-555-0123)');
     expect(out).toContain('(Leave at back door)');
     expect(out).toContain('(Paid by:)');
   });
 
-  it('an explicit layout wins over the setting', async () => {
+  // The layout belongs to the screen that asks for it (pdfLayoutFor, from the shell's mode). The flag can
+  // already say otherwise: a free driver with no plan answer yet is in an Easy shell with the flag off.
+  it('the stored Easy Mode flag does not pick the layout: only the caller does', async () => {
     localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
-    const out = await pdfText({ ...base, storeName: 'Sunrise Deli', layout: 'standard' });
+    const out = await pdfText({ ...base, storeName: 'Sunrise Deli' });
     expect(out).not.toContain('(Paid by:)');
+  });
+
+  it('a template asked for prints whatever the flag says', async () => {
+    localStorage.removeItem(STORAGE_KEYS.EASY_MODE);
+    const out = await pdfText({ ...base, storeName: 'Sunrise Deli', layout: 'template' });
+    expect(out).toContain('(Paid by:)');
+  });
+
+  it('pdfLayoutFor maps the shell\'s mode to a layout', () => {
+    expect(pdfLayoutFor(true)).toBe('template');
+    expect(pdfLayoutFor(false)).toBe('standard');
+    expect(pdfLayoutFor(undefined)).toBe('standard');
   });
 });
 
@@ -55,7 +68,6 @@ describe('normal mode', () => {
 
 describe('file name', () => {
   it('leaves the store out when there is none', async () => {
-    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
     expect((await generatePDFBlob({ ...base, storeName: '' })).filename).toBe('Invoice_1042.pdf');
     expect((await generatePDFBlob({ ...base, storeName: 'Sunrise Deli' })).filename).toBe('Invoice_1042_Sunrise_Deli.pdf');
   });
@@ -93,10 +105,9 @@ describe('long deliveries', () => {
   });
 
   it('the template never prints Paid by, Notes or the signatures off the bottom of a page', async () => {
-    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
     for (const count of [10, 12, 14, 16, 18]) {
       const items = Array.from({ length: count }, (_, i) => ({ id: String(i), name: `Item ${i + 1}`, qty: 1, price: 1 }));
-      const { doc } = await generatePDFBlob({ ...base, storeName: '', notes: '', items });
+      const { doc } = await generatePDFBlob({ ...base, storeName: '', notes: '', items, layout: 'template' });
       const bottom = doc.internal.pageSize.getHeight() - 60; // above the footer rule
       for (const text of ['Paid by:', 'Notes:', 'Buyer / Recipient Signature']) {
         const at = placeOf(doc, text);
@@ -109,10 +120,9 @@ describe('long deliveries', () => {
 
 describe('template fields that are too long', () => {
   it('are cut to fit with "..." instead of running into the next label or off the page', async () => {
-    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
     const contact = 'Alexandra Konstantinopoulos-Vanderbilt Jr., Purchasing Manager';
     const address = '12345 North Very Long Boulevard Name Extension, Building 7, Suite 1200, Springfield Gardens, NY 11413';
-    const { doc } = await generatePDFBlob({ ...base, storeName: 'Sunrise Deli', customerName: contact, storeAddress: address, notes: '' });
+    const { doc } = await generatePDFBlob({ ...base, storeName: 'Sunrise Deli', customerName: contact, storeAddress: address, notes: '', layout: 'template' });
     const out = doc.output();
     expect(out).not.toContain(`(${contact})`);
     expect(out).toContain('(Alexandra');

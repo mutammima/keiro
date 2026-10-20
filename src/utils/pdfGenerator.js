@@ -19,7 +19,6 @@ import { Capacitor } from '@capacitor/core';
 import { STORAGE_KEYS } from './constants';
 import { notifySyncError } from './syncNotify';
 import { recolorSignature, PRINT_INK } from './signatureImage';
-import { isEasyMode } from './easyMode';
 // ── Easy Mode template (docs/specs/2026-10-14-easy-mode-design.md §2) ───────
 // Anything the driver left empty prints as a labeled ruled line to fill in by
 // pen; anything filled prints as text. Only used when invoice.layout is
@@ -99,8 +98,9 @@ function drawTemplatePaidByAndNotes(doc, notes, y, margin, pageW) {
 
 async function buildPDF(invoice) {
   const { businessName, businessPhone, number, storeName, customerName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0, layout } = invoice;
-  // Easy Mode prints the fill-in template unless the caller chose a layout.
-  const template = (layout ?? (isEasyMode() ? 'template' : 'standard')) === 'template';
+  // Callers pass the layout for the shell's mode (pdfLayoutFor); without one the invoice prints as usual.
+  // It never reads the Easy Mode flag, which can already say something other than the screen being shown.
+  const template = layout === 'template';
 
   // Lazy-load the PDF engine only at generation time (keeps it off startup).
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([

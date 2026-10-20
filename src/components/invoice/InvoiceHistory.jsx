@@ -29,7 +29,8 @@ function fmtPaymentDate(iso) {
     + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
+// `easyMode` is the mode the shell was built with (App): it picks the share label and the PDF layout.
+export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice, easyMode = false }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const D = useDensity();
@@ -50,7 +51,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     requestDelete, cancelDelete, confirmDeleteNow, undoDelete,
     handleShare, handleTogglePin,
     isStorePinned,
-  } = useInvoiceHistory();
+  } = useInvoiceHistory({ easyMode });
 
   // ── Payment log state ─────────────────────────────────────────────────────
   const [logPaymentFor, setLogPaymentFor] = useState(null); // invoice number | null
@@ -363,7 +364,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
-                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>{shareLabel('Share PDF')}</button>
+                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>{shareLabel('Share PDF', easyMode)}</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
                   <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => requestDelete(inv.number)}>Delete Invoice</button>
                 </div>
@@ -418,7 +419,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
                   onClick={() => handleShare(inv)}
                   disabled={!!sharing}
-                >{shareLabel('Share PDF')}</button>
+                >{shareLabel('Share PDF', easyMode)}</button>
               </div>
             </div>
           )}
@@ -518,7 +519,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleShare(inv)}
                   >
-                    {shareLabel('Share PDF')}
+                    {shareLabel('Share PDF', easyMode)}
                   </button>
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleDuplicate(inv)}
@@ -661,7 +662,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 onClick={() => handleShare(inv)}
                 disabled={!!sharing}
               >
-                {shareLabel('Share PDF')}
+                {shareLabel('Share PDF', easyMode)}
               </button>
             </div>
           </>

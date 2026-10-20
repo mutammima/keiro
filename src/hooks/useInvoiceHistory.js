@@ -20,6 +20,7 @@ import { clearSignatures, loadSignatureIndexFromCloud } from '../utils/signature
 import { clearPaymentsFor, loadAllPaymentsFromCloud, getTotalPaid } from '../utils/paymentStorage';
 import { BUSINESS_NAME_PLACEHOLDER, EVENTS, DELETE_UNDO_MS } from '../utils/constants';
 import { subtotalOf, getStatus, isOverdue, getFlagDays, todayInvoiceDate } from '../utils/invoiceUtils';
+import { pdfLayoutFor } from '../utils/easyMode';
 
 // Re-exported so existing consumers (e.g. InvoiceHistory) can keep importing
 // subtotalOf from this hook; the canonical definition lives in invoiceUtils.
@@ -40,7 +41,7 @@ export const PAGE_SIZE = 8;
  *
  * @returns {object} State values, computed stats, filtered lists, and action handlers.
  */
-export function useInvoiceHistory() {
+export function useInvoiceHistory({ easyMode = false } = {}) {
   // ── Core data state ──────────────────────────────────────────────────────
   const [invoices, setInvoices]   = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -268,7 +269,7 @@ export function useInvoiceHistory() {
     try {
       // Lazy-load the PDF stack only when sharing.
       const { generateAndSharePDF } = await import('../utils/pdfGenerator');
-      await generateAndSharePDF(normalised);
+      await generateAndSharePDF({ ...normalised, layout: pdfLayoutFor(easyMode) });
     }
     catch (e) { console.error(e); }
     finally { setSharing(null); }
