@@ -30,12 +30,23 @@ const LIMIT = { code: 'P0001', message: 'KEIRO_FREE_LIMIT' };
 const OFFLINE = new TypeError('Failed to fetch'); // no code: the request never got an answer
 const held = (number, month = utcMonth()) => ({ id: `h${number}`, type: 'save_invoice', payload: { invoice: { number } }, ts: 1, retries: 0, heldUtcMonth: month });
 
-/** storage.js logs every failed cloud write; the tests below fail them on purpose. */
-function quietConsole() {
-  let spies;
-  beforeEach(() => { spies = [vi.spyOn(console, 'warn').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})]; });
-  afterEach(() => spies.forEach(s => s.mockRestore()));
+/**
+ * storage.js logs every failed cloud write, and a few tests below fail them on purpose. muted(fn) silences
+ * console.warn and console.error only while fn runs, restores them right after, and returns the first argument
+ * of everything logged: the test says which logs it expects, and anything logged anywhere else still shows.
+ */
+async function muted(fn) {
+  const spies = [vi.spyOn(console, 'warn').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})];
+  try {
+    await fn();
+    return spies.flatMap(spy => spy.mock.calls.map(([first]) => String(first)));
+  } finally {
+    spies.forEach(spy => spy.mockRestore());
+  }
 }
+const SAVE_FAILED = 'saveInvoice: cloud save failed, queued for retry';
+const DELETE_FAILED = 'deleteInvoice cloud error, queued for retry';
+const READ_FELL_BACK = 'getInvoices falling back to localStorage';
 
 /** The calendar is fixed (Oct 16 2026), so "Nov 1" reads the same on every run. Only Date is faked: timers and promises run. */
 function fixedCalendar() {
@@ -338,7 +349,6 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
 });
 
 describe('a deleted invoice stays deleted', () => {
-  quietConsole();
   let cloud;
   const queued = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]');
   const queueItem = (type, payload) => ({ id: `q-${type}-${JSON.stringify(payload)}`, type, payload, ts: 1, retries: 0 });
@@ -349,8 +359,8 @@ describe('a deleted invoice stays deleted', () => {
   it('created offline, deleted offline: the delete cancels the queued save', async () => {
     db.saveInvoice.mockResolvedValue({ error: OFFLINE });
     db.deleteInvoice.mockResolvedValue({ error: OFFLINE });
-    await saveInvoice({ number: 1021, items: [] });
-    await deleteInvoice(1021);
+    expect(await muted(() => saveInvoice({ number: 1021, items: [] }))).toEqual([SAVE_FAILED]);
+    expect(await muted(() => deleteInvoice(1021))).toEqual([DELETE_FAILED]);
     expect(queued().map(a => a.type)).toEqual(['delete_invoice']); // only the delete waits for a signal
     // Back online, where the server now refuses new invoices (free limit) but takes the delete.
     db.saveInvoice.mockResolvedValue({ error: LIMIT });
@@ -366,7 +376,7 @@ describe('a deleted invoice stays deleted', () => {
 
   it('a save still waiting in the queue when the invoice is deleted online is cancelled', async () => {
     db.saveInvoice.mockResolvedValue({ error: OFFLINE });
-    await saveInvoice({ number: 1021, items: [] }); // queued
+    expect(await muted(() => saveInvoice({ number: 1021, items: [] }))).toEqual([SAVE_FAILED]); // queued
     cloudTakesDeletes();
     await deleteInvoice(1021); // online: the cloud delete is a no-op, so nothing is queued for it
     expect(getQueueLength()).toBe(0); // and the queued save is gone
@@ -546,17 +556,19 @@ describe('a deleted invoice stays deleted', () => {
 });
 
 describe('one entry per invoice', () => {
-  quietConsole();
   fixedCalendar();
 
   it('an invoice refused and then edited is held once, not once per edit', async () => {
     db.saveInvoice.mockResolvedValue({ error: LIMIT });
-    await saveInvoice({ number: 1021, items: [], total: 10 }); // refused, so queued
-    await processSyncQueue(); // held
-    await saveInvoice({ number: 1021, items: [], total: 12 }); // an edit: refused, queued
-    await processSyncQueue(); // held again
-    await saveInvoice({ number: 1021, items: [], total: 14 }); // and again
-    await processSyncQueue();
+    const logged = await muted(async () => {
+      await saveInvoice({ number: 1021, items: [], total: 10 }); // refused, so queued
+      await processSyncQueue(); // held
+      await saveInvoice({ number: 1021, items: [], total: 12 }); // an edit: refused, queued
+      await processSyncQueue(); // held again
+      await saveInvoice({ number: 1021, items: [], total: 14 }); // and again
+      await processSyncQueue();
+    });
+    expect(logged).toEqual([SAVE_FAILED, SAVE_FAILED, SAVE_FAILED]); // the three refusals, and nothing else
     expect(getHeldSyncs().map(a => a.payload.invoice.total)).toEqual([14]); // one entry: the newest copy
     expect(getUnsyncedCount()).toBe(1);
     render(<ThemeProvider><SyncAttentionBanner /></ThemeProvider>);
@@ -565,10 +577,13 @@ describe('one entry per invoice', () => {
 
   it('holding another invoice keeps the ones already held', async () => {
     db.saveInvoice.mockResolvedValue({ error: LIMIT });
-    await saveInvoice({ number: 1021, items: [] });
-    await processSyncQueue();
-    await saveInvoice({ number: 1022, items: [] });
-    await processSyncQueue();
+    const logged = await muted(async () => {
+      await saveInvoice({ number: 1021, items: [] });
+      await processSyncQueue();
+      await saveInvoice({ number: 1022, items: [] });
+      await processSyncQueue();
+    });
+    expect(logged).toEqual([SAVE_FAILED, SAVE_FAILED]);
     expect(getHeldSyncs().map(a => a.payload.invoice.number)).toEqual([1021, 1022]);
   });
 });
@@ -577,7 +592,6 @@ describe('invoices not in the cloud yet stay on every screen (storage.getInvoice
   // The Route list, Stores, Reports, End of Day, Home and Store Map all read getInvoices(), and while online it
   // returned the cloud's list alone: an invoice held for the free limit (or still queued) was nowhere until it
   // uploaded. Everything already made must stay usable (spec §1), so the phone's copy is laid over the cloud's.
-  quietConsole();
   const at = (day) => `2026-10-${String(day).padStart(2, '0')}T12:00:00.000Z`;
   // A cloud row has both spellings of its fields (db.getInvoices shapes it so); the phone's copy has the app's own.
   const cloudRow = (number, extra = {}) => ({ number, invoice_number: number, storeName: 'Cloud Deli', created_at: at(number - 1000), items: [], ...extra });
@@ -680,7 +694,9 @@ describe('invoices not in the cloud yet stay on every screen (storage.getInvoice
     db.getInvoices.mockResolvedValue({ data: null, error: new Error('no session') });
     phoneHas(phoneCopy(1021), phoneCopy(1020));
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
-    expect(numbers(await getInvoices())).toEqual([1021, 1020]);
+    let list;
+    expect(await muted(async () => { list = await getInvoices(); })).toEqual([READ_FELL_BACK]);
+    expect(numbers(list)).toEqual([1021, 1020]);
   });
 
   it('a copy with no date goes first rather than being lost', async () => {
