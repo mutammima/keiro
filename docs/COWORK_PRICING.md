@@ -258,7 +258,7 @@ Only after the owner says yes, run:
 ```
 insert into subscriptions (user_id, source, status, pro_until)
 select id, 'manual', 'active', null from auth.users where lower(email) = lower('DAD_EMAIL')
-on conflict (user_id) do update set source = 'manual', status = 'active', pro_until = null, updated_at = now()
+on conflict (user_id) do update set source = 'manual', status = 'active', pro_until = excluded.pro_until, interval = null, cancels = false, updated_at = now()
 returning user_id;
 ```
 
@@ -331,16 +331,19 @@ Paste into the chat: whether the SQL ran (or the exact error), the `user_id` tha
 
 Kept for reference. **Never run any of this during setup.**
 
-If the person already pays by card, cancel their subscription in Stripe first (Stripe dashboard → Customers → their subscription → Cancel), otherwise Stripe keeps charging them.
+If the person already pays by card, first cancel their subscription in Stripe **immediately** (Stripe dashboard → Customers → their subscription → Cancel subscription → cancel it now, not "at the end of the period"), and only then switch them. Otherwise Stripe keeps charging them, and a cancellation left to end later would send Stripe's "subscription ended" notice after the switch, which could overwrite it and take their Pro away.
 
 Use step 2's check first, to make sure the email is the right account. Then:
 
-**Free forever:** step 2's `insert` statement with that person's email.
+**Free forever:** step 2's `insert` statement with that person's email. If the person already has a row, it is replaced by a plain manual one: the details that only describe a card plan (`interval`, `cancels`) are cleared, so no renewal state is left behind, and any Stripe ids on the row are not touched.
 
-**Pro until a date:** step 2's `insert` statement with that person's email, with `null` replaced by the end of that day in New York time, like `'2026-12-01 23:59:59 America/New_York'` (put in the date wanted), in both places. In plain words: Pro lasts through that whole day, and the account is Free from the next day.
+**Pro until a date:** step 2's `insert` statement with that person's email, with the `null` right after `'active',` replaced by the end of that day in New York time, like `'2026-12-01 23:59:59 America/New_York'` (put in the date wanted). Leave the other `null` (after `interval =`) as it is. In plain words: Pro lasts through that whole day, and the account is Free from the next day.
 
 **Back to Free** (removes only a switch, never a Stripe subscription), with that person's email in place of `EMAIL`:
 
 ```
-delete from subscriptions where source = 'manual' and user_id = (select id from auth.users where lower(email) = lower('EMAIL'));
+delete from subscriptions where source = 'manual' and user_id = (select id from auth.users where lower(email) = lower('EMAIL'))
+returning user_id;
 ```
+
+Expected: one result row, that person's `user_id`. No row means nothing was removed: the email is not the right account, or the account is not on a switch. Stop and tell the owner; do not try other emails or other statements.

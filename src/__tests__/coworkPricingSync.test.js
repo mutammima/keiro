@@ -113,6 +113,38 @@ describe('the pricing cowork doc', () => {
     expect(verify).toMatch(/run `rollback;` on its own, then repeat the run that failed/);
   });
 
+  describe('the owner\'s switch (kept for later)', () => {
+    const later = doc.slice(doc.indexOf('## Later'));
+    const [insert] = blocksIn(step2).slice(1);
+    const backToFree = blocksIn(later).find(b => b.startsWith('delete from subscriptions'));
+
+    it('switching someone clears what only a card plan describes, and leaves the Stripe ids alone', () => {
+      const update = insert.match(/do update set ([^;]*?)\s*returning/s)[1];
+      expect(update).toMatch(/\binterval = null\b/);
+      expect(update).toMatch(/\bcancels = false\b/);
+      expect(update).not.toMatch(/stripe_/);
+      // the date is put in one place only: "until a date" can't leave a second null behind to be mistaken for it
+      expect(update).toMatch(/\bpro_until = excluded\.pro_until\b/);
+      expect(insert.match(/\bnull\b/g)).toHaveLength(2);   // the select's pro_until (where the date goes), and interval
+      expect(later).toMatch(/the `null` right after `'active',`/);
+      expect(later).not.toMatch(/in both places/);
+    });
+
+    it('Back to Free returns the row it removed, and says no row means stop', () => {
+      expect(backToFree).toMatch(/\nreturning user_id;$/);
+      expect(later).toMatch(/Expected: one result row/);
+      expect(later).toMatch(/No row means nothing was removed/);
+      expect(later).toMatch(/stop and tell the owner/i);
+    });
+
+    it('a card subscriber is cancelled in Stripe immediately, not at the end of the period, before the switch', () => {
+      expect(later).toMatch(/\*\*immediately\*\*/);
+      expect(later).toMatch(/not "at the end of the (billing )?period"/);
+      expect(later).toMatch(/"subscription ended"/);
+      expect(later.indexOf('immediately')).toBeLessThan(later.indexOf('**Free forever:**'));   // the warning comes before the statements
+    });
+  });
+
   it('the report asks for the user_id step 2 returned, not a row count', () => {
     expect(report).toContain('`user_id` that step 2 returned');
     expect(report).toContain('trigger check');
