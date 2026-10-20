@@ -18,6 +18,7 @@
 import * as db from './db';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from '../utils/constants';
 import { withoutUploadStamp } from '../utils/storageRoom';
+import { holdRefusedSync, isFreeLimitRefusal } from '../utils/syncQueue';
 
 // Legacy boolean flag (pre-timestamp scheme). Still read for backward-compat:
 // a device that only has the old flag is treated as "never migrated under the
@@ -265,16 +266,22 @@ export async function runMigrationIfNeeded() {
   let signaturesMigrated = 0;
 
   // ── Migrate invoices ───────────────────────────────────────────────────────
+  // An account already at its free-plan cap this month (KEIRO_FREE_LIMIT) has the
+  // server refuse an invoice. That one is held, as a refused sync is, so it counts
+  // as unsynced (sign-out warns) and goes up with Pro or next month; if this
+  // phone is too full to hold it, it stays an error and retries next sign-in.
+  const refusedForLimit = (err, inv) => isFreeLimitRefusal(err)
+    && holdRefusedSync({ type: 'save_invoice', payload: { invoice: inv } }, err);
   for (const inv of invoiceList) {
     try {
       const { error } = await db.saveInvoice(inv);
       if (error) {
-        errors.push(`Invoice #${inv.number}: ${error.message || JSON.stringify(error)}`);
+        if (!refusedForLimit(error, inv)) errors.push(`Invoice #${inv.number}: ${error.message || JSON.stringify(error)}`);
       } else {
         invoicesMigrated++;
       }
     } catch (e) {
-      errors.push(`Invoice #${inv.number}: ${e.message}`);
+      if (!refusedForLimit(e, inv)) errors.push(`Invoice #${inv.number}: ${e.message}`);
     }
   }
 

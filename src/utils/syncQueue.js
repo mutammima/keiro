@@ -64,7 +64,7 @@ function isRejection(err) {
 }
 
 /** The server refused a free account's upload past the monthly backstop. */
-function isFreeLimitRefusal(err) {
+export function isFreeLimitRefusal(err) {
   return String(err?.message || '').includes(FREE_LIMIT_ERROR);
 }
 
@@ -251,6 +251,34 @@ export function releaseHeldSyncs(which = () => true) {
 }
 
 /**
+ * Puts a refused upload on the held list. An invoice is held once: this copy
+ * replaces any older held save of it. Returns whether the list was written
+ * (false when this phone's storage is full; the caller keeps the change elsewhere).
+ */
+function holdEntry(item, lastError) {
+  const entry = { ...item, lastError, heldUtcMonth: utcMonth() };
+  return writeList(HELD_KEY, [...getHeldSyncs().filter(h => !sameInvoiceSave(h, entry)), entry]);
+}
+
+/**
+ * Holds an upload the server refused for the free limit that never went through
+ * the queue (migration.js: a guest's invoices joining an account that is already
+ * at its cap). It becomes exactly the entry a refused queued sync becomes, so it
+ * counts as unsynced, shows in the banner, and goes up with Pro or next month.
+ * @param {{ type: string, payload?: object }} action
+ * @param {Error|object} err - the refusal
+ * @returns {boolean} whether it was held (false for a guest, an unknown type, or a full phone)
+ */
+export function holdRefusedSync(action, err) {
+  if (isGuest()) return false;
+  if (!action || !HANDLERS[action.type]) return false;
+  const item = { id: uid(), type: action.type, payload: action.payload || {}, ts: Date.now(), retries: 0 };
+  if (!holdEntry(item, String(err?.message || err))) return false;
+  announceAttention();
+  return true;
+}
+
+/**
  * The invoice a queued change uploads data for (its save, a status change, a
  * payment), or undefined. Deletes are not uploads: the invoice's own delete, a
  * payment's delete and the clearing of its payments are the clean-up after a
@@ -375,8 +403,7 @@ export async function processSyncQueue() {
         } else if (isFreeLimitRefusal(err)) {
           // Held, never set aside or deleted; it doesn't block the rest. An
           // invoice is held once: this copy replaces any older held one of it.
-          const entry = { ...cur[idx], lastError, heldUtcMonth: utcMonth() };
-          if (writeList(HELD_KEY, [...getHeldSyncs().filter(h => !sameInvoiceSave(h, entry)), entry])) {
+          if (holdEntry(cur[idx], lastError)) {
             cur.splice(idx, 1);
             write(cur);
             announceAttention();
