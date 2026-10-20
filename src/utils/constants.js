@@ -35,6 +35,9 @@ export const STORAGE_KEYS = {
   ACCENT_COLOR:     'inv_accent_color',
   DENSITY:          'inv_density',
   EASY_MODE:        'inv_easy_mode',
+  // Set when a fresh Free answer (plan.js) moved the driver into Easy Mode, not the driver. It is account
+  // data, unlike the flag: sign-out wipes it and, seeing it, takes the flag with it. The Easy Mode switch clears it.
+  EASY_BY_PLAN:     'inv_easy_by_plan',
   CRASH_REPORTS:    'inv_crash_reports',   // device pref: send crash reports (default on); kept across sign-out
   AUTO_FLAG_DAYS:   'inv_auto_flag_days',
   AUTO_MARK_DAYS:   'inv_auto_mark_days',

@@ -104,6 +104,14 @@ export function resetDateLabel(now = new Date()) {
 }
 
 /**
+ * The Easy Mode switch was used, so Easy Mode (or normal mode) is now the driver's own choice
+ * and sign-out leaves it alone (see STORAGE_KEYS.EASY_BY_PLAN).
+ */
+export function clearEasyByPlan() {
+  try { localStorage.removeItem(STORAGE_KEYS.EASY_BY_PLAN); } catch { /* storage unavailable */ }
+}
+
+/**
  * After a FRESH answer from the server (never a missing or stale cache): a
  * free driver is moved into Easy Mode for good — so upgrading later never
  * switches modes by itself — with a one-time note; Pro releases uploads held
@@ -118,6 +126,8 @@ export async function applyFreshPlan(prev, next) {
   }
   if (prev?.pro) write(STORAGE_KEYS.PLAN_NOTICE, 'ended');
   if (read(STORAGE_KEYS.EASY_MODE, false) !== true) {
+    // The marker first: it is what lets sign-out take this flag back (a driver in Easy Mode by choice has none).
+    write(STORAGE_KEYS.EASY_BY_PLAN, true);
     write(STORAGE_KEYS.EASY_MODE, true);
     const hasInvoices = (read(STORAGE_KEYS.LIST, []) || []).length > 0;
     if (!prev?.pro && hasInvoices) write(STORAGE_KEYS.PLAN_NOTICE, 'moved');

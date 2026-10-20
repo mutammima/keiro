@@ -14,7 +14,7 @@ import { Section, Toggle } from '../ui/SettingsUI';
 import { STORAGE_KEYS, PLAN_COPY } from '../../utils/constants';
 import { lsSet } from '../../utils/storage';
 import { isEasyMode } from '../../utils/easyMode';
-import { onFreePlan, openUpgrade } from '../../utils/plan';
+import { onFreePlan, openUpgrade, clearEasyByPlan } from '../../utils/plan';
 import { usePlan } from '../../hooks/usePlan';
 
 export const EASY_MODE_DESCRIPTION =
@@ -31,7 +31,10 @@ export default function EasyModeSetting({ role, C, dark, onChange = () => window
     if (locked) { openUpgrade(PLAN_COPY.normalModeTitle); return; }
     // lsSet frees cache space on a full phone; if it still can't save, a
     // reload would come back in the old mode, so don't reload.
-    if (lsSet(STORAGE_KEYS.EASY_MODE, on)) onChange(on);
+    if (lsSet(STORAGE_KEYS.EASY_MODE, on)) {
+      clearEasyByPlan(); // his own choice now: sign-out must not undo it
+      onChange(on);
+    }
   }
 
   return (

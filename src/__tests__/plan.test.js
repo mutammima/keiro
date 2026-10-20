@@ -149,6 +149,27 @@ describe('refreshPlan', () => {
     expect(json(STORAGE_KEYS.EASY_MODE)).toBe(true);
     expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
   });
+  it('...and marks that the PLAN moved him, so signing out of a free account can undo it', async () => {
+    db.getMyPlan.mockResolvedValue(answer());
+    await refreshPlan();
+    expect(json(STORAGE_KEYS.EASY_MODE)).toBe(true);
+    expect(json(STORAGE_KEYS.EASY_BY_PLAN)).toBe(true);
+  });
+  it('a driver already in Easy Mode by choice is not moved: the flag stays, and no marker is set', async () => {
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    db.getMyPlan.mockResolvedValue(answer());
+    await refreshPlan();
+    expect(json(STORAGE_KEYS.EASY_MODE)).toBe(true);
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+  });
+  it('Pro and a stale cache never set the marker', async () => {
+    db.getMyPlan.mockResolvedValue(answer({ pro: true, source: 'manual' }));
+    await refreshPlan();
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+    db.getMyPlan.mockResolvedValue({ data: null, error: new Error('offline') });
+    await refreshPlan();
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+  });
   it('Pro ending gives the "ended" note', async () => {
     setPlan({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-10-01T12:00:00Z' });
     db.getMyPlan.mockResolvedValue(answer({ source: 'stripe', status: 'canceled' }));

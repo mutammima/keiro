@@ -6,6 +6,13 @@ import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { LIGHT } from '../theme';
 import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { givePro } from './helpers/givePro';
+import { signOut } from '../services/auth';
+import { isEasyMode } from '../utils/easyMode';
+
+// signOut() is the real one; only the Supabase client under it is a stand-in (CI has no .env).
+vi.mock('../services/supabase', () => ({
+  supabase: { auth: { signOut: vi.fn(async () => ({ error: null })), storageKey: 'sb-test-auth-token' } },
+}));
 
 // EasyModeSetting reaches the Supabase client through storage.js -> db.js, which throws without a
 // configured URL (CI has no .env). Same stand-in as easyModeMenu.test.jsx: lsSet JSON-encodes into localStorage.
@@ -115,6 +122,33 @@ describe('the Easy Mode switch where the plan does not lock it', () => {
     expect(onChange).toHaveBeenCalledWith(true);
     expect(opened).not.toHaveBeenCalled();
     window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
+  });
+  // The plan moved him into Easy Mode (EASY_BY_PLAN) and he later went Pro. Using the switch is his own
+  // choice from then on, so sign-out must not undo it.
+  it('using the switch makes the mode his choice: the plan\'s marker goes, and signing out keeps the mode', async () => {
+    givePro();
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    localStorage.setItem(STORAGE_KEYS.EASY_BY_PLAN, 'true');
+    const settings = () => wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={vi.fn()} />);
+    const first = settings();
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));   // off
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+    first.unmount();
+    settings();   // the real switch reloads the app; this is the next visit to Settings
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));   // and on again
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBeNull();
+    expect(isEasyMode()).toBe(true);
+
+    await signOut();
+
+    expect(isEasyMode()).toBe(true);
+  });
+  it('...and a tap the free lock refuses is no choice: the marker stays', () => {
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+    localStorage.setItem(STORAGE_KEYS.EASY_BY_PLAN, 'true');
+    wrap(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }));
+    expect(localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN)).toBe('true');
   });
   it('a guest keeps the switch: only signed-in free drivers are locked', () => {
     localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true');
