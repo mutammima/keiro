@@ -100,3 +100,53 @@ describe('backup restore', () => {
     }
   });
 });
+
+/** Runs the export and returns the keys of the backup file. jsdom has no object URLs and would try to navigate on the download click. */
+async function exportedKeys() {
+  let exported;
+  const realCreate = URL.createObjectURL;
+  const realRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = (blob) => { exported = blob; return 'blob:keiro-test'; };
+  URL.revokeObjectURL = () => {};
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    const { result } = renderHook(() => useBackup());
+    await act(async () => { await result.current.handleExport(); });
+    const text = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsText(exported);
+    });
+    return Object.keys(JSON.parse(text));
+  } finally {
+    URL.createObjectURL = realCreate;
+    URL.revokeObjectURL = realRevoke;
+    click.mockRestore();
+  }
+}
+
+describe('backup and the sync lists', () => {
+  // The queue, the set-aside list and the held list all hold changes that exist ONLY on this phone (an invoice
+  // refused for the free limit is the only copy of that invoice). The backup keeps all three, so a backup taken
+  // while uploads wait, restored later, still has them; excluding one would silently lose invoices.
+  const waiting = (id, number) => [{ id, type: 'save_invoice', payload: { invoice: { number } }, ts: 1, retries: 0 }];
+  const lists = {
+    inv_sync_queue: JSON.stringify(waiting('q1', 1021)),
+    inv_sync_failed: JSON.stringify(waiting('f1', 1022)),
+    inv_sync_held: JSON.stringify(waiting('h1', 1023)),
+  };
+
+  it('exports the queue, the set-aside list and the held list', async () => {
+    for (const [key, value] of Object.entries(lists)) localStorage.setItem(key, value);
+    expect(await exportedKeys()).toEqual(expect.arrayContaining(Object.keys(lists)));
+  });
+
+  it('restores the queue, the set-aside list and the held list', async () => {
+    const backup = { ...lists, inv_business_name: JSON.stringify('Corner Shop') };
+    const { result } = renderHook(() => useBackup());
+    const file = new File([JSON.stringify(backup)], 'keiro-backup.json', { type: 'application/json' });
+    act(() => result.current.handleImportFile({ target: { files: [file], value: 'x' } }));
+    await vi.waitFor(() => expect(result.current.backupMsg).toMatch(/Restore complete/));
+    for (const [key, value] of Object.entries(lists)) expect(localStorage.getItem(key)).toBe(value);
+  });
+});

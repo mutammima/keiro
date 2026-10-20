@@ -28,8 +28,11 @@ import { withoutUploadStamp } from '../utils/storageRoom';
  * Tutorial:    inv_tip_<id> (contextual tip seen), inv_act_<id> (feature
  *              discovered, drives the checklist), inv_pulse_home, inv_seen_<tab>
  *              — all swept automatically by collectBackupKeys (inv_ prefix).
- * Sync:        inv_sync_queue (offline retry outbox) is also swept automatically
- *              so pending cloud writes survive a backup. EDGE CASE: backing up
+ * Sync:        inv_sync_queue (offline retry outbox), inv_sync_failed (set aside)
+ *              and inv_sync_held (refused for the free limit) are also swept
+ *              automatically, so pending cloud writes survive a backup: all three
+ *              can hold the only copy of an invoice, so none is excluded
+ *              (backupRestore.test pins it). EDGE CASE: backing up
  *              mid-queue then restoring on another device could replay the same
  *              actions twice — harmless here because every queued op is an
  *              idempotent upsert/delete, but worth knowing. Restoring mid-queue
