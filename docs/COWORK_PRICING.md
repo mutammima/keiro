@@ -2,6 +2,8 @@
 
 Self-contained instructions for a cowork session. It adds two tables, eight functions and three triggers, and changes no existing rows except one new Pro record (the owner's dad, step 2). The SQL is safe to re-run.
 
+**What this changes for everyone:** as soon as the SQL runs, any signed-in driver account that isn't Pro can upload at most 25 new invoices a month (the app itself stops at 20). Today that only affects test accounts.
+
 **Project:** Keiro, Supabase project ref `dcfplaqknngtnixvsiju`.
 If its URL doesn't resolve, the free project is paused; open the dashboard and click Restore first.
 
@@ -248,7 +250,7 @@ from auth.users u
 where lower(u.email) = lower('DAD_EMAIL');
 ```
 
-Show the owner the row in plain words: the email, the day the account was created (`created_at`), the day it last signed in (`last_sign_in_at`) and how many invoices it holds (`invoices`). His dad already uses Keiro, so expect an account that has been around a while, signed in recently, with invoices. Ask the owner: "Is this your dad's account?" **Do not go on until the owner says yes.**
+Show the owner the row in plain words: the email, the day the account was created (`created_at`), the day it last signed in (`last_sign_in_at`) and how many invoices it holds (`invoices`). His dad already uses Keiro, so expect an account that has been around a while and holds invoices. `last_sign_in_at` is the last time he typed his password or used Google to sign in, not the last time he opened the app, so an old date is normal for someone who stays signed in. The real warning signs are "never signed in" (`last_sign_in_at` is empty) and no invoices. Ask the owner: "Is this your dad's account?" **Do not go on until the owner says yes.**
 
 - No row at all: no account has that email. Show the owner `select email from auth.users order by created_at;` and ask for the right one.
 - More than one row, or an account that looks wrong (brand new, no invoices, never signed in), or the owner isn't sure: stop and ask. Do not run the next statement.

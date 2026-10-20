@@ -113,6 +113,23 @@ describe('the pricing cowork doc', () => {
     expect(verify).toMatch(/run `rollback;` on its own, then repeat the run that failed/);
   });
 
+  it('near the top, says what the SQL changes for everyone: 25 a month for any non-Pro driver, as soon as it runs', () => {
+    const top = doc.slice(0, doc.indexOf('## 1.'));
+    expect(top).toMatch(/as soon as the SQL runs, any signed-in driver account that isn't Pro can upload at most (\d+) new invoices a month/);
+    expect(top).toMatch(/the app itself stops at 20/);
+    expect(top).toMatch(/Today that only affects test accounts/);
+    // the number the owner is told is the number the SQL enforces
+    const told = top.match(/can upload at most (\d+) new invoices/)[1];
+    expect(sql).toMatch(new RegExp(`function free_cap\\(\\)[\\s\\S]*?select ${told};`));
+  });
+
+  it('step 2 does not expect a recent sign-in: last_sign_in_at is the last password/Google sign-in, not the last use', () => {
+    expect(step2).not.toMatch(/signed in recently/);
+    expect(step2).toMatch(/`last_sign_in_at` is the last time he typed his password or used Google to sign in, not the last time he opened the app/);
+    expect(step2).toMatch(/an old date is normal for someone who stays signed in/);
+    expect(step2).toMatch(/real warning signs are "never signed in" \(`last_sign_in_at` is empty\) and no invoices/);
+  });
+
   describe('the owner\'s switch (kept for later)', () => {
     const later = doc.slice(doc.indexOf('## Later'));
     const [insert] = blocksIn(step2).slice(1);
