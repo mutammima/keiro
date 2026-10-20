@@ -155,3 +155,71 @@ describe('SyncAttentionBanner at phone width', () => {
     }
   });
 });
+
+describe('SyncAttentionBanner: set-aside, held, and both', () => {
+  const failed = (n) => Array.from({ length: n }, (_, i) => ({ id: `f${i}` }));
+  const held = (n) => Array.from({ length: n }, (_, i) => ({ id: `h${i}` }));
+  const show = (f, h) => { getFailedSyncs.mockReturnValue(failed(f)); getHeldSyncs.mockReturnValue(held(h)); };
+  const labels = () => screen.getAllByRole('button').map(b => b.textContent);
+  const sentence = () => screen.getByText(/invoice|change/, { selector: 'span' }).textContent.replace('⚠', '').trim(); // the text, not the buttons
+  const WILL_UPLOAD = (n) => new RegExp(`^${n} invoice${n === 1 ? '' : 's'} will upload [A-Z][a-z]{2} \\d{1,2}, or with Pro$`);
+
+  it('set-aside only: Try again, never Upgrade (upgrading cannot save what the server rejected)', () => {
+    show(2, 0);
+    render(<SyncAttentionBanner />);
+    expect(labels()).toEqual(['Later', 'Try again']);
+    expect(screen.queryByRole('button', { name: 'Upgrade' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveTextContent('will upload');
+  });
+
+  it('held only: Upgrade, never Try again', () => {
+    show(0, 2);
+    render(<SyncAttentionBanner />);
+    expect(labels()).toEqual(['Later', 'Upgrade']);
+    expect(screen.getByRole('status')).not.toHaveTextContent("couldn't be saved");
+  });
+
+  it('set-aside and held together: one sentence with both, and all three buttons', () => {
+    show(2, 3);
+    render(<SyncAttentionBanner />);
+    const [firstHalf, secondHalf] = sentence().split(' · ');
+    expect(firstHalf).toBe("2 changes couldn't be saved");
+    expect(secondHalf).toMatch(WILL_UPLOAD(3));
+    expect(labels()).toEqual(['Later', 'Try again', 'Upgrade']);
+  });
+
+  it('one is singular and several are plural, on both halves', () => {
+    show(1, 1);
+    const { unmount } = render(<SyncAttentionBanner />);
+    const [a, b] = sentence().split(' · ');
+    expect(a).toBe("1 change couldn't be saved");
+    expect(b).toMatch(WILL_UPLOAD(1));
+    unmount();
+    show(0, 1);
+    render(<SyncAttentionBanner />);
+    expect(sentence()).toMatch(WILL_UPLOAD(1));
+  });
+
+  it('"Later" counts both lists: more of either brings it back, the same number does not', () => {
+    show(1, 1);
+    render(<SyncAttentionBanner />);
+    fireEvent.click(screen.getByText('Later'));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    show(1, 1); announce(); // the same two
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    show(1, 2); announce(); // another invoice held
+    expect(screen.getByRole('status')).toHaveTextContent("1 change couldn't be saved");
+  });
+
+  it('"Later" is not lifted by a failure moving to held: the total did not rise', () => {
+    show(2, 0);
+    render(<SyncAttentionBanner />);
+    fireEvent.click(screen.getByText('Later'));
+    show(1, 1); announce(); // one of the two was held for the limit instead: still two things waiting
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    show(1, 2); announce(); // and a third
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+});
