@@ -321,10 +321,19 @@ describe('PlanNotices: edges', () => {
     });
     expect(screen.getByText(PLAN_COPY.endedNote)).toBeInTheDocument();
   });
-  it('a tap outside the note clears it for good, like OK', () => {
-    localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify('moved'));
+  // The note is the only explanation of a change to the driver's app (Easy Mode, or Pro ending), and OK clears it for
+  // good. A stray tap beside it, with a thumb or a truck's bump, must not dismiss it unread.
+  it.each([
+    ['moved', PLAN_COPY.movedNote],
+    ['ended', PLAN_COPY.endedNote],
+  ])('a tap outside the "%s" note does nothing: only OK clears it', (notice, words) => {
+    localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify(notice));
     render(<ThemeProvider><PlanNotices /></ThemeProvider>);
-    fireEvent.click(screen.getByRole('dialog').parentElement);
+    fireEvent.click(screen.getByRole('dialog').parentElement);   // the dimmed backdrop
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(words)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE))).toBe(notice);   // and it is still to be shown
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE)).toBeNull();
   });

@@ -1,7 +1,10 @@
 /**
  * PlanSheet — the bottom sheet every plan screen uses (a centered dialog on
  * desktop through the --sheet-* custom properties, like the other sheets).
- * Portaled so an overflow:hidden ancestor can't clip it on iOS.
+ * Portaled so an overflow:hidden ancestor can't clip it on iOS. `onClose` is
+ * optional: with it, a tap on the dimmed backdrop closes the sheet; without it
+ * (the one-time plan notes) the backdrop does nothing and only the sheet's own
+ * button can close it.
  */
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';

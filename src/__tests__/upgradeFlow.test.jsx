@@ -105,6 +105,24 @@ describe('UpgradeHost: when it opens', () => {
     expect(screen.getByText('Keiro Pro')).toBeInTheDocument();
   });
 
+  // Unlike the one-time plan notes (only OK clears those), these two sheets can be dismissed with a tap outside:
+  // nothing is lost by closing them, and the Upgrade button opens them again.
+  it('a tap outside the Upgrade sheet closes it', () => {
+    host();
+    fire(EVENTS.OPEN_UPGRADE);
+    fireEvent.click(screen.getByText('Payments are coming soon.'));   // inside: stays
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('dialog').parentElement);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a tap outside the limit sheet closes it', () => {
+    host();
+    fire(EVENTS.OPEN_FREE_LIMIT);
+    fireEvent.click(screen.getByRole('dialog').parentElement);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('Not now opens nothing else: it is a way out, not a way to Upgrade', () => {
     host();
     fire(EVENTS.OPEN_FREE_LIMIT);

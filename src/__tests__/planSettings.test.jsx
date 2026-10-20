@@ -35,6 +35,10 @@ describe('Settings → Plan', () => {
     expect(opened).toHaveBeenCalledTimes(1);
     window.removeEventListener(EVENTS.OPEN_UPGRADE, opened);
   });
+  it('the Upgrade button meets the 44px minimum tap target', () => {
+    wrap(<PlanSetting role="driver" C={LIGHT} />);
+    expect(screen.getByRole('button', { name: 'Upgrade' }).style.minHeight).toBe('44px');
+  });
   it('the owner\'s switch with an end date: Pro until that day, no button', () => {
     setPlan({ pro: true, source: 'manual', proUntil: '2099-12-01T12:00:00Z' });
     wrap(<PlanSetting role="driver" C={LIGHT} />);

@@ -169,9 +169,9 @@ export async function deleteInvoice(number) {
   lsSet(STORAGE_KEYS.LIST, list.filter(i => (i.number || i.invoice_number) !== number));
   // Nothing left to upload for it, whether the save is queued, set aside or held.
   forgetInvoiceUploads(number);
-  // Best-effort cloud delete — there is no retry queue, so a failure here
-  // means the cloud copy survives and the invoice reappears on next load.
-  // Tell the user instead of failing silently.
+  // Best-effort cloud delete. A failure (offline, a dropped connection) queues a
+  // delete_invoice for the sync queue to replay; until it goes through, the
+  // cloud copy survives and a cloud load lists the invoice again.
   const { error } = await db.deleteInvoice(number);
   if (error) {
     console.error('deleteInvoice cloud error, queued for retry', error);

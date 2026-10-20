@@ -33,5 +33,6 @@ export default function PlanSetting({ role, C }) {
 }
 
 const s = {
-  btn: { flexShrink: 0, minHeight: 36, padding: '0 14px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  // 44px is the app's minimum tap target (TopNav and PlanSheet's buttons use the same).
+  btn: { flexShrink: 0, minHeight: 44, padding: '0 14px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
 };

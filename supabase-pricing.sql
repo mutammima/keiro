@@ -5,8 +5,10 @@
 -- HOW TO RUN: through docs/COWORK_PRICING.md (Supabase Dashboard → SQL Editor).
 -- Safe to re-run. Run it BEFORE the app update that turns the limits on.
 --
--- subscriptions  — who is Pro: Stripe subscribers (written by api/stripe-webhook
---                  with the service-role key) and the owner's switch (by hand).
+-- subscriptions  — who is Pro: the owner's switch (written by hand, see
+--                  docs/COWORK_PRICING.md). When payments are built, a server
+--                  function will write Stripe subscribers with the service-role
+--                  key; nothing writes them today.
 -- invoice_usage  — new invoices per account per UTC month, kept by triggers.
 -- A free account's upload is refused past 25 in a month (the app stops at 20), and a
 -- request inserting many invoices at once is refused whole if it would pass 25.
