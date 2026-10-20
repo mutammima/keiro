@@ -66,6 +66,7 @@ vi.mock('../components/invoice/InvoiceView', async () => {
 
 import App from '../App.jsx';
 import { STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { markWhatsNewSeen } from '../utils/whatsNewState';
 
 // jsdom has no ResizeObserver, which the swipe strip measures with.
 globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
@@ -77,7 +78,7 @@ function signedIn() {
   set(STORAGE_KEYS.ONBOARDING_DONE, 'true');
   set(STORAGE_KEYS.TOUR_SEEN_FULL, '1');
   set(STORAGE_KEYS.TOUR_SEEN_EASY, '1');
-  set(`${STORAGE_KEYS.WHATS_NEW_SEEN_PREFIX}5.9`, '1');
+  markWhatsNewSeen();   // for whichever version this build is, so the modal never sits over the screen
 }
 
 const found = (container, selector) => waitFor(() => {

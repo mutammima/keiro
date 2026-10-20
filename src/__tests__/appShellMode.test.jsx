@@ -48,8 +48,9 @@ vi.mock('../services/auth', () => fakeModule({
 }));
 
 import App from '../App.jsx';
-import { STORAGE_KEYS, PLAN_COPY } from '../utils/constants';
+import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { openUpgrade, openFreeLimit } from '../utils/plan';
+import { markWhatsNewSeen } from '../utils/whatsNewState';
 import { givePro } from './helpers/givePro';
 
 // jsdom has no ResizeObserver, which the swipe strip measures with.
@@ -63,22 +64,35 @@ function signedIn(role = 'driver') {
   set(STORAGE_KEYS.ONBOARDING_DONE, 'true');
   set(STORAGE_KEYS.TOUR_SEEN_FULL, '1');
   set(STORAGE_KEYS.TOUR_SEEN_EASY, '1');
-  set(`${STORAGE_KEYS.WHATS_NEW_SEEN_PREFIX}5.9`, '1');
+  markWhatsNewSeen();   // for whichever version this build is, so the modal never sits over the screen
 }
 const turnFree = () => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({
   pro: false, source: null, status: null, proUntil: null, usedThisMonth: 0, month: null, fetchedAt: '2026-10-16T12:00:00.000Z',
 }));
 
-const found = (container, selector) => waitFor(() => {
-  const el = container.querySelector(selector);
-  expect(el).not.toBeNull();
+// The element is on screen, and so are the effects of the commit that drew it. React runs a commit's effects
+// a moment AFTER painting it (later still on a busy machine), so a test that acted at once could be talking to
+// a shell that had not yet attached its listeners.
+const found = async (container, selector) => {
+  const el = await waitFor(() => {
+    const found = container.querySelector(selector);
+    expect(found).not.toBeNull();
+    return found;
+  }, { timeout: 5000 });
+  await act(async () => {});
   return el;
-}, { timeout: 5000 });
+};
 
-// Any routine re-render of AppInner: a badge refresh is what the 60 s poll and Realtime events do (App.jsx).
+// A routine re-render of AppInner that the app really has: a newer build is out (useVersionCheck dispatches
+// this from its 30 s poll), which shows the Update banner. Waiting for the banner proves the re-render happened:
+// a re-render that was silently lost would let every "nothing changed" assertion after it pass for nothing.
 async function reRender() {
-  act(() => { window.dispatchEvent(new Event('inv-badges-refresh')); });
-  await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+  // Both invoice screens are loaded already, so a wrong swap between them would show at once: React keeps
+  // hiding the old screen (it stays in the DOM) while a lazy screen it has not loaded yet is on its way in.
+  await Promise.all([import('../components/invoice/EasyInvoice'), import('../components/invoice/NewInvoice')]);
+  act(() => { window.dispatchEvent(new Event(EVENTS.VERSION_UPDATE)); });
+  expect(await screen.findByText('Update available')).toBeInTheDocument();
+  await act(async () => { for (let i = 0; i < 5; i += 1) await new Promise(r => setTimeout(r, 0)); });
 }
 
 beforeEach(() => {
@@ -125,10 +139,11 @@ describe('the shell decides its mode once per mount', () => {
     expect(tabs()).toEqual(['route', 'stores', 'reports']);
 
     givePro();
-    await reRender();
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));              // the driver opens ☰: the shell re-renders
+    const menu = screen.getByRole('navigation', { name: 'Main' });                    // the ☰ drawer's list
+    expect(menu.closest('[style*="translateX(0"]')).not.toBeNull();                  // and it really opened
 
     expect(tabs()).toEqual(['route', 'stores', 'reports']);                           // TopNav did not grow a Home tab
-    const menu = screen.getByRole('navigation', { name: 'Main' });                    // the ☰ drawer's list
     expect(within(menu).getByText('Products')).toBeInTheDocument();
     expect(within(menu).queryByText('Store Info')).toBeNull();                        // and the drawer kept its short menu
   });
