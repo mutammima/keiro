@@ -11,7 +11,7 @@
  * The cloud boundary (services/db.js) is mocked; localStorage is jsdom's.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../services/db', () => {
   const ok = () => vi.fn(async () => ({ error: null }));
@@ -37,6 +37,23 @@ import {
 } from '../utils/syncQueue';
 import { STORAGE_KEYS } from '../utils/constants';
 import { utcMonth } from '../utils/invoiceUtils';
+
+/**
+ * The migration logs when an invoice could not go up (it retries next sign-in) and the phone logs when it is
+ * full; some tests below cause both on purpose. muted(fn) silences console.warn/error only while fn runs,
+ * restores them right after and returns the first argument of each call, so a test names the logs it expects
+ * and anything logged anywhere else still shows.
+ */
+async function muted(fn) {
+  const spies = [vi.spyOn(console, 'warn').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})];
+  try {
+    await fn();
+    return spies.flatMap(spy => spy.mock.calls.map(([first]) => String(first)));
+  } finally {
+    spies.forEach(spy => spy.mockRestore());
+  }
+}
+const MIGRATION_RETRY = expect.stringContaining('[Migration] 1 item(s) failed');
 
 const LIMIT = { code: 'P0001', message: 'KEIRO_FREE_LIMIT' };
 const guest = (number) => ({ number, storeName: `Store ${number}`, createdAt: '2026-10-01T09:00:00.000Z', items: [] });
@@ -105,23 +122,23 @@ describe('a guest invoice the server refuses for the free limit', () => {
   it('a retried migration holds it once, not once per sign-in', async () => {
     set(STORAGE_KEYS.LIST, [guest(1030), guest(1031)]);
     db.saveInvoice.mockImplementation(async (inv) => (inv.number === 1030 ? { error: LIMIT } : { error: new Error('fetch failed') }));
-    await runMigrationIfNeeded(); // 1031 failed for another reason: the migration will run again
-    expect(localStorage.getItem(STORAGE_KEYS.MIGRATED_AT)).toBeNull();
-    await runMigrationIfNeeded();
+    const logs = await muted(async () => {
+      await runMigrationIfNeeded(); // 1031 failed for another reason: the migration will run again
+      expect(localStorage.getItem(STORAGE_KEYS.MIGRATED_AT)).toBeNull();
+      await runMigrationIfNeeded();
+    });
+    expect(logs).toEqual([MIGRATION_RETRY, MIGRATION_RETRY]); // 1031 only; the held 1030 is not reported as a failure
     expect(getHeldSyncs().map(h => h.payload.invoice.number)).toEqual([1030]);
     expect(getUnsyncedCount()).toBe(1);
   });
 });
 
 describe('what is still an error', () => {
-  let quiet;
-  beforeEach(() => { quiet = [vi.spyOn(console, 'error').mockImplementation(() => {}), vi.spyOn(console, 'warn').mockImplementation(() => {})]; });
-  afterEach(() => quiet.forEach(s => s.mockRestore()));
-
   it('any other refusal is reported and held back for the next sign-in, not held', async () => {
     set(STORAGE_KEYS.LIST, [guest(1030)]);
     db.saveInvoice.mockResolvedValue({ error: { code: '42501', message: 'permission denied for table invoices' } });
-    const result = await runMigrationIfNeeded();
+    let result;
+    expect(await muted(async () => { result = await runMigrationIfNeeded(); })).toEqual([MIGRATION_RETRY]);
     expect(result.errors).toHaveLength(1);
     expect(getHeldSyncs()).toEqual([]);
     expect(localStorage.getItem(STORAGE_KEYS.MIGRATED_AT)).toBeNull();
@@ -136,7 +153,9 @@ describe('what is still an error', () => {
       return realSetItem.call(this, key, value);
     });
     try {
-      const result = await runMigrationIfNeeded();
+      let result;
+      // The phone says it is full (writing the held list), then the migration says it will retry.
+      expect(await muted(async () => { result = await runMigrationIfNeeded(); })).toEqual(['localStorage is full; not saved', MIGRATION_RETRY]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('1030');
       expect(localStorage.getItem(STORAGE_KEYS.MIGRATED_AT)).toBeNull();

@@ -31,19 +31,21 @@ const OFFLINE = new TypeError('Failed to fetch'); // no code: the request never 
 const held = (number, month = utcMonth()) => ({ id: `h${number}`, type: 'save_invoice', payload: { invoice: { number } }, ts: 1, retries: 0, heldUtcMonth: month });
 
 /**
- * storage.js logs every failed cloud write, and a few tests below fail them on purpose. muted(fn) silences
- * console.warn and console.error only while fn runs, restores them right after, and returns the first argument
- * of everything logged: the test says which logs it expects, and anything logged anywhere else still shows.
+ * storage.js logs every failed cloud write, and a few tests below fail them on purpose. loggedCalls(fn) silences
+ * console.warn and console.error only while fn runs, restores them right after, and returns the arguments of every
+ * call: the test says which logs it expects, and anything logged anywhere else still shows. muted(fn) is the
+ * same, reduced to the first argument (the message).
  */
-async function muted(fn) {
+async function loggedCalls(fn) {
   const spies = [vi.spyOn(console, 'warn').mockImplementation(() => {}), vi.spyOn(console, 'error').mockImplementation(() => {})];
   try {
     await fn();
-    return spies.flatMap(spy => spy.mock.calls.map(([first]) => String(first)));
+    return spies.flatMap(spy => spy.mock.calls.map(args => [...args]));
   } finally {
     spies.forEach(spy => spy.mockRestore());
   }
 }
+const muted = async (fn) => (await loggedCalls(fn)).map(([first]) => String(first));
 const SAVE_FAILED = 'saveInvoice: cloud save failed, queued for retry';
 const DELETE_FAILED = 'deleteInvoice cloud error, queued for retry';
 const READ_FELL_BACK = 'getInvoices falling back to localStorage';
@@ -258,10 +260,11 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
   const numbersIn = (list) => list.map(a => a.payload.invoice.number);
   const queued = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || '[]');
   const FULL = 'localStorage is full; not saved';
-  let consoleError;
+  // Each failed write logs once, with the key it could not write: exactly these logs are expected, and only around the calls that write.
+  const fullFor = (...keys) => keys.map(key => [FULL, key]);
+  const fullLogs = (calls) => calls.map(([message, key]) => [message, key]);
   let phone;
-  beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}); });
-  afterEach(() => { phone?.mockRestore(); phone = undefined; consoleError.mockRestore(); });
+  afterEach(() => { phone?.mockRestore(); phone = undefined; });
   // A loop that keeps sending the same upload is a bug; cap the calls so a regression ends instead of hanging the run.
   const refuseCapped = () => db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 3 ? { error: OFFLINE } : { error: LIMIT }));
 
@@ -269,12 +272,12 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
     refuseCapped();
     enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
     phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
-    await processSyncQueue();
+    const logs = await loggedCalls(() => processSyncQueue());
     expect(numbersIn(getHeldSyncs())).toEqual([1021]);
     expect(numbersIn(queued())).toEqual([1021]); // a duplicate, not a loss
     expect(getUnsyncedCount()).toBe(2);
     expect(db.saveInvoice).toHaveBeenCalledTimes(1); // the round stopped: it is not sent again and again
-    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_QUEUE, expect.anything()); // and the phone said so
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE)); // the phone said so, once
   });
 
   it('hold: when the held list cannot be written, the invoice stays in the queue (nothing is lost)', async () => {
@@ -283,49 +286,50 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
     phone = fullPhone(STORAGE_KEYS.SYNC_HELD);
     const heard = vi.fn();
     window.addEventListener(SYNC_ATTENTION_EVENT, heard);
-    await processSyncQueue();
+    const logs = await loggedCalls(() => processSyncQueue());
     window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
     expect(numbersIn(queued())).toEqual([1021]);
     expect(getHeldSyncs()).toEqual([]);
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
     expect(heard).not.toHaveBeenCalled(); // nothing moved, so there is nothing to tell the banner
-    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_HELD, expect.anything());
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_HELD));
   });
 
-  it('release: the queue is written first, so when the held list cannot shrink the invoice is on both lists', () => {
+  it('release: the queue is written first, so when the held list cannot shrink the invoice is on both lists', async () => {
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
     phone = fullPhone(STORAGE_KEYS.SYNC_HELD);
-    releaseHeldSyncs();
+    const logs = await loggedCalls(() => releaseHeldSyncs());
     expect(numbersIn(queued())).toEqual([1021]);
     expect(numbersIn(getHeldSyncs())).toEqual([1021]); // a duplicate, not a loss
-    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_HELD, expect.anything());
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_HELD));
     phone.mockRestore(); phone = undefined; // room again: the next release finishes the move
     releaseHeldSyncs();
     expect(getHeldSyncs()).toEqual([]);
     expect(new Set(queued().map(a => a.id))).toEqual(new Set(['h1021'])); // still the one upload (same id), at most twice in the queue
   });
 
-  it('release: when the queue cannot be written, the invoice stays held (nothing is lost)', () => {
+  it('release: when the queue cannot be written, the invoice stays held (nothing is lost)', async () => {
     localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([held(1021)]));
     phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
     const heard = vi.fn();
     window.addEventListener(SYNC_ATTENTION_EVENT, heard);
-    releaseHeldSyncs();
+    const logs = await loggedCalls(() => releaseHeldSyncs());
     window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
     expect(numbersIn(getHeldSyncs())).toEqual([1021]);
     expect(queued()).toEqual([]);
     expect(heard).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith(FULL, STORAGE_KEYS.SYNC_QUEUE, expect.anything());
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE));
   });
 
   it('set-aside: the same order, and a queue that cannot shrink stops the round instead of repeating the upload', async () => {
     db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 8 ? { error: OFFLINE } : { error: { code: '42501', message: 'permission denied' } }));
     localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([{ id: 'q1', type: 'save_invoice', payload: { invoice: { number: 1021 } }, ts: 1, retries: 4 }]));
     phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
-    await processSyncQueue(); // the fifth rejection sets it aside; the queue cannot be written
+    const logs = await loggedCalls(() => processSyncQueue()); // the fifth rejection sets it aside; the queue cannot be written
     expect(numbersIn(getFailedSyncs())).toEqual([1021]);
     expect(numbersIn(queued())).toEqual([1021]); // a duplicate, not a loss
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE));
   });
 
   it('holding tells the banner; so does releasing; releasing nothing does not', async () => {
@@ -335,13 +339,16 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
       db.saveInvoice.mockResolvedValue({ error: LIMIT });
       enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
       expect(heard).not.toHaveBeenCalled(); // queueing alone is not shown by the banner
-      await processSyncQueue(); // held
-      expect(heard).toHaveBeenCalledTimes(1);
-      releaseHeldSyncs(); // released
-      expect(heard).toHaveBeenCalledTimes(2);
-      releaseHeldSyncs(); // nothing held any more
-      releaseHeldSyncs(() => false);
-      expect(heard).toHaveBeenCalledTimes(2);
+      const logs = await muted(async () => {
+        await processSyncQueue(); // held
+        expect(heard).toHaveBeenCalledTimes(1);
+        releaseHeldSyncs(); // released
+        expect(heard).toHaveBeenCalledTimes(2);
+        releaseHeldSyncs(); // nothing held any more
+        releaseHeldSyncs(() => false);
+        expect(heard).toHaveBeenCalledTimes(2);
+      });
+      expect(logs).toEqual([]); // moving between lists logs nothing
     } finally {
       window.removeEventListener(SYNC_ATTENTION_EVENT, heard);
     }
@@ -410,7 +417,6 @@ describe('a deleted invoice stays deleted', () => {
     const saveInFlight = () => db.saveInvoice.mockImplementation((inv) => new Promise((resolve) => {
       landSave = (result = { error: null }) => { if (!result.error) cloud.set(inv.number, inv); resolve(result); };
     }));
-
     it('the delete is sent again once the upload has finished, so the server ends without the invoice', async () => {
       cloudTakesDeletes();
       saveInFlight();
