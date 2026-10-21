@@ -38,6 +38,8 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
   // "signed on another phone, still downloading" from "nobody signed this".
   const [fetchedFor, setFetchedFor] = useState(null);
   // Signed (here or elsewhere) but not on screen yet: the Free card must not say the lines "print blank" meanwhile.
+  // Whether the card is open: the pads (Pro), or the signatures that exist (Free). With nothing to show on Free it stays closed.
+  const sigsOpen = showSigs && (!sigLocked || hasSigs);
   const sigsComing = sigLocked && !hasSigs && fetchedFor !== invoice.number && hasSignature(invoice.number);
 
   // Values most recently hydrated from cache/cloud. The auto-save effect below
@@ -313,7 +315,7 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
 
         {/* Signatures — Proof of delivery */}
         <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: '14px 16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showSigs ? 14 : 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sigsOpen ? 14 : 0 }}>
             <div>
               <p style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: 0 }}>Signatures</p>
               <p style={{ color: C.textMuted, fontSize: 12, margin: '2px 0 0' }}>
@@ -341,7 +343,7 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
               <button type="button" onClick={() => openUpgrade()} style={s.inlineLink}>{PLAN_COPY.upgrade}</button>
             </p>
           )}
-          {showSigs && sigLocked && (
+          {sigsOpen && sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {sellerSig && <ReadOnlySignature src={sellerSig} alt={PLAN_COPY.sellerSigAlt} caption={PLAN_COPY.sellerSigCaption} C={C} />}
               {buyerSig && <ReadOnlySignature src={buyerSig} alt={PLAN_COPY.buyerSigAlt} caption={PLAN_COPY.buyerSigCaption} C={C} />}

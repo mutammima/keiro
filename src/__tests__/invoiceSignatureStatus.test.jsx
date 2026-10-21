@@ -205,6 +205,33 @@ describe('signature save status', () => {
     });
   });
 
+  // The pads were opened with nothing drawn, then a Free answer landed: there is nothing to show read-only, so the
+  // card is back to its closed look (no empty box under the header, no 14px left under it for one).
+  it('pads open with nothing drawn, then the plan goes Free: no empty box or gap is left in the card', () => {
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
+    expect(screen.getAllByRole('button', { name: /^sign / })).toHaveLength(2);   // the pads are open
+    act(() => {
+      localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+      window.dispatchEvent(new CustomEvent(EVENTS.PLAN_CHANGE));
+    });
+    expect(screen.queryByRole('button', { name: /^sign / })).toBeNull();
+    expect(screen.getByText(/Signature lines print blank/)).toBeInTheDocument();
+    const header = screen.getByText('Signatures').parentElement.parentElement;
+    const card = header.parentElement;
+    expect(header.style.marginBottom).toBe('0px');
+    for (const child of card.children) expect(child).not.toBeEmptyDOMElement();
+  });
+
+  it('...but signatures that exist keep the card open, with the gap under its header', async () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: null });
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(await screen.findByAltText(PLAN_COPY.sellerSigAlt)).toBeInTheDocument();
+    const header = screen.getByText('Signatures').parentElement.parentElement;
+    expect(header.style.marginBottom).toBe('14px');
+  });
+
   it('free plan, dark mode: a signature drawn in white ink shows in print ink on its white box, never as stored', async () => {
     localStorage.setItem(STORAGE_KEYS.DARK_MODE, 'true');
     localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
