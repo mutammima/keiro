@@ -470,9 +470,14 @@ describe('a deleted invoice stays deleted', () => {
     // The queue sent save_invoice N and is waiting for the answer when N is deleted. Forgetting the queued copy
     // cannot recall the request: if the cloud delete lands first, the save then puts N back on the server.
     let landSave;
-    const saveInFlight = () => db.saveInvoice.mockImplementation((inv) => new Promise((resolve) => {
-      landSave = (result = { error: null }) => { if (!result.error) cloud.set(inv.number, inv); resolve(result); };
-    }));
+    // The first upload hangs until landSave(); any later one just lands.
+    const saveInFlight = () => {
+      cloudTakesSaves();
+      db.saveInvoice.mockImplementationOnce((inv) => new Promise((resolve) => {
+        landSave = (result = { error: null }) => { if (!result.error) cloud.set(inv.number, inv); resolve(result); };
+      }));
+    };
+
     it('the delete is sent again once the upload has finished, so the server ends without the invoice', async () => {
       cloudTakesDeletes();
       saveInFlight();
@@ -498,6 +503,62 @@ describe('a deleted invoice stays deleted', () => {
       landSave({ error: OFFLINE });
       await round;
       expect(queued().map(a => `${a.type}:${a.payload.number ?? a.payload.invoice?.number}`)).toEqual(['delete_invoice:1021']);
+    });
+
+    it('a delete already waiting in the queue (an offline delete) is not queued a second time', async () => {
+      db.deleteInvoice.mockResolvedValue({ error: OFFLINE });
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      expect(await muted(() => deleteInvoice(1021))).toEqual([DELETE_FAILED]); // the cloud delete did not get through: queued
+      expect(queued().map(a => a.type)).toEqual(['delete_invoice']);
+      landSave({ error: OFFLINE }); // the upload did not get an answer either
+      await round;
+      expect(queued().map(a => `${a.type}:${a.payload.number}`)).toEqual(['delete_invoice:1021']); // one delete, not two
+    });
+
+    it('...and when the upload lands, that one queued delete is the only one sent after it', async () => {
+      db.deleteInvoice.mockResolvedValueOnce({ error: OFFLINE });
+      cloudTakesDeletes(); // from the second call on
+      saveInFlight();
+      enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+      const round = processSyncQueue();
+      await muted(() => deleteInvoice(1021)); // fails, queued
+      landSave();
+      await round;
+      expect(db.deleteInvoice).toHaveBeenCalledTimes(2); // the user's attempt, and the queued delete after the save
+      expect(db.deleteInvoice.mock.invocationCallOrder[1]).toBeGreaterThan(db.saveInvoice.mock.invocationCallOrder[0]);
+      expect(cloud.has(1021)).toBe(false);
+      expect(getUnsyncedCount()).toBe(0);
+    });
+
+    describe('an invoice made again under that number is not deleted by the re-sent delete', () => {
+      // The re-sent delete would run after the new invoice's save and wipe it from the cloud.
+      const raceThenMakeItAgain = async (makeItAgain) => {
+        cloudTakesDeletes();
+        saveInFlight();
+        enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+        const round = processSyncQueue();
+        await deleteInvoice(1021);
+        makeItAgain();
+        landSave();
+        await round;
+      };
+      const asItem = (n) => ({ id: `again-${n}`, type: 'save_invoice', payload: { invoice: { number: n } }, ts: 2, retries: 0 });
+
+      it('it is back in the phone\'s list', async () => {
+        await raceThenMakeItAgain(() => localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify([{ number: 1021, storeName: 'Made again' }])));
+        expect(db.deleteInvoice).toHaveBeenCalledTimes(1); // only the user's delete
+        expect(cloud.has(1021)).toBe(true);
+      });
+
+      for (const [where, key] of [['queued', STORAGE_KEYS.SYNC_QUEUE], ['set aside', STORAGE_KEYS.SYNC_FAILED], ['held', STORAGE_KEYS.SYNC_HELD]]) {
+        it(`a save of it is ${where}`, async () => {
+          await raceThenMakeItAgain(() => localStorage.setItem(key, JSON.stringify([asItem(1021)])));
+          expect(db.deleteInvoice).toHaveBeenCalledTimes(1);
+          if (key === STORAGE_KEYS.SYNC_QUEUE) expect(cloud.has(1021)).toBe(true); // the queued save went up after the first
+        });
+      }
     });
 
     it('an upload of another invoice, or of this one when nothing was deleted, sends no extra delete', async () => {

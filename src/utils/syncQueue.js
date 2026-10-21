@@ -356,6 +356,14 @@ let onTheWire = null;
  */
 async function deleteAgainIfRaced(sent) {
   if (!sent?.deleted) return;
+  // Made again under the same number (it is on the phone, or its save waits in any list): the
+  // delete would run after that save and wipe the new invoice from the cloud.
+  const number = Number(sent.number);
+  const onPhone = readList(STORAGE_KEYS.LIST).some(i => Number(i.number ?? i.invoice_number) === number);
+  if (onPhone || [...pendingInvoiceNumbers()].some(n => Number(n) === number)) return;
+  // A delete for it is already queued (the user's own, which failed): it runs after this upload,
+  // so a second one would only be sent twice (and counted as two changes).
+  if (read().some(a => a.type === 'delete_invoice' && Number(a.payload?.number) === number)) return;
   if (enqueueSync({ type: 'delete_invoice', payload: { number: sent.number } })) return;
   try { await db.deleteInvoice(sent.number); } catch { /* the phone is full and the cloud unreachable: the next delete of it retries */ }
 }
