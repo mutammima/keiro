@@ -19,7 +19,7 @@ vi.mock('../services/db', () => ({
 }));
 
 import * as db from '../services/db';
-import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs, SYNC_ATTENTION_EVENT } from '../utils/syncQueue';
+import { enqueueSync, processSyncQueue, getHeldSyncs, getFailedSyncs, getQueueLength, getUnsyncedCount, releaseHeldSyncs, retryFailedSyncs, SYNC_ATTENTION_EVENT } from '../utils/syncQueue';
 import { deleteInvoice, saveInvoice, getInvoices } from '../utils/storage';
 import SyncAttentionBanner from '../components/ui/SyncAttentionBanner';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
@@ -330,6 +330,48 @@ describe('holding and releasing on a full phone, and telling the banner', () => 
     expect(numbersIn(queued())).toEqual([1021]); // a duplicate, not a loss
     expect(db.saveInvoice).toHaveBeenCalledTimes(1);
     expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE));
+  });
+
+  it('set-aside: round after round with a queue that cannot shrink, the set-aside list keeps ONE copy (the count does not inflate)', async () => {
+    db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 8 ? { error: OFFLINE } : { error: { code: '42501', message: 'permission denied' } }));
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([{ id: 'q1', type: 'save_invoice', payload: { invoice: { number: 1021 } }, ts: 1, retries: 4 }]));
+    phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
+    const logs = await loggedCalls(async () => {
+      await processSyncQueue(); // set aside; the queued copy keeps retries 4
+      await processSyncQueue(); // rejected and set aside again
+      await processSyncQueue();
+    });
+    expect(db.saveInvoice).toHaveBeenCalledTimes(3);
+    expect(getFailedSyncs().map(a => a.id)).toEqual(['q1']); // replaced by id, never appended again
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE, STORAGE_KEYS.SYNC_QUEUE, STORAGE_KEYS.SYNC_QUEUE));
+    phone.mockRestore(); phone = undefined; // room again
+    retryFailedSyncs();
+    expect(new Set(queued().map(a => a.id))).toEqual(new Set(['q1'])); // Try again queues the one change (it is the same id as the stale queued copy)
+    expect(getFailedSyncs()).toEqual([]);
+  });
+
+  it('success: when the queue cannot shrink after an upload, the round stops instead of sending the same upload again', async () => {
+    db.saveInvoice.mockImplementation(async () => (db.saveInvoice.mock.calls.length > 3 ? { error: OFFLINE } : { error: null }));
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+    phone = fullPhone(STORAGE_KEYS.SYNC_QUEUE);
+    const logs = await loggedCalls(() => processSyncQueue());
+    expect(db.saveInvoice).toHaveBeenCalledTimes(1);
+    expect(numbersIn(queued())).toEqual([1021]); // still queued: it goes up again next round (an upsert), never lost
+    expect(fullLogs(logs)).toEqual(fullFor(STORAGE_KEYS.SYNC_QUEUE));
+  });
+
+  it('a change from an older build is dropped, and a queue that cannot shrink stops the round instead of spinning', async () => {
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([{ id: 'x1', type: 'save_hologram', payload: {}, ts: 1, retries: 0 }]));
+    // The queue stays full for 40 write attempts, then there is room: a loop would burn through them all.
+    const realSetItem = Storage.prototype.setItem;
+    let refused = 0;
+    phone = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (k, v) {
+      if (k === STORAGE_KEYS.SYNC_QUEUE && refused < 40) { refused += 1; throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); }
+      return realSetItem.call(this, k, v);
+    });
+    await loggedCalls(() => processSyncQueue());
+    expect(refused).toBeLessThanOrEqual(2); // one write and its retry, then the round stopped
+    expect(queued().map(a => a.id)).toEqual(['x1']); // dropped once the phone has room
   });
 
   it('holding tells the banner; so does releasing; releasing nothing does not', async () => {

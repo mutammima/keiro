@@ -259,7 +259,7 @@ export function releaseHeldSyncs(which = () => true) {
  */
 function holdEntry(item, lastError) {
   const entry = { ...item, lastError, heldUtcMonth: utcMonth() };
-  return writeList(HELD_KEY, [...getHeldSyncs().filter(h => !sameInvoiceSave(h, entry)), entry]);
+  return writeList(HELD_KEY, [...getHeldSyncs().filter(h => h.id !== entry.id && !sameInvoiceSave(h, entry)), entry]);
 }
 
 /**
@@ -381,7 +381,7 @@ export async function processSyncQueue() {
       const handler = HANDLERS[item.type];
 
       if (!handler) {                          // unknown type from an older build — drop it
-        write(q.slice(1));
+        if (!write(q.slice(1))) break;         // can't shrink: stop, or this spins on the same head
         continue;
       }
 
@@ -425,7 +425,8 @@ export async function processSyncQueue() {
           // The set-aside list is written first, and the queue shrunk only
           // after: on a full phone the first write can fail, and the change
           // then stays queued rather than vanishing.
-          if (retries >= MAX_RETRIES && writeList(FAILED_KEY, [...getFailedSyncs(), { ...cur[idx], retries, lastError }])) {
+          // By id: when the queue could not shrink, this change comes round again, and appending would pile up copies.
+          if (retries >= MAX_RETRIES && writeList(FAILED_KEY, [...getFailedSyncs().filter(f => f.id !== cur[idx].id), { ...cur[idx], retries, lastError }])) {
             cur.splice(idx, 1);
             const shrunk = write(cur);
             announceAttention();
@@ -443,7 +444,9 @@ export async function processSyncQueue() {
       if (failed) break;                       // stop this round; keeps FIFO order
       // success — remove the head and continue
       const after = read().filter(x => x.id !== item.id);
-      write(after);
+      // If the queue cannot shrink (a full phone) the same head would be sent again and again:
+      // stop the round. It goes up once more next round (every op is an upsert or a delete).
+      if (!write(after)) break;
       drained += 1;
     }
   } finally {
