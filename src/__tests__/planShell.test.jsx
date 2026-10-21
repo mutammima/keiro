@@ -3,6 +3,7 @@
  * re-read at launch and on foreground, a mode change reloads, and the
  * one-time notes show once.
  */
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
@@ -418,5 +419,120 @@ describe('PlanSheet', () => {
     render(<ThemeProvider><PlanSheet open={false}><p>inside</p></PlanSheet></ThemeProvider>);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByText('inside')).toBeNull();
+  });
+});
+
+describe('PlanSheet: keyboard and focus', () => {
+  // A trigger outside the sheet that opens it, the way an Upgrade button or Make invoice does.
+  function Harness({ withClose = true }) {
+    const [open, setOpen] = useState(false);
+    const [, setTicks] = useState(0);
+    return (
+      <ThemeProvider>
+        <button type="button" onClick={() => setOpen(true)}>Open</button>
+        <button type="button" onClick={() => setTicks(t => t + 1)}>Re-render</button>
+        <PlanSheet open={open} onClose={withClose ? () => setOpen(false) : undefined} title="Keiro Pro">
+          <p>words</p>
+          <PrimaryBtn onClick={() => setOpen(false)}>OK</PrimaryBtn>
+          <TextBtn onClick={() => setOpen(false)}>Later</TextBtn>
+        </PlanSheet>
+      </ThemeProvider>
+    );
+  }
+  const openFrom = () => {
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    return trigger;
+  };
+
+  it('moves focus into the sheet when it opens: its first button', () => {
+    render(<Harness />);
+    openFrom();
+    expect(screen.getByRole('button', { name: 'OK' })).toHaveFocus();
+  });
+
+  it('skips a disabled first button', () => {
+    render(<ThemeProvider><PlanSheet open><PrimaryBtn disabled onClick={vi.fn()}>Wait</PrimaryBtn><TextBtn onClick={vi.fn()}>Later</TextBtn></PlanSheet></ThemeProvider>);
+    expect(screen.getByRole('button', { name: 'Later' })).toHaveFocus();
+  });
+
+  it('with no button at all, focus still goes to the sheet itself', () => {
+    render(<ThemeProvider><PlanSheet open title="Keiro Pro"><p>words</p></PlanSheet></ThemeProvider>);
+    expect(screen.getByRole('dialog')).toHaveFocus();
+  });
+
+  it('Escape closes a sheet that can be closed, and focus returns to what had it', () => {
+    render(<Harness />);
+    const trigger = openFrom();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('a button inside that closes the sheet also gives focus back', () => {
+    render(<Harness />);
+    const trigger = openFrom();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('a tap on the backdrop gives focus back too', () => {
+    render(<Harness />);
+    const trigger = openFrom();
+    fireEvent.click(screen.getByRole('dialog').parentElement);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('Escape does nothing to a sheet with no onClose: only its own button closes it', () => {
+    render(<Harness withClose={false} />);
+    const trigger = openFrom();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('other keys do not close it', () => {
+    const onClose = vi.fn();
+    render(<ThemeProvider><PlanSheet open onClose={onClose}><PrimaryBtn onClick={vi.fn()}>OK</PrimaryBtn></PlanSheet></ThemeProvider>);
+    fireEvent.keyDown(document, { key: 'Enter' });
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('listens for Escape only while open: once closed or unmounted, Escape reaches nobody', () => {
+    const onClose = vi.fn();
+    const { rerender, unmount } = render(<ThemeProvider><PlanSheet open onClose={onClose}><PrimaryBtn onClick={vi.fn()}>OK</PrimaryBtn></PlanSheet></ThemeProvider>);
+    rerender(<ThemeProvider><PlanSheet open={false} onClose={onClose}><PrimaryBtn onClick={vi.fn()}>OK</PrimaryBtn></PlanSheet></ThemeProvider>);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(<ThemeProvider><PlanSheet open onClose={onClose}><PrimaryBtn onClick={vi.fn()}>OK</PrimaryBtn></PlanSheet></ThemeProvider>);
+    unmount();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('a re-render of the page does not pull focus back into the sheet (a new onClose each render is normal)', () => {
+    render(<Harness />);
+    openFrom();
+    screen.getByRole('button', { name: 'Later' }).focus();   // he tabbed on
+    fireEvent.click(screen.getByRole('button', { name: 'Re-render' }));   // the page re-renders: PlanSheet gets a new onClose
+    expect(screen.getByRole('button', { name: 'Later' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });          // and the newest onClose still answers Escape
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('one-time plan notes: focus goes to OK, Escape leaves the note up', async () => {
+    localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify('moved'));
+    render(<ThemeProvider><PlanNotices /></ThemeProvider>);
+    expect(screen.getByRole('button', { name: 'OK' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.PLAN_NOTICE))).toBe('moved');
   });
 });

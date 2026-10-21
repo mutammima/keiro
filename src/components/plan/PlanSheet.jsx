@@ -2,10 +2,13 @@
  * PlanSheet — the bottom sheet every plan screen uses (a centered dialog on
  * desktop through the --sheet-* custom properties, like the other sheets).
  * Portaled so an overflow:hidden ancestor can't clip it on iOS. `onClose` is
- * optional: with it, a tap on the dimmed backdrop closes the sheet; without it
- * (the one-time plan notes) the backdrop does nothing and only the sheet's own
- * button can close it.
+ * optional: with it, a tap on the dimmed backdrop or the Escape key closes the
+ * sheet; without it (the one-time plan notes) the backdrop and Escape do
+ * nothing and only the sheet's own button can close it.
+ * Opening moves focus into the sheet (its first button); closing gives focus
+ * back to what had it. There is no focus trap.
  */
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
@@ -14,10 +17,32 @@ import { PLAN_COPY } from '../../utils/constants';
 export default function PlanSheet({ open, onClose, title, label, children }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
+  const dialogRef = useRef(null);
+
+  // Focus goes in when the sheet opens and back to where it was when it closes. Keyed on `open` alone: the
+  // page re-renders with a new onClose all the time, and that must not pull focus back into the sheet.
+  useEffect(() => {
+    if (!open) return undefined;
+    const before = document.activeElement;
+    const dialog = dialogRef.current;
+    (dialog?.querySelector('button:not([disabled])') || dialog)?.focus();
+    return () => { if (before?.isConnected && typeof before.focus === 'function') before.focus(); };
+  }, [open]);
+
+  // Escape closes a sheet that can be closed.
+  useEffect(() => {
+    if (!open || !onClose) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
   return createPortal(
     <div onClick={onClose} style={s.backdrop}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label || title || PLAN_COPY.upgradeTitle}
@@ -69,6 +94,7 @@ const s = {
     // fixed-height button would be squashed (50px to 20px in Chromium) before the sheet scrolled, so
     // the title and both buttons refuse to shrink (flexShrink: 0).
     maxHeight: '85vh', overflowY: 'auto',
+    outline: 'none', // only ever focused by code (when it holds no button), never a control to tab to
   },
   title: { fontSize: 19, fontWeight: 800, lineHeight: 1.3, flexShrink: 0 },
   primary: {

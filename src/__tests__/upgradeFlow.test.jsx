@@ -183,6 +183,44 @@ describe('UpgradeHost: when it opens', () => {
   });
 });
 
+describe('UpgradeHost: keyboard and focus', () => {
+  // The button that was in use when the sheet was asked for: + New, Make invoice, an Upgrade link.
+  const withTrigger = () => {
+    render(<ThemeProvider><button type="button">+ New</button><UpgradeHost /></ThemeProvider>);
+    const trigger = screen.getByRole('button', { name: '+ New' });
+    trigger.focus();
+    return trigger;
+  };
+
+  it('the Upgrade sheet takes focus (its OK), Escape closes it, and focus goes back', () => {
+    const trigger = withTrigger();
+    fire(EVENTS.OPEN_UPGRADE);
+    expect(screen.getByRole('button', { name: 'OK' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('the limit sheet takes focus (its Upgrade), and Escape closes it like Not now', () => {
+    const trigger = withTrigger();
+    fire(EVENTS.OPEN_FREE_LIMIT);
+    expect(screen.getByRole('button', { name: 'Upgrade' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('limit sheet, then Upgrade, then OK: focus ends where it began, not on a sheet that is gone', () => {
+    const trigger = withTrigger();
+    fire(EVENTS.OPEN_FREE_LIMIT);
+    fireEvent.click(screen.getByRole('button', { name: 'Upgrade' }));
+    expect(screen.getByRole('button', { name: 'OK' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+});
+
 describe('the sheets take every word from PLAN_COPY', () => {
   // Swap the copy for sentinels: a message typed into a component would not change.
   function withCopy(swapped, check) {
