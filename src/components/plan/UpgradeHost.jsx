@@ -1,8 +1,7 @@
 /**
- * UpgradeHost — mounted once in the app shell. Every Upgrade button
- * (EVENTS.OPEN_UPGRADE) and the free limit (EVENTS.OPEN_FREE_LIMIT) open
- * their sheet here, so screens only dispatch an event (plan.js openUpgrade /
- * openFreeLimit).
+ * UpgradeHost — mounted once in App() (beside the sync banner, so it works on every screen). Every
+ * Upgrade button (EVENTS.OPEN_UPGRADE) and the free limit (EVENTS.OPEN_FREE_LIMIT) open their sheet
+ * here, so screens only dispatch an event (plan.js openUpgrade / openFreeLimit).
  */
 import { useEffect, useState } from 'react';
 import { EVENTS, PLAN_COPY } from '../../utils/constants';
@@ -10,20 +9,19 @@ import UpgradeSheet from './UpgradeSheet';
 import FreeLimitSheet from './FreeLimitSheet';
 
 export default function UpgradeHost() {
-  const [upgradeTitle, setUpgradeTitle] = useState(null);
-  const [limitOpen, setLimitOpen] = useState(false);
+  // Which sheet is open: null (none), { kind: 'upgrade', title } or { kind: 'limit' }. One value, so the latest
+  // request wins and two sheets can never stack (PlanSheet has no focus trap: a keyboard user can reach + New
+  // behind an open Upgrade sheet).
+  const [sheet, setSheet] = useState(null);
 
   useEffect(() => {
     const onUpgrade = (e) => {
       // Only text is a title: onClick={openUpgrade} would hand over the click event, which can't be drawn
       // (and this host sits in the app shell, so drawing it would take the whole app down).
       const title = e.detail?.title;
-      setLimitOpen(false);
-      setUpgradeTitle(typeof title === 'string' && title ? title : PLAN_COPY.upgradeTitle);
+      setSheet({ kind: 'upgrade', title: typeof title === 'string' && title ? title : PLAN_COPY.upgradeTitle });
     };
-    // The latest event wins, so two sheets are never stacked (PlanSheet has no focus trap: a keyboard
-    // user can reach + New behind an open Upgrade sheet).
-    const onLimit = () => { setUpgradeTitle(null); setLimitOpen(true); };
+    const onLimit = () => setSheet({ kind: 'limit' });
     window.addEventListener(EVENTS.OPEN_UPGRADE, onUpgrade);
     window.addEventListener(EVENTS.OPEN_FREE_LIMIT, onLimit);
     return () => {
@@ -32,13 +30,15 @@ export default function UpgradeHost() {
     };
   }, []);
 
+  const close = () => setSheet(null);
+
   return (
     <>
-      <UpgradeSheet open={!!upgradeTitle} title={upgradeTitle} onClose={() => setUpgradeTitle(null)} />
+      <UpgradeSheet open={sheet?.kind === 'upgrade'} title={sheet?.kind === 'upgrade' ? sheet.title : undefined} onClose={close} />
       <FreeLimitSheet
-        open={limitOpen}
-        onClose={() => setLimitOpen(false)}
-        onUpgrade={() => { setLimitOpen(false); setUpgradeTitle(PLAN_COPY.upgradeTitle); }}
+        open={sheet?.kind === 'limit'}
+        onClose={close}
+        onUpgrade={() => setSheet({ kind: 'upgrade', title: PLAN_COPY.upgradeTitle })}
       />
     </>
   );
