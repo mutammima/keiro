@@ -22,6 +22,7 @@ import AppFooter from '../components/navigation/AppFooter';
 import { BarChart } from '../components/dashboard/DashboardCharts';
 import { subtotalOf, getStatus, formatInvoiceDate as dateStr, isOverdue, getFlagDays } from '../utils/invoiceUtils';
 import { isGuest } from '../utils/guestMode';
+import { guardNewInvoice } from '../utils/plan';
 import { GuestBanner } from '../components/auth/GuestUpsell';
 import KeiroWordmark from '../components/ui/KeiroWordmark';
 
@@ -120,7 +121,7 @@ export default function Home({ onNav }) {
 
       <button
         data-tutorial="tab-new"
-        onClick={() => onNav('invoice')}
+        onClick={() => guardNewInvoice(() => onNav('invoice'))}
         style={{ width: '100%', height: 54, border: 'none', borderRadius: 16, background: ACCENT, color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 18px rgba(74,123,247,0.30)' }}
       >
         <span style={{ fontSize: 20, lineHeight: 1 }}>+</span> New Invoice
@@ -165,7 +166,7 @@ export default function Home({ onNav }) {
           <span style={{ flex: 1, fontSize: 17, fontWeight: 700, color: C.text }}>{bizName}</span>
           <button
             style={{ background: ACCENT, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, padding: '7px 16px', borderRadius: 20, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-            onClick={() => onNav('invoice')}
+            onClick={() => guardNewInvoice(() => onNav('invoice'))}
           >+ New</button>
         </div>
       </div>

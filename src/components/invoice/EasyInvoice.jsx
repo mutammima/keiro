@@ -11,6 +11,9 @@ import { useState, lazy, Suspense } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { useInvoiceForm } from '../../hooks/useInvoiceForm';
+import { usePlan } from '../../hooks/usePlan';
+import { onFreePlan, freeInvoicesLeft, openUpgrade } from '../../utils/plan';
+import { PLAN_COPY, FREE_WARN_AT_LEFT } from '../../utils/constants';
 import AutofillInput from '../ui/AutofillInput';
 import { GuestCapModal } from '../auth/GuestUpsell';
 import ScanCheckCard from './ScanCheckCard';
@@ -32,6 +35,9 @@ export default function EasyInvoice({ onGenerated, onBack }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const total = form.items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0);
+  usePlan(); // re-render when this month's count changes
+  // Only a NEW invoice uses one of the free invoices, so an edit shows no count.
+  const left = onFreePlan() && form.editNumber == null ? freeInvoicesLeft() : null;
 
   async function onScanned(text, format) {
     setScanning(false);
@@ -140,6 +146,13 @@ export default function EasyInvoice({ onGenerated, onBack }) {
 
           {form.error && !cardFrom && <p style={{ ...s.error, color: C.danger }}>{form.error}</p>}
 
+          {left !== null && left > 0 && left <= FREE_WARN_AT_LEFT && (
+            <p style={{ ...s.leftLine, color: C.textMuted }}>
+              <span>{PLAN_COPY.leftLine(left)}</span>{' · '}
+              <button type="button" onClick={() => openUpgrade()} style={{ ...s.leftLink, color: ACCENT }}>{PLAN_COPY.upgrade}</button>
+            </p>
+          )}
+
           <button data-qs="easy-make" type="button" onClick={form.handleGenerate} disabled={form.generating}
             style={{ ...s.makeBtn, background: ACCENT, opacity: form.generating ? 0.7 : 1 }}>
             {form.generating ? 'Saving…' : 'Make invoice'}
@@ -168,5 +181,9 @@ const s = {
   addManual: { background: 'none', border: 'none', padding: '12px 0 4px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   totalRow:  { display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, paddingTop: 10 },
   error:     { fontSize: 13, fontWeight: 600, margin: 0 },
+  leftLine:  { margin: '0 0 -4px', fontSize: 13, textAlign: 'center' },
+  // A 13px link with a ≥44px hit box. The padding is cancelled by the negative margin, so the line looks the same;
+  // it grows upward, because Make invoice sits 8px below the line and would take any taps that spilled onto it.
+  leftLink:  { background: 'none', border: 'none', padding: '22px 10px 8px', margin: '-22px -10px -8px', fontSize: 13, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
   makeBtn:   { height: 56, borderRadius: 16, border: 'none', color: '#fff', fontSize: 17, fontWeight: 800, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
 };

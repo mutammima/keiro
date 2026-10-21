@@ -38,6 +38,7 @@ import {
   UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT,
 } from '../utils/constants';
 import { canSaveGuestEntry } from '../utils/guestMode';
+import { canCreateInvoice, recordNewInvoice, openFreeLimit } from '../utils/plan';
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,12 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
     setZeroConfirm(false);
     handleGenerate();
   }
+
+  // Free plan: whether a new invoice was allowed when this form opened (and again after each one it saves).
+  // A form opened with room may be finished even if Pro ends or the server's count arrives while it is
+  // open: a half-made invoice is never thrown away, and the server's own limit (25) still backstops. Only
+  // a form that was refused from the start (and still is) stops at the limit sheet.
+  const [startedAllowed, setStartedAllowed] = useState(() => canCreateInvoice());
 
   // ── Autocomplete lists (async loaded) ────────────────────────────────────
   const [storeNames, setStoreNames]     = useState(() => []);
@@ -543,18 +550,15 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
    * resets the form, and calls `onGenerated` with the new invoice.
    */
   async function handleGenerate() {
+    // The confirm's "yes" covers this one run: it never lingers if a gate below turns the invoice away.
+    const zeroOk = allowZeroRef.current;
+    allowZeroRef.current = false;
     setError('');
     if (!easy && !storeName.trim()) return setError('Enter a store name.');
     // Customer name is optional — it never appears on the generated invoice or
     // PDF (only as an optional "Attn:" line in the WhatsApp share text), so it
     // must not block generation.
     if (items.length === 0) return setError('Add at least one item.');
-
-    // A $0.00 total is almost always a forgotten price — confirm before saving
-    // (the confirm sets allowZeroRef so a deliberate $0 invoice still generates).
-    const total = items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
-    if (total === 0 && !allowZeroRef.current) { setZeroConfirm(true); return; }
-    allowZeroRef.current = false;
 
     // Editing an existing invoice updates it in place (same number); only a NEW
     // invoice consumes a guest entry, completes a connection order, or counts as
@@ -563,7 +567,16 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
 
     // Guest hard cap: block the save and surface the account-upsell modal.
     // Edits add no new entry, so they're never capped.
+    // Both gates come before the $0 question: no point asking about an invoice that can't be made.
     if (!isEdit && !canSaveGuestEntry()) { setGuestWall(true); return; }
+    // Free plan: 20 new invoices a month (Duplicate included). Edits never count. A form that opened
+    // with room may be finished (see startedAllowed).
+    if (!isEdit && !startedAllowed && !canCreateInvoice()) { openFreeLimit(); return; }
+
+    // A $0.00 total is almost always a forgotten price — confirm before saving
+    // (the confirm sets allowZeroRef so a deliberate $0 invoice still generates).
+    const total = items.reduce((s, i) => s + Number(i.qty) * Number(i.price), 0);
+    if (total === 0 && !zeroOk) { setZeroConfirm(true); return; }
 
     setGenerating(true);
     try {
@@ -596,6 +609,11 @@ export function useInvoiceForm(onGenerated, { easy = false } = {}) {
         // Neither the cloud nor this phone has it: keep everything on screen.
         setError(STORAGE_FULL_MESSAGE);
         return;
+      }
+      if (!isEdit) {
+        recordNewInvoice();
+        // The next invoice on this form (if it is reused) starts from the count as it now stands.
+        setStartedAllowed(canCreateInvoice());
       }
       const store = storeName.trim();
       // An Easy invoice can have no store (written on the paper instead).

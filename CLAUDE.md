@@ -54,7 +54,7 @@ Every account picks a role on first launch (stored in `inv_user_role`). The top 
 | `stores` | Store map, contact list |
 | `reports` | Today / Week / Month / Year analytics |
 
-**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the ☰ menu.
+**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the ☰ menu. A signed-in driver on the free plan is always in Easy Mode (normal mode is Pro).
 
 **Store Owner** — `inv_user_role = 'store_owner'`
 
@@ -313,6 +313,9 @@ src/
 | `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
 | `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
 | `supabase-shared-product-names.sql` | `shared_product_name(barcode)` / `suggest_product_names(query)`: other drivers' product names (name only, once 2 accounts agree, signed-in only). Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`. The app treats a missing function as "no shared name" |
+| `src/utils/plan.js` | The one plan reader: the cached `my_plan()` answer, Pro (with 3 offline grace days), the free 20-a-month count, `refreshPlan`, the Upgrade/limit events. Spec: `docs/specs/2026-10-16-pricing-design.md` |
+| `src/components/plan/` | PlanRunner (re-reads the plan at launch and on foreground; reloads when the mode changes), PlanNotices (one-time notes), UpgradeHost with the Upgrade sheet ("Payments are coming soon") and the free limit sheet, and PlanSheet (the shared sheet) |
+| `supabase-pricing.sql` | `subscriptions`, `invoice_usage`, `my_plan()`, and the free-plan backstop (refuses past 25 a UTC month). Run via `docs/COWORK_PRICING.md`, before the app update |
 | `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
 | `src/utils/easyMode.js` | The one reader for Easy Mode (`isEasyMode`, `easyModeFor(role)`, drivers only). Feeds `tabs.js`, the ☰ menu, the invoice screen, the PDF template and the tour |
 | `src/components/invoice/EasyInvoice.jsx` | Easy Mode's invoice: optional store with type-to-search + recent stores, Scan item → `ScanCheckCard` (name/qty/price) → Add → camera reopens; built on `useInvoiceForm(…, { easy: true })`. Spec: `docs/specs/2026-10-14-easy-mode-design.md` |
@@ -341,6 +344,7 @@ names), so re-running is always safe:
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
 - `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
 - `supabase-shared-product-names.sql` — `shared_product_name(barcode)` / `suggest_product_names(query)` SECURITY DEFINER RPCs (authenticated only): another driver's product name, name only, once two OTHER accounts agree. Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`; the app treats a missing function as "no shared name"
+- `supabase-pricing.sql` — `subscriptions` (who is Pro: the owner's switch for now) + `invoice_usage` (new invoices per UTC month), `is_pro()` / `my_plan()`, and triggers on `invoices` that count them and refuse a non-Pro account's upload past 25 a month (`KEIRO_FREE_LIMIT`). Users read only their own rows and write neither. Run via `docs/COWORK_PRICING.md` (it also sets the owner's dad free forever) **before the app update** — with no plan answer the app treats a driver as Free, so the dad would be moved to Easy Mode
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant
@@ -485,8 +489,8 @@ an id/flag and lazy-load the payload.
 
 ## Data & State Gotchas
 
-- **Every sign-out goes through `useSafeSignOut()`** (`src/hooks/useSafeSignOut.jsx`), never `signOut()` directly. Sign-out wipes all account-scoped `inv_*` keys, including the sync queue and, for a guest, all their data; the hook uploads first and asks before deleting anything not yet in the cloud. A guest who wants an account goes through `promptAccount()`, which keeps their data for migration.
-- **The sync queue never deletes a change unsaved.** Unreachable failures (offline, timeouts, expired session) don't count as retries; a change the server rejects 5 times moves to `inv_sync_failed`, shown by `SyncAttentionBanner` with "Try again".
+- **Every sign-out goes through `useSafeSignOut()`** (`src/hooks/useSafeSignOut.jsx`), never `signOut()` directly. Sign-out wipes all account-scoped `inv_*` keys, including the sync queue and, for a guest, all their data (`inv_easy_mode` is a device preference and stays, unless the free plan set it: plan.js marks that move with `inv_easy_by_plan`, and sign-out then clears the flag too); the hook uploads first and asks before deleting anything not yet in the cloud. A guest who wants an account goes through `promptAccount()`, which keeps their data for migration.
+- **The sync queue never deletes a change unsaved.** Unreachable failures (offline, timeouts, expired session) don't count as retries; a change the server rejects 5 times moves to `inv_sync_failed`, shown by `SyncAttentionBanner` with "Try again". Uploads the server refuses for the free plan's limit (`KEIRO_FREE_LIMIT`) are held in `inv_sync_held`, never retried into the set-aside list, and re-sent once Pro or when the UTC month (the server's) turns; a guest invoice refused on sign-up is held the same way. A user's delete cancels that invoice's pending uploads (queued, set aside or held: its save, status change and payments), and a delete that races an upload already sent is sent again after it.
 - **All `inv_*` localStorage values are JSON-encoded.** `localStorage.getItem('inv_user_role')` returns `'"driver"'` (with quotes) — comparing it raw against `'driver'` shipped a real bug (invisible walkthrough). Always `JSON.parse` before comparing.
 
 ## Testing & Verification

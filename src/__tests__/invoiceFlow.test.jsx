@@ -55,7 +55,9 @@ import { saveInvoice, saveStoreName, getNextInvoiceNumber, saveProductBarcode, g
 import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
-import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT } from '../utils/constants';
+import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT, STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { seedFreePlan, monthNow } from './helpers/freePlan';
+import { givePro } from './helpers/givePro';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -64,6 +66,29 @@ function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
   act(() => { result.current.setQty(qty); });
   act(() => { result.current.setPrice(price); });
   act(() => { result.current.addItem(); });
+}
+
+// ─── The free plan's monthly limit ────────────────────────────────────────────
+// plan.js reads localStorage directly, so these seed the same keys it reads.
+
+/** This phone's own count of the new invoices it made this month. */
+function seedPhoneCount(count) {
+  localStorage.setItem(STORAGE_KEYS.USAGE, JSON.stringify({ month: monthNow(), count }));
+}
+const phoneCount = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.USAGE)).count;
+/** Runs `run` and returns how many times it asked for the limit sheet (UpgradeHost opens it on this event). */
+async function limitSheetOpens(run) {
+  const opened = vi.fn();
+  window.addEventListener(EVENTS.OPEN_FREE_LIMIT, opened);
+  try { await run(); } finally { window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, opened); }
+  return opened.mock.calls.length;
+}
+/** Puts invoice #1042 up for editing, the way Edit in the history does. */
+function prefillEdit() {
+  localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify({
+    storeName: 'Corner Store', editNumber: 1042, paymentStatus: 'paid',
+    createdAt: '2026-10-01T00:00:00.000Z', items: [{ id: 'a', name: 'Widget', qty: 3, price: 5 }],
+  }));
 }
 
 describe('useInvoiceForm — create → generate', () => {
@@ -215,6 +240,237 @@ describe('useInvoiceForm — create → generate', () => {
     expect(saved.number).toBe(1042);
     expect(saved.paymentStatus).toBe('paid'); // preserved from the edited invoice, not reset to 'unpaid'
     expect(completeActiveConnectionOrder).not.toHaveBeenCalled(); // edits never complete a connection order
+  });
+
+  it('free plan: at 20 new invoices this month Make invoice opens the limit sheet and saves nothing', async () => {
+    seedFreePlan(20);
+    const limit = vi.fn();
+    window.addEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+    window.removeEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
+    expect(limit).toHaveBeenCalledTimes(1);
+    expect(saveInvoice).not.toHaveBeenCalled();
+  });
+
+  it('each new invoice is counted on this phone; an edit is not', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.USAGE)).count).toBe(1);
+  });
+
+  it('an edit is not counted', async () => {
+    seedPhoneCount(7);
+    prefillEdit();
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.editNumber).toBe(1042));
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(7);
+  });
+
+  it('an edit still saves when the month’s 20 are used up', async () => {
+    seedFreePlan(20);
+    seedPhoneCount(20);
+    prefillEdit();
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.editNumber).toBe(1042));
+
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(saveInvoice.mock.calls[0][0].number).toBe(1042);
+    expect(phoneCount()).toBe(20);
+  });
+
+  it('a duplicate counts like any other new invoice', async () => {
+    // Duplicate hands the form the old invoice's lines with no editNumber, so it is a fresh create.
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify({
+      storeName: 'Corner Store', items: [{ id: 'dup_1', name: 'Widget', qty: 3, price: 5 }],
+    }));
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(1);
+  });
+
+  it('the 20th new invoice goes through and the 21st opens the limit sheet', async () => {
+    seedPhoneCount(19);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+
+    addOneItem(result);
+    const first = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(first).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(phoneCount()).toBe(20);
+
+    addOneItem(result);
+    const second = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(second).toBe(1);
+    expect(saveInvoice).toHaveBeenCalledTimes(1); // still only the 20th
+    expect(phoneCount()).toBe(20);
+    expect(result.current.items).toHaveLength(1); // nothing the driver typed is lost
+  });
+
+  // A form that opened while the driver could make an invoice may be finished, even if the server's count arrives
+  // (or Pro ends) while he fills it in: the server's 25 still backstops, and a half-made invoice is never thrown away.
+  it('a form opened with room may be finished after the server says the 20 are used', async () => {
+    seedFreePlan(19);
+    const onGenerated = vi.fn();
+    const { result } = renderHook(() => useInvoiceForm(onGenerated));
+    addOneItem(result);
+
+    seedFreePlan(20); // the server's answer lands while the form is open
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(onGenerated).toHaveBeenCalledTimes(1);
+  });
+
+  it('a form opened as Pro may be finished after Pro ends', async () => {
+    givePro();
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    seedFreePlan(20); // the next answer says Free, with the month's 20 used
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  it('that allowance covers the invoice he started: the next one on the same form is refused', async () => {
+    seedFreePlan(19);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+    seedFreePlan(20);
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+
+    addOneItem(result);
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(1);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+    expect(result.current.items).toHaveLength(1); // nothing the driver typed is lost
+  });
+
+  it('a form opened at the limit is refused, and goes through once Pro arrives', async () => {
+    seedFreePlan(20);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    const refused = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(refused).toBe(1);
+    expect(saveInvoice).not.toHaveBeenCalled();
+
+    givePro();
+    const allowed = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+    expect(allowed).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
+  });
+
+  // The limit is checked first: asking "$0.00 invoice?" and then refusing the invoice anyway wastes his tap.
+  it('a $0.00 invoice at the limit opens the limit sheet, not the $0.00 question', async () => {
+    seedFreePlan(20);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result, { price: '0' });
+
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(1);
+    expect(result.current.zeroConfirm).toBe(false);
+    expect(saveInvoice).not.toHaveBeenCalled();
+    expect(result.current.items).toHaveLength(1);
+  });
+
+  it('a $0.00 invoice under the limit still asks first, and a refusal after the question leaves no standing yes', async () => {
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result, { price: '0' });
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(result.current.zeroConfirm).toBe(true);
+
+    // He says yes, but the guest cap is reached meanwhile: the wall opens and nothing is saved...
+    canSaveGuestEntry.mockReturnValue(false);
+    await act(async () => { await result.current.confirmZeroTotal(); });
+    expect(result.current.guestWall).toBe(true);
+    expect(saveInvoice).not.toHaveBeenCalled();
+
+    // ...and that yes does not linger: after the wall, the next Make invoice asks again.
+    canSaveGuestEntry.mockReturnValue(true);
+    await act(async () => { await result.current.handleGenerate(); });
+    expect(result.current.zeroConfirm).toBe(true);
+    expect(saveInvoice).not.toHaveBeenCalled();
+  });
+
+  it('a $0.00 invoice at the guest cap opens the account wall, not the $0.00 question', async () => {
+    canSaveGuestEntry.mockReturnValue(false);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result, { price: '0' });
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.guestWall).toBe(true);
+    expect(result.current.zeroConfirm).toBe(false);
+  });
+
+  it('an invoice that reached neither the cloud nor this phone is not counted', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: new Error('offline'), savedLocally: false });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe(STORAGE_FULL_MESSAGE);
+    expect(localStorage.getItem(STORAGE_KEYS.USAGE)).toBeNull();
+  });
+
+  it('one only the cloud saved (this phone is full) is counted', async () => {
+    saveInvoice.mockResolvedValueOnce({ error: null, savedLocally: false });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(phoneCount()).toBe(1);
+  });
+
+  it('one the cloud refused but this phone kept (offline, queued to sync) is counted', async () => {
+    // Every offline save looks like this (storage.js saveInvoice: the cache write succeeds, then the upload is queued),
+    // and this phone's own count is the only one that sees these invoices before they sync.
+    saveInvoice.mockResolvedValueOnce({ error: new Error('offline'), savedLocally: true });
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    await act(async () => { await result.current.handleGenerate(); });
+
+    expect(result.current.error).toBe('');
+    expect(phoneCount()).toBe(1);
+  });
+
+  it.each([
+    ['a Pro driver', () => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: true, source: 'manual', proUntil: null, usedThisMonth: 40, month: monthNow() }))],
+    ['a guest', () => localStorage.setItem(STORAGE_KEYS.GUEST_MODE, 'true')],
+    ['a store owner', () => localStorage.setItem(STORAGE_KEYS.USER_ROLE, JSON.stringify('store_owner'))],
+  ])('%s is never stopped by the plan, however many are counted', async (_who, setUp) => {
+    setUp();
+    seedPhoneCount(40);
+    const { result } = renderHook(() => useInvoiceForm(vi.fn()));
+    addOneItem(result);
+
+    const opens = await limitSheetOpens(() => act(async () => { await result.current.handleGenerate(); }));
+
+    expect(opens).toBe(0);
+    expect(saveInvoice).toHaveBeenCalledTimes(1);
   });
 });
 

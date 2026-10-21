@@ -10,7 +10,7 @@
  */
 
 import * as db from '../services/db';
-import { enqueueSync } from './syncQueue';
+import { enqueueSync, forgetInvoiceUploads, pendingInvoiceNumbers } from './syncQueue';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
 import { writeLocal } from './storageRoom';
 
@@ -107,9 +107,45 @@ export async function saveInvoice(invoice) {
   return { error, savedLocally };
 }
 
+const numberOf = (inv) => inv.number ?? inv.invoice_number;
+const madeAt = (inv) => Date.parse(inv.createdAt ?? inv.created_at);
+
 /**
- * Returns all invoices, newest first.
- * Falls back to localStorage on error (offline support).
+ * Lays this phone's copy of every invoice whose save has not reached the cloud
+ * (queued, set aside, or held for the free limit) over the cloud's list: the
+ * phone's copy wins where both have the number (it is the newer one), and one
+ * the cloud lacks is added where its date puts it, so the list stays newest
+ * first. Without this, an invoice held for the free limit was on no screen while
+ * the phone was online, though everything already made must stay usable.
+ * @param {object[]} cloud - the cloud's list, newest first
+ * @returns {object[]}
+ */
+function withPendingUploads(cloud) {
+  const pending = pendingInvoiceNumbers();
+  if (pending.size === 0) return cloud;
+  const phone = lsGet(STORAGE_KEYS.LIST, []);
+  if (!Array.isArray(phone)) return cloud;
+  const mine = new Map();
+  for (const inv of phone) {
+    if (pending.has(numberOf(inv))) mine.set(numberOf(inv), inv);
+  }
+  if (mine.size === 0) return cloud;
+
+  const list = cloud.map(row => mine.get(numberOf(row)) ?? row);
+  const inCloud = new Set(cloud.map(numberOf));
+  for (const [number, inv] of mine) {
+    if (inCloud.has(number)) continue;
+    const t = madeAt(inv);
+    const at = Number.isNaN(t) ? 0 : list.findIndex(row => madeAt(row) < t); // no date: first, rather than lost
+    if (at === -1) list.push(inv); else list.splice(at, 0, inv);
+  }
+  return list;
+}
+
+/**
+ * Returns all invoices, newest first: the cloud's list with this phone's copy of
+ * anything not uploaded yet laid over it. Falls back to the phone's list when the
+ * cloud can't be read (offline support).
  * @returns {Promise<object[]>}
  */
 export async function getInvoices() {
@@ -118,7 +154,7 @@ export async function getInvoices() {
     console.warn('getInvoices falling back to localStorage', error);
     return lsGet(STORAGE_KEYS.LIST, []);
   }
-  return data;
+  return withPendingUploads(data);
 }
 
 /**
@@ -131,9 +167,11 @@ export async function deleteInvoice(number) {
   // Local-first: remove immediately so the delete survives offline
   const list = lsGet(STORAGE_KEYS.LIST, []);
   lsSet(STORAGE_KEYS.LIST, list.filter(i => (i.number || i.invoice_number) !== number));
-  // Best-effort cloud delete — there is no retry queue, so a failure here
-  // means the cloud copy survives and the invoice reappears on next load.
-  // Tell the user instead of failing silently.
+  // Nothing left to upload for it, whether the save is queued, set aside or held.
+  forgetInvoiceUploads(number);
+  // Best-effort cloud delete. A failure (offline, a dropped connection) queues a
+  // delete_invoice for the sync queue to replay; until it goes through, the
+  // cloud copy survives and a cloud load lists the invoice again.
   const { error } = await db.deleteInvoice(number);
   if (error) {
     console.error('deleteInvoice cloud error, queued for retry', error);

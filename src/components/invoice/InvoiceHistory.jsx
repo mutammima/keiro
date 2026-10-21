@@ -18,6 +18,7 @@ import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrd
 import { buildReminderUrl } from '../../utils/reminderMessage';
 import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines, storeLabelOf } from '../../utils/invoiceUtils';
 import { shareLabel } from '../../utils/easyMode';
+import { guardNewInvoice } from '../../utils/plan';
 import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -28,7 +29,8 @@ function fmtPaymentDate(iso) {
     + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
+// `easyMode` is the mode the shell was built with (App): it picks the share label and the PDF layout.
+export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice, easyMode = false }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const D = useDensity();
@@ -49,7 +51,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
     requestDelete, cancelDelete, confirmDeleteNow, undoDelete,
     handleShare, handleTogglePin,
     isStorePinned,
-  } = useInvoiceHistory();
+  } = useInvoiceHistory({ easyMode });
 
   // ── Payment log state ─────────────────────────────────────────────────────
   const [logPaymentFor, setLogPaymentFor] = useState(null); // invoice number | null
@@ -84,6 +86,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
 
   // ── Duplicate invoice ─────────────────────────────────────────────────────
   function handleDuplicate(inv) {
+    // Free plan: a duplicate is a new invoice.
+    if (!guardNewInvoice(() => {})) { setOpenMenu(null); return; }
     const prefill = {
       storeName:    inv.storeName    || inv.store_name    || '',
       storePhone:   inv.storePhone   || inv.store_phone   || '',
@@ -203,6 +207,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   }
 
   function handleFillFromConnOrder(o) {
+    // Free plan: an invoice made from an order is a new invoice. Ask first, before the order is accepted or latched.
+    if (!guardNewInvoice(() => {})) return;
     // Price 0 prompts the driver to set the real sale price unless the store
     // suggested one. Parking the order id lets handleGenerate flip it to
     // 'delivered' with the invoice number once the invoice actually saves.
@@ -225,6 +231,8 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
   }
 
   function handleFillFromRequest(req) {
+    // Free plan: an invoice made from a request is a new invoice. Ask first, before the request is dismissed.
+    if (!guardNewInvoice(() => {})) return;
     // Note: price is intentionally omitted so the driver sees "0.00" and is
     // prompted to enter the actual sale price before generating the invoice.
     // Items with price 0 are flagged visually in the form.
@@ -356,7 +364,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
-                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>{shareLabel('Share PDF')}</button>
+                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>{shareLabel('Share PDF', easyMode)}</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
                   <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => requestDelete(inv.number)}>Delete Invoice</button>
                 </div>
@@ -411,7 +419,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
                   onClick={() => handleShare(inv)}
                   disabled={!!sharing}
-                >{shareLabel('Share PDF')}</button>
+                >{shareLabel('Share PDF', easyMode)}</button>
               </div>
             </div>
           )}
@@ -511,7 +519,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleShare(inv)}
                   >
-                    {shareLabel('Share PDF')}
+                    {shareLabel('Share PDF', easyMode)}
                   </button>
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleDuplicate(inv)}
@@ -654,7 +662,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 onClick={() => handleShare(inv)}
                 disabled={!!sharing}
               >
-                {shareLabel('Share PDF')}
+                {shareLabel('Share PDF', easyMode)}
               </button>
             </div>
           </>
@@ -669,7 +677,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
         <div style={{ width: 36 }} />
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         {onNewInvoice ? (
-          <button data-qs="new-invoice" onClick={onNewInvoice} style={s.newBtn}>+ New</button>
+          <button data-qs="new-invoice" onClick={() => guardNewInvoice(onNewInvoice)} style={s.newBtn}>+ New</button>
         ) : (
           <div style={{ width: 36 }} />
         )}

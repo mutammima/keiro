@@ -12,11 +12,13 @@ import { tabsForRole } from './tabs';
 
 export const TOP_NAV_HEIGHT = 44; // px, not counting safe-area — 44 = minimum comfortable tap target
 
-export default function TopNav({ currentPage, onNav, onOpenDrawer, role, badges = {}, pulse = {} }) {
+export default function TopNav({ currentPage, onNav, onOpenDrawer, role, easyMode, badges = {}, pulse = {} }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
-  const TABS = tabsForRole(role);
+  // The mode the shell was built for (App.jsx decides it once per mount). With none given,
+  // tabsForRole asks easyModeFor(role) as it always did.
+  const TABS = tabsForRole(role, easyMode);
 
   const activeIdx = TABS.findIndex(t => currentPage === t.id);
 

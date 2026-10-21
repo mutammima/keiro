@@ -13,6 +13,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { timeoutSignal } from './timeoutSignal';
 
 // The iOS app serves its pages from capacitor://localhost, where a relative
 // /api path would point inside the app bundle — so it calls the live site.
@@ -46,7 +47,7 @@ export async function lookupBarcode(barcode) {
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=product_name,brands`,
-      { signal: AbortSignal.timeout(6000) }
+      { signal: timeoutSignal(6000) }
     );
     if (res.ok) {
       const data = await res.json();
@@ -71,7 +72,7 @@ export async function lookupBarcode(barcode) {
   // means the code isn't a barcode it can look up (an answer); 502 means
   // UPCitemdb was down or out of quota.
   try {
-    const res = await fetch(lookupRouteUrl(barcode), { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(lookupRouteUrl(barcode), { signal: timeoutSignal(8000) });
     if (res.ok) {
       const data = await res.json();
       if (data?.name) return { name: data.name, status: 'found' };

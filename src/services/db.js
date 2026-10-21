@@ -9,7 +9,8 @@
  */
 
 import { supabase } from './supabase';
-import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS } from '../utils/constants';
+import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
+import { timeoutSignal } from '../utils/timeoutSignal';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -35,6 +36,15 @@ supabase.auth.onAuthStateChange((event, session) => {
   _cachedUserId = session?.user?.id ?? null;
   if (_cachedUserId) _authUnreachableUntil = 0;
 });
+
+// The signal is back: forget the cached "no session" now rather than when the
+// window runs out, or the sync queue's and PlanRunner's own 'online' handlers
+// would be told "no session" at once and nothing would ask again until the next
+// foreground. Only the negative answer goes; a known session and a lookup
+// already in flight are left alone.
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { _authUnreachableUntil = 0; });
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -391,7 +401,7 @@ export async function getSharedProductName(barcode) {
   try {
     const { data, error } = await supabase
       .rpc('shared_product_name', { p_barcode: barcode })
-      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+      .abortSignal(timeoutSignal(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? null : (data ?? null), error };
   } catch (err) {
     return { data: null, error: err };
@@ -409,10 +419,28 @@ export async function suggestProductNames(query) {
   try {
     const { data, error } = await supabase
       .rpc('suggest_product_names', { p_query: query })
-      .abortSignal(AbortSignal.timeout(SHARED_RPC_TIMEOUT_MS));
+      .abortSignal(timeoutSignal(SHARED_RPC_TIMEOUT_MS));
     return { data: error ? [] : (data ?? []), error };
   } catch (err) {
     return { data: [], error: err };
+  }
+}
+
+/**
+ * This account's plan and this month's invoice count (supabase-pricing.sql,
+ * my_plan()). data is null without a session, before the SQL is run, on a
+ * timeout, or on any error — callers keep what they had.
+ * @returns {Promise<{ data: object|null, error: object|null }>}
+ */
+export async function getMyPlan() {
+  if (await noSession()) return { data: null, error: new Error('no session') };
+  try {
+    const { data, error } = await supabase
+      .rpc('my_plan')
+      .abortSignal(timeoutSignal(PLAN_RPC_TIMEOUT_MS));
+    return { data: error ? null : (data ?? null), error };
+  } catch (err) {
+    return { data: null, error: err };
   }
 }
 

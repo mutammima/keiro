@@ -110,13 +110,16 @@ const SETTINGS_ITEM = { id: 'settings', label: 'Settings', icon: Icons.settings 
 
 export default function NavDrawer({
   open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole,
-  docked = false, badges = {}, pulse = {},
+  docked = false, badges = {}, pulse = {}, easyMode,
 }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
   const isOwner = role === 'store_owner';
-  const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (easyModeFor(role) ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
+  // The mode the shell was built for (App.jsx decides it once per mount), for the menu and the docked
+  // tabs alike. Callers that give none still ask easyModeFor(role).
+  const easy = easyMode ?? easyModeFor(role);
+  const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (easy ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
 
   // Pinned chips (drivers only). Read straight from storage while the drawer is
   // open — a plain derived value, so toggling a pin elsewhere shows up on the
@@ -209,7 +212,7 @@ export default function NavDrawer({
             TopNav; on desktop TopNav is hidden, so the rail carries them. */}
         {docked && (
           <nav style={s.nav} aria-label="Main">
-            {tabsForRole(role).map(tab => {
+            {tabsForRole(role, easy).map(tab => {
               const active = currentPage === tab.id;
               const count = badges[tab.id] || 0;
               return (
