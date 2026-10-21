@@ -239,12 +239,27 @@ describe('signature save status', () => {
     getSignatures.mockReturnValueOnce({ seller: whiteStrokes, buyer: null });
     render(<ThemeProvider><InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} /></ThemeProvider>);
     expect(document.body.style.background).toBe('rgb(0, 0, 0)'); // it really is dark mode
-    const image = screen.getByAltText(PLAN_COPY.sellerSigAlt);
-    await waitFor(() => expect(image).toHaveAttribute('src', `ink(${PRINT_INK}):${whiteStrokes}`));
+    const image = await screen.findByAltText(PLAN_COPY.sellerSigAlt);
+    expect(image).toHaveAttribute('src', `ink(${PRINT_INK}):${whiteStrokes}`);
     expect(recolorSignature).toHaveBeenCalledTimes(1);
     expect(recolorSignature).toHaveBeenCalledWith(whiteStrokes, PRINT_INK);
     expect(image.style.backgroundColor).toBe('rgb(255, 255, 255)'); // the white box the print ink sits on
     expect(screen.queryByAltText(PLAN_COPY.buyerSigAlt)).toBeNull();
+  });
+
+  it('free plan, dark mode: the white-ink image is never shown while the recolour is on its way', async () => {
+    localStorage.setItem(STORAGE_KEYS.DARK_MODE, 'true');
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    const whiteStrokes = 'data:image/png;base64,WHITE-STROKES';
+    let finish;
+    recolorSignature.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    getSignatures.mockReturnValueOnce({ seller: whiteStrokes, buyer: null });
+    const { container } = render(<ThemeProvider><InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} /></ThemeProvider>);
+    expect(screen.getByText(PLAN_COPY.sellerSigCaption)).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+    await act(async () => { finish(`ink(${PRINT_INK}):${whiteStrokes}`); });
+    expect(container.querySelectorAll('img')).toHaveLength(1);
+    expect(screen.getByAltText(PLAN_COPY.sellerSigAlt)).toHaveAttribute('src', `ink(${PRINT_INK}):${whiteStrokes}`);
   });
 
   it('free plan: the Upgrade link has a 44px hit box that takes no room', () => {

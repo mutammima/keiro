@@ -47,13 +47,22 @@ describe('ReadOnlySignature', () => {
     expect(screen.getByRole('figure')).toContainElement(shown());
   });
 
-  it('shows the stored image until the recolour is ready', async () => {
+  // The stored image can be white strokes (drawn in dark mode): on this white box it would flash, invisible or
+  // not, until the recolour lands. Nothing of it is shown before then; the box is held open, white, with the caption.
+  it('shows no image at all until the recoloured one is ready: never the stored one', async () => {
     const recolour = deferred();
     recolorSignature.mockReturnValue(recolour.promise);
-    render(sig('data:stored'));
-    expect(shown()).toHaveAttribute('src', 'data:stored');
+    const { container } = render(sig('data:stored'));
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.queryByAltText('Signature')).toBeNull();
+    expect(screen.getByText('Driver / Deliverer')).toBeInTheDocument();      // the caption does not wait
+    const hold = container.querySelector('figure').lastChild;                 // the box keeps its place meanwhile
+    expect(hold.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(hold.style.height).not.toBe('');
+    expect(hold).toHaveAttribute('aria-hidden', 'true');
     await act(async () => { recolour.resolve('data:ink'); });
     expect(shown()).toHaveAttribute('src', 'data:ink');
+    expect(container.querySelectorAll('img')).toHaveLength(1);
   });
 
   it('keeps the stored image when it cannot be recoloured (recolorSignature then hands its input back)', async () => {
@@ -83,7 +92,7 @@ describe('ReadOnlySignature', () => {
     await act(async () => { first.resolve('data:a-ink'); });
     expect(shown()).toHaveAttribute('src', 'data:a-ink');
     rerender(sig('data:b'));
-    expect(shown()).toHaveAttribute('src', 'data:b');          // the new stored image, not a's ink
+    expect(screen.queryByAltText('Signature')).toBeNull();     // neither a's ink nor b's stored image
     expect(recolorSignature).toHaveBeenLastCalledWith('data:b', PRINT_INK);
     await act(async () => { second.resolve('data:b-ink'); });
     expect(shown()).toHaveAttribute('src', 'data:b-ink');

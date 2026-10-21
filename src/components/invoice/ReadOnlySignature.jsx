@@ -7,8 +7,10 @@
  * white in dark mode, Keiro's default. White strokes on this white box would be
  * invisible. The PDF recolours a signature to PRINT_INK before it goes on its
  * white page (pdfGenerator.js), so this does too: what the driver sees is what
- * prints. Until the recolour is ready, or if the image can't be drawn
- * (recolorSignature then hands its input back), the stored image shows as it is.
+ * prints. Until the recolour is ready the stored image is NOT shown (white
+ * strokes would flash on the white box); an empty white box holds its place.
+ * If the image can't be drawn, recolorSignature hands its input back and that
+ * stored image shows as it is.
  */
 import { useState, useEffect } from 'react';
 import { recolorSignature, PRINT_INK } from '../../utils/signatureImage';
@@ -30,7 +32,9 @@ export default function ReadOnlySignature({ src, alt, caption, C }) {
     <figure style={s.figure}>
       {/* The same words and look as the signing pad's label, so Free and Pro read alike. */}
       <figcaption style={{ ...s.caption, color: C.textMuted }}>{caption}</figcaption>
-      <img src={inked.src === src ? inked.ink : src} alt={alt} style={s.img} />
+      {inked.src === src
+        ? <img src={inked.ink} alt={alt} style={s.img} />
+        : <div aria-hidden="true" style={s.holdingBox} />}
     </figure>
   );
 }
@@ -38,5 +42,7 @@ export default function ReadOnlySignature({ src, alt, caption, C }) {
 const s = {
   figure: { margin: 0 },
   caption: { display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  // The box while the recolour is made: as tall as the signing pad a signature is drawn on (SignaturePad's 90px canvas).
+  holdingBox: { height: 90, background: '#fff', borderRadius: 10 },
   img: { width: '100%', maxHeight: 140, objectFit: 'contain', background: '#fff', borderRadius: 10 },
 };
