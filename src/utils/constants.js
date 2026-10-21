@@ -238,6 +238,7 @@ export const PLAN_REFRESH_TIMEOUT_MS = 20000;
 export const FREE_LIMIT_ERROR = 'KEIRO_FREE_LIMIT';
 /** Shown prices. Payments are coming soon (owner decision 2026-10-17). */
 export const PRO_PRICE = { month: '$4.99', year: '$49.99' };
+const NBSP = '\u00a0';
 /** The title beside Settings' Easy Mode switch; the switch's accessible name starts with it (PLAN_COPY.easySwitchLabel). */
 const EASY_SWITCH_TEXT = 'Simplified view';
 /** Every plan message, in one place. */
@@ -250,6 +251,8 @@ export const PLAN_COPY = {
     'Sign invoices on the phone',
   ],
   priceLine: `${PRO_PRICE.month} a month or ${PRO_PRICE.year} a year`,
+  // priceLine for the sign-up card, which is narrow: each price stays with its period, so a line never ends on "$49.99 a".
+  signupPriceLine: `${PRO_PRICE.month}${NBSP}a${NBSP}month or ${PRO_PRICE.year}${NBSP}a${NBSP}year`,
   comingSoon: 'Payments are coming soon.',
   notNow: 'Not now',
   ok: 'OK',

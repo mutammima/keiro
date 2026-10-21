@@ -25,7 +25,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useTheme } from '../../context/ThemeContext';
-import { LIGHT, DARK, ACCENT } from '../../theme';
+import { LIGHT, DARK, ACCENT, tintOf } from '../../theme';
 import KeiroWordmark from '../ui/KeiroWordmark';
 import {
   sendPhoneOtp, verifyPhoneOtp, fetchProfile, saveProfile,
@@ -537,13 +537,17 @@ function RoleCard({ label, sub, icon, selected, onClick, C }) {
   );
 }
 
+// How strongly the accent tints the Free card (the 10 in the old `${ACCENT}10` hex-alpha, 16/255).
+const PLAN_TINT_ALPHA = 0.06;
+
 // ── Screen 5: Plan (drivers; store owners skip it) ──────────────────────────
 // Payments aren't built yet (owner decision 2026-10-17): Pro shows as coming soon.
 // Every word here is PLAN_COPY's (constants.js), read when the screen renders.
 export function PlanScreen({ onBack, onStart, loading, C }) {
+  const { accent } = useTheme(); // the chosen accent as a colour, to tint the Free card (ACCENT is a var())
   const plans = [
     { id: 'free', name: PLAN_COPY.freeLabel, price: PLAN_COPY.freePrice, available: true, bullets: PLAN_COPY.freeBullets },
-    { id: 'pro', name: PLAN_COPY.proLabel, price: PLAN_COPY.priceLine, available: false, badge: PLAN_COPY.comingSoonBadge, bullets: PLAN_COPY.proBullets },
+    { id: 'pro', name: PLAN_COPY.proLabel, price: PLAN_COPY.signupPriceLine, available: false, badge: PLAN_COPY.comingSoonBadge, bullets: PLAN_COPY.proBullets },
   ];
   return (
     <Screen C={C}>
@@ -554,30 +558,36 @@ export function PlanScreen({ onBack, onStart, loading, C }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {plans.map((p) => (
+            // Pro is not dimmed (opacity would take its text under 4.5:1): it reads as "not yet" by having no accent
+            // border or tint, a muted price, a dashed edge and the Coming soon pill.
             <div
               key={p.id}
+              role="group"
+              aria-labelledby={`plan-${p.id}-name`}
               style={{
                 position: 'relative',
-                background: p.available ? `${ACCENT}10` : C.card,
-                border: `1.5px solid ${p.available ? ACCENT : C.cardBorder}`,
-                borderRadius: 18, padding: '16px 16px', opacity: p.available ? 1 : 0.6,
+                background: p.available ? tintOf(accent, PLAN_TINT_ALPHA) : C.card,
+                border: p.available ? `1.5px solid ${ACCENT}` : `1.5px dashed ${C.textLight}`,
+                borderRadius: 18, padding: '16px 16px',
               }}
             >
-              {p.badge && (
-                <span style={{
-                  position: 'absolute', top: 14, right: 14, fontSize: 10.5, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.04em', color: C.textMuted,
-                  background: C.nestedCard, borderRadius: 8, padding: '4px 8px',
-                }}>{p.badge}</span>
-              )}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10, flexWrap: 'wrap', paddingRight: p.badge ? 96 : 0 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: C.text }}>{p.name}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: p.available ? ACCENT : C.textSub }}>{p.price}</span>
+                <h3 id={`plan-${p.id}-name`} style={{ margin: 0, fontSize: 18, fontWeight: 900, color: C.text }}>{p.name}</h3>
+                {/* After the name in reading order; it is out of the row's flow and sits in the card's top right corner. */}
+                {p.badge && (
+                  <span style={{
+                    position: 'absolute', top: 14, right: 14, fontSize: 10.5, fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.04em', color: C.textSub,
+                    background: C.nestedCard, border: `1px solid ${C.divider}`, borderRadius: 8, padding: '4px 8px',
+                  }}>{p.badge}</span>
+                )}
+                <span style={{ fontSize: 14, fontWeight: 700, color: p.available ? ACCENT : C.textSub, textWrap: 'balance' }}>{p.price}</span>
               </div>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* role="list": list-style: none drops the list role in WebKit. */}
+              <ul role="list" style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {p.bullets.map((b) => (
                   <li key={b} style={{ fontSize: 13, color: C.textSub, display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.4 }}>
-                    <span style={{ color: p.available ? ACCENT : C.textMuted, fontWeight: 900, flexShrink: 0 }}>·</span><span>{b}</span>
+                    <span aria-hidden="true" style={{ color: p.available ? ACCENT : C.textMuted, fontWeight: 900, flexShrink: 0 }}>·</span><span>{b}</span>
                   </li>
                 ))}
               </ul>

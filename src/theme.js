@@ -1,4 +1,16 @@
 export const ACCENT = 'var(--accent)';  // dynamic — set via ThemeContext.setAccent()
+/**
+ * A hex colour (#rgb or #rrggbb) as rgba(), at `alpha`: a tint of a colour chosen at run time, like the accent.
+ * ACCENT is 'var(--accent)', so `${ACCENT}10` is "var(--accent)10", which no browser reads, and color-mix() is not
+ * on iOS 15. Anything that is not a hex colour gives 'transparent' (no tint) rather than an invalid value.
+ */
+export function tintOf(hex, alpha) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return 'transparent';
+  const full = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 export const GRADIENT = 'linear-gradient(135deg, #5B4FE8 0%, #7B3FE4 100%)'; // hero gradient
 
 export const LIGHT = {
