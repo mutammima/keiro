@@ -449,7 +449,7 @@ function ProfileScreen({ authUser, data, setData, onSaved, C }) {
       role: data.role,
       store_name: isStore ? data.storeName.trim() : null,
       business_name: isDriver ? (data.businessName.trim() || null) : null,
-      // No `plan`: profiles.plan has a default ('basic') and nothing reads it. The real plan is my_plan() (plan.js).
+      plan: 'basic',
     };
     const { error: err } = await saveProfile(row);
     if (err) {
