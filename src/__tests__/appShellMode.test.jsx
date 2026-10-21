@@ -12,14 +12,14 @@
  * The whole backend is faked: every call answers "no data", which the app already
  * handles by falling back to localStorage. Nothing here needs a Supabase .env.
  *
- * It also holds the one check that the shell mounts UpgradeHost (the Upgrade and
- * limit sheets), because this is the file that renders the whole app.
+ * It also holds the checks that App mounts UpgradeHost (the Upgrade and limit sheets) once,
+ * outside the signed-in shell, because this is the file that renders the whole app.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 
-const { fakeClient, fakeModule } = vi.hoisted(() => {
+const { fakeClient, fakeModule, authControl } = vi.hoisted(() => {
   const NO_DATA = { data: null, error: { message: 'backend is faked in this test' } };
   // Anything chained off the client (from().select().eq(), channel().on().subscribe()) is a thenable that resolves to "no data".
   const chain = () => new Proxy(() => {}, {
@@ -36,15 +36,18 @@ const { fakeClient, fakeModule } = vi.hoisted(() => {
       return async () => NO_DATA;
     },
   });
-  return { fakeClient: chain(), fakeModule };
+  // What the faked auth service answers. A test sets these to reach another screen (Loading, sign-in, password
+  // recovery); beforeEach puts them back.
+  const authControl = { getSessionState: null, listener: null };
+  return { fakeClient: chain(), fakeModule, authControl };
 });
 
 vi.mock('../services/supabase', () => ({ supabase: fakeClient }));
 vi.mock('../services/db', () => fakeModule());
 vi.mock('../services/migration', () => fakeModule());
 vi.mock('../services/auth', () => fakeModule({
-  getSessionState: async () => ({ session: { user: { id: 'driver-1' } }, offline: false }),
-  onAuthStateChange: () => () => {},
+  getSessionState: () => (authControl.getSessionState || (async () => ({ session: { user: { id: 'driver-1' } }, offline: false })))(),
+  onAuthStateChange: (listener) => { authControl.listener = listener; return () => {}; },
 }));
 
 import App from '../App.jsx';
@@ -52,6 +55,7 @@ import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { openUpgrade, openFreeLimit } from '../utils/plan';
 import { markWhatsNewSeen } from '../utils/whatsNewState';
 import { givePro } from './helpers/givePro';
+import { utcMonth } from '../utils/invoiceUtils';
 
 // jsdom has no ResizeObserver, which the swipe strip measures with.
 globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
@@ -98,6 +102,8 @@ async function reRender() {
 beforeEach(() => {
   localStorage.clear();
   signedIn();
+  authControl.getSessionState = null;
+  authControl.listener = null;
 });
 
 describe('the shell decides its mode once per mount', () => {
@@ -161,21 +167,89 @@ describe('the shell decides its mode once per mount', () => {
   });
 });
 
-describe('the shell hosts the Upgrade and limit sheets', () => {
+describe('the app hosts the Upgrade and limit sheets', () => {
   // Every Upgrade button only dispatches an event (plan.js openUpgrade / openFreeLimit); UpgradeHost, mounted once
-  // in the shell, opens the sheet. Without that mount every one of those buttons would do nothing.
+  // in App() beside the sync banner, opens the sheet. Without that mount every one of those buttons would do nothing.
   it('openUpgrade() and openFreeLimit() each open their sheet over the app', async () => {
     const { container } = render(<App />);
     await found(container, '[data-qs-tab="route"]');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // Only the sheets this test opens are named: a one-time plan note (PlanNotices) may be a dialog too.
+    expect(screen.queryByRole('dialog', { name: PLAN_COPY.normalModeTitle })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: PLAN_COPY.limitTitle })).toBeNull();
 
     act(() => { openUpgrade(PLAN_COPY.normalModeTitle); });
     const upgrade = screen.getByRole('dialog', { name: PLAN_COPY.normalModeTitle });
     expect(within(upgrade).getByText(PLAN_COPY.comingSoon)).toBeInTheDocument();
     fireEvent.click(within(upgrade).getByRole('button', { name: PLAN_COPY.ok }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: PLAN_COPY.normalModeTitle })).toBeNull();
 
     act(() => { openFreeLimit(); });
     expect(screen.getByRole('dialog', { name: PLAN_COPY.limitTitle })).toBeInTheDocument();
+  });
+
+  it('with a one-time plan note on screen (its own dialog), the sheets are still found by name', async () => {
+    localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify('moved'));
+    const { container } = render(<App />);
+    await found(container, '[data-qs-tab="route"]');
+    expect(screen.getByRole('dialog', { name: PLAN_COPY.planNoticeLabel })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: PLAN_COPY.upgradeTitle })).toBeNull();
+
+    act(() => { openUpgrade(); });
+
+    expect(screen.getByRole('dialog', { name: PLAN_COPY.upgradeTitle })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: PLAN_COPY.planNoticeLabel })).toBeInTheDocument();
+  });
+
+  it('there is one host: an Upgrade request draws one sheet, not one per mount', async () => {
+    const { container } = render(<App />);
+    await found(container, '[data-qs-tab="route"]');
+
+    act(() => { openUpgrade(); });
+
+    expect(screen.getAllByRole('dialog', { name: PLAN_COPY.upgradeTitle })).toHaveLength(1);
+  });
+
+  it('a role switch rebuilds the shell, but the host stays and still answers', async () => {
+    localStorage.clear();
+    signedIn('store_owner');
+    const { container } = render(<App />);
+    await found(container, '[data-qs-tab="so-home"]');
+    fireEvent.click(screen.getByRole('button', { name: 'Driver' }));
+    await found(container, '[data-qs-tab="route"]');
+
+    act(() => { openUpgrade(); });
+
+    expect(screen.getAllByRole('dialog', { name: PLAN_COPY.upgradeTitle })).toHaveLength(1);
+  });
+
+  // The sync banner (an upload held for the free limit) sits above the whole app, so its Upgrade button is on
+  // screen before the signed-in shell exists, and while the password-recovery and sign-in screens are up.
+  describe('the sync banner\'s Upgrade button', () => {
+    const holdAnUpload = () => localStorage.setItem(STORAGE_KEYS.SYNC_HELD, JSON.stringify([
+      { id: 'h7', type: 'save_invoice', payload: { invoice: { number: 7 } }, ts: 1, retries: 0, heldUtcMonth: utcMonth() },
+    ]));
+    const signedOut = async () => ({ session: null, offline: false });
+
+    it.each([
+      ['Loading screen', () => { authControl.getSessionState = () => new Promise(() => {}); }, () => screen.findByText('Loading…')],
+      ['sign-in screen', () => { authControl.getSessionState = signedOut; }, () => screen.findByText('Sign up with email')],
+      ['password-recovery screen', () => { authControl.getSessionState = signedOut; }, async () => {
+        await screen.findByText('Sign up with email');
+        act(() => { authControl.listener('PASSWORD_RECOVERY', { user: { id: 'driver-1' } }); });
+        await screen.findByText('Choose a new password');
+      }],
+    ])('opens the Upgrade sheet on the %s', async (_screen, setUp, reachScreen) => {
+      holdAnUpload();
+      setUp();
+      render(<App />);
+      await reachScreen();
+      expect(document.querySelector('[data-qs-tab]')).toBeNull();            // the signed-in shell is not on screen
+
+      fireEvent.click(screen.getByRole('button', { name: PLAN_COPY.upgrade }));
+
+      const sheet = screen.getByRole('dialog', { name: PLAN_COPY.upgradeTitle });
+      expect(within(sheet).getByText(PLAN_COPY.comingSoon)).toBeInTheDocument();
+      expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    });
   });
 });

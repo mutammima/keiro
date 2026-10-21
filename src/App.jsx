@@ -526,10 +526,9 @@ function AppInner({ role, onSwitchRole }) {
         position: 'relative',
       }}
     >
-      {/* Pricing: keep the plan fresh, show its one-time notes, and host the Upgrade and limit sheets. */}
+      {/* Pricing: keep the plan fresh and show its one-time notes. (The Upgrade and limit sheets are hosted in App().) */}
       <PlanRunner role={role} easyMode={easyMode} onModeChange={reloadForPlan} />
       <PlanNotices />
-      <UpgradeHost />
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
@@ -751,6 +750,9 @@ export default function App() {
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
       <SyncToast />
       <SyncAttentionBanner />
+      {/* The one Upgrade / free-limit host. Out here, not in AppInner, so the sync banner's Upgrade button works
+          on the Loading, password-recovery and sign-in screens too. */}
+      <UpgradeHost />
       <StorageBanner />
       <SyncQueueRunner />
       <AuthGate>
