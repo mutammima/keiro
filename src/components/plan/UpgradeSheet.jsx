@@ -13,10 +13,11 @@ export default function UpgradeSheet({ open, title, onClose }) {
   const C = dark ? DARK : LIGHT;
   return (
     <PlanSheet open={open} onClose={onClose} title={title || PLAN_COPY.upgradeTitle}>
-      <ul style={s.perks}>
+      {/* role="list": with list-style: none, VoiceOver drops a <ul>'s list semantics. */}
+      <ul role="list" style={s.perks}>
         {PLAN_COPY.perks.map(p => (
           <li key={p} style={{ ...s.perk, color: C.textSub }}>
-            <span style={{ color: ACCENT, fontWeight: 900 }}>✓</span>
+            <span aria-hidden="true" style={{ color: ACCENT, fontWeight: 900 }}>✓</span>
             <span>{p}</span>
           </li>
         ))}

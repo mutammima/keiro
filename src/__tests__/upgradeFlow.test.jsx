@@ -4,7 +4,7 @@
  * payments are coming soon. Nothing is sent anywhere.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 
 vi.mock('../utils/plan', () => ({ resetDateLabel: vi.fn(() => 'Nov 1') }));
 
@@ -180,6 +180,24 @@ describe('UpgradeHost: when it opens', () => {
       added.mockRestore();
       removed.mockRestore();
     }
+  });
+});
+
+describe('the Upgrade sheet for a screen reader', () => {
+  it('the perks are a list of exactly the perks, and the ✓ marks are decoration', () => {
+    host();
+    fire(EVENTS.OPEN_UPGRADE);
+    // list-style: none makes VoiceOver drop a <ul>'s list semantics unless the role is spelled out.
+    const list = screen.getByRole('list');
+    expect(list).toHaveAttribute('role', 'list');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(PLAN_COPY.perks.length);
+    items.forEach((item, i) => {
+      const marks = [...item.querySelectorAll('span')].filter(span => span.textContent === '✓');
+      expect(marks).toHaveLength(1);
+      expect(marks[0]).toHaveAttribute('aria-hidden', 'true');
+      expect(item).toHaveTextContent(PLAN_COPY.perks[i]);
+    });
   });
 });
 
