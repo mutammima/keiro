@@ -19,6 +19,7 @@ import * as db from './db';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from '../utils/constants';
 import { withoutUploadStamp } from '../utils/storageRoom';
 import { holdRefusedSync, isFreeLimitRefusal } from '../utils/syncQueue';
+import { utcMonth } from '../utils/invoiceUtils';
 
 // Legacy boolean flag (pre-timestamp scheme). Still read for backward-compat:
 // a device that only has the old flag is treated as "never migrated under the
@@ -270,18 +271,20 @@ export async function runMigrationIfNeeded() {
   // server refuse an invoice. That one is held, as a refused sync is, so it counts
   // as unsynced (sign-out warns) and goes up with Pro or next month; if this
   // phone is too full to hold it, it stays an error and retries next sign-in.
-  const refusedForLimit = (err, inv) => isFreeLimitRefusal(err)
-    && holdRefusedSync({ type: 'save_invoice', payload: { invoice: inv } }, err);
+  // The held month is the UTC month the request went out in (the server's month when it decided).
+  const refusedForLimit = (err, inv, sentIn) => isFreeLimitRefusal(err)
+    && holdRefusedSync({ type: 'save_invoice', payload: { invoice: inv } }, err, sentIn);
   for (const inv of invoiceList) {
+    const sentIn = utcMonth();
     try {
       const { error } = await db.saveInvoice(inv);
       if (error) {
-        if (!refusedForLimit(error, inv)) errors.push(`Invoice #${inv.number}: ${error.message || JSON.stringify(error)}`);
+        if (!refusedForLimit(error, inv, sentIn)) errors.push(`Invoice #${inv.number}: ${error.message || JSON.stringify(error)}`);
       } else {
         invoicesMigrated++;
       }
     } catch (e) {
-      if (!refusedForLimit(e, inv)) errors.push(`Invoice #${inv.number}: ${e.message}`);
+      if (!refusedForLimit(e, inv, sentIn)) errors.push(`Invoice #${inv.number}: ${e.message}`);
     }
   }
 

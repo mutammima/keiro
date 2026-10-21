@@ -254,11 +254,17 @@ export function releaseHeldSyncs(which = () => true) {
 
 /**
  * Puts a refused upload on the held list. An invoice is held once: this copy
- * replaces any older held save of it. Returns whether the list was written
- * (false when this phone's storage is full; the caller keeps the change elsewhere).
+ * replaces any older held save of it (and any entry with the same id). Returns
+ * whether the list was written (false when this phone's storage is full; the
+ * caller keeps the change elsewhere).
+ * @param {object} item
+ * @param {string} lastError
+ * @param {string} heldIn - the UTC month the request WENT OUT in, not the month
+ *   the answer arrived in: the server decided in the former, and an answer that
+ *   crosses midnight UTC must not hold the upload for a whole extra month.
  */
-function holdEntry(item, lastError) {
-  const entry = { ...item, lastError, heldUtcMonth: utcMonth() };
+function holdEntry(item, lastError, heldIn) {
+  const entry = { ...item, lastError, heldUtcMonth: heldIn };
   return writeList(HELD_KEY, [...getHeldSyncs().filter(h => h.id !== entry.id && !sameInvoiceSave(h, entry)), entry]);
 }
 
@@ -269,13 +275,15 @@ function holdEntry(item, lastError) {
  * counts as unsynced, shows in the banner, and goes up with Pro or next month.
  * @param {{ type: string, payload?: object }} action
  * @param {Error|object} err - the refusal
+ * @param {string} [requestMonth] - the UTC month the request went out in (utcMonth()
+ *   read BEFORE sending); now, if the caller has nothing better
  * @returns {boolean} whether it was held (false for a guest, an unknown type, or a full phone)
  */
-export function holdRefusedSync(action, err) {
+export function holdRefusedSync(action, err, requestMonth = utcMonth()) {
   if (isGuest()) return false;
   if (!action || !HANDLERS[action.type]) return false;
   const item = { id: uid(), type: action.type, payload: action.payload || {}, ts: Date.now(), retries: 0 };
-  if (!holdEntry(item, String(err?.message || err))) return false;
+  if (!holdEntry(item, String(err?.message || err), requestMonth)) return false;
   announceAttention();
   return true;
 }
@@ -387,6 +395,7 @@ export async function processSyncQueue() {
 
       let failed = false;
       const sent = item.type === 'save_invoice' ? { number: item.payload?.invoice?.number, deleted: false } : null;
+      const monthAtSend = utcMonth(); // the server judges the request in the month it arrives in, not the month the answer comes back in
       try {
         try {
           onTheWire = sent;
@@ -405,7 +414,7 @@ export async function processSyncQueue() {
         } else if (isFreeLimitRefusal(err)) {
           // Held, never set aside or deleted; it doesn't block the rest. An
           // invoice is held once: this copy replaces any older held one of it.
-          if (holdEntry(cur[idx], lastError)) {
+          if (holdEntry(cur[idx], lastError, monthAtSend)) {
             cur.splice(idx, 1);
             const shrunk = write(cur);
             announceAttention();

@@ -242,6 +242,20 @@ describe('held uploads are released by the server\'s (UTC) month, whatever the p
     expect(getHeldSyncs()).toEqual([]);
   });
 
+  it('a refusal decided before the UTC month turned is held for THAT month, even if the answer arrives after midnight', async () => {
+    vi.setSystemTime(new Date('2026-10-31T23:59:59Z'));
+    // The server decided at 23:59:59 on Oct 31; the phone gets the answer at 00:00:03 on Nov 1.
+    db.saveInvoice.mockImplementation(async () => { vi.setSystemTime(new Date('2026-11-01T00:00:03Z')); return { error: LIMIT }; });
+    enqueueSync({ type: 'save_invoice', payload: { invoice: { number: 1021 } } });
+    await processSyncQueue();
+    expect(getHeldSyncs()).toHaveLength(1);
+    expect(getHeldSyncs()[0].heldUtcMonth).toBe('2026-10'); // stamped with the month the request went out in
+    db.saveInvoice.mockResolvedValue({ error: null });
+    await processSyncQueue(); // it is November: the next round releases it and it goes up now, not a month later
+    expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+    expect(getHeldSyncs()).toEqual([]);
+  });
+
   it('an item stored without the month field is released, never stranded', async () => {
     vi.setSystemTime(new Date('2026-10-31T17:00:00Z'));
     const { heldUtcMonth: _none, ...bare } = held(1021);

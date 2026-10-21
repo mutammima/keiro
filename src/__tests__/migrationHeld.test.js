@@ -11,7 +11,7 @@
  * The cloud boundary (services/db.js) is mocked; localStorage is jsdom's.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../services/db', () => {
   const ok = () => vi.fn(async () => ({ error: null }));
@@ -130,6 +130,34 @@ describe('a guest invoice the server refuses for the free limit', () => {
     expect(logs).toEqual([MIGRATION_RETRY, MIGRATION_RETRY]); // 1031 only; the held 1030 is not reported as a failure
     expect(getHeldSyncs().map(h => h.payload.invoice.number)).toEqual([1030]);
     expect(getUnsyncedCount()).toBe(1);
+  });
+
+  describe('the month it is held for', () => {
+    // The server judges an upload in the UTC month it arrives in. Stamped with the month the ANSWER came back in,
+    // a refusal that crosses midnight UTC would be held for a whole extra month.
+    beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('is the UTC month the upload went out in, even if the refusal comes back after midnight', async () => {
+      vi.setSystemTime(new Date('2026-10-31T23:59:59Z'));
+      db.saveInvoice.mockImplementation(async () => { vi.setSystemTime(new Date('2026-11-01T00:00:03Z')); return { error: LIMIT }; });
+      set(STORAGE_KEYS.LIST, [guest(1030)]);
+      await runMigrationIfNeeded();
+      expect(getHeldSyncs()).toHaveLength(1);
+      expect(getHeldSyncs()[0].heldUtcMonth).toBe('2026-10');
+      db.saveInvoice.mockResolvedValue({ error: null });
+      await processSyncQueue(); // it is November: released and sent now
+      expect(db.saveInvoice).toHaveBeenCalledTimes(2);
+      expect(getUnsyncedCount()).toBe(0);
+    });
+
+    it('a refusal inside one month is held for that month', async () => {
+      vi.setSystemTime(new Date('2026-10-16T12:00:00Z'));
+      db.saveInvoice.mockResolvedValue({ error: LIMIT });
+      set(STORAGE_KEYS.LIST, [guest(1030)]);
+      await runMigrationIfNeeded();
+      expect(getHeldSyncs()[0].heldUtcMonth).toBe('2026-10');
+    });
   });
 });
 
