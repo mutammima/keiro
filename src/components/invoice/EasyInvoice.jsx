@@ -36,7 +36,8 @@ export default function EasyInvoice({ onGenerated, onBack }) {
 
   const total = form.items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0);
   usePlan(); // re-render when this month's count changes
-  const left = onFreePlan() ? freeInvoicesLeft() : null;
+  // Only a NEW invoice uses one of the free invoices, so an edit shows no count.
+  const left = onFreePlan() && form.editNumber == null ? freeInvoicesLeft() : null;
 
   async function onScanned(text, format) {
     setScanning(false);

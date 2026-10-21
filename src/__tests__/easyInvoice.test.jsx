@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { STORAGE_KEYS, EVENTS } from '../utils/constants';
 import { givePro } from './helpers/givePro';
@@ -303,6 +303,23 @@ describe('EasyInvoice', () => {
     renderEasy();
     // givePro() has 0 counted, so this half would pass without the Pro check; the Pro case with 17 counted is below.
     expect(screen.queryByText(/free invoices? left this month/)).toBeNull();
+  });
+
+  it('editing an invoice shows no "left" line or Upgrade, though the same screen for a new one does', async () => {
+    seedFreePlan(17);
+    localStorage.setItem(STORAGE_KEYS.PREFILL, JSON.stringify({
+      storeName: 'Corner Store', editNumber: 1042, paymentStatus: 'paid',
+      createdAt: '2026-10-01T00:00:00.000Z', items: [{ id: 'a', name: 'Widget', qty: 3, price: 5 }],
+    }));
+    renderEasy();
+    expect(await screen.findByText('Edit invoice #1042')).toBeInTheDocument();
+    expect(screen.getByText('Widget')).toBeInTheDocument(); // the prefill is in
+    expect(screen.queryByText(LEFT_LINE)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+
+    cleanup();
+    renderEasy();
+    expect(screen.getByText('3 free invoices left this month')).toBeInTheDocument();
   });
 
   it('the Upgrade link asks for the plain Upgrade sheet, with no title of its own', () => {
