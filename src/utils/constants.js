@@ -278,6 +278,9 @@ export const PLAN_COPY = {
   easySwitchLabel: `${EASY_SWITCH_TEXT}, Easy Mode switch`,
   sellerSigAlt: 'Driver / Deliverer signature', // alt text of a saved signature shown read-only on Free (InvoiceView)
   buyerSigAlt: 'Store Manager signature',
+  // The words above each signature: the signing pads' labels (Pro) and the read-only captions (Free) are the same text.
+  sellerSigCaption: 'Driver / Deliverer',
+  buyerSigCaption: 'Store Manager — Proof of Delivery',
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
   tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
   // The Easy tour's one step on + New when the month's free invoices are used up (tapping + New then opens the limit sheet, not the invoice screen).

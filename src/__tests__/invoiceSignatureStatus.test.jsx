@@ -107,6 +107,40 @@ describe('signature save status', () => {
     expect(saveSignatures).not.toHaveBeenCalled();                            // showing them re-uploads nothing
   });
 
+  // The alt text is for a screen reader; someone looking at the card needs to see whose signature each box is.
+  it('free plan: each read-only signature is captioned like its signing pad, not by alt text alone', async () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' });
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    await waitFor(() => expect(screen.getByAltText(PLAN_COPY.sellerSigAlt)).toHaveAttribute('src', `ink(${PRINT_INK}):data:image/png;base64,SELLER`));
+    expect(screen.getByText('Driver / Deliverer')).toBeVisible();
+    expect(screen.getByText('Store Manager — Proof of Delivery')).toBeVisible();
+  });
+
+  it('free plan: a caption only for the signature that exists', async () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: null });
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    expect(await screen.findByText('Driver / Deliverer')).toBeVisible();
+    expect(screen.queryByText('Store Manager — Proof of Delivery')).toBeNull();
+  });
+
+  it('the captions are the signing pads\' own labels, from one place (PLAN_COPY)', async () => {
+    const both = { seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' };
+    // Pro: the pads (mocked as "sign <label>" buttons).
+    givePro();
+    getSignatures.mockReturnValueOnce(both);
+    const pro = render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    const padLabels = screen.getAllByRole('button', { name: /^sign / }).map((b) => b.textContent.replace(/^sign /, ''));
+    expect(padLabels).toEqual([PLAN_COPY.sellerSigCaption, PLAN_COPY.buyerSigCaption]);
+    pro.unmount();
+    // Free: the same words as captions.
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    getSignatures.mockReturnValueOnce(both);
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    for (const label of padLabels) expect(await screen.findByText(label)).toBeVisible();
+  });
+
   it('free plan, dark mode: a signature drawn in white ink shows in print ink on its white box, never as stored', async () => {
     localStorage.setItem(STORAGE_KEYS.DARK_MODE, 'true');
     localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);

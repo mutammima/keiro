@@ -337,20 +337,20 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
           )}
           {showSigs && sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sellerSig && <ReadOnlySignature src={sellerSig} alt={PLAN_COPY.sellerSigAlt} />}
-              {buyerSig && <ReadOnlySignature src={buyerSig} alt={PLAN_COPY.buyerSigAlt} />}
+              {sellerSig && <ReadOnlySignature src={sellerSig} alt={PLAN_COPY.sellerSigAlt} caption={PLAN_COPY.sellerSigCaption} C={C} />}
+              {buyerSig && <ReadOnlySignature src={buyerSig} alt={PLAN_COPY.buyerSigAlt} caption={PLAN_COPY.buyerSigCaption} C={C} />}
             </div>
           )}
           {showSigs && !sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <SignaturePad
-                label="Driver / Deliverer"
+                label={PLAN_COPY.sellerSigCaption}
                 dark={dark} C={C}
                 initialDataUrl={sellerSig}
                 onChange={setSellerSig}
               />
               <SignaturePad
-                label="Store Manager — Proof of Delivery"
+                label={PLAN_COPY.buyerSigCaption}
                 dark={dark} C={C}
                 initialDataUrl={buyerSig}
                 onChange={setBuyerSig}

@@ -14,6 +14,7 @@ vi.mock('../utils/signatureImage', async (importOriginal) => ({
 
 import ReadOnlySignature from '../components/invoice/ReadOnlySignature';
 import { recolorSignature, PRINT_INK } from '../utils/signatureImage';
+import { LIGHT } from '../theme';
 
 // A recolour the test finishes by hand.
 function deferred() {
@@ -22,23 +23,34 @@ function deferred() {
   return { promise, resolve };
 }
 const shown = () => screen.getByAltText('Signature');
+const sig = (src) => <ReadOnlySignature src={src} alt="Signature" caption="Driver / Deliverer" C={LIGHT} />;
 
 beforeEach(() => { recolorSignature.mockReset(); });
 
 describe('ReadOnlySignature', () => {
   it('shows the signature as it will print: recoloured to PRINT_INK, on a white box', async () => {
     recolorSignature.mockResolvedValue('data:ink');
-    render(<ReadOnlySignature src="data:white-strokes" alt="Signature" />);
+    render(sig('data:white-strokes'));
     await act(async () => {});
     expect(recolorSignature).toHaveBeenCalledWith('data:white-strokes', PRINT_INK);
     expect(shown()).toHaveAttribute('src', 'data:ink');
     expect(shown().style.backgroundColor).toBe('rgb(255, 255, 255)');
   });
 
+  it('is captioned, above the box, with the words it is given', async () => {
+    recolorSignature.mockResolvedValue('data:ink');
+    render(sig('data:stored'));
+    await act(async () => {});
+    const caption = screen.getByText('Driver / Deliverer');
+    expect(caption.compareDocumentPosition(shown()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('figure')).toContainElement(caption);
+    expect(screen.getByRole('figure')).toContainElement(shown());
+  });
+
   it('shows the stored image until the recolour is ready', async () => {
     const recolour = deferred();
     recolorSignature.mockReturnValue(recolour.promise);
-    render(<ReadOnlySignature src="data:stored" alt="Signature" />);
+    render(sig('data:stored'));
     expect(shown()).toHaveAttribute('src', 'data:stored');
     await act(async () => { recolour.resolve('data:ink'); });
     expect(shown()).toHaveAttribute('src', 'data:ink');
@@ -46,7 +58,7 @@ describe('ReadOnlySignature', () => {
 
   it('keeps the stored image when it cannot be recoloured (recolorSignature then hands its input back)', async () => {
     recolorSignature.mockImplementation(async (src) => src);
-    render(<ReadOnlySignature src="data:stored" alt="Signature" />);
+    render(sig('data:stored'));
     await act(async () => {});
     expect(recolorSignature).toHaveBeenCalledTimes(1);
     expect(shown()).toHaveAttribute('src', 'data:stored');
@@ -54,10 +66,10 @@ describe('ReadOnlySignature', () => {
 
   it('recolours once per signature, not on every render', async () => {
     recolorSignature.mockResolvedValue('data:ink');
-    const { rerender } = render(<ReadOnlySignature src="data:stored" alt="Signature" />);
+    const { rerender } = render(sig('data:stored'));
     await act(async () => {});
-    rerender(<ReadOnlySignature src="data:stored" alt="Signature" />);
-    rerender(<ReadOnlySignature src="data:stored" alt="Signature" />);
+    rerender(sig('data:stored'));
+    rerender(sig('data:stored'));
     await act(async () => {});
     expect(recolorSignature).toHaveBeenCalledTimes(1);
     expect(shown()).toHaveAttribute('src', 'data:ink');
@@ -67,10 +79,10 @@ describe('ReadOnlySignature', () => {
     const first = deferred();
     const second = deferred();
     recolorSignature.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    const { rerender } = render(<ReadOnlySignature src="data:a" alt="Signature" />);
+    const { rerender } = render(sig('data:a'));
     await act(async () => { first.resolve('data:a-ink'); });
     expect(shown()).toHaveAttribute('src', 'data:a-ink');
-    rerender(<ReadOnlySignature src="data:b" alt="Signature" />);
+    rerender(sig('data:b'));
     expect(shown()).toHaveAttribute('src', 'data:b');          // the new stored image, not a's ink
     expect(recolorSignature).toHaveBeenLastCalledWith('data:b', PRINT_INK);
     await act(async () => { second.resolve('data:b-ink'); });
@@ -81,8 +93,8 @@ describe('ReadOnlySignature', () => {
     const slow = deferred();
     const fast = deferred();
     recolorSignature.mockReturnValueOnce(slow.promise).mockReturnValueOnce(fast.promise);
-    const { rerender } = render(<ReadOnlySignature src="data:a" alt="Signature" />);
-    rerender(<ReadOnlySignature src="data:b" alt="Signature" />);
+    const { rerender } = render(sig('data:a'));
+    rerender(sig('data:b'));
     await act(async () => { fast.resolve('data:b-ink'); });
     await act(async () => { slow.resolve('data:a-ink'); });
     expect(shown()).toHaveAttribute('src', 'data:b-ink');
