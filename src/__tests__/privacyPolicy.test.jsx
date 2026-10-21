@@ -67,6 +67,29 @@ describe('privacy policy', () => {
 // eslint-disable-next-line no-undef -- Node global; vitest runs from the repo root
 const markdown = (name) => readFileSync(resolve(process.cwd(), name), 'utf8').replace(/\s+/g, ' ');
 
+// Every count of invoices per month a text states ("20 new invoices a month", "5 free invoices each month"...).
+const limitsStated = (text) => [...text.matchAll(/\b(\d+) (?:new |free )?invoices (?:a|each|per|every) month/gi)].map((m) => Number(m[1]));
+
+describe('the free limit the policy texts state', () => {
+  it('TERMS.md says the number FREE_INVOICES_PER_MONTH is, and any number PRIVACY.md states is the same', () => {
+    expect(limitsStated(markdown('TERMS.md'))).toEqual([FREE_INVOICES_PER_MONTH]);   // stated once, and it is the constant's
+    for (const number of limitsStated(markdown('PRIVACY.md'))) expect(number).toBe(FREE_INVOICES_PER_MONTH);
+  });
+  it('the in-app Terms and Privacy say that number too', () => {
+    for (const section of ['terms', 'privacy']) {
+      const { container, unmount } = render(<ThemeProvider><Legal section={section} onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
+      for (const number of limitsStated(container.textContent)) expect(number, section).toBe(FREE_INVOICES_PER_MONTH);
+      if (section === 'terms') expect(limitsStated(container.textContent)).toEqual([FREE_INVOICES_PER_MONTH]);
+      unmount();
+    }
+  });
+  it('the check can see a number: it reads the wording the texts use', () => {
+    expect(limitsStated('Easy Mode and 20 new invoices a month.')).toEqual([20]);
+    expect(limitsStated('5 free invoices each month, then 25 invoices per month')).toEqual([5, 25]);
+    expect(limitsStated('how many invoices you made each month')).toEqual([]);
+  });
+});
+
 describe('PRIVACY.md and TERMS.md', () => {
   it('say what the app says about the plan', () => {
     const privacy = markdown('PRIVACY.md');
