@@ -256,6 +256,17 @@ describe('the sign-up flow around the plan screen', () => {
     expect(localStorage.getItem('inv_plan')).toBeNull();
   });
 
+  // profiles.plan is `text not null default 'basic'` (supabase-profiles.sql, supabase-schema.sql) and nothing reads it:
+  // the real plan is my_plan(). Sending 'basic' would only restate the default, and look like it meant something.
+  it.each(['driver', 'store_owner'])('the profile saved for a %s does not carry the unused plan column', async (role) => {
+    saveProfile.mockClear();
+    await fillProfileAs(role);
+    await waitFor(() => expect(saveProfile).toHaveBeenCalledTimes(1));
+    const row = saveProfile.mock.calls[0][0];
+    expect(row).toMatchObject({ id: 'u1', role });          // it is the profile row
+    expect(Object.keys(row)).not.toContain('plan');
+  });
+
   it('a store owner skips the plan screen: the profile goes straight into the app', async () => {
     await fillProfileAs('store_owner');
     await waitFor(() => expect(onAuthed).toHaveBeenCalledWith(user));
