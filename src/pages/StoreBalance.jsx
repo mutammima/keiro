@@ -10,7 +10,7 @@ import { MS_PER_DAY as MS_DAY } from '../utils/constants';
 import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../utils/storage';
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
 import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
-import { pdfLayoutFor } from '../utils/easyMode';
+import { pdfLayoutFor, shareLabel } from '../utils/easyMode';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
@@ -31,7 +31,7 @@ function weekLabel(start) {
   return `${a} – ${b}`;
 }
 
-// `easyMode` is the mode the shell was built with (App): Easy Mode prints the fill-in template.
+// `easyMode` is the mode the shell was built with (App): Easy Mode prints the fill-in template, and says so (shareLabel).
 export default function StoreBalance({ storeName, onBack, easyMode = false }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
@@ -299,7 +299,7 @@ export default function StoreBalance({ storeName, onBack, easyMode = false }) {
                     onClick={() => handleShare(inv)}
                     disabled={!!sharing}
                   >
-                    {sharing === invNum ? 'Sharing…' : 'Share PDF'}
+                    {sharing === invNum ? 'Sharing…' : shareLabel('Share PDF', easyMode)}
                   </button>
                 </div>
               )}

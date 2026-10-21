@@ -136,25 +136,27 @@ describe('Route (InvoiceHistory)', () => {
 });
 
 describe('Store balance', () => {
-  async function shareFirstInvoice(props) {
+  async function shareFirstInvoice(props, label) {
     wrap(<StoreBalance storeName="Corner Store" onBack={() => {}} {...props} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Details' }));
     const tab = { close: vi.fn() };
     vi.spyOn(window, 'open').mockReturnValue(tab);
-    fireEvent.click(screen.getByRole('button', { name: 'Share PDF' }));
+    fireEvent.click(screen.getByRole('button', { name: label }));
     await waitFor(() => expect(generateAndSharePDF).toHaveBeenCalledTimes(1));
     window.open.mockRestore();
     return generateAndSharePDF.mock.calls[0][0];
   }
 
-  it('an Easy shell prints the template, though the stored flag is off', async () => {
+  it('an Easy shell says Print / Share and prints the template, though the stored flag is off', async () => {
     easyShellFlagOff();
-    expect((await shareFirstInvoice({ easyMode: true })).layout).toBe('template');
+    expect((await shareFirstInvoice({ easyMode: true }, 'Print / Share')).layout).toBe('template');
+    expect(screen.queryByRole('button', { name: 'Share PDF' })).toBeNull();
   });
 
-  it('a normal shell prints the standard layout, though the stored flag is on', async () => {
+  it('a normal shell says Share PDF and prints the standard layout, though the stored flag is on', async () => {
     normalShellFlagOn();
-    expect((await shareFirstInvoice({ easyMode: false })).layout).toBe('standard');
+    expect((await shareFirstInvoice({ easyMode: false }, 'Share PDF')).layout).toBe('standard');
+    expect(screen.queryByRole('button', { name: 'Print / Share' })).toBeNull();
   });
 });
 
