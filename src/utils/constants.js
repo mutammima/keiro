@@ -238,6 +238,8 @@ export const PLAN_REFRESH_TIMEOUT_MS = 20000;
 export const FREE_LIMIT_ERROR = 'KEIRO_FREE_LIMIT';
 /** Shown prices. Payments are coming soon (owner decision 2026-10-17). */
 export const PRO_PRICE = { month: '$4.99', year: '$49.99' };
+/** The title beside Settings' Easy Mode switch; the switch's accessible name starts with it (PLAN_COPY.easySwitchLabel). */
+const EASY_SWITCH_TEXT = 'Simplified view';
 /** Every plan message, in one place. */
 export const PLAN_COPY = {
   upgradeTitle: 'Keiro Pro',
@@ -270,7 +272,10 @@ export const PLAN_COPY = {
   endedNote: `Your Pro plan ended. You're back on Free: Easy Mode, ${FREE_INVOICES_PER_MONTH} invoices a month. Nothing was deleted.`,
   planNoticeLabel: 'Your plan',   // the accessible name of the one-time plan note (PlanNotices)
   proLockLabel: 'Part of Pro',    // the accessible name of the lock beside a locked switch (Settings → Easy Mode)
-  easySwitchLabel: 'Easy Mode switch', // the accessible name of Settings' Easy Mode switch
+  easySwitchText: EASY_SWITCH_TEXT,  // the title shown beside Settings' Easy Mode switch
+  // The accessible name of that switch. It includes the title shown beside it, so someone who says what they see
+  // (voice control) reaches it, and the "Easy Mode" that tells it apart from the section's header button.
+  easySwitchLabel: `${EASY_SWITCH_TEXT}, Easy Mode switch`,
   sellerSigAlt: 'Driver / Deliverer signature', // alt text of a saved signature shown read-only on Free (InvoiceView)
   buyerSigAlt: 'Store Manager signature',
   signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',

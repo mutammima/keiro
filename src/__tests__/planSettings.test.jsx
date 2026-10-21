@@ -27,8 +27,13 @@ const planArrives = (p) => act(() => {
   window.dispatchEvent(new CustomEvent(EVENTS.PLAN_CHANGE));
 });
 const wrap = (el) => render(<ThemeProvider>{el}</ThemeProvider>);
-// The Toggle is drawn on by sliding its knob right (it has no other visible state).
-const switchIsDrawnOn = () => screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel }).firstChild.style.transform === 'translateX(18px)';
+// The switch says whether it is on (aria-pressed), and draws it by sliding its knob right: both must agree.
+const switchIsDrawnOn = () => {
+  const toggle = screen.getByRole('button', { name: PLAN_COPY.easySwitchLabel });
+  const knobRight = toggle.firstChild.style.transform === 'translateX(18px)';
+  expect(toggle.getAttribute('aria-pressed')).toBe(String(knobRight));
+  return knobRight;
+};
 beforeEach(() => { localStorage.clear(); });
 
 describe('Settings → Plan', () => {
@@ -207,7 +212,7 @@ describe('the Settings rows take their words from PLAN_COPY', () => {
 
   it('and the real words are unchanged', () => {
     expect(PLAN_COPY.proLockLabel).toBe('Part of Pro');
-    expect(PLAN_COPY.easySwitchLabel).toBe('Easy Mode switch');
+    expect(PLAN_COPY.easySwitchLabel).toBe('Simplified view, Easy Mode switch');
     expect(PLAN_COPY.planSectionTitle).toBe('Plan');
   });
 });

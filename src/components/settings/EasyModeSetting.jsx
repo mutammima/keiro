@@ -42,7 +42,7 @@ export default function EasyModeSetting({ role, C, dark, onChange = () => window
       <div style={{ paddingTop: 4 }}>
         <div style={s.row}>
           <div>
-            <div style={{ ...s.title, color: C.text }}>Simplified view</div>
+            <div style={{ ...s.title, color: C.text }}>{PLAN_COPY.easySwitchText}</div>
             <div style={{ ...s.desc, color: C.textMuted }}>{EASY_MODE_DESCRIPTION}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
