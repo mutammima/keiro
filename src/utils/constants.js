@@ -220,6 +220,11 @@ export const SIDE_NAV_WIDTH = 232;
 export const FREE_INVOICES_PER_MONTH = 20;
 /** "N free invoices left this month" shows from this many left. */
 export const FREE_WARN_AT_LEFT = 5;
+/**
+ * The time zone of pro_until's day. The owner's switch ends a day at 23:59:59 in this zone
+ * (docs/COWORK_PRICING.md), so every date shown from pro_until is read in it, not the phone's.
+ */
+export const PRO_UNTIL_TIME_ZONE = 'America/New_York';
 /** Offline, a cached Pro stays Pro this long past its paid-until date. */
 export const OFFLINE_PRO_GRACE_DAYS = 3;
 /** my_plan() gives up after this long on a weak signal; the cached plan stands. */

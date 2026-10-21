@@ -17,7 +17,7 @@
  */
 import {
   STORAGE_KEYS, EVENTS, MS_PER_DAY, FREE_INVOICES_PER_MONTH, OFFLINE_PRO_GRACE_DAYS,
-  PLAN_COPY, PLAN_REFRESH_TIMEOUT_MS,
+  PLAN_COPY, PLAN_REFRESH_TIMEOUT_MS, PRO_UNTIL_TIME_ZONE,
 } from './constants';
 import { localMonth } from './invoiceUtils';
 
@@ -37,8 +37,9 @@ export function isGuestNow() {
 function isStoreOwner() {
   return read(STORAGE_KEYS.USER_ROLE, 'driver') === 'store_owner';
 }
-function shortDate(isoString) {
-  return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/** "Dec 1": the day of a pro_until instant in PRO_UNTIL_TIME_ZONE (where the owner's switch sets it), not the phone's zone. */
+function proUntilDate(isoString) {
+  return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: PRO_UNTIL_TIME_ZONE });
 }
 
 /** The plan in a stored PLAN_CACHE text, or null when there is none (or it is not an object). */
@@ -226,7 +227,7 @@ export function planSummary(plan, now = new Date()) {
     return { label: PLAN_COPY.freeLabel, sub: PLAN_COPY.usedLine(used, resetDateLabel(now)), action: 'upgrade' };
   }
   if (plan.source === 'manual') {
-    return { label: plan.proUntil ? PLAN_COPY.proUntilLabel(shortDate(plan.proUntil)) : PLAN_COPY.proFreeLabel, sub: '', action: null };
+    return { label: plan.proUntil ? PLAN_COPY.proUntilLabel(proUntilDate(plan.proUntil)) : PLAN_COPY.proFreeLabel, sub: '', action: null };
   }
   return { label: PLAN_COPY.proLabel, sub: '', action: null };
 }

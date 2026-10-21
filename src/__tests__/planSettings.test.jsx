@@ -47,11 +47,27 @@ describe('Settings → Plan', () => {
     expect(screen.getByRole('button', { name: 'Upgrade' }).style.minHeight).toBe('44px');
   });
   it('the owner\'s switch with an end date: Pro until that day, no button', () => {
-    // Noon on Dec 1 of the phone's own calendar (a UTC literal would read Dec 2 east of UTC+12).
-    setPlan({ pro: true, source: 'manual', proUntil: new Date(2099, 11, 1, 12).toISOString() });
+    // 23:59:59 on Dec 1 in New York, which is how the owner's switch ends a day (docs/COWORK_PRICING.md).
+    setPlan({ pro: true, source: 'manual', proUntil: '2099-12-02T04:59:59Z' });
     wrap(<PlanSetting role="driver" C={LIGHT} />);
     expect(screen.getByText('Pro until Dec 1')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+  });
+  // Settings reads that day in New York time, not the phone's: under UTC (CI) or in Tokyo this instant is already Nov 16.
+  it('...and shows the New York day, whatever time zone the phone is in', () => {
+    const was = process.env.TZ;
+    try {
+      for (const zone of ['UTC', 'Asia/Tokyo', 'America/Los_Angeles']) {
+        process.env.TZ = zone;
+        localStorage.clear();
+        setPlan({ pro: true, source: 'manual', proUntil: '2099-11-16T04:59:59Z' });
+        const view = wrap(<PlanSetting role="driver" C={LIGHT} />);
+        expect(screen.getByText('Pro until Nov 15'), zone).toBeInTheDocument();
+        view.unmount();
+      }
+    } finally {
+      if (was === undefined) delete process.env.TZ; else process.env.TZ = was;
+    }
   });
   it('the owner\'s switch: Pro (free), no button', () => {
     setPlan({ pro: true, source: 'manual', proUntil: null });

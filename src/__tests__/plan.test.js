@@ -21,7 +21,8 @@ const DAY = 86400000;
 const iso = (ms) => new Date(ms).toISOString();
 // Noon on a LOCAL calendar day, as the server's UTC timestamp. A literal like '2026-12-01T12:00:00Z' is
 // Dec 2 on the phone's calendar from UTC+12 eastwards, so what the app shows would depend on where the test runs.
-const localNoonIso = (y, monthIndex, d) => new Date(y, monthIndex, d, 12, 0, 0).toISOString();
+// The owner's switch ends a day at 23:59:59 New York time (docs/COWORK_PRICING.md): this is the end of Dec 1 there.
+const END_OF_DEC_1_NEW_YORK = '2026-12-02T04:59:59Z';
 const setPlan = (p) => localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify(p));
 const json = (key) => JSON.parse(localStorage.getItem(key));
 const answer = (o = {}) => ({
@@ -364,9 +365,26 @@ describe('Settings', () => {
     setPlan({ pro: false, usedThisMonth: 12, month: '2026-10' });
     expect(planSummary(getCachedPlan(), NOW)).toEqual({ label: 'Free', sub: '12 of 20 invoices used this month · resets Nov 1', action: 'upgrade' });
     expect(planSummary({ pro: true, source: 'manual', proUntil: null }, NOW)).toEqual({ label: 'Pro (free)', sub: '', action: null });
-    expect(planSummary({ pro: true, source: 'manual', proUntil: localNoonIso(2026, 11, 1) }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
+    expect(planSummary({ pro: true, source: 'manual', proUntil: END_OF_DEC_1_NEW_YORK }, NOW)).toEqual({ label: 'Pro until Dec 1', sub: '', action: null });
     // A paid (Stripe) record can only exist once payments are built; it shows plain Pro.
     expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW)).toEqual({ label: 'Pro', sub: '', action: null });
+  });
+  // pro_until is "the end of that day in New York" (docs/COWORK_PRICING.md), so that is the day it names: a phone
+  // in Tokyo, or CI under UTC, must not read it a day late.
+  it('planSummary names pro_until\'s day in New York time, whatever time zone the phone is in', () => {
+    const was = process.env.TZ;
+    try {
+      for (const zone of ['UTC', 'Asia/Tokyo', 'Pacific/Auckland', 'America/Los_Angeles', 'America/New_York']) {
+        process.env.TZ = zone;
+        const label = (proUntil) => planSummary({ pro: true, source: 'manual', proUntil }, NOW).label;
+        expect(label('2026-11-16T04:59:59Z'), zone).toBe('Pro until Nov 15');   // 23:59:59 EST on Nov 15
+        expect(label('2026-12-02T04:59:59Z'), zone).toBe('Pro until Dec 1');
+        expect(label('2027-07-05T03:59:59Z'), zone).toBe('Pro until Jul 4');    // 23:59:59 EDT: summer time is New York's too
+        expect(label('2026-11-16T05:00:00Z'), zone).toBe('Pro until Nov 16');   // the first second of the next New York day
+      }
+    } finally {
+      if (was === undefined) delete process.env.TZ; else process.env.TZ = was;
+    }
   });
   // The server's backstop refuses past 25 and two phones can each count: the row never shows more than the limit.
   it('planSummary shows at most the limit: 23 used is "20 of 20"', () => {
@@ -387,7 +405,7 @@ describe('Settings', () => {
     try {
       expect(planSummary(null, NOW).label).toBe('F!');
       expect(planSummary({ pro: true, source: 'manual', proUntil: null }, NOW).label).toBe('PF!');
-      expect(planSummary({ pro: true, source: 'manual', proUntil: localNoonIso(2026, 11, 1) }, NOW).label).toBe('PU! Dec 1');
+      expect(planSummary({ pro: true, source: 'manual', proUntil: END_OF_DEC_1_NEW_YORK }, NOW).label).toBe('PU! Dec 1');
       expect(planSummary({ pro: true, source: 'stripe', status: 'active', proUntil: '2026-11-16T12:00:00Z' }, NOW).label).toBe('P!');
     } finally {
       Object.assign(PLAN_COPY, saved);
