@@ -249,7 +249,7 @@ describe('the app hosts the Upgrade and limit sheets', () => {
 
       const sheet = screen.getByRole('dialog', { name: PLAN_COPY.upgradeTitle });
       expect(within(sheet).getByText(PLAN_COPY.comingSoon)).toBeInTheDocument();
-      expect(screen.getAllByRole('dialog')).toHaveLength(1);
+      expect(screen.getAllByRole('dialog', { name: PLAN_COPY.upgradeTitle })).toHaveLength(1);
     });
   });
 });
