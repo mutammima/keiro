@@ -9,6 +9,7 @@ vi.mock('../utils/syncQueue', () => ({ releaseHeldSyncs: vi.fn() }));
 
 import * as db from '../services/db';
 import { releaseHeldSyncs } from '../utils/syncQueue';
+import { inTimeZones } from './helpers/timeZone';
 import { STORAGE_KEYS, EVENTS, PLAN_COPY, PLAN_REFRESH_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
 import {
   getCachedPlan, isProNow, isPro, onFreePlan, invoicesUsedThisMonth, freeInvoicesLeft,
@@ -372,19 +373,13 @@ describe('Settings', () => {
   // pro_until is "the end of that day in New York" (docs/COWORK_PRICING.md), so that is the day it names: a phone
   // in Tokyo, or CI under UTC, must not read it a day late.
   it('planSummary names pro_until\'s day in New York time, whatever time zone the phone is in', () => {
-    const was = process.env.TZ;
-    try {
-      for (const zone of ['UTC', 'Asia/Tokyo', 'Pacific/Auckland', 'America/Los_Angeles', 'America/New_York']) {
-        process.env.TZ = zone;
-        const label = (proUntil) => planSummary({ pro: true, source: 'manual', proUntil }, NOW).label;
-        expect(label('2026-11-16T04:59:59Z'), zone).toBe('Pro until Nov 15');   // 23:59:59 EST on Nov 15
-        expect(label('2026-12-02T04:59:59Z'), zone).toBe('Pro until Dec 1');
-        expect(label('2027-07-05T03:59:59Z'), zone).toBe('Pro until Jul 4');    // 23:59:59 EDT: summer time is New York's too
-        expect(label('2026-11-16T05:00:00Z'), zone).toBe('Pro until Nov 16');   // the first second of the next New York day
-      }
-    } finally {
-      if (was === undefined) delete process.env.TZ; else process.env.TZ = was;
-    }
+    inTimeZones(['UTC', 'Asia/Tokyo', 'Pacific/Auckland', 'America/Los_Angeles', 'America/New_York'], (zone) => {
+      const label = (proUntil) => planSummary({ pro: true, source: 'manual', proUntil }, NOW).label;
+      expect(label('2026-11-16T04:59:59Z'), zone).toBe('Pro until Nov 15');   // 23:59:59 EST on Nov 15
+      expect(label('2026-12-02T04:59:59Z'), zone).toBe('Pro until Dec 1');
+      expect(label('2027-07-05T03:59:59Z'), zone).toBe('Pro until Jul 4');    // 23:59:59 EDT: summer time is New York's too
+      expect(label('2026-11-16T05:00:00Z'), zone).toBe('Pro until Nov 16');   // the first second of the next New York day
+    });
   });
   // The server's backstop refuses past 25 and two phones can each count: the row never shows more than the limit.
   it('planSummary shows at most the limit: 23 used is "20 of 20"', () => {

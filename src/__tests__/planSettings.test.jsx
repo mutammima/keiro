@@ -8,6 +8,7 @@ import { STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
 import { givePro } from './helpers/givePro';
 import { signOut } from '../services/auth';
 import { isEasyMode } from '../utils/easyMode';
+import { inTimeZones } from './helpers/timeZone';
 
 // signOut() is the real one; only the Supabase client under it is a stand-in (CI has no .env).
 vi.mock('../services/supabase', () => ({
@@ -60,19 +61,13 @@ describe('Settings → Plan', () => {
   });
   // Settings reads that day in New York time, not the phone's: under UTC (CI) or in Tokyo this instant is already Nov 16.
   it('...and shows the New York day, whatever time zone the phone is in', () => {
-    const was = process.env.TZ;
-    try {
-      for (const zone of ['UTC', 'Asia/Tokyo', 'America/Los_Angeles']) {
-        process.env.TZ = zone;
-        localStorage.clear();
-        setPlan({ pro: true, source: 'manual', proUntil: '2099-11-16T04:59:59Z' });
-        const view = wrap(<PlanSetting role="driver" C={LIGHT} />);
-        expect(screen.getByText('Pro until Nov 15'), zone).toBeInTheDocument();
-        view.unmount();
-      }
-    } finally {
-      if (was === undefined) delete process.env.TZ; else process.env.TZ = was;
-    }
+    inTimeZones(['UTC', 'Asia/Tokyo', 'America/Los_Angeles'], (zone) => {
+      localStorage.clear();
+      setPlan({ pro: true, source: 'manual', proUntil: '2099-11-16T04:59:59Z' });
+      const view = wrap(<PlanSetting role="driver" C={LIGHT} />);
+      expect(screen.getByText('Pro until Nov 15'), zone).toBeInTheDocument();
+      view.unmount();
+    });
   });
   it('the owner\'s switch: Pro (free), no button', () => {
     setPlan({ pro: true, source: 'manual', proUntil: null });
