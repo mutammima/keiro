@@ -527,6 +527,100 @@ describe('PlanSheet: keyboard and focus', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  // Focusing the sheet's bottom button can scroll a long (maxHeight 85vh) sheet to its foot, hiding the title and the
+  // perks; handing focus back can scroll the page behind or bring the iOS keyboard up again. Neither should scroll.
+  describe('focus never scrolls', () => {
+    let focus;
+    beforeEach(() => { focus = vi.spyOn(HTMLElement.prototype, 'focus'); });
+    afterEach(() => { focus.mockRestore(); });
+
+    it('into the sheet (a button) and back out to what had focus', () => {
+      render(<Harness />);
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      trigger.focus();                       // the test's own call
+      focus.mockClear();
+      fireEvent.click(trigger);
+      expect(focus).toHaveBeenCalledTimes(1);
+      expect(focus.mock.contexts[0]).toBe(screen.getByRole('button', { name: 'OK' }));
+      expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+      focus.mockClear();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(focus).toHaveBeenCalledTimes(1);
+      expect(focus.mock.contexts[0]).toBe(trigger);
+      expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    });
+
+    it('into the sheet itself when it has no button', () => {
+      render(<ThemeProvider><PlanSheet open title="Keiro Pro"><p>words</p></PlanSheet></ThemeProvider>);
+      expect(focus).toHaveBeenCalledTimes(1);
+      expect(focus.mock.contexts[0]).toBe(screen.getByRole('dialog'));
+      expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    });
+  });
+
+  // Escape belongs to the topmost dialog. ConfirmDialog (9600) and the sign-out prompt (9500) stack above a
+  // sheet (9100), and nothing else handles Escape for them, so the sheet underneath must not take it.
+  describe('Escape and what is stacked above the sheet', () => {
+    const layers = [];
+    // A dialog from elsewhere in the app, in its own fixed layer at `zIndex`.
+    function stacked(zIndex, role = 'dialog') {
+      const layer = document.createElement('div');
+      layer.style.position = 'fixed';
+      layer.style.zIndex = String(zIndex);
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', role);
+      layer.appendChild(dialog);
+      document.body.appendChild(layer);
+      layers.push(layer);
+      return layer;
+    }
+    afterEach(() => { while (layers.length) layers.pop().remove(); });
+    const escape = () => fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    it('leaves an Escape that something already handled (defaultPrevented) alone', () => {
+      render(<Harness />);
+      openFrom();
+      const handled = (e) => e.preventDefault();
+      document.body.addEventListener('keydown', handled);
+      escape();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      document.body.removeEventListener('keydown', handled);
+      escape();
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it.each([[9600, 'dialog', 'a ConfirmDialog'], [9500, 'alertdialog', 'the sign-out prompt']])('does not close while %i (%s, %s) is above it, and does once that is gone', (z, role) => {
+      render(<Harness />);
+      openFrom();
+      const above = stacked(z, role);
+      escape();
+      expect(screen.getByRole('dialog', { name: 'Keiro Pro' })).toBeInTheDocument();
+      above.remove();
+      escape();
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('a dialog beneath it (a lower layer) does not stop it', () => {
+      render(<Harness />);
+      openFrom();
+      stacked(9000);
+      escape();
+      expect(screen.queryByRole('dialog', { name: 'Keiro Pro' })).toBeNull();
+    });
+
+    it('at the same layer the later dialog is the one on top: only it answers', () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      render(<ThemeProvider>
+        <PlanSheet open onClose={first} title="First"><p>a</p></PlanSheet>
+        <PlanSheet open onClose={second} title="Second"><p>b</p></PlanSheet>
+      </ThemeProvider>);
+      escape();
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    });
+  });
+
   it('one-time plan notes: focus goes to OK, Escape leaves the note up', async () => {
     localStorage.setItem(STORAGE_KEYS.PLAN_NOTICE, JSON.stringify('moved'));
     render(<ThemeProvider><PlanNotices /></ThemeProvider>);

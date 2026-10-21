@@ -6,13 +6,38 @@
  * sheet; without it (the one-time plan notes) the backdrop and Escape do
  * nothing and only the sheet's own button can close it.
  * Opening moves focus into the sheet (its first button); closing gives focus
- * back to what had it. There is no focus trap.
+ * back to what had it, and neither scrolls ({ preventScroll: true }). There is
+ * no focus trap. Escape belongs to the topmost dialog: the sheet leaves it alone
+ * when something already handled it, or a dialog is stacked above the sheet.
  */
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
 import { PLAN_COPY } from '../../utils/constants';
+
+/** The fixed layer (backdrop) a dialog is drawn in: its nearest `position: fixed` ancestor, or itself. */
+function layerOf(dialog) {
+  for (let node = dialog; node && node !== document.body; node = node.parentElement) {
+    if (getComputedStyle(node).position === 'fixed') return node;
+  }
+  return dialog;
+}
+
+/**
+ * Whether another open dialog (role dialog or alertdialog: ConfirmDialog 9600, the sign-out prompt 9500) is drawn above
+ * `dialog`: a higher z-index, or the same one and later in the page. Dialogs without that role are not seen.
+ */
+function hasDialogAbove(dialog) {
+  const mine = layerOf(dialog);
+  const myZ = Number(getComputedStyle(mine).zIndex) || 0;
+  return [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some((other) => {
+    const layer = layerOf(other);
+    if (layer === mine) return false;
+    const z = Number(getComputedStyle(layer).zIndex) || 0;
+    return z > myZ || (z === myZ && Boolean(mine.compareDocumentPosition(layer) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+}
 
 export default function PlanSheet({ open, onClose, title, label, children }) {
   const { dark } = useTheme();
@@ -25,14 +50,19 @@ export default function PlanSheet({ open, onClose, title, label, children }) {
     if (!open) return undefined;
     const before = document.activeElement;
     const dialog = dialogRef.current;
-    (dialog?.querySelector('button:not([disabled])') || dialog)?.focus();
-    return () => { if (before?.isConnected && typeof before.focus === 'function') before.focus(); };
+    // preventScroll: a long sheet must not open scrolled to its foot, and giving focus back must not scroll the page behind.
+    (dialog?.querySelector('button:not([disabled])') || dialog)?.focus({ preventScroll: true });
+    return () => { if (before?.isConnected && typeof before.focus === 'function') before.focus({ preventScroll: true }); };
   }, [open]);
 
-  // Escape closes a sheet that can be closed.
+  // Escape closes a sheet that can be closed, unless something already handled it or a dialog is above this one.
   useEffect(() => {
     if (!open || !onClose) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (dialogRef.current && hasDialogAbove(dialogRef.current)) return;
+      onClose();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
