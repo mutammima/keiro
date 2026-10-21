@@ -28,7 +28,14 @@ vi.mock('../utils/signatureImage', async (importOriginal) => ({
   recolorSignature: vi.fn(async (src, color) => `ink(${color}):${src}`),
 }));
 
+// The PDF stack is loaded on demand by InvoiceView; the tests only look at what the generator is handed.
+vi.mock('../utils/pdfGenerator', () => ({
+  generatePDFBlob: vi.fn(async () => new Blob(['pdf'])),
+  sharePDFBlob: vi.fn(async () => {}),
+}));
+
 import InvoiceView from '../components/invoice/InvoiceView';
+import { generatePDFBlob } from '../utils/pdfGenerator';
 import { saveSignatures, getSignatures, hasSignature, fetchSignatureFromCloud } from '../utils/signatureStorage';
 import { recolorSignature, PRINT_INK } from '../utils/signatureImage';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
@@ -230,6 +237,78 @@ describe('signature save status', () => {
     expect(await screen.findByAltText(PLAN_COPY.sellerSigAlt)).toBeInTheDocument();
     const header = screen.getByText('Signatures').parentElement.parentElement;
     expect(header.style.marginBottom).toBe('14px');
+  });
+
+  // The PDF recolours a signature to print ink itself (pdfGenerator.js), so it is handed the signatures as stored.
+  it('free plan: the signatures already on the invoice reach the PDF', async () => {
+    localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    getSignatures.mockReturnValueOnce({ seller: 'data:image/png;base64,SELLER', buyer: 'data:image/png;base64,BUYER' });
+    render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    await screen.findByAltText(PLAN_COPY.sellerSigAlt);
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => expect(generatePDFBlob).toHaveBeenCalledTimes(1));
+    expect(generatePDFBlob).toHaveBeenCalledWith(expect.objectContaining({
+      number: invoice.number,
+      sellerSignature: 'data:image/png;base64,SELLER',
+      buyerSignature: 'data:image/png;base64,BUYER',
+    }));
+  });
+
+  // A Free answer can land while the pads are open (Pro ended, or the first answer on a new phone). The pads go away
+  // and the signatures are shown read-only; every stroke the pads had finished was already saved by then.
+  describe('a Free answer lands while the pads are open', () => {
+    const goesFree = () => act(() => {
+      localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE);
+      window.dispatchEvent(new CustomEvent(EVENTS.PLAN_CHANGE));
+    });
+    async function signedWithPadsOpen() {
+      vi.spyOn(window, 'open').mockReturnValue(null);
+      saveSignatures.mockReturnValue({ savedLocally: true, cloud: Promise.resolve(true) });
+      render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: /sign Driver/ })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: /sign Store Manager/ })); });
+    }
+
+    it('the pads give way to the signatures read-only, captioned, none lost', async () => {
+      await signedWithPadsOpen();
+      const drawn = { seller: `data:${PLAN_COPY.sellerSigCaption}`, buyer: `data:${PLAN_COPY.buyerSigCaption}` };
+      expect(saveSignatures).toHaveBeenLastCalledWith(invoice.number, drawn.seller, drawn.buyer);
+      goesFree();
+      expect(screen.queryByRole('button', { name: /^sign / })).toBeNull();
+      expect(await screen.findByAltText(PLAN_COPY.sellerSigAlt)).toHaveAttribute('src', `ink(${PRINT_INK}):${drawn.seller}`);
+      expect(screen.getByAltText(PLAN_COPY.buyerSigAlt)).toHaveAttribute('src', `ink(${PRINT_INK}):${drawn.buyer}`);
+      expect(screen.getByText(PLAN_COPY.sellerSigCaption)).toBeVisible();
+      expect(screen.queryByText(/Signature lines print blank/)).toBeNull();
+      expect(screen.getByRole('button', { name: 'Hide' })).toBeInTheDocument();
+    });
+
+    it('nothing is saved again by the switch, and the PDF still carries what was drawn', async () => {
+      await signedWithPadsOpen();
+      const saves = saveSignatures.mock.calls.length;
+      goesFree();
+      await screen.findByAltText(PLAN_COPY.sellerSigAlt);
+      expect(saveSignatures).toHaveBeenCalledTimes(saves);
+      fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+      await waitFor(() => expect(generatePDFBlob).toHaveBeenCalledTimes(1));
+      expect(generatePDFBlob).toHaveBeenCalledWith(expect.objectContaining({
+        sellerSignature: `data:${PLAN_COPY.sellerSigCaption}`,
+        buyerSignature: `data:${PLAN_COPY.buyerSigCaption}`,
+      }));
+    });
+
+    it('with only the driver\'s drawn, only that one is shown', async () => {
+      vi.spyOn(window, 'open').mockReturnValue(null);
+      saveSignatures.mockReturnValue({ savedLocally: true, cloud: Promise.resolve(true) });
+      render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }));
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: /sign Driver/ })); });
+      goesFree();
+      expect(await screen.findByAltText(PLAN_COPY.sellerSigAlt)).toBeInTheDocument();
+      expect(screen.queryByAltText(PLAN_COPY.buyerSigAlt)).toBeNull();
+      expect(screen.queryByText(PLAN_COPY.buyerSigCaption)).toBeNull();
+    });
   });
 
   it('free plan, dark mode: a signature drawn in white ink shows in print ink on its white box, never as stored', async () => {
