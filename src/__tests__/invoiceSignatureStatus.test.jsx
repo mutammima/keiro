@@ -16,7 +16,7 @@ vi.mock('../components/ui/SignaturePad', () => ({
 
 vi.mock('../utils/signatureStorage', () => ({
   getSignatures: vi.fn(() => ({ seller: null, buyer: null })),
-  hasSignature: () => false,
+  hasSignature: vi.fn(() => false),
   fetchSignatureFromCloud: vi.fn(async () => ({ seller: null, buyer: null })),
   saveSignatures: vi.fn(),
 }));
@@ -29,7 +29,7 @@ vi.mock('../utils/signatureImage', async (importOriginal) => ({
 }));
 
 import InvoiceView from '../components/invoice/InvoiceView';
-import { saveSignatures, getSignatures } from '../utils/signatureStorage';
+import { saveSignatures, getSignatures, hasSignature, fetchSignatureFromCloud } from '../utils/signatureStorage';
 import { recolorSignature, PRINT_INK } from '../utils/signatureImage';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { STORAGE_FULL_MESSAGE, STORAGE_KEYS, EVENTS, PLAN_COPY } from '../utils/constants';
@@ -49,6 +49,8 @@ beforeEach(() => {
   localStorage.clear();
   givePro();
   vi.clearAllMocks();
+  hasSignature.mockReset();
+  hasSignature.mockReturnValue(false);
 });
 
 describe('signature save status', () => {
@@ -139,6 +141,68 @@ describe('signature save status', () => {
     getSignatures.mockReturnValueOnce(both);
     render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
     for (const label of padLabels) expect(await screen.findByText(label)).toBeVisible();
+  });
+
+  // The invoice was signed on another phone: the index says so, but the images come from the cloud when it is opened.
+  // Until they land the card must not say the lines "print blank" (they won't), only to take it back a moment later.
+  describe('free plan: an invoice signed on another phone', () => {
+    const blankLine = /Signature lines print blank/;
+    function fetchByHand() {
+      let resolve; let reject;
+      const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+      hasSignature.mockReturnValue(true);
+      fetchSignatureFromCloud.mockReturnValueOnce(promise);
+      return { resolve, reject };
+    }
+    const open = () => render(<InvoiceView invoice={invoice} onBack={() => {}} onNewInvoice={() => {}} />);
+    beforeEach(() => { localStorage.removeItem(STORAGE_KEYS.PLAN_CACHE); });
+
+    it('says nothing about blank lines while the signatures are being fetched, then shows them', async () => {
+      const fetch = fetchByHand();
+      open();
+      expect(fetchSignatureFromCloud).toHaveBeenCalledWith(invoice.number);
+      expect(screen.queryByText(blankLine)).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Upgrade' })).toBeNull();
+      await act(async () => { fetch.resolve({ seller: 'data:image/png;base64,SELLER', buyer: null }); });
+      expect(await screen.findByAltText(PLAN_COPY.sellerSigAlt)).toBeInTheDocument();
+      expect(screen.queryByText(blankLine)).toBeNull();
+    });
+
+    it('if the cloud has nothing after all (a stale index), the card then says the lines print blank', async () => {
+      const fetch = fetchByHand();
+      open();
+      expect(screen.queryByText(blankLine)).toBeNull();
+      await act(async () => { fetch.resolve({ seller: null, buyer: null }); });
+      expect(screen.getByText(blankLine)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Upgrade' })).toBeInTheDocument();
+    });
+
+    it('...and so does a fetch that fails (offline): the lines would print blank', async () => {
+      const fetch = fetchByHand();
+      open();
+      expect(screen.queryByText(blankLine)).toBeNull();
+      await act(async () => { fetch.reject(new Error('offline')); });
+      expect(screen.getByText(blankLine)).toBeInTheDocument();
+    });
+
+    it('an invoice nobody signed says it at once, with nothing to wait for', () => {
+      open();
+      expect(fetchSignatureFromCloud).not.toHaveBeenCalled();
+      expect(screen.getByText(blankLine)).toBeInTheDocument();
+    });
+
+    it('opening another signed invoice waits for its own fetch', async () => {
+      const first = fetchByHand();
+      const { rerender } = open();
+      await act(async () => { first.resolve({ seller: null, buyer: null }); });
+      expect(screen.getByText(blankLine)).toBeInTheDocument();
+      const second = fetchByHand();
+      rerender(<InvoiceView invoice={{ ...invoice, number: 1051 }} onBack={() => {}} onNewInvoice={() => {}} />);
+      expect(fetchSignatureFromCloud).toHaveBeenLastCalledWith(1051);
+      expect(screen.queryByText(blankLine)).toBeNull();
+      await act(async () => { second.resolve({ seller: null, buyer: null }); });
+      expect(screen.getByText(blankLine)).toBeInTheDocument();
+    });
   });
 
   it('free plan, dark mode: a signature drawn in white ink shows in print ink on its white box, never as stored', async () => {

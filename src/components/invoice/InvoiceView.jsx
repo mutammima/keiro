@@ -34,6 +34,11 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
   usePlan(); // re-render when a plan answer lands, so the Sign button follows the plan
   const sigLocked = onFreePlan(); // signing on the phone is part of Pro
   const hasSigs = Boolean(sellerSig || buyerSig);
+  // The invoice number whose images have been looked for in the cloud (found or not), so the card can tell
+  // "signed on another phone, still downloading" from "nobody signed this".
+  const [fetchedFor, setFetchedFor] = useState(null);
+  // Signed (here or elsewhere) but not on screen yet: the Free card must not say the lines "print blank" meanwhile.
+  const sigsComing = sigLocked && !hasSigs && fetchedFor !== invoice.number && hasSignature(invoice.number);
 
   // Values most recently hydrated from cache/cloud. The auto-save effect below
   // compares against these so simply LOADING a signature doesn't immediately
@@ -58,7 +63,8 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
     if (saved.seller || saved.buyer) {
       apply(saved);
     } else if (hasSignature(invoice.number)) {
-      fetchSignatureFromCloud(invoice.number).then(apply).catch(() => {});
+      fetchSignatureFromCloud(invoice.number).then(apply).catch(() => {})
+        .finally(() => { if (!cancelled) setFetchedFor(invoice.number); });
     }
     return () => { cancelled = true; };
   }, [invoice.number]);
@@ -329,7 +335,7 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
               </button>
             )}
           </div>
-          {sigLocked && !hasSigs && (
+          {sigLocked && !hasSigs && !sigsComing && (
             <p style={{ color: C.textMuted, fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>
               {PLAN_COPY.signLocked} ·{' '}
               <button type="button" onClick={() => openUpgrade()} style={s.inlineLink}>{PLAN_COPY.upgrade}</button>
