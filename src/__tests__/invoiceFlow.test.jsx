@@ -56,6 +56,7 @@ import { lookupBarcode } from '../utils/barcodeApi';
 import { completeActiveConnectionOrder } from '../utils/connectionOrderStorage';
 import { canSaveGuestEntry } from '../utils/guestMode';
 import { STORAGE_FULL_MESSAGE, UNKNOWN_BARCODE_MESSAGE, LOOKUP_UNAVAILABLE_MESSAGE, STORE_MADE_BARCODE_MESSAGE, LOOKING_UP_TEXT, STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { seedFreePlan, monthNow } from './helpers/freePlan';
 
 /** Fills store name + adds one line item, leaving the hook ready to generate. */
 function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
@@ -69,15 +70,6 @@ function addOneItem(result, { name = 'Widget', qty = '3', price = '5' } = {}) {
 // ─── The free plan's monthly limit ────────────────────────────────────────────
 // plan.js reads localStorage directly, so these seed the same keys it reads.
 
-/** This local month as plan.js keys it: 'YYYY-MM'. */
-function monthNow() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-/** The server's cached answer: a free account with `used` new invoices this month. */
-function seedFreePlan(used) {
-  localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: used, month: monthNow() }));
-}
 /** This phone's own count of the new invoices it made this month. */
 function seedPhoneCount(count) {
   localStorage.setItem(STORAGE_KEYS.USAGE, JSON.stringify({ month: monthNow(), count }));
@@ -250,9 +242,7 @@ describe('useInvoiceForm — create → generate', () => {
   });
 
   it('free plan: at 20 new invoices this month Make invoice opens the limit sheet and saves nothing', async () => {
-    const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: 20, month }));
+    seedFreePlan(20);
     const limit = vi.fn();
     window.addEventListener(EVENTS.OPEN_FREE_LIMIT, limit);
     const { result } = renderHook(() => useInvoiceForm(vi.fn()));

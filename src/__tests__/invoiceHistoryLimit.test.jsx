@@ -64,6 +64,7 @@ vi.mock('../components/navigation/AppFooter', () => ({ default: () => null }));
 
 import InvoiceHistory from '../components/invoice/InvoiceHistory.jsx';
 import { STORAGE_KEYS, EVENTS } from '../utils/constants';
+import { seedFreePlan, monthNow } from './helpers/freePlan';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../utils/connectionOrderStorage';
 
@@ -71,16 +72,6 @@ import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrd
 // connected store's order. Both end in "Fill Invoice", which starts a NEW invoice.
 const BRIDGE_REQUEST = { id: 'br_1', productName: 'Oil filter', quantity: 4, notes: 'Back door' };
 const STORE_ORDER = { id: 'co_1', status: 'pending', storeName: 'Sunrise Deli', productName: 'Coke 12oz', quantity: 24, notes: 'By 9am' };
-
-/** This local month as plan.js keys it: 'YYYY-MM'. */
-function monthNow() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-/** The server's cached answer: a free account with `used` new invoices this month. */
-function seedFreePlan(used) {
-  localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: used, month: monthNow() }));
-}
 
 /** Renders Route with the given requests / orders waiting (none by default, so no test inherits another's). */
 function renderHistory({ requests = [], orders = [] } = {}) {

@@ -56,16 +56,8 @@ import { saveInvoice, getProductByBarcode, saveProductBarcode, getInvoices, getS
 import { lookupBarcode } from '../utils/barcodeApi';
 import { canSaveGuestEntry } from '../utils/guestMode';
 import { recordNewInvoice } from '../utils/plan';
+import { seedFreePlan, monthNow } from './helpers/freePlan';
 
-/** This local month as plan.js keys it: 'YYYY-MM'. */
-function monthNow() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-/** The server's cached answer: a free account with `used` new invoices this month. */
-function seedFreePlan(used) {
-  localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: used, month: monthNow() }));
-}
 const LEFT_LINE = /free invoices? left this month/;
 
 function renderEasy() {
@@ -294,9 +286,7 @@ describe('EasyInvoice', () => {
   });
 
   it('free plan: from 5 left, says how many free invoices are left this month, with Upgrade', () => {
-    const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: 16, month }));
+    seedFreePlan(16);
     const opened = vi.fn();
     window.addEventListener(EVENTS.OPEN_UPGRADE, opened);
     renderEasy();
