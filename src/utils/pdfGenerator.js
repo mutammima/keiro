@@ -22,7 +22,8 @@ import { recolorSignature, PRINT_INK } from './signatureImage';
 // ── Easy Mode template (docs/specs/2026-10-14-easy-mode-design.md §2) ───────
 // Anything the driver left empty prints as a labeled ruled line to fill in by
 // pen; anything filled prints as text. Only used when invoice.layout is
-// 'template' (the default while Easy Mode is on).
+// 'template'. The standard layout is the default (no layout given); callers pass
+// the layout for the shell's mode (pdfLayoutFor in easyMode.js), 'template' in Easy Mode.
 
 /** `text` at the current font, cut with "..." so it fits `maxWidth`. */
 function fitText(doc, text, maxWidth) {

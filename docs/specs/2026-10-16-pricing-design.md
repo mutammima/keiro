@@ -129,8 +129,11 @@ subscription ends and he is Free.
 - **Free forever:** Settings shows "Pro (free)", no Manage button.
 - **Pro until a date:** Settings shows "Pro until Dec 1"; Pro lasts through that whole day (New
   York time), then the account is Free.
-- Switching someone who already pays by card: cancel their Stripe subscription first, or Stripe
-  keeps charging them.
+- Switching someone who already pays by card: first cancel their Stripe subscription in Stripe
+  **immediately** (cancel it now, not at the end of the period), or Stripe keeps charging them. A
+  cancellation left to end later would send Stripe's "subscription ended" notice after the switch,
+  which could overwrite it and take their Pro away. Once the webhook exists, make the switch only
+  after Stripe's cancellation has come through.
 - Refunds: from the Stripe dashboard (a refund with cancel-now ends Pro through the webhook).
 
 **Owner's one-time setup (rollout step 2):** create the Stripe account through the Vercel
