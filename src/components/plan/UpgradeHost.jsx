@@ -17,7 +17,7 @@ export default function UpgradeHost() {
   useEffect(() => {
     const onUpgrade = (e) => {
       // Only text is a title: onClick={openUpgrade} would hand over the click event, which can't be drawn
-      // (and this host sits in the app shell, so drawing it would take the whole app down).
+      // (and this host sits in App(), above AuthGate and everything it gates, so drawing it would take the whole app down).
       const title = e.detail?.title;
       setSheet({ kind: 'upgrade', title: typeof title === 'string' && title ? title : PLAN_COPY.upgradeTitle });
     };
