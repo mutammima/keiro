@@ -25,6 +25,7 @@ vi.mock('../utils/storage', () => ({
 import NavDrawer from '../components/navigation/NavDrawer.jsx';
 import EasyModeSetting, { EASY_MODE_DESCRIPTION } from '../components/settings/EasyModeSetting.jsx';
 import { lsSet } from '../utils/storage';
+import { givePro } from './helpers/givePro';
 
 function renderDrawer(role) {
   render(
@@ -48,6 +49,7 @@ describe('☰ menu', () => {
   });
 
   it('full mode is unchanged', () => {
+    givePro();
     renderDrawer('driver');
     for (const item of ['Products', 'Store Info', 'Marketplace', 'My Listings', 'Notes']) {
       expect(screen.getByText(item)).toBeInTheDocument();
@@ -72,6 +74,7 @@ describe('Settings → Easy Mode', () => {
   });
 
   it('turning it on stores the flag and reloads', () => {
+    givePro();
     const onChange = vi.fn();
     render(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);
     const buttons = screen.getAllByRole('button');
@@ -81,6 +84,7 @@ describe('Settings → Easy Mode', () => {
   });
 
   it('writes through lsSet (which frees space on a full phone), and does not reload if nothing was saved', () => {
+    givePro();
     lsSet.mockReturnValueOnce(false);
     const onChange = vi.fn();
     render(<EasyModeSetting role="driver" C={LIGHT} dark={false} onChange={onChange} />);

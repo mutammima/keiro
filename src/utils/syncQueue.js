@@ -16,6 +16,11 @@
  *     (`inv_sync_failed`) so the rest of the queue can go on. Set-aside changes
  *     are kept, surfaced by SyncAttentionBanner, and retryFailedSyncs() puts
  *     them back. Nothing is ever deleted unsaved.
+ *   • refused for the free plan's limit (KEIRO_FREE_LIMIT, supabase-pricing.sql):
+ *     never counts — the change moves to the held list (`inv_sync_held`),
+ *     re-sent once the account is Pro (plan.js) or the UTC month (the server's
+ *     month, not the phone's) changes. A guest's invoice refused on sign-up
+ *     (migration.js) is held the same way.
  * It runs on the `online` event, on app foreground, on a 60s interval while
  * online, and once on startup (see SyncQueueRunner).
  *
@@ -28,16 +33,18 @@
  */
 
 import * as db from '../services/db';
-import { STORAGE_KEYS } from './constants';
+import { STORAGE_KEYS, FREE_LIMIT_ERROR } from './constants';
+import { utcMonth } from './invoiceUtils';
 import { isGuest } from './guestMode';
 import { notifySyncSuccess } from './syncNotify';
 import { writeLocal, markSignatureSynced } from './storageRoom';
 
 const KEY = STORAGE_KEYS.SYNC_QUEUE;
 const FAILED_KEY = STORAGE_KEYS.SYNC_FAILED;
+const HELD_KEY = STORAGE_KEYS.SYNC_HELD;
 const MAX_RETRIES = 5;
 
-/** Fired whenever the set-aside list changes (SyncAttentionBanner listens). */
+/** Fired whenever the set-aside or held list changes (SyncAttentionBanner listens). */
 export const SYNC_ATTENTION_EVENT = 'inv-sync-attention';
 
 /**
@@ -56,6 +63,16 @@ function isRejection(err) {
   if (/^PGRST[03]/.test(code)) return false;
   if (/^(08|40|53|57|58)/.test(code)) return false;
   return true;
+}
+
+/** The server refused a free account's upload past the monthly backstop. */
+export function isFreeLimitRefusal(err) {
+  return String(err?.message || '').includes(FREE_LIMIT_ERROR);
+}
+
+/** Both are saves of the same invoice (by number). */
+function sameInvoiceSave(a, b) {
+  return a.type === 'save_invoice' && b.type === 'save_invoice' && a.payload?.invoice?.number === b.payload?.invoice?.number;
 }
 
 // ── Each action type maps to the db.* call that performs it ───────────────────
@@ -167,9 +184,31 @@ export function getFailedSyncs() {
   return readList(FAILED_KEY);
 }
 
-/** Every change not yet in the cloud: still queued, or set aside. */
+/** Uploads refused for the free plan's limit, waiting for Pro or next month. */
+export function getHeldSyncs() {
+  return readList(HELD_KEY);
+}
+
+/** Every change not yet in the cloud: queued, set aside, or held for the free limit. */
 export function getUnsyncedCount() {
-  return read().length + getFailedSyncs().length;
+  return read().length + getFailedSyncs().length + getHeldSyncs().length;
+}
+
+/**
+ * The numbers of the invoices whose save has not reached the cloud yet: still
+ * queued, set aside, or held for the free limit. Until the cloud has them, this
+ * phone's copy is the only one (storage.getInvoices shows it on every screen).
+ * @returns {Set<number>}
+ */
+export function pendingInvoiceNumbers() {
+  const numbers = new Set();
+  for (const list of [read(), getFailedSyncs(), getHeldSyncs()]) {
+    for (const item of list) {
+      const number = item.type === 'save_invoice' ? item.payload?.invoice?.number : undefined;
+      if (number != null) numbers.add(number);
+    }
+  }
+  return numbers;
 }
 
 /**
@@ -188,7 +227,146 @@ export function retryFailedSyncs() {
   announceAttention();
 }
 
+/**
+ * Held uploads go back to the FRONT of the queue (they are older than what
+ * is queued). A held invoice is re-sent as the phone has it now, so a status
+ * or edit made while it was held isn't overwritten by the old copy. If the
+ * phone's list doesn't have it, the held copy goes up as it is and is never
+ * dropped here: it may be the only copy (the phone was full when it was saved,
+ * or its list is unreadable). Deleting an invoice is forgetInvoiceUploads' job.
+ * @param {(item: object) => boolean} [which] - all held items by default
+ */
+export function releaseHeldSyncs(which = () => true) {
+  const heldList = getHeldSyncs();
+  const going = heldList.filter(which);
+  if (going.length === 0) return;
+  const keep = heldList.filter(item => !going.includes(item)); // `which` is asked once: a month rollover mid-release can't lose one
+  const local = readList(STORAGE_KEYS.LIST);
+  const fresh = going.map(({ heldUtcMonth: _heldUtcMonth, ...item }) => {
+    if (item.type !== 'save_invoice') return item;
+    const now = local.find(i => (i.number ?? i.invoice_number) === item.payload?.invoice?.number);
+    return now ? { ...item, payload: { ...item.payload, invoice: now } } : item;
+  });
+  if (!write([...fresh, ...read()])) return;
+  writeList(HELD_KEY, keep);
+  announceAttention();
+}
+
+/**
+ * Puts a refused upload on the held list. An invoice is held once: this copy
+ * replaces any older held save of it (and any entry with the same id). Returns
+ * whether the list was written (false when this phone's storage is full; the
+ * caller keeps the change elsewhere).
+ * @param {object} item
+ * @param {string} lastError
+ * @param {string} heldIn - the UTC month the request WENT OUT in, not the month
+ *   the answer arrived in: the server decided in the former, and an answer that
+ *   crosses midnight UTC must not hold the upload for a whole extra month.
+ */
+function holdEntry(item, lastError, heldIn) {
+  const entry = { ...item, lastError, heldUtcMonth: heldIn };
+  return writeList(HELD_KEY, [...getHeldSyncs().filter(h => h.id !== entry.id && !sameInvoiceSave(h, entry)), entry]);
+}
+
+/**
+ * Holds an upload the server refused for the free limit that never went through
+ * the queue (migration.js: a guest's invoices joining an account that is already
+ * at its cap). It becomes exactly the entry a refused queued sync becomes, so it
+ * counts as unsynced, shows in the banner, and goes up with Pro or next month.
+ * @param {{ type: string, payload?: object }} action
+ * @param {Error|object} err - the refusal
+ * @param {string} [requestMonth] - the UTC month the request went out in (utcMonth()
+ *   read BEFORE sending); now, if the caller has nothing better
+ * @returns {boolean} whether it was held (false for a guest, an unknown type, or a full phone)
+ */
+export function holdRefusedSync(action, err, requestMonth = utcMonth()) {
+  if (isGuest()) return false;
+  if (!action || !HANDLERS[action.type]) return false;
+  const item = { id: uid(), type: action.type, payload: action.payload || {}, ts: Date.now(), retries: 0 };
+  if (!holdEntry(item, String(err?.message || err), requestMonth)) return false;
+  announceAttention();
+  return true;
+}
+
+/**
+ * The invoice a queued change uploads data for (its save, a status change, a
+ * payment), or undefined. Deletes are not uploads: the invoice's own delete, a
+ * payment's delete and the clearing of its payments are the clean-up after a
+ * delete and must still go up. A signature isn't listed either: it replays
+ * from what the phone holds, and deleting an invoice clears that, so it can
+ * only delete (signatureStorage.clearSignatures, run with every delete).
+ */
+function uploadedInvoiceNumber(item) {
+  const p = item.payload || {};
+  switch (item.type) {
+    case 'save_invoice': return p.invoice?.number;
+    case 'update_payment_status': return p.number;
+    case 'save_payment': return p.payment?.invoiceNumber;
+    default: return undefined;
+  }
+}
+
+/**
+ * Deleting an invoice cancels every pending upload of it: queued, set aside or
+ * held — the save, a status change and its payments. Otherwise a later retry or
+ * release would put the deleted invoice back in the cloud (deleting a row the
+ * cloud never had does nothing there), and a queued payment would leave a
+ * payment row with no invoice.
+ * @param {number} number - invoice number
+ */
+export function forgetInvoiceUploads(number) {
+  // An upload of it already on the wire can't be recalled: processSyncQueue sends the delete again when it finishes.
+  if (onTheWire && Number(onTheWire.number) === Number(number)) onTheWire.deleted = true;
+  const isIt = (item) => {
+    const n = uploadedInvoiceNumber(item);
+    return n != null && Number(n) === Number(number);
+  };
+  const queued = read();
+  const keptQueued = queued.filter(item => !isIt(item));
+  if (keptQueued.length !== queued.length) write(keptQueued);
+  // The banner shows the set-aside and held lists, not the queue: only they announce.
+  let shown = false;
+  for (const key of [FAILED_KEY, HELD_KEY]) {
+    const list = readList(key);
+    const kept = list.filter(item => !isIt(item));
+    if (kept.length === list.length) continue;
+    writeList(key, kept);
+    shown = true;
+  }
+  if (shown) announceAttention();
+}
+
 let processing = false;
+
+/**
+ * The save_invoice request being waited on right now, and whether its invoice
+ * was deleted on this phone meanwhile. The request lives only in this session,
+ * so memory is enough.
+ * @type {{ number: number, deleted: boolean } | null}
+ */
+let onTheWire = null;
+
+/**
+ * Called when a save_invoice upload has finished (landed or not). If the invoice
+ * was deleted while it was on the wire, the cloud delete may have reached the
+ * server BEFORE the save, which then put the invoice back: delete it again, so
+ * the server ends without it whichever request landed first. A failed upload
+ * may have landed too (a timeout), so it counts the same. The delete goes on the
+ * queue, so it is retried as long as it takes.
+ */
+async function deleteAgainIfRaced(sent) {
+  if (!sent?.deleted) return;
+  // Made again under the same number (it is on the phone, or its save waits in any list): the
+  // delete would run after that save and wipe the new invoice from the cloud.
+  const number = Number(sent.number);
+  const onPhone = readList(STORAGE_KEYS.LIST).some(i => Number(i.number ?? i.invoice_number) === number);
+  if (onPhone || [...pendingInvoiceNumbers()].some(n => Number(n) === number)) return;
+  // A delete for it is already queued (the user's own, which failed): it runs after this upload,
+  // so a second one would only be sent twice (and counted as two changes).
+  if (read().some(a => a.type === 'delete_invoice' && Number(a.payload?.number) === number)) return;
+  if (enqueueSync({ type: 'delete_invoice', payload: { number: sent.number } })) return;
+  try { await db.deleteInvoice(sent.number); } catch { /* the phone is full and the cloud unreachable: the next delete of it retries */ }
+}
 
 /**
  * Replays the queue against Supabase. Safe to call often; self-guards against
@@ -198,6 +376,10 @@ export async function processSyncQueue() {
   if (processing) return;
   if (isGuest()) return;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  // The server's month turned: last month's held uploads are under the limit again.
+  // The server refuses by the UTC month, not the phone's. An item with no month
+  // (kept by an older build) is released too, never stranded.
+  releaseHeldSyncs(item => item.heldUtcMonth !== utcMonth());
   if (read().length === 0) return;
 
   processing = true;
@@ -215,19 +397,39 @@ export async function processSyncQueue() {
       const handler = HANDLERS[item.type];
 
       if (!handler) {                          // unknown type from an older build — drop it
-        write(q.slice(1));
+        if (!write(q.slice(1))) break;         // can't shrink: stop, or this spins on the same head
         continue;
       }
 
       let failed = false;
+      const sent = item.type === 'save_invoice' ? { number: item.payload?.invoice?.number, deleted: false } : null;
+      const monthAtSend = utcMonth(); // the server judges the request in the month it arrives in, not the month the answer comes back in
       try {
-        const res = await handler(item.payload);
-        if (res && res.error) throw res.error;
+        try {
+          onTheWire = sent;
+          const res = await handler(item.payload);
+          if (res && res.error) throw res.error;
+        } finally {
+          onTheWire = null;
+          await deleteAgainIfRaced(sent);
+        }
       } catch (err) {
         const cur = read();
         const idx = cur.findIndex(x => x.id === item.id);
         const lastError = String(err?.message || err);
         if (idx < 0) {
+          failed = true;
+        } else if (isFreeLimitRefusal(err)) {
+          // Held, never set aside or deleted; it doesn't block the rest. An
+          // invoice is held once: this copy replaces any older held one of it.
+          if (holdEntry(cur[idx], lastError, monthAtSend)) {
+            cur.splice(idx, 1);
+            const shrunk = write(cur);
+            announceAttention();
+            if (shrunk) continue;
+            // The queue could not shrink (a full phone): the invoice is on both lists, never on
+            // neither. Stop the round; going on would send it again and again.
+          }
           failed = true;
         } else if (!isRejection(err)) {
           // Unreachable: wait for the next trigger without spending a retry.
@@ -236,20 +438,22 @@ export async function processSyncQueue() {
           failed = true;
         } else {
           const retries = (cur[idx].retries || 0) + 1;
-          if (retries >= MAX_RETRIES) {
-            // Set aside — kept for "Try again" — and let the rest of the queue go on.
-            // The set-aside list is written first, and the queue shrunk only
-            // after: on a full phone the first write can fail, and the change
-            // then stays queued rather than vanishing.
-            if (writeList(FAILED_KEY, [...getFailedSyncs(), { ...cur[idx], retries, lastError }])) {
-              cur.splice(idx, 1);
-              write(cur);
-              announceAttention();
-              continue;
-            }
+          // Set aside — kept for "Try again" — and let the rest of the queue go on.
+          // The set-aside list is written first, and the queue shrunk only
+          // after: on a full phone the first write can fail, and the change
+          // then stays queued rather than vanishing.
+          // By id: when the queue could not shrink, this change comes round again, and appending would pile up copies.
+          if (retries >= MAX_RETRIES && writeList(FAILED_KEY, [...getFailedSyncs().filter(f => f.id !== cur[idx].id), { ...cur[idx], retries, lastError }])) {
+            cur.splice(idx, 1);
+            const shrunk = write(cur);
+            announceAttention();
+            if (shrunk) continue;
+            // The queue could not shrink: the change is on both lists. Stop the round
+            // rather than send it again and set it aside again.
+          } else {
+            cur[idx] = { ...cur[idx], retries, lastError };
+            write(cur);
           }
-          cur[idx] = { ...cur[idx], retries, lastError };
-          write(cur);
           failed = true;
         }
       }
@@ -257,7 +461,9 @@ export async function processSyncQueue() {
       if (failed) break;                       // stop this round; keeps FIFO order
       // success — remove the head and continue
       const after = read().filter(x => x.id !== item.id);
-      write(after);
+      // If the queue cannot shrink (a full phone) the same head would be sent again and again:
+      // stop the round. It goes up once more next round (every op is an upsert or a delete).
+      if (!write(after)) break;
       drained += 1;
     }
   } finally {

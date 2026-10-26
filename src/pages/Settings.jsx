@@ -25,6 +25,7 @@ import { crashReportsEnabled, setCrashReportsEnabled, sendTestReport } from '../
 import { useBackup } from '../hooks/useBackup';
 import ThemeToggle from '../components/settings/ThemeToggle';
 import EasyModeSetting from '../components/settings/EasyModeSetting';
+import PlanSetting from '../components/settings/PlanSetting';
 import { supabase } from '../services/supabase';
 import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import AppFooter from '../components/navigation/AppFooter';
@@ -199,6 +200,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
       </div>
 
       <div style={s.body}>
+
+        {/* ── Plan (signed-in drivers) ───────────────────────────────────── */}
+        <PlanSetting role={currentRole} C={C} />
 
         {/* ── 0. Easy Mode (drivers only) ────────────────────────────────── */}
         <EasyModeSetting role={currentRole} C={C} dark={dark} />

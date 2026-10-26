@@ -33,4 +33,18 @@ export default defineConfig([
       'no-extra-semi': 'off',
     },
   },
+  // AbortSignal.timeout is missing before Safari 16 and the iOS app targets iOS 15: calling it there throws before the
+  // request goes out (the plan answer, the barcode lookups and the shared product names all failed that way once).
+  // The helper itself looks it up at call time, and the tests take it away and put it back, so both are exempt.
+  {
+    files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/utils/timeoutSignal.js', 'src/__tests__/**'],
+    rules: {
+      'no-restricted-properties': ['error', {
+        object: 'AbortSignal',
+        property: 'timeout',
+        message: 'Use timeoutSignal() from utils/timeoutSignal — AbortSignal.timeout is missing on iOS 15',
+      }],
+    },
+  },
 ]);

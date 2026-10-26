@@ -4,6 +4,7 @@
  * a timeout resolves through the usual catch to "no name" / "no suggestions".
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { withoutAbortSignalTimeout } from './helpers/withoutAbortSignalTimeout';
 
 vi.mock('../services/supabase', () => ({
   supabase: {
@@ -59,5 +60,50 @@ describe('shared product name RPC timeout', () => {
     controller.abort();
     const { data } = await p;
     expect(data).toEqual([]);
+  });
+});
+
+describe('on iOS 15 (no AbortSignal.timeout)', () => {
+  // Safari before 16 has no AbortSignal.timeout: the call threw before the request, so the shared names never came.
+  beforeEach(() => {
+    vi.mocked(AbortSignal.timeout).mockRestore(); // the real one, for withoutAbortSignalTimeout to take away
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('getSharedProductName still asks, and gives up after 4 s', async () => {
+    const rpc = hangingRpc();
+    const abortSignal = vi.spyOn(rpc, 'abortSignal');
+    supabase.rpc.mockReturnValue(rpc);
+    await withoutAbortSignalTimeout(async () => {
+      const p = db.getSharedProductName('071924145009');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(supabase.rpc).toHaveBeenCalledWith('shared_product_name', { p_barcode: '071924145009' });
+      expect(abortSignal).toHaveBeenCalledTimes(1);
+      const signal = abortSignal.mock.calls[0][0];
+      await vi.advanceTimersByTimeAsync(3999);
+      expect(signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(signal.aborted).toBe(true);
+      const { data, error } = await p;
+      expect(data).toBeNull();
+      expect(error).toBeTruthy();
+    });
+  });
+
+  it('suggestProductNames still asks, and gives up after 4 s', async () => {
+    const rpc = hangingRpc();
+    const abortSignal = vi.spyOn(rpc, 'abortSignal');
+    supabase.rpc.mockReturnValue(rpc);
+    await withoutAbortSignalTimeout(async () => {
+      const p = db.suggestProductNames('mobil');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(supabase.rpc).toHaveBeenCalledWith('suggest_product_names', { p_query: 'mobil' });
+      expect(abortSignal).toHaveBeenCalledTimes(1);
+      const signal = abortSignal.mock.calls[0][0];
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(signal.aborted).toBe(true);
+      expect((await p).data).toEqual([]);
+    });
   });
 });

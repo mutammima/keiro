@@ -35,6 +35,9 @@ export const STORAGE_KEYS = {
   ACCENT_COLOR:     'inv_accent_color',
   DENSITY:          'inv_density',
   EASY_MODE:        'inv_easy_mode',
+  // Set when a fresh Free answer (plan.js) moved the driver into Easy Mode, not the driver. It is account
+  // data, unlike the flag: sign-out wipes it and, seeing it, takes the flag with it. The Easy Mode switch clears it.
+  EASY_BY_PLAN:     'inv_easy_by_plan',
   CRASH_REPORTS:    'inv_crash_reports',   // device pref: send crash reports (default on); kept across sign-out
   AUTO_FLAG_DAYS:   'inv_auto_flag_days',
   AUTO_MARK_DAYS:   'inv_auto_mark_days',
@@ -59,11 +62,14 @@ export const STORAGE_KEYS = {
   // Infra / misc
   SYNC_QUEUE:         'inv_sync_queue',
   SYNC_FAILED:        'inv_sync_failed',   // changes the server rejected MAX_RETRIES times — kept, never deleted
+  SYNC_HELD:          'inv_sync_held',     // uploads refused for the free plan's limit — kept, re-sent once Pro or next month
   ERROR_LOG:          'inv_error_log',
   GUEST_MODE:         'inv_guest_mode',
   AUTH_UID:           'inv_auth_uid',
-  PLAN:               'inv_plan',
   PULSE_HOME:         'inv_pulse_home',
+  PLAN_CACHE:         'inv_plan_cache',    // the server's my_plan() answer + fetchedAt (never backed up)
+  USAGE:              'inv_usage',         // { month: 'YYYY-MM' (local), count } — new invoices made on this phone
+  PLAN_NOTICE:        'inv_plan_notice',   // one-time plan note still to show: 'moved' | 'ended'
   // Which invoice numbers carry a signature. Cheap stand-in for the full
   // base64 blobs so the history list can lock editing without downloading them.
   SIG_INDEX:          'inv_sig_index',
@@ -109,6 +115,10 @@ export const EVENTS = {
   // succeeds. StorageBanner listens for both.
   STORAGE_FULL:   'inv-storage-full',
   STORAGE_OK:     'inv-storage-ok',
+  // Pricing (docs/specs/2026-10-16-pricing-design.md).
+  PLAN_CHANGE:     'inv-plan-change',      // the cached plan or this month's count changed
+  OPEN_UPGRADE:    'inv-open-upgrade',     // detail: { title? } — UpgradeHost shows the Upgrade sheet
+  OPEN_FREE_LIMIT: 'inv-open-free-limit',  // UpgradeHost shows "You've used your 20 free invoices"
   // Onboarding/tutorial milestones — dispatched by feature sites, consumed by the
   // milestone bridge (tutorialProgress) and walkthrough settle steps.
   ONBOARDING_INVOICE_CREATED: 'inv-onboarding-invoice-created',
@@ -204,3 +214,87 @@ export const BREAKPOINTS = {
 
 /** Width of the docked side nav on desktop. Matches NavDrawer's slide-in width. */
 export const SIDE_NAV_WIDTH = 232;
+
+// ── Pricing (docs/specs/2026-10-16-pricing-design.md) ───────────────────────
+/** New invoices a free driver can make per local calendar month. */
+export const FREE_INVOICES_PER_MONTH = 20;
+/** "N free invoices left this month" shows from this many left. */
+export const FREE_WARN_AT_LEFT = 5;
+/**
+ * The time zone of pro_until's day. The owner's switch ends a day at 23:59:59 in this zone
+ * (docs/COWORK_PRICING.md), so every date shown from pro_until is read in it, not the phone's.
+ */
+export const PRO_UNTIL_TIME_ZONE = 'America/New_York';
+/** Offline, a cached Pro stays Pro this long past its paid-until date. */
+export const OFFLINE_PRO_GRACE_DAYS = 3;
+/** my_plan() gives up after this long on a weak signal; the cached plan stands. */
+export const PLAN_RPC_TIMEOUT_MS = 8000;
+/**
+ * refreshPlan() as a whole gives up after this long (the lazy import, the wait for the session
+ * and the call), so one hung attempt can't block every later refresh for the session.
+ */
+export const PLAN_REFRESH_TIMEOUT_MS = 20000;
+/** The server's refusal of a free account's upload past the backstop (supabase-pricing.sql). */
+export const FREE_LIMIT_ERROR = 'KEIRO_FREE_LIMIT';
+/** Shown prices. Payments are coming soon (owner decision 2026-10-17). */
+export const PRO_PRICE = { month: '$4.99', year: '$49.99' };
+const NBSP = '\u00a0';
+/** The title beside Settings' Easy Mode switch; the switch's accessible name starts with it (PLAN_COPY.easySwitchLabel). */
+const EASY_SWITCH_TEXT = 'Simplified view';
+/** Every plan message, in one place. */
+export const PLAN_COPY = {
+  upgradeTitle: 'Keiro Pro',
+  normalModeTitle: 'Normal mode is part of Pro',
+  perks: [
+    'Unlimited invoices',
+    'Normal mode: Home, the full invoice form, Store Info, Notes, Marketplace',
+    'Sign invoices on the phone',
+  ],
+  priceLine: `${PRO_PRICE.month} a month or ${PRO_PRICE.year} a year`,
+  // priceLine for the sign-up card, which is narrow: each price stays with its period, so a line never ends on "$49.99 a".
+  signupPriceLine: `${PRO_PRICE.month}${NBSP}a${NBSP}month or ${PRO_PRICE.year}${NBSP}a${NBSP}year`,
+  comingSoon: 'Payments are coming soon.',
+  notNow: 'Not now',
+  ok: 'OK',
+  upgrade: 'Upgrade',
+  limitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices this month`,
+  limitBody: (reset) => `They reset ${reset}.`,
+  leftLine: (n) => `${n} free invoice${n === 1 ? '' : 's'} left this month`,
+  // Settings → Plan: the section's title, then its row labels (planSummary). A Free row's second line is usedLine.
+  planSectionTitle: 'Plan',
+  freeLabel: 'Free',
+  proLabel: 'Pro',
+  proFreeLabel: 'Pro (free)',
+  proUntilLabel: (date) => `Pro until ${date}`,
+  usedLine: (used, reset) => `${used} of ${FREE_INVOICES_PER_MONTH} invoices used this month · resets ${reset}`,
+  // The sync banner's line for uploads the server refused for the limit. `reset` is when the month turns over ("Nov 1").
+  heldLine: (n, reset) => `${n} invoice${n === 1 ? '' : 's'} will upload ${reset}, or with Pro`,
+  signOutHeldAll: (n) => n === 1 ? "Stay signed in: it'll upload once you're on Pro, or next month." : "Stay signed in: they'll upload once you're on Pro, or next month.",
+  signOutHeldSome: (online, held) => `Stay signed in: ${online} will upload when you're back online, and the ${held} invoice${held === 1 ? '' : 's'} waiting for Pro once you're on Pro, or next month.`,
+  movedNote: "Keiro now has a free plan and a Pro plan. You're on Free, so you're in Easy Mode. Settings → Plan to upgrade.",
+  endedNote: `Your Pro plan ended. You're back on Free: Easy Mode, ${FREE_INVOICES_PER_MONTH} invoices a month. Nothing was deleted.`,
+  planNoticeLabel: 'Your plan',   // the accessible name of the one-time plan note (PlanNotices)
+  proLockLabel: 'Part of Pro',    // the accessible name of the lock beside a locked switch (Settings → Easy Mode)
+  easySwitchText: EASY_SWITCH_TEXT,  // the title shown beside Settings' Easy Mode switch
+  // The accessible name of that switch. It includes the title shown beside it, so someone who says what they see
+  // (voice control) reaches it, and the "Easy Mode" that tells it apart from the section's header button.
+  easySwitchLabel: `${EASY_SWITCH_TEXT}, Easy Mode switch`,
+  sellerSigAlt: 'Driver / Deliverer signature', // alt text of a saved signature shown read-only on Free (InvoiceView)
+  buyerSigAlt: 'Store Manager signature',
+  // The words above each signature: the signing pads' labels (Pro) and the read-only captions (Free) are the same text.
+  sellerSigCaption: 'Driver / Deliverer',
+  buyerSigCaption: 'Store Manager — Proof of Delivery',
+  signLocked: 'Signature lines print blank, to sign by hand. Sign on the phone with Pro',
+  tourFree: `You get ${FREE_INVOICES_PER_MONTH} free invoices a month. Settings → Plan shows how many are left.`,
+  // The Easy tour's one step on + New when the month's free invoices are used up (tapping + New then opens the limit sheet, not the invoice screen).
+  tourLimitTitle: `You've used your ${FREE_INVOICES_PER_MONTH} free invoices`,
+  tourLimitDesc: (reset) => `New invoices are back on ${reset}.`,
+  // The sign-up plan screen (PlanScreen in OnboardingFlow). Its cards are named freeLabel / proLabel, and Pro's price is priceLine.
+  signupTitle: 'Your plan',
+  signupSubtitle: 'Start free. Pro is coming soon.',
+  freePrice: '$0',
+  freeBullets: ['Easy Mode: scan items, print or share invoices', `${FREE_INVOICES_PER_MONTH} invoices a month`, 'Store balances and reports'],
+  proBullets: ['Unlimited invoices', 'Normal mode and the full invoice form', 'Sign invoices on the phone'],
+  comingSoonBadge: 'Coming soon',
+  startFree: 'Start free',
+};

@@ -9,13 +9,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, STATUS, glassStyle } from '../../theme';
 import { getBusinessName } from '../../utils/storage';
 import SignaturePad from '../ui/SignaturePad';
+import ReadOnlySignature from './ReadOnlySignature';
 import { getSignatures, saveSignatures, hasSignature, fetchSignatureFromCloud } from '../../utils/signatureStorage';
 import { getTotalPaid } from '../../utils/paymentStorage';
-import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, STORAGE_FULL_MESSAGE, PLAN_COPY } from '../../utils/constants';
 import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
-import { shareLabel } from '../../utils/easyMode';
+import { shareLabel, pdfLayoutFor } from '../../utils/easyMode';
+import { onFreePlan, openUpgrade } from '../../utils/plan';
+import { usePlan } from '../../hooks/usePlan';
 
-export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
+// `easyMode` is the mode the shell was built with (App), which decides the share label and the PDF layout.
+export default function InvoiceView({ invoice, easyMode = false, onBack, onNewInvoice }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -26,6 +30,17 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   const [buyerSig,  setBuyerSig]  = useState(null);
   const [showSigs,  setShowSigs]  = useState(false);
   const [sigStatus, setSigStatus] = useState('');    // '' | 'saved' (flashes) | 'not-saved'
+
+  usePlan(); // re-render when a plan answer lands, so the Sign button follows the plan
+  const sigLocked = onFreePlan(); // signing on the phone is part of Pro
+  const hasSigs = Boolean(sellerSig || buyerSig);
+  // The invoice number whose images have been looked for in the cloud (found or not), so the card can tell
+  // "signed on another phone, still downloading" from "nobody signed this".
+  const [fetchedFor, setFetchedFor] = useState(null);
+  // Signed (here or elsewhere) but not on screen yet: the Free card must not say the lines "print blank" meanwhile.
+  // Whether the card is open: the pads (Pro), or the signatures that exist (Free). With nothing to show on Free it stays closed.
+  const sigsOpen = showSigs && (!sigLocked || hasSigs);
+  const sigsComing = sigLocked && !hasSigs && fetchedFor !== invoice.number && hasSignature(invoice.number);
 
   // Values most recently hydrated from cache/cloud. The auto-save effect below
   // compares against these so simply LOADING a signature doesn't immediately
@@ -50,7 +65,8 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
     if (saved.seller || saved.buyer) {
       apply(saved);
     } else if (hasSignature(invoice.number)) {
-      fetchSignatureFromCloud(invoice.number).then(apply).catch(() => {});
+      fetchSignatureFromCloud(invoice.number).then(apply).catch(() => {})
+        .finally(() => { if (!cancelled) setFetchedFor(invoice.number); });
     }
     return () => { cancelled = true; };
   }, [invoice.number]);
@@ -93,7 +109,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
   async function getBlob() {
     // Lazy-load the PDF stack (jsPDF + autotable) only on demand.
     const { generatePDFBlob } = await import('../../utils/pdfGenerator');
-    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid });
+    return generatePDFBlob({ ...invoice, sellerSignature: sellerSig, buyerSignature: buyerSig, paidAmount: paid, layout: pdfLayoutFor(easyMode) });
   }
 
   /** Lazy-loaded alongside the PDF stack — only fetched once a share/download is triggered. */
@@ -299,7 +315,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
 
         {/* Signatures — Proof of delivery */}
         <div style={{ ...s.card, background: C.card, borderColor: C.cardBorder, padding: '14px 16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showSigs ? 14 : 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sigsOpen ? 14 : 0 }}>
             <div>
               <p style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: 0 }}>Signatures</p>
               <p style={{ color: C.textMuted, fontSize: 12, margin: '2px 0 0' }}>
@@ -312,23 +328,37 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
                     : 'Proof of delivery · saved with invoice'}
               </p>
             </div>
-            <button
-              onClick={() => setShowSigs(v => !v)}
-              style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-            >
-              {showSigs ? 'Hide' : (sellerSig || buyerSig) ? 'View' : 'Sign'}
-            </button>
+            {!(sigLocked && !hasSigs) && (
+              <button
+                onClick={() => setShowSigs(v => !v)}
+                style={{ background: showSigs ? C.divider : ACCENT, border: 'none', color: showSigs ? C.text : '#fff', fontWeight: 600, fontSize: 13, padding: '7px 14px', borderRadius: 10, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+              >
+                {showSigs ? 'Hide' : (sellerSig || buyerSig) ? 'View' : 'Sign'}
+              </button>
+            )}
           </div>
-          {showSigs && (
+          {sigLocked && !hasSigs && !sigsComing && (
+            <p style={{ color: C.textMuted, fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>
+              {PLAN_COPY.signLocked} ·{' '}
+              <button type="button" onClick={() => openUpgrade()} style={s.inlineLink}>{PLAN_COPY.upgrade}</button>
+            </p>
+          )}
+          {sigsOpen && sigLocked && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {sellerSig && <ReadOnlySignature src={sellerSig} alt={PLAN_COPY.sellerSigAlt} caption={PLAN_COPY.sellerSigCaption} C={C} />}
+              {buyerSig && <ReadOnlySignature src={buyerSig} alt={PLAN_COPY.buyerSigAlt} caption={PLAN_COPY.buyerSigCaption} C={C} />}
+            </div>
+          )}
+          {showSigs && !sigLocked && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <SignaturePad
-                label="Driver / Deliverer"
+                label={PLAN_COPY.sellerSigCaption}
                 dark={dark} C={C}
                 initialDataUrl={sellerSig}
                 onChange={setSellerSig}
               />
               <SignaturePad
-                label="Store Manager — Proof of Delivery"
+                label={PLAN_COPY.buyerSigCaption}
                 dark={dark} C={C}
                 initialDataUrl={buyerSig}
                 onChange={setBuyerSig}
@@ -356,7 +386,7 @@ export default function InvoiceView({ invoice, onBack, onNewInvoice }) {
             onClick={handleShare}
             disabled={!!busy}
           >
-            {busy === 'share' ? '…' : shareLabel('Share')}
+            {busy === 'share' ? '…' : shareLabel('Share', easyMode)}
           </button>
           <button
             style={{ ...s.secondaryBtn, background: copied ? C.successBg : C.card, color: copied ? C.successText : C.text, borderColor: C.cardBorder }}
@@ -473,4 +503,8 @@ const s = {
     borderRadius: 14, fontSize: 14, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   },
+  // A 12px link with a ≥44px hit box (its 14-15px line plus 24 above and 8 below: 47px measured in Chromium). Each
+  // side's padding is cancelled by an equal negative margin, so the line looks and sits exactly as it did; the box
+  // grows mostly upward, over text, and its 8px below stays inside the card's own bottom padding.
+  inlineLink: { background: 'none', border: 'none', padding: '24px 10px 8px', margin: '-24px -10px -8px', color: ACCENT, fontWeight: 700, fontSize: 12, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
 };

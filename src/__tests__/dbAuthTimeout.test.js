@@ -69,6 +69,29 @@ describe('db calls while the auth server is unreachable', () => {
     expect(supabase.auth.getUser).toHaveBeenCalledTimes(2);
   });
 
+  it('ask again the moment the browser says the signal is back, inside that window', async () => {
+    // PlanRunner (and the sync queue) run on 'online'. Without this they got "no session" at once for up to 30 s
+    // and nothing asked again until the next foreground.
+    supabase.auth.getUser.mockReturnValue(new Promise(() => {}));
+    const first = db.getInvoices();
+    await vi.advanceTimersByTimeAsync(4000);
+    await first;
+
+    supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } }); // the auth server answers now
+    window.dispatchEvent(new Event('online'));
+
+    expect(await db.whoAmI()).toBe('u1');
+    expect(supabase.auth.getUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('...and an \'online\' event with a session already known changes nothing', async () => {
+    supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    expect(await db.whoAmI()).toBe('u1');
+    window.dispatchEvent(new Event('online'));
+    expect(await db.whoAmI()).toBe('u1');
+    expect(supabase.auth.getUser).toHaveBeenCalledTimes(1);
+  });
+
   it('use the session as soon as the server is back (TOKEN_REFRESHED)', async () => {
     supabase.auth.getUser.mockReturnValue(new Promise(() => {}));
     const first = db.getInvoices();

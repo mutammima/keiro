@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: October 15, 2026**
+**Last updated: October 20, 2026**
 
 This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
 and protects information when you use the App. By using Keiro you agree to the
@@ -39,7 +39,8 @@ We only collect the information needed to provide the App's features:
   invite codes. You can switch them off in Settings → Terms & Privacy.
 
 We do **not** collect payment card numbers, bank details, or government IDs.
-The App does not process payments.
+The App does not process payments. For your plan, Keiro keeps whether you're on
+Free or Pro (and until when) and how many invoices you made each month.
 
 ## 3. How your data is stored
 

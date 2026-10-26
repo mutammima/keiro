@@ -28,6 +28,9 @@ import SyncToast from './components/ui/SyncToast';
 import SyncAttentionBanner from './components/ui/SyncAttentionBanner';
 import StorageBanner from './components/ui/StorageBanner';
 import SyncQueueRunner from './components/ui/SyncQueueRunner';
+import PlanRunner from './components/plan/PlanRunner';
+import PlanNotices from './components/plan/PlanNotices';
+import UpgradeHost from './components/plan/UpgradeHost';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
 import Home from './pages/Home';
 const StoreMap = lazy(() => import('./pages/StoreMap'));
@@ -40,6 +43,7 @@ import { isPinEnabled } from './utils/pinStorage';
 import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
+import { useSafeReload } from './hooks/useSafeReload';
 import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS, SIDE_NAV_WIDTH } from './utils/constants';
 import { supabase } from './services/supabase';
 // Store Owner role
@@ -107,7 +111,13 @@ function OfflineBanner({ dark }) {
 function AppInner({ role, onSwitchRole }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
-  const easyMode = easyModeFor(role);
+  // The mode this shell is built for, decided ONCE per mount. The tabs, the starting page, the
+  // tour and the invoice screen all follow it, and only a reload rebuilds them, so a later change
+  // of the plan cache must not flip any of them: the next routine re-render (a badge refresh, the
+  // drawer opening) would swap <EasyInvoice/> for <NewInvoice/> and empty a half-made invoice
+  // while the reload waits for it to close. PlanRunner reloads when an answer changes the mode.
+  // RoleGate keys this component by role, so a role switch remounts it and decides again.
+  const [easyMode] = useState(() => easyModeFor(role));
 
   // Layout tier. Desktop swaps the whole shell: a docked side rail instead of
   // TopNav, and a single rendered tab instead of the swipeable 4× strip.
@@ -135,6 +145,13 @@ function AppInner({ role, onSwitchRole }) {
   const { shouldShow: shouldShowOnboarding, markComplete: markOnboardingComplete, skipOnboarding } = useOnboarding();
   const [versionUpdateAvailable, setVersionUpdateAvailable] = useState(false);
   useVersionCheck(); // fires EVENTS.VERSION_UPDATE event when server has a newer build
+
+  // A plan change that flips the mode reloads the app (PlanRunner). Never under a half-made
+  // invoice, and not while he shares or prints the one he just made either: Make invoice opens
+  // 'invoice-view', and a reload there would interrupt the share sheet and could cut off a
+  // connected order's fire-and-forget "delivered" update. It waits until both screens are closed.
+  const makingInvoice = page === 'invoice' || page === 'invoice-view';
+  const reloadForPlan = useSafeReload(makingInvoice);
 
   // ── Cross-account event badges (tab-strip unread counts) ───────────────────
   const [badges, setBadges] = useState({});
@@ -484,7 +501,7 @@ function AppInner({ role, onSwitchRole }) {
     <SOInvoices  key="so-invoices" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ] : [
     <Home           key="home"    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
-    <InvoiceHistory key="route"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
+    <InvoiceHistory key="route"   easyMode={easyMode} onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} onNewInvoice={() => navigate('invoice')} />,
     <DriverStores   key="stores"  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onSelectStore={s => { setSelectedStore(s); navigate('store-balance'); }} />,
     <DriverReports  key="reports" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />,
   ];
@@ -509,11 +526,14 @@ function AppInner({ role, onSwitchRole }) {
         position: 'relative',
       }}
     >
+      {/* Pricing: keep the plan fresh and show its one-time notes. (The Upgrade and limit sheets are hosted in App().) */}
+      <PlanRunner role={role} easyMode={easyMode} onModeChange={reloadForPlan} />
+      <PlanNotices />
       {showWhatsNew  && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
       {(updateAvailable || versionUpdateAvailable) && (
         <UpdateBanner
           onUpdate={versionUpdateAvailable ? applyVersionUpdate : applyUpdate}
-          isMidInvoice={page === 'invoice'}
+          isMidInvoice={makingInvoice}
         />
       )}
       <NavDrawer
@@ -523,6 +543,7 @@ function AppInner({ role, onSwitchRole }) {
         currentPage={page}
         onTutorial={quickStart.start}
         role={role}
+        easyMode={easyMode}
         onSwitchRole={onSwitchRole}
         docked={desktop}
         badges={badges}
@@ -638,6 +659,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'invoice-view' && currentInvoice && (
             <InvoiceView
               invoice={currentInvoice}
+              easyMode={easyMode}
               onBack={goBackFromOverlay}
               onNewInvoice={() => { setCurrentInvoice(null); goBackFromOverlay(); }}
             />
@@ -664,7 +686,7 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'store-balance' && selectedStore && (
-            <StoreBalance storeName={selectedStore} onBack={goBackFromOverlay} />
+            <StoreBalance storeName={selectedStore} easyMode={easyMode} onBack={goBackFromOverlay} />
           )}
           </Suspense>
         </div>
@@ -673,7 +695,7 @@ function AppInner({ role, onSwitchRole }) {
       {/* Hide top nav on overlay pages — they have their own headers — and on
           desktop, where the docked rail carries the tabs instead. */}
       {overlayPage === null && !desktop && (
-        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} badges={badges} pulse={homePulse ? { home: true } : {}} />
+        <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} easyMode={easyMode} badges={badges} pulse={homePulse ? { home: true } : {}} />
       )}
       <OfflineBanner dark={dark} />
 
@@ -728,6 +750,9 @@ export default function App() {
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
       <SyncToast />
       <SyncAttentionBanner />
+      {/* The one Upgrade / free-limit host. Out here, not in AppInner, so the sync banner's Upgrade button works
+          on the Loading, password-recovery and sign-in screens too. */}
+      <UpgradeHost />
       <StorageBanner />
       <SyncQueueRunner />
       <AuthGate>
