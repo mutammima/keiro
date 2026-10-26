@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last updated: October 20, 2026**
+**Last updated: October 26, 2026**
 
 These Terms of Service ("Terms") govern your use of Keiro (the "App"). By
 using the App, you agree to these Terms. If you do not agree, do not use the

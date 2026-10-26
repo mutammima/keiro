@@ -10,6 +10,7 @@ import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import { promptAccount } from '../utils/guestMode';
 import AppFooter from '../components/navigation/AppFooter';
 import { SPAM_HINT } from '../utils/constants';
+import DeleteAccountSheet from '../components/settings/DeleteAccountSheet';
 
 export default function Profile({ onOpenDrawer, onNav }) {
   const { dark } = useTheme();
@@ -22,6 +23,7 @@ export default function Profile({ onOpenDrawer, onNav }) {
   const [msg, setMsg]             = useState('');
   const [err, setErr]             = useState('');
   const [loading, setLoading]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user ?? null));
@@ -176,6 +178,13 @@ export default function Profile({ onOpenDrawer, onNav }) {
         </button>
         {signOutPrompt}
 
+        {!isGuest && (
+          <button style={{ ...s.deleteBtn, color: C.danger }} onClick={() => setDeleting(true)}>
+            Delete account
+          </button>
+        )}
+        {deleting && <DeleteAccountSheet onClose={() => setDeleting(false)} />}
+
         <AppFooter onNav={onNav} />
       </div>
     </div>
@@ -224,6 +233,11 @@ const s = {
     fontSize: 15, fontWeight: 600,
     cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
     transition: 'color 0.6s ease, border-color 0.6s ease',
+  },
+  deleteBtn: {
+    width: '100%', minHeight: 44, background: 'none', border: 'none',
+    fontSize: 14, fontWeight: 600, cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   },
   banner: {
     borderRadius: 12, padding: '12px 16px',

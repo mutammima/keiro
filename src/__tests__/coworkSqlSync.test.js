@@ -21,3 +21,15 @@ describe('shared product names SQL', () => {
     expect(norm(block[1])).toBe(norm(sql.slice(start)));
   });
 });
+
+describe('account deletion SQL', () => {
+  it('the cowork doc inlines exactly the .sql file (from the function to the end)', () => {
+    const sql = readFileSync(resolve(root, 'supabase-account-deletion.sql'), 'utf8');
+    const doc = readFileSync(resolve(root, 'docs/COWORK_ACCOUNT_DELETION.md'), 'utf8');
+    const start = sql.indexOf('create or replace function public.delete_my_account()');
+    expect(start).toBeGreaterThan(-1);
+    const block = doc.match(/```sql\n(create or replace function public\.delete_my_account[\s\S]*?)\n```/);
+    expect(block).not.toBeNull();
+    expect(norm(block[1])).toBe(norm(sql.slice(start)));
+  });
+});

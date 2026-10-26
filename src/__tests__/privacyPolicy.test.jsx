@@ -25,6 +25,8 @@ import Legal from '../pages/Legal.jsx';
 // limit as a number, so it is built from the constant here: changing the limit fails
 // these tests until the Terms (and their date) are changed on purpose.
 const PLAN_KEPT = "For your plan, Keiro keeps whether you're on Free or Pro (and until when) and how many invoices you made each month.";
+// Account deletion is in the app now (Settings → Delete account), not "email us".
+const DELETION = "You can delete your account and all its data in the app, in Settings → Security & Permissions → Delete account. It is deleted at once and can't be recovered.";
 const PLANS_TERMS = `Keiro has a free plan for drivers: Easy Mode and ${FREE_INVOICES_PER_MONTH} new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.`;
 
 describe('privacy policy', () => {
@@ -46,6 +48,12 @@ describe('privacy policy', () => {
     render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
     expect(screen.getByText(/so no other account can read them, except as described under What other users can see/i)).toBeInTheDocument();
     expect(screen.queryByText(/the one exception/i)).toBeNull();
+  });
+
+  it('says the account can be deleted in the app, at once, not by emailing', () => {
+    render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
+    expect(screen.getByText((content) => content.includes(DELETION))).toBeInTheDocument();
+    expect(screen.queryByText(/full account deletion by contacting us/)).toBeNull();
   });
 
   it('says what Keiro keeps for the plan, and still that the app takes no payments', () => {
@@ -95,6 +103,8 @@ describe('PRIVACY.md and TERMS.md', () => {
     const privacy = markdown('PRIVACY.md');
     expect(privacy).toContain('The App does not process payments.');
     expect(privacy).toContain(PLAN_KEPT);
+    expect(privacy).toContain(DELETION);
+    expect(privacy).not.toContain('To delete your entire account and associated data, contact us');
     const terms = markdown('TERMS.md');
     expect(terms).toMatch(/## \d+\. Plans Keiro has a free plan/); // its own numbered section
     expect(terms).toContain(PLANS_TERMS);

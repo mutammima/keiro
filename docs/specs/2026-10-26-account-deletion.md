@@ -1,0 +1,151 @@
+# Account deletion inside the app
+
+**Status**
+- [x] Design written (2026-10-26)
+- [x] Owner decisions answered (§5, 2026-10-26): all three recommendations
+- [x] Owner ran the read-only foreign-key check (§3) and pasted the result (2026-10-26, see §3)
+- [x] SQL written + validated locally: `supabase-account-deletion.sql`, `scripts/sql-checks/account-deletion.mjs` (18 checks)
+- [ ] Owner ran the SQL via a cowork doc, and it was probed
+- [ ] Client built test-first (`DeleteAccountSheet`, Settings + Profile), merged
+- [ ] Checked with a throwaway `+tag` account on a real phone
+
+**Why now:** Apple App Review guideline 5.1.1(v): an app that lets people create an account must
+let them **start deleting that account from inside the app**. Deactivating it isn't enough, and
+neither is "email us", which is what Keiro offers today (Settings → Privacy, `PRIVACY.md` §
+retention). TestFlight internal testing doesn't enforce this, but the public App Store release
+will.
+
+**Scope:** signed-in drivers and store owners. Guests have no account; Sign out already wipes their
+data.
+
+---
+
+## 1. What the user sees
+
+Settings → Security & Permissions → **Delete account** (red text, the last row, below Switch
+Role; also reachable from the Profile page). Apple wants it easy to find, so it shouldn't sit only
+inside the Privacy text.
+
+1. A sheet: **"Delete your Keiro account?"**
+   - "This deletes your account and everything in it: invoices, payments, signatures, products,
+     stores, notes and orders. It can't be undone."
+   - Driver with active connections: "Stores you're connected to (N) lose the invoices you sent
+     them." Store owner: "Drivers you're connected to (N) lose the orders you sent them."
+   - Pro through the owner's switch: "Your Pro plan ends." (No payments exist yet. Once they do,
+     a paid plan must be cancelled in Apple's or Stripe's settings first; see §6.)
+   - "Back up this phone's data first" → the existing Backup export (`useBackup`). It saves this
+     phone's data only. Invoices made on another device aren't on this phone, so the label doesn't
+     promise a full backup.
+2. Type **DELETE** to enable the red button. Not a password: Google sign-in accounts have none.
+3. **Delete account** → spinner → "Your account was deleted." → the app reloads to the welcome
+   screen with nothing on the phone.
+
+Offline, or the server refuses: "Couldn't delete your account. Nothing was deleted. Try again with
+a connection." Nothing local is wiped unless the server confirms.
+
+## 2. How it works
+
+**Recommended: one SECURITY DEFINER function, `delete_my_account()`**, called with
+`supabase.rpc('delete_my_account')`. This is the same pattern as `redeem_connection`.
+
+```
+delete_my_account():
+  uid := auth.uid();  if null → raise 'not signed in'
+  delete the user's rows in every table that does NOT cascade from auth.users (§3)
+  delete from auth.users where id = uid;   -- cascades the rest, plus Supabase's own
+                                           -- identities / sessions / refresh tokens
+```
+
+- `revoke all … from public, anon; grant execute … to authenticated`. It only ever touches
+  `auth.uid()`'s rows, so there's no parameter to abuse.
+- The app then wipes local data exactly like sign-out (`clearAccountLocalData` in `auth.js`,
+  through the `useSafeSignOut` path but skipping its "upload first" step, since there's nothing
+  to keep) and reloads.
+
+**Alternative (not recommended now): a Vercel Function** `api/delete-account.js` calling
+`auth.admin.deleteUser()` with the **service-role key** stored in Vercel. This is Supabase's
+documented admin path, but it puts a key that bypasses every RLS policy into a second place. That
+is a bigger risk than the SQL function for no gain today. It becomes necessary only for Sign in
+with Apple (§6).
+
+## 3. What gets deleted, and the one unknown
+
+Tables whose SQL is in this repo already cascade on `auth.users` deletion:
+`profiles`, `connections` (both sides + `invited_by`), `connection_orders` (both sides),
+`marketplace_listings`, `marketplace_demand`, `invoice_signatures`, `subscriptions`,
+`invoice_usage`. `invoices.store_user_id` is `on delete set null`.
+
+**Unknown, because they were made in the dashboard before the repo kept SQL:** `invoices`,
+`invoice_items`, `invoice_payments`, `products`, `stores`, `so_orders`, `so_drivers`,
+`so_bridge_requests`, `connection_requests`, `order_line_items`. If any of them has a `user_id`
+with **no** foreign key, or one without `on delete cascade`, deleting the auth user either fails
+(FK without cascade) or leaves the data orphaned (no FK). Either way the function must delete
+those rows itself.
+
+**Owner: run this read-only query** in the SQL Editor and paste the result. It changes nothing:
+
+```sql
+select c.table_name,
+       c.column_name,
+       tc.constraint_name,
+       rc.delete_rule              -- CASCADE / SET NULL / NO ACTION / null = no FK at all
+from information_schema.columns c
+left join information_schema.key_column_usage k
+  on k.table_schema = c.table_schema and k.table_name = c.table_name and k.column_name = c.column_name
+left join information_schema.table_constraints tc
+  on tc.constraint_name = k.constraint_name and tc.constraint_type = 'FOREIGN KEY'
+left join information_schema.referential_constraints rc
+  on rc.constraint_name = tc.constraint_name
+where c.table_schema = 'public'
+  and c.column_name in ('user_id', 'store_user_id', 'driver_user_id', 'invited_by', 'requester_id', 'target_id')
+order by c.table_name, c.column_name;
+```
+
+The function is written from that result, not guessed.
+
+**Result (live database, 2026-10-26).** Every user table has a foreign key to `auth.users`, and
+almost all of them CASCADE: invoices, invoice_items, invoice_payments, invoice_signatures,
+invoice_usage, subscriptions, products, stores, so_orders, so_drivers, so_bridge_requests,
+marketplace_listings, marketplace_demand, connection_orders (both sides) and connections.invited_by.
+`invoices.store_user_id` is SET NULL, which is right: a store's deletion leaves its drivers'
+invoices with the drivers. **The surprise: `connections.driver_user_id` / `store_user_id` are SET
+NULL live**, though the repo's SQL says CASCADE, because the table predates that file. Left alone, the
+other person would keep a "connection" to nobody, so the function deletes those rows first.
+Connection requests are `connections` rows. `profiles` (keyed on `id`, not covered by the query) is
+deleted explicitly. The duplicate NULL/NULL rows in the result were primary-key and unique
+constraints, not missing foreign keys.
+
+## 4. Testing
+
+- **SQL:** the local PGlite harness the pricing work used (an `auth.users` stand-in plus every
+  table). Two accounts connected, with invoices, orders and payments. Delete one, then check:
+  every row of theirs is gone, the other account's own rows are untouched, and calling it as anon
+  fails.
+- **Client:** Vitest for the sheet (the DELETE gate, the offline error leaving local data in place,
+  the success wipe), following `safeSignOut.test.jsx`.
+- **Real:** one throwaway `alomonds+del1@gmail.com` account, connected to another `+tag` account.
+  Delete it on a phone, then probe that its rows are gone and the other account still works.
+
+## 5. Owner decisions (2026-10-26)
+
+1. **A connected store's copy of a deleted driver's invoices: deleted.** Shared invoices are the
+   driver's own rows that the store can read, so they go with the driver's account. The sheet
+   warns the driver that connected stores lose them (§1). Keeping a copy for the store was
+   considered and not chosen: it needs a store-owned copy table and a policy change.
+2. **Deleted immediately, no grace period.** No "pending deletion" state, scheduled job or cancel
+   path.
+3. **The button lives in two places:** Settings → Security & Permissions (the last row) and the
+   Profile page.
+
+What's still open: the §3 foreign-key result, which the SQL is written from.
+
+## 6. Later, tied to other work
+
+- **Sign in with Apple:** Apple requires apps that use it to **revoke the user's Apple tokens** on
+  account deletion (a server call signed with the app's Apple key). That needs the server-side
+  function from §2's alternative. Build it then, not now.
+- **Paid plans:** Apple requires the deletion flow to tell a subscriber how to cancel (Apple
+  subscriptions are cancelled in iOS Settings, not by deleting the account). Add that line to the
+  sheet when payments ship.
+- **`PRIVACY.md`, `TERMS.md` and the Settings privacy text** change from "email us" to "Settings →
+  Delete account". That ships with the feature.
