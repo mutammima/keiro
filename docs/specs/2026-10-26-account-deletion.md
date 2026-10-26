@@ -2,7 +2,7 @@
 
 **Status**
 - [x] Design written (2026-10-26)
-- [ ] Owner decisions answered (§5)
+- [x] Owner decisions answered (§5, 2026-10-26): all three recommendations
 - [ ] Owner ran the read-only foreign-key check (§3) and pasted the result
 - [ ] SQL written + validated locally (PGlite harness, like pricing)
 - [ ] Owner ran the SQL via a cowork doc, and it was probed
@@ -112,20 +112,18 @@ The function is written from that result, not guessed.
 - **Real:** one throwaway `alomonds+del1@gmail.com` account, connected to another `+tag` account.
   Delete it on a phone, then probe that its rows are gone and the other account still works.
 
-## 5. Decisions for the owner
+## 5. Owner decisions (2026-10-26)
 
-1. **A connected store's copy of a deleted driver's invoices.** Shared invoices are the driver's
-   own rows that the store can read, so deleting the driver removes them from the store's billing
-   history.
-   - **(a) Delete them (recommended for v1).** Simple, fully honours "delete my data", and the
-     sheet warns the driver.
-   - (b) Keep a copy for the store. That needs a store-owned copy table and a privacy-policy
-     change (keeping a deleted person's data as the store's business record). It's real work, and
-     worth it only if stores complain.
-2. **Immediate deletion, or a 30-day grace period?** Recommended: immediate. A grace period needs a
-   "pending deletion" state, a scheduled job and a cancel path. Apple accepts either.
-3. **Where the button lives:** Settings → Security & Permissions plus the Profile page
-   (recommended), or Settings only.
+1. **A connected store's copy of a deleted driver's invoices: deleted.** Shared invoices are the
+   driver's own rows that the store can read, so they go with the driver's account. The sheet
+   warns the driver that connected stores lose them (§1). Keeping a copy for the store was
+   considered and not chosen: it needs a store-owned copy table and a policy change.
+2. **Deleted immediately, no grace period.** No "pending deletion" state, scheduled job or cancel
+   path.
+3. **The button lives in two places:** Settings → Security & Permissions (the last row) and the
+   Profile page.
+
+What's still open: the §3 foreign-key result, which the SQL is written from.
 
 ## 6. Later, tied to other work
 
