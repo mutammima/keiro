@@ -95,8 +95,7 @@ left join information_schema.table_constraints tc
 left join information_schema.referential_constraints rc
   on rc.constraint_name = tc.constraint_name
 where c.table_schema = 'public'
-  and c.column_name in ('user_id', 'store_user_id', 'driver_user_id', 'invited_by', 'requester_id', 'target_id', 'id')
-  and c.table_name not in ('profiles')
+  and c.column_name in ('user_id', 'store_user_id', 'driver_user_id', 'invited_by', 'requester_id', 'target_id')
 order by c.table_name, c.column_name;
 ```
 
