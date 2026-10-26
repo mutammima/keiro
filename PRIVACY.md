@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: October 20, 2026**
+**Last updated: October 26, 2026**
 
 This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
 and protects information when you use the App. By using Keiro you agree to the
@@ -86,14 +86,13 @@ select. We are not responsible for how those recipients handle it.
 ## 6. Data retention
 
 We retain your data for as long as your account is active. You may delete
-individual records in the App at any time. To delete your entire account and
-associated data, contact us at the email above.
+individual records in the App at any time. You can delete your account and all its data in the app, in Settings → Security & Permissions → Delete account. It is deleted at once and can't be recovered.
 
 ## 7. Your rights
 
 Depending on where you live, you may have the right to access, correct, export,
-or delete your personal data. To exercise these rights, contact us at the email
-above.
+or delete your personal data. Deleting your account is described above; to
+exercise the other rights, contact us at the email above.
 
 ## 8. Security
 

@@ -3,10 +3,10 @@
 **Status**
 - [x] Design written (2026-10-26)
 - [x] Owner decisions answered (§5, 2026-10-26): all three recommendations
-- [ ] Owner ran the read-only foreign-key check (§3) and pasted the result
-- [ ] SQL written + validated locally (PGlite harness, like pricing)
+- [x] Owner ran the read-only foreign-key check (§3) and pasted the result (2026-10-26, see §3)
+- [x] SQL written + validated locally: `supabase-account-deletion.sql`, `scripts/sql-checks/account-deletion.mjs` (18 checks)
 - [ ] Owner ran the SQL via a cowork doc, and it was probed
-- [ ] Client built test-first, merged
+- [ ] Client built test-first (`DeleteAccountSheet`, Settings + Profile), merged
 - [ ] Checked with a throwaway `+tag` account on a real phone
 
 **Why now:** Apple App Review guideline 5.1.1(v): an app that lets people create an account must
@@ -33,7 +33,9 @@ inside the Privacy text.
      them." Store owner: "Drivers you're connected to (N) lose the orders you sent them."
    - Pro through the owner's switch: "Your Pro plan ends." (No payments exist yet. Once they do,
      a paid plan must be cancelled in Apple's or Stripe's settings first; see §6.)
-   - "Download a backup first" link → the existing Backup export (`useBackup`).
+   - "Back up this phone's data first" → the existing Backup export (`useBackup`). It saves this
+     phone's data only. Invoices made on another device aren't on this phone, so the label doesn't
+     promise a full backup.
 2. Type **DELETE** to enable the red button. Not a password: Google sign-in accounts have none.
 3. **Delete account** → spinner → "Your account was deleted." → the app reloads to the welcome
    screen with nothing on the phone.
@@ -100,6 +102,18 @@ order by c.table_name, c.column_name;
 ```
 
 The function is written from that result, not guessed.
+
+**Result (live database, 2026-10-26).** Every user table has a foreign key to `auth.users`, and
+almost all of them CASCADE: invoices, invoice_items, invoice_payments, invoice_signatures,
+invoice_usage, subscriptions, products, stores, so_orders, so_drivers, so_bridge_requests,
+marketplace_listings, marketplace_demand, connection_orders (both sides) and connections.invited_by.
+`invoices.store_user_id` is SET NULL, which is right: a store's deletion leaves its drivers'
+invoices with the drivers. **The surprise: `connections.driver_user_id` / `store_user_id` are SET
+NULL live**, though the repo's SQL says CASCADE, because the table predates that file. Left alone, the
+other person would keep a "connection" to nobody, so the function deletes those rows first.
+Connection requests are `connections` rows. `profiles` (keyed on `id`, not covered by the query) is
+deleted explicitly. The duplicate NULL/NULL rows in the result were primary-key and unique
+constraints, not missing foreign keys.
 
 ## 4. Testing
 

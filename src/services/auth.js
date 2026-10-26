@@ -192,6 +192,33 @@ export async function signOut() {
   }
 }
 
+// PostgREST's "no such function" (PGRST202) and Postgres's own (42883): the
+// server has no delete_my_account() yet, because its SQL hasn't been run.
+const MISSING_FUNCTION = new Set(['PGRST202', '42883']);
+
+/**
+ * Deletes the signed-in account and everything in it, on the server, at once
+ * (delete_my_account(), supabase-account-deletion.sql), then clears this
+ * phone's account data the way signOut does. Nothing on the phone is cleared
+ * unless the server says the account is gone.
+ * @returns {Promise<{ error: object|null, unavailable: boolean }>} unavailable:
+ *   the server can't delete accounts yet, and nothing was deleted.
+ */
+export async function deleteAccount() {
+  let error;
+  try {
+    ({ error } = await supabase.rpc('delete_my_account'));
+  } catch (err) {
+    error = err;
+  }
+  if (error) return { error, unavailable: MISSING_FUNCTION.has(error.code) };
+  // The server no longer has this user, so a global sign-out (which asks it)
+  // would fail: end this phone's session only.
+  try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* the session is dead either way */ }
+  clearAccountLocalData();
+  return { error: null, unavailable: false };
+}
+
 // ── Server unreachable ────────────────────────────────────────────────────────
 // The free Supabase project pauses after a week without use, and its host then
 // stops resolving. These helpers let the app say so plainly and keep a
