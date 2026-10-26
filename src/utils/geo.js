@@ -6,6 +6,8 @@
  * we simply publish/sort without distance rather than blocking the action.
  */
 
+import { PUBLIC_COORD_DECIMALS } from './constants';
+
 // In-memory cache so we don't re-prompt / re-poll GPS on every feed render.
 let _cached = null; // { lat, lng, ts }
 const MAX_AGE = 10 * 60 * 1000; // 10 minutes
@@ -32,6 +34,19 @@ export function getCurrentPosition({ timeout = 8000, maxAge = MAX_AGE } = {}) {
       { enableHighAccuracy: false, timeout, maximumAge: maxAge }
     );
   });
+}
+
+/**
+ * A coordinate as it may be published with a Marketplace post: rounded to
+ * PUBLIC_COORD_DECIMALS, or null when there is none. Null, undefined and ''
+ * stay null (Number(null) is 0, which would put the post at 0°, 0°).
+ * @param {*} value
+ * @returns {number|null}
+ */
+export function publicCoord(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Number(n.toFixed(PUBLIC_COORD_DECIMALS)) : null;
 }
 
 /** Great-circle distance in miles, or null if either point lacks coords. */

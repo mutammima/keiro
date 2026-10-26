@@ -486,7 +486,7 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Privacy Policy</div>
-                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user. We collect minimal usage data. If the app crashes, a report goes to Sentry (our error-monitoring provider): the error, the app version, your device type and the screen it happened on, never your invoices, names or contact details. You can switch this off above. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
+                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user, with your location rounded to about 1 km. If the app crashes, a report goes to Sentry (our error-monitoring provider): the error, the app version, your device type and the screen it happened on, never your invoices, names or contact details. You can switch this off above. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>

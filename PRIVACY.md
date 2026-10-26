@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: October 20, 2026**
+**Last updated: October 26, 2026**
 
 This Privacy Policy explains how Keiro ("we", "us", the "App") collects, uses,
 and protects information when you use the App. By using Keiro you agree to the
@@ -23,12 +23,13 @@ If you have questions about this policy, contact: **alomonds@gmail.com**
 We only collect the information needed to provide the App's features:
 
 - **Account information** — the email address you use to sign in, managed
-  through our authentication provider (Supabase). Passwords are never stored by
+  through our authentication provider (Supabase), and the name on your profile. Passwords are never stored by
   us in readable form; authentication is handled by Supabase.
 - **Business and invoice data you enter** — your business name and phone,
   invoice details (numbers, dates, line items, totals), customer/store names,
   store phone numbers and addresses, payment records, notes, and signatures you
   add to invoices.
+- **Location** — If you allow location access, Keiro reads your location when you publish a Marketplace post and saves it with the post rounded to about 1 km, so posts can be sorted by distance. Keiro never sends your exact location anywhere.
 - **Device-local preferences** — settings such as theme, display density, and
   onboarding status, stored locally on your device.
 - **Crash reports** — if the App crashes, a report is sent to **Sentry**, our
@@ -48,7 +49,8 @@ Free or Pro (and until when) and how many invoices you made each month.
   and protected by per-user **Row Level Security**, so each account can only
   access its own data.
 - **What other users can see.** Anything you publish to **Marketplace** is readable
-  by every signed-in Keiro user (see the in-app policy for exactly what a post shows).
+  by every signed-in Keiro user (see the in-app policy for exactly what a post shows), including
+  your approximate location (rounded to about 1 km) if you allowed location access.
   Product names: the names of products in your catalog — including names you give a barcode — can
   be suggested to other signed-in Keiro users who scan or type the same product, once at least two
   other accounts have used the same name. Your prices, quantities, stores, and which account saved
@@ -77,6 +79,7 @@ We share information only:
   service.
 - **Barcode lookups.** When a barcode you scan isn't in your catalog, its number (only the number)
   is sent to Open Food Facts and, through our server, to UPCitemdb to look up the product's name.
+- **Map lookups.** To show a store on the map, its address (only the address) is sent to OpenStreetMap's Nominatim service to find it.
 - **When required by law**, such as to comply with a valid legal request.
 
 Any invoice you choose to share (for example, exporting a PDF or sending a
