@@ -12,6 +12,7 @@ import {
   getBusinessName,
 } from '../utils/storage';
 import { BUSINESS_NAME_PLACEHOLDER } from '../utils/constants';
+import BackButton from '../components/navigation/BackButton';
 
 function uid() { return '_' + Math.random().toString(36).slice(2); }
 
@@ -28,7 +29,7 @@ function groupByLetter(products) {
     .map(([letter, items]) => ({ letter, items }));
 }
 
-export default function Products({ onOpenDrawer, onNav }) {
+export default function Products({ onOpenDrawer, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -87,7 +88,7 @@ export default function Products({ onOpenDrawer, onNav }) {
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} data-drawer-toggle onClick={onOpenDrawer} aria-label="Open menu">☰</button>
+        {onBack ? <BackButton onClick={onBack} /> : <button style={{ ...s.hamburger, color: C.text }} data-drawer-toggle onClick={onOpenDrawer} aria-label="Open menu">☰</button>}
         <span style={{ ...s.title, color: C.text }}>{bizName}</span>
         <button style={s.addBtn} onClick={() => { setShowAdd(v => !v); setAddError(''); }}>
           {showAdd ? 'Cancel' : '+ Add'}

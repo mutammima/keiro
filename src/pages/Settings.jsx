@@ -34,6 +34,7 @@ import DeleteAccountSheet from '../components/settings/DeleteAccountSheet';
 import { isPinEnabled, clearPin } from '../utils/pinStorage';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
+import BackButton from '../components/navigation/BackButton';
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 const ACCENT_PRESETS = [
@@ -57,7 +58,7 @@ const TEST_REPORT_TEXT = {
   'not-ready': 'Crash reporting could not start. Try again in a moment.',
 };
 
-export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, onReplayTutorial }) {
+export default function Settings({ onOpenDrawer, onNav, onClose, onBack, onSwitchRole, onReplayTutorial }) {
   const { dark, accent, setAccent } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -193,14 +194,15 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
+        {onBack ? <BackButton onClick={onBack} /> : <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>}
         <span style={{ ...s.title, color: C.text }}>Settings</span>
-        {/* Close / back — uses onClose when provided, falls back to navigating to first tab */}
-        <button
+        {/* Close — uses onClose when provided, falls back to navigating to first tab. With a Back on
+            the left (Easy Mode) it would do the same thing twice, so it gives way to a spacer. */}
+        {onBack ? <div style={{ width: 78 }} /> : <button
           onClick={() => onClose ? onClose() : onNav('invoice')}
           style={{ width: 36, height: 36, background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent', borderRadius: 10 }}
           aria-label="Close settings"
-        >✕</button>
+        >✕</button>}
       </div>
 
       <div style={s.body}>

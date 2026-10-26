@@ -79,30 +79,30 @@ describe('Easy tour', () => {
     const { onNav, onComplete } = renderTour('driver', 'easy');
 
     expect(screen.getByText('Step 1 of 7')).toBeInTheDocument();
-    expect(screen.getByText('Start an invoice')).toBeInTheDocument();
+    expect(screen.getByText('Start a new invoice')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '+ New' }));
 
     expect(screen.getByText('Step 2 of 7')).toBeInTheDocument();
-    expect(screen.getByText('Start typing a store and pick it. Or leave it blank and write it on the paper.')).toBeInTheDocument();
+    expect(screen.getByText('Type the store’s name here. You can also leave it empty.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Next'));
 
     expect(screen.getByText('Step 3 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/Scan each item\. Check the name, quantity and price, then tap Add/)).toBeInTheDocument();
+    expect(screen.getByText('Tap Scan item and point the camera at the barcode. Do this for each item.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Next'));
 
     expect(screen.getByText('Step 4 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/Anything you left empty prints as a blank line/)).toBeInTheDocument();
+    expect(screen.getByText('When you’re done, tap Make invoice. Then you can print it or send it.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Next'));
     expect(onNav).toHaveBeenCalledWith('route');
 
     expect(screen.getByText('Step 5 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/Tap ⋯ on one to mark it Paid/)).toBeInTheDocument();
+    expect(screen.getByText('All your invoices are listed here, newest first. To mark one as paid, tap ⋯ on it.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Next'));
 
     expect(screen.getByText('Step 6 of 7')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Stores' }));
     expect(screen.getByText('Step 7 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/End of Day, at the top, shows what you collected/)).toBeInTheDocument();
+    expect(screen.getByText('Tap Reports to see your totals for today, this week and more.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reports' }));
 
     expect(screen.getByText(/Products, in the same menu, lets you fix a remembered name or price/)).toBeInTheDocument();
@@ -157,8 +157,8 @@ describe('Easy tour at the free limit', () => {
     fireEvent.click(screen.getByText('Next'));   // a Next step: tapping + New would only open the limit sheet
 
     expect(screen.getByText('Step 2 of 4')).toBeInTheDocument();
-    expect(screen.getByText(/Tap ⋯ on one to mark it Paid/)).toBeInTheDocument();
-    expect(screen.queryByText(/Start typing a store/)).toBeNull();
+    expect(screen.getByText(/To mark one as paid, tap ⋯ on it/)).toBeInTheDocument();
+    expect(screen.queryByText(/Type the store’s name here/)).toBeNull();
     fireEvent.click(screen.getByText('Next'));
 
     expect(screen.getByText('Step 3 of 4')).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe('Easy tour at the free limit', () => {
     act(() => recordNewInvoice());   // he makes the 20th
     fireEvent.click(screen.getByText('Next'));   // the tour re-renders on each step
     expect(screen.getByText('Step 3 of 7')).toBeInTheDocument();
-    expect(screen.getByText(/Scan each item\. Check the name, quantity and price/)).toBeInTheDocument();
+    expect(screen.getByText(/Tap Scan item and point the camera at the barcode/)).toBeInTheDocument();
   });
 
   it('the full tour is not touched by the limit', () => {

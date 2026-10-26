@@ -32,6 +32,7 @@ import PlanRunner from './components/plan/PlanRunner';
 import PlanNotices from './components/plan/PlanNotices';
 import UpgradeHost from './components/plan/UpgradeHost';
 import TopNav, { TOP_NAV_HEIGHT } from './components/navigation/TopNav';
+import BottomTabBar from './components/navigation/BottomTabBar';
 import Home from './pages/Home';
 const StoreMap = lazy(() => import('./pages/StoreMap'));
 const Notes    = lazy(() => import('./pages/Notes'));
@@ -44,6 +45,7 @@ import UpdateBanner from './components/ui/UpdateBanner';
 import useAppUpdate from './hooks/useAppUpdate';
 import useVersionCheck, { applyVersionUpdate } from './hooks/useVersionCheck';
 import { useSafeReload } from './hooks/useSafeReload';
+import { useEdgeSwipeBack } from './hooks/useEdgeSwipeBack';
 import { STORAGE_KEYS, EVENTS, SYNC_POLL_HEALTHY_MS, SYNC_POLL_DEGRADED_MS, SIDE_NAV_WIDTH } from './utils/constants';
 import { supabase } from './services/supabase';
 // Store Owner role
@@ -94,12 +96,14 @@ function OfflineBanner({ dark }) {
     <div style={{
       // left insets past the docked rail on desktop, 0 elsewhere — otherwise
       // this covers the rail's Sign Out block (see --app-inset-left in App.css).
-      position: 'fixed', bottom: 0, left: 'var(--app-inset-left, 0px)', right: 0,
+      // Sits on Easy Mode's bottom tab bar when there is one (--tab-bar-h, which
+      // already covers the home-indicator area), else on the screen edge.
+      position: 'fixed', bottom: 'var(--tab-bar-h, 0px)', left: 'var(--app-inset-left, 0px)', right: 0,
       background: dark ? '#1a0a00' : '#fff7ed',
       color: dark ? '#fbbf24' : '#b45309',
       textAlign: 'center', padding: '10px 16px', fontSize: 13, fontWeight: 500,
       zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
-      paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+      paddingBottom: 'max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--tab-bar-h, 0px)))',
     }}>
       You're offline — changes save on this device and will sync automatically when you're back online.
     </div>
@@ -123,6 +127,9 @@ function AppInner({ role, onSwitchRole }) {
   // TopNav, and a single rendered tab instead of the swipeable 4× strip.
   const bp = useBreakpoint();
   const desktop = bp === BP.DESKTOP;
+  // Easy Mode on a phone or tablet puts the tabs at the bottom, in thumb reach, and gives
+  // every page opened over them a written Back (spec: docs/specs/2026-10-26-easy-mode-feel.md).
+  const bottomTabs = easyMode && !desktop;
 
   const TABS = tabIdsForRole(role, easyMode);
 
@@ -352,6 +359,8 @@ function AppInner({ role, onSwitchRole }) {
     setOverlayPage(null);
     setPage(tabsRef.current[tabIdx]);
   }
+  // Pages that otherwise lead with ☰ get "‹ Back" instead where the bottom bar holds the menu.
+  const pageBack = bottomTabs ? goBackFromOverlay : undefined;
 
   // ── Quick Start (first run, a mode's first tour, and replays) ─────────────
   const tourMode = easyMode ? 'easy' : 'full';
@@ -373,6 +382,9 @@ function AppInner({ role, onSwitchRole }) {
   // needing to be re-registered on every render.
 
   const swipeWrapperRef = useRef(null);
+  // Easy Mode: a swipe from the left edge presses the open page's "‹ Back".
+  const shellRef        = useRef(null);
+  useEdgeSwipeBack(shellRef, { enabled: bottomTabs });
   const swipeStart      = useRef(null);
   const swipeDelta      = useRef(0);
   const swipeLocked     = useRef(null);
@@ -514,6 +526,7 @@ function AppInner({ role, onSwitchRole }) {
 
   return (
     <div
+      ref={shellRef}
       data-theme-transition
       className="app-shell"
       style={{
@@ -609,7 +622,10 @@ function AppInner({ role, onSwitchRole }) {
               display: 'flex',
               width: stripW ? `${TABS.length * stripW}px` : `${TABS.length * 100}%`,
               height: '100%',
-              paddingTop: `calc(${TOP_NAV_HEIGHT}px + env(safe-area-inset-top))`, // clears the fixed TopNav + its safe-area pad
+              // Clears the fixed TopNav + its safe-area pad; with the bottom bar, just the clock
+              // above and the bar below.
+              paddingTop: bottomTabs ? 'env(safe-area-inset-top)' : `calc(${TOP_NAV_HEIGHT}px + env(safe-area-inset-top))`,
+              paddingBottom: bottomTabs ? 'var(--tab-bar-h, 0px)' : 0,
               transform: stripW
                 ? `translateX(${-tabIdx * stripW + dragOffset}px)`
                 : `translateX(calc(-${tabIdx * (100 / TABS.length)}% + ${dragOffset}px))`,
@@ -671,17 +687,17 @@ function AppInner({ role, onSwitchRole }) {
           {overlayPage === 'so-request' && (
             <NewRequest onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={goBackFromOverlay} />
           )}
-          {overlayPage === 'products' && <Products  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'products' && <Products  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={pageBack} />}
           {overlayPage === 'so-reports' && <SOReports onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'marketplace'  && <Marketplace onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'my-listings'  && <MyListings  onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'find-drivers' && <FindDrivers onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'privacy'    && <Legal section="privacy" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
+          {overlayPage === 'about'      && <About      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={pageBack} />}
+          {overlayPage === 'privacy'    && <Legal section="privacy" onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={pageBack} />}
+          {overlayPage === 'terms'      && <Legal section="terms"   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={pageBack} />}
+          {overlayPage === 'profile'    && <Profile    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onBack={pageBack} />}
           {overlayPage === 'reports'    && <Reports    onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
-          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); quickStart.start(); }} />}
+          {overlayPage === 'settings'   && <Settings   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} onClose={goBackFromOverlay} onBack={pageBack} onSwitchRole={onSwitchRole} onReplayTutorial={() => { goBackFromOverlay(); quickStart.start(); }} />}
           {overlayPage === 'store-map'  && <StoreMap   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'notes'      && <Notes      onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
           {overlayPage === 'end-of-day' && <EndOfDay   onOpenDrawer={() => setDrawerOpen(true)} onNav={navigate} />}
@@ -692,10 +708,14 @@ function AppInner({ role, onSwitchRole }) {
         </div>
       )}
 
-      {/* Hide top nav on overlay pages — they have their own headers — and on
-          desktop, where the docked rail carries the tabs instead. */}
-      {overlayPage === null && !desktop && (
+      {/* Hide the tabs on overlay pages — they have their own headers — and on
+          desktop, where the docked rail carries the tabs instead. Easy Mode keeps
+          them at the bottom; More toggles the menu. */}
+      {overlayPage === null && !desktop && !bottomTabs && (
         <TopNav currentPage={page} onNav={navigate} onOpenDrawer={() => setDrawerOpen(true)} role={role} easyMode={easyMode} badges={badges} pulse={homePulse ? { home: true } : {}} />
+      )}
+      {overlayPage === null && bottomTabs && (
+        <BottomTabBar currentPage={page} onNav={navigate} onMore={() => setDrawerOpen(o => !o)} moreOpen={drawerOpen} role={role} easyMode={easyMode} badges={badges} />
       )}
       <OfflineBanner dark={dark} />
 

@@ -17,6 +17,7 @@ import { subtotalOf, buildWhatsAppUrl } from '../../utils/invoiceUtils';
 import { shareLabel, pdfLayoutFor } from '../../utils/easyMode';
 import { onFreePlan, openUpgrade } from '../../utils/plan';
 import { usePlan } from '../../hooks/usePlan';
+import BackButton from '../navigation/BackButton';
 
 // `easyMode` is the mode the shell was built with (App), which decides the share label and the PDF layout.
 export default function InvoiceView({ invoice, easyMode = false, onBack, onNewInvoice }) {
@@ -210,12 +211,12 @@ export default function InvoiceView({ invoice, easyMode = false, onBack, onNewIn
   return (
     <div style={{ ...s.page, background: C.bg }}>
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button data-tutorial="invoice-view-back" style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
+        <BackButton onClick={onBack} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ ...s.title, color: C.text }}>{getBusinessName() || BUSINESS_NAME_PLACEHOLDER}</span>
           <span style={{ fontSize: 12, color: C.textMuted }}>Invoice #{invoice.number}</span>
         </div>
-        <div style={{ width: 60 }} />
+        <div style={{ width: 78 }} />
       </div>
 
       <div style={s.body}>
@@ -430,10 +431,6 @@ const s = {
     padding: '14px 20px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  },
-  backBtn: {
-    background: 'none', border: 'none', fontSize: 15, fontWeight: 600,
-    cursor: 'pointer', padding: '4px 0', WebkitTapHighlightColor: 'transparent',
   },
   title: { fontSize: 17, fontWeight: 700 },
   body: {

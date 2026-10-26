@@ -147,12 +147,13 @@ export default function AuthGate({ children }) {
           isn't, App's OfflineBanner already says so in the same spot. */}
       {offline && !session && deviceOnline && (
         <div role="status" style={{
-          position: 'fixed', bottom: 0, left: 'var(--app-inset-left, 0px)', right: 0,
+          // Same spot as App's OfflineBanner: above Easy Mode's bottom tab bar, if any.
+          position: 'fixed', bottom: 'var(--tab-bar-h, 0px)', left: 'var(--app-inset-left, 0px)', right: 0,
           background: dark ? '#1a0a00' : '#fff7ed',
           color: dark ? '#fbbf24' : '#b45309',
           textAlign: 'center', padding: '10px 16px', fontSize: 13, fontWeight: 500,
           zIndex: 8000, borderTop: `1px solid ${dark ? '#2a1500' : '#fed7aa'}`,
-          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+          paddingBottom: 'max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--tab-bar-h, 0px)))',
         }}>
           Can't reach Keiro's server right now. Your work is saved on this phone and will sync when it's back.
         </div>
@@ -162,7 +163,7 @@ export default function AuthGate({ children }) {
       {migrationMsg && (
         <div style={{
           position: 'fixed',
-          bottom: 'max(80px, env(safe-area-inset-bottom))',
+          bottom: 'max(80px, env(safe-area-inset-bottom), calc(var(--tab-bar-h, 0px) + 16px))',
           left: '50%',
           transform: 'translateX(-50%)',
           background: dark ? '#0D2B20' : '#f0fdf4',

@@ -91,8 +91,9 @@ export default function SyncAttentionBanner() {
 const s = {
   bar: {
     position: 'fixed',
-    // Above the OfflineBanner (bottom: 0, ~40px tall) so the two never overlap.
-    bottom: 'calc(env(safe-area-inset-bottom, 0px) + 52px)',
+    // Above the OfflineBanner (~40px tall, on the screen edge or on Easy Mode's
+    // bottom tab bar — --tab-bar-h) so the two never overlap.
+    bottom: 'calc(max(env(safe-area-inset-bottom, 0px), var(--tab-bar-h, 0px)) + 52px)',
     // Centered over the content column, past the desktop rail — as SyncToast.
     left: 'calc(var(--app-inset-left, 0px) + (100% - var(--app-inset-left, 0px)) / 2)',
     transform: 'translateX(-50%)',

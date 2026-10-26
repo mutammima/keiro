@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
 import { versionLabel } from '../utils/appVersion';
+import BackButton from '../components/navigation/BackButton';
 
 const SECTIONS = [
   {
@@ -50,7 +51,7 @@ const SECTIONS = [
   },
 ];
 
-export default function About({ onOpenDrawer, onNav }) {
+export default function About({ onOpenDrawer, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
 
@@ -59,9 +60,9 @@ export default function About({ onOpenDrawer, onNav }) {
 
       {/* Sticky header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
+        {onBack ? <BackButton onClick={onBack} /> : <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>}
         <span style={{ ...s.title, color: C.text }}>About</span>
-        <div style={{ width: 36 }} />
+        <div style={{ width: onBack ? 78 : 36 }} />
       </div>
 
       <div style={s.body}>

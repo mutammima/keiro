@@ -138,18 +138,18 @@ describe('the shell decides its mode once per mount', () => {
     expect(container.querySelector('input[placeholder="Sunrise Deli"]').value).toBe('Corner Shop');
   });
 
-  it('and its tab bar and ☰ menu keep that mode too', async () => {
+  it('and its tab bar and menu keep that mode too', async () => {
     const { container } = render(<App />);                       // an Easy shell
     await found(container, '[data-qs-tab="route"]');
     const tabs = () => [...container.querySelectorAll('[data-qs-tab]')].map(b => b.getAttribute('data-qs-tab'));
     expect(tabs()).toEqual(['route', 'stores', 'reports']);
 
     givePro();
-    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));              // the driver opens ☰: the shell re-renders
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));                   // the driver opens the menu (More, on the bottom bar): the shell re-renders
     const menu = screen.getByRole('navigation', { name: 'Main' });                    // the ☰ drawer's list
     expect(menu.closest('[style*="translateX(0"]')).not.toBeNull();                  // and it really opened
 
-    expect(tabs()).toEqual(['route', 'stores', 'reports']);                           // TopNav did not grow a Home tab
+    expect(tabs()).toEqual(['route', 'stores', 'reports']);                           // the tab bar did not grow a Home tab
     expect(within(menu).getByText('Products')).toBeInTheDocument();
     expect(within(menu).queryByText('Store Info')).toBeNull();                        // and the drawer kept its short menu
   });
