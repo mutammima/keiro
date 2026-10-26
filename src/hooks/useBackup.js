@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import { STORAGE_KEYS } from '../utils/constants';
 import { cacheAllSignaturesForBackup } from '../utils/signatureStorage';
+import { withoutUploadStamp } from '../utils/storageRoom';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -140,7 +141,8 @@ export function useBackup() {
         }
         Object.entries(data).forEach(([k, v]) => {
           if (EXCLUDE_KEYS.has(k)) return; // never restore transient/migration keys
-          localStorage.setItem(k, v);
+          // A backup's signatures may be newer than, or missing from, the cloud.
+          localStorage.setItem(k, withoutUploadStamp(k, v));
         });
         setBackupMsg('Restore complete — reload to see your data.');
         setTimeout(() => window.location.reload(), 1500);

@@ -17,6 +17,7 @@
 
 import * as db from './db';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from '../utils/constants';
+import { withoutUploadStamp } from '../utils/storageRoom';
 
 // Legacy boolean flag (pre-timestamp scheme). Still read for backward-compat:
 // a device that only has the old flag is treated as "never migrated under the
@@ -130,7 +131,8 @@ async function renumberCollidingInvoices(invoiceList) {
     for (const [from, to] of moves) {
       const sig = localStorage.getItem(STORAGE_KEYS.SIG_PREFIX + from);
       if (sig === null) continue;
-      localStorage.setItem(STORAGE_KEYS.SIG_PREFIX + to, sig);
+      // Not uploaded under its new number yet, whatever the old entry said.
+      localStorage.setItem(STORAGE_KEYS.SIG_PREFIX + to, withoutUploadStamp(STORAGE_KEYS.SIG_PREFIX + to, sig));
       localStorage.removeItem(STORAGE_KEYS.SIG_PREFIX + from);
       if (Array.isArray(index)) index.splice(0, index.length, ...index.map(n => (Number(n) === from ? to : n)));
     }

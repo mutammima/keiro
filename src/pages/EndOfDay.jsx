@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, statusColors } from '../theme';
 import { getInvoices } from '../utils/storage';
 import AppFooter from '../components/navigation/AppFooter';
-import { subtotalOf, getStatus, todayInvoiceDate } from '../utils/invoiceUtils';
+import { subtotalOf, getStatus, todayInvoiceDate, storeLabelOf } from '../utils/invoiceUtils';
 
 export default function EndOfDay({ onNav, embedded }) {
   const { dark } = useTheme();
@@ -130,7 +130,7 @@ export default function EndOfDay({ onNav, embedded }) {
                 return (
                   <div key={inv.number || inv.invoice_number} style={{ ...s.invRow, background: C.card, borderColor: C.cardBorder }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{inv.storeName || inv.store_name}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{storeLabelOf(inv)}</div>
                       <div style={{ fontSize: 12, color: C.textMuted }}>#{inv.number || inv.invoice_number}{inv.time ? `  ·  ${inv.time}` : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>

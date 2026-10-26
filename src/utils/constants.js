@@ -35,12 +35,15 @@ export const STORAGE_KEYS = {
   ACCENT_COLOR:     'inv_accent_color',
   DENSITY:          'inv_density',
   EASY_MODE:        'inv_easy_mode',
+  CRASH_REPORTS:    'inv_crash_reports',   // device pref: send crash reports (default on); kept across sign-out
   AUTO_FLAG_DAYS:   'inv_auto_flag_days',
   AUTO_MARK_DAYS:   'inv_auto_mark_days',
   USER_ROLE:        'inv_user_role',
   PIN:              'inv_pin',
   ONBOARDING_DONE:  'inv_onboarding_complete',
   TUTORIAL_SEEN:    'inv_tutorial_seen',
+  TOUR_SEEN_FULL:   'inv_tour_seen_full',   // driver saw the full-mode tour
+  TOUR_SEEN_EASY:   'inv_tour_seen_easy',   // driver saw the Easy Mode tour
   MIGRATED:         'inv_migrated',
   MIGRATED_AT:      'inv_migrated_at',
   // Connections / cross-account
@@ -55,6 +58,7 @@ export const STORAGE_KEYS = {
   MKT_DEMAND:         'inv_mkt_demand',
   // Infra / misc
   SYNC_QUEUE:         'inv_sync_queue',
+  SYNC_FAILED:        'inv_sync_failed',   // changes the server rejected MAX_RETRIES times — kept, never deleted
   ERROR_LOG:          'inv_error_log',
   GUEST_MODE:         'inv_guest_mode',
   AUTH_UID:           'inv_auth_uid',
@@ -100,6 +104,11 @@ export const EVENTS = {
   DATA_REFRESH:   'inv-data-refresh',    // foreground poll refreshed the caches
   VERSION_UPDATE: 'inv-version-update',  // a newer build is available
   DENSITY_CHANGE: 'inv-density-change',  // display density setting changed
+  // This phone's storage for Keiro is full: a write failed even after
+  // makeRoom() (utils/storageRoom.js). STORAGE_OK follows the next write that
+  // succeeds. StorageBanner listens for both.
+  STORAGE_FULL:   'inv-storage-full',
+  STORAGE_OK:     'inv-storage-ok',
   // Onboarding/tutorial milestones — dispatched by feature sites, consumed by the
   // milestone bridge (tutorialProgress) and walkthrough settle steps.
   ONBOARDING_INVOICE_CREATED: 'inv-onboarding-invoice-created',
@@ -107,6 +116,27 @@ export const EVENTS = {
   ONBOARDING_SETTINGS_SAVED:  'inv-onboarding-settings-saved',
   ONBOARDING_STORE_VIEWED:    'inv-onboarding-store-viewed',
 };
+
+/** Shown when an invoice reached neither the cloud nor this phone. */
+export const STORAGE_FULL_MESSAGE = "Not saved: this phone's storage for Keiro is full.";
+
+/** Shown in the product field while a scanned barcode is being named remotely. */
+export const LOOKING_UP_TEXT = 'Looking up…';
+
+/** A scan no source could name. addItem() saves the typed name under that barcode. */
+export const UNKNOWN_BARCODE_MESSAGE = "Not in the product database. Type the name once and Keiro will remember it.";
+/** Under a looked-up name on the Easy check card (spec #188 Decision 4). */
+export const NAME_FROM_DRIVERS  = 'From other Keiro drivers. Edit it if it’s wrong.';
+export const NAME_FROM_DATABASE = 'From a product database. Edit it if it’s wrong.';
+
+/** A lookup that couldn't run (offline, service down, out of quota) — the product may well exist. */
+export const LOOKUP_UNAVAILABLE_MESSAGE = "Couldn't check right now (no signal, or the lookup service is busy). Type the name, or tap Try again.";
+
+/** GS1 restricted-circulation codes (barcodeFormat.isStoreMadeBarcode) — no database can name them. */
+export const STORE_MADE_BARCODE_MESSAGE = "This is a store-made barcode, so no database will have it. Type the name once and Keiro will remember it.";
+
+/** Gmail-sent sign-in mail lands in Spam more often than domain mail. */
+export const SPAM_HINT = "Can't find it? Check your Spam folder.";
 
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
@@ -124,6 +154,8 @@ export const DEFAULT_FLAG_DAYS = 7;
  * one per keystroke. The input setState stays immediate (no input lag).
  */
 export const AUTOFILL_DEBOUNCE_MS = 250;
+/** Longest the shared-product-name RPCs may take before the app carries on without them. */
+export const SHARED_RPC_TIMEOUT_MS = 4000;
 
 /**
  * How long (ms) a deleted invoice stays recoverable via the "Undo" snackbar

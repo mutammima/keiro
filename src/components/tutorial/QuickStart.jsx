@@ -27,41 +27,92 @@ import { useTheme } from '../../context/ThemeContext';
 import Spotlight from './Spotlight';
 import Confetti from './Confetti';
 
+// Full-mode driver tour descriptions, kept accurate to the app (tourModes.test).
+const DRIVER_STEP_TEXT = [
+  'Your invoices, incoming orders, and new invoice creation all live in Route. Tap it to open.',
+  'Tap + New to start. You don’t have to fill it in right now — just see how it begins.',
+  'Type a product name (it suggests ones you’ve used) or tap the camera to scan its barcode. Keiro remembers the name and your price for next time.',
+  'When you’re done, tap Generate Invoice. Then Share (WhatsApp, text, print…) or Download PDF.',
+  'Your invoices appear here, newest first. Tap ⋯ on one to mark it Paid, send a reminder, share it again, or edit it.',
+  'Every store you invoice appears here with what it owes. Tap one for its full balance. With an account, Invite links a store so its orders reach you directly.',
+  'Home shows today and the last 7 days; Reports breaks revenue down by Today, Week, Month or Year. End of Day, at the top of Reports, shows the cash and card you collected.',
+];
+
 const DRIVER_STEPS = [
   {
     selector: '[data-qs-tab="route"]', tap: true,
     title: 'This is where you work',
-    desc: 'Your invoices, incoming orders, and new invoice creation all live in Route. Tap it to open.',
+    desc: DRIVER_STEP_TEXT[0],
   },
   {
     selector: '[data-qs="new-invoice"]', tap: true,
     title: 'Create your first invoice',
-    desc: 'Tap + New to start. You don’t have to fill it in right now — just see how it begins.',
+    desc: DRIVER_STEP_TEXT[1],
   },
   {
     selector: '[data-tip="product-name"]', tap: false,
     title: 'Add items fast',
-    desc: 'Start typing a product name and it autofills from your past products — or tap the camera icon to scan a barcode instead of typing.',
+    desc: DRIVER_STEP_TEXT[2],
   },
   {
     selector: '[data-tutorial="invoice-generate"]', tap: false, navTo: 'route',
     title: 'Share it however works',
-    desc: 'Once you’re done, generate the invoice — you can share it over WhatsApp or download a PDF right away.',
+    desc: DRIVER_STEP_TEXT[3],
   },
   {
     selector: '[data-tip="route-history"]', tap: false,
     title: 'All your invoices, in one place',
-    desc: 'Every invoice you generate appears here, newest first. Tap any card to change its payment status, share it again, or send a payment reminder.',
+    desc: DRIVER_STEP_TEXT[4],
   },
   {
     selector: '[data-qs-tab="stores"]', tap: true,
     title: 'Your connected stores',
-    desc: 'Invite a store to link accounts so their orders reach you directly — tap any store to see its full balance.',
+    desc: DRIVER_STEP_TEXT[5],
   },
   {
     selector: '[data-qs-tab="reports"]', tap: true,
     title: 'Track your revenue',
-    desc: 'Home shows your revenue by day; Reports breaks it down by Today, Week, Month, or Year. After your route, check End of Day for your total cash and card collected.',
+    desc: DRIVER_STEP_TEXT[6],
+  },
+];
+
+// Easy Mode driver tour — starts on Route (Easy Mode opens there), teaches the
+// scan-first invoice. Targets are on EasyInvoice.jsx (data-qs="easy-…").
+const EASY_DRIVER_STEPS = [
+  {
+    selector: '[data-qs="new-invoice"]', tap: true,
+    title: 'Start an invoice',
+    desc: 'Tap + New to start an invoice.',
+  },
+  {
+    selector: '[data-qs="easy-store"]', tap: false,
+    title: 'Pick the store',
+    desc: 'Start typing a store and pick it. Or leave it blank and write it on the paper.',
+  },
+  {
+    selector: '[data-qs="easy-scan"]', tap: false,
+    title: 'Scan each item',
+    desc: 'Scan each item. Check the name, quantity and price, then tap Add, and the camera opens for the next one. New product? Type its price once; Keiro remembers it.',
+  },
+  {
+    selector: '[data-qs="easy-make"]', tap: false, navTo: 'route',
+    title: 'Make the invoice',
+    desc: 'Tap Make invoice, then Print / Share. Anything you left empty prints as a blank line to fill in by hand.',
+  },
+  {
+    selector: '[data-tip="route-history"]', tap: false,
+    title: 'Your invoices',
+    desc: 'Your invoices, newest first. Tap ⋯ on one to mark it Paid, send a reminder, or share it again.',
+  },
+  {
+    selector: '[data-qs-tab="stores"]', tap: true,
+    title: 'What stores owe you',
+    desc: 'What each store owes you. Tap a store for its full balance.',
+  },
+  {
+    selector: '[data-qs-tab="reports"]', tap: true,
+    title: 'Your totals',
+    desc: 'Your totals for Today, Week, Month or Year. End of Day, at the top, shows what you collected on your route.',
   },
 ];
 
@@ -104,14 +155,16 @@ const OWNER_STEPS = [
 ];
 
 const SUCCESS_TEXT = {
+  easy: 'Put your business name in Settings (☰ menu) so it prints on every invoice. Products, in the same menu, lets you fix a remembered name or price.',
   driver: 'You’re ready. Add your business name in Settings so it prints on every invoice, and back up your data there anytime.',
   store_owner: 'You’re ready. Check Reports for your delivery history, and back up your data anytime from Settings.',
 };
 
-export default function QuickStart({ role, onNav, onComplete, onSkip }) {
+export default function QuickStart({ role, mode = 'full', onNav, onComplete, onSkip }) {
   const { dark, accent } = useTheme();
   const isOwner = role === 'store_owner';
-  const steps = isOwner ? OWNER_STEPS : DRIVER_STEPS;
+  const isEasy = !isOwner && mode === 'easy';
+  const steps = isOwner ? OWNER_STEPS : (isEasy ? EASY_DRIVER_STEPS : DRIVER_STEPS);
   const [stepIndex, setStepIndex] = useState(0); // 0..steps.length-1 = spotlight steps, steps.length = success
 
   function advance(step) {
@@ -155,7 +208,7 @@ export default function QuickStart({ role, onNav, onComplete, onSkip }) {
         </div>
         <div style={{ fontSize: 21, fontWeight: 900, color: dark ? '#fff' : '#111', marginBottom: 8 }}>You’re ready!</div>
         <div style={{ fontSize: 14, lineHeight: 1.6, color: dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 22 }}>
-          {SUCCESS_TEXT[isOwner ? 'store_owner' : 'driver']}
+          {SUCCESS_TEXT[isOwner ? 'store_owner' : (isEasy ? 'easy' : 'driver')]}
         </div>
         <button
           data-tutorial-ui="quickstart-done"

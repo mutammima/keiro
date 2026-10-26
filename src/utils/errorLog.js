@@ -1,26 +1,19 @@
 /**
- * errorLog.js — lightweight, local-only error monitoring.
+ * errorLog.js — Keiro's crash funnel.
  *
- * There is no remote crash reporter (Sentry or similar) wired up — that needs
- * an account/DSN the project owner hasn't provided yet (see CLAUDE.md "Pending
- * — real-world launch blockers"). Until then, this module is the on-device
- * substitute: every render-time crash (via ErrorBoundary) and every uncaught
- * exception / unhandled promise rejection (via the window listeners installed
- * in main.jsx) gets appended here, capped at MAX_ENTRIES, so a user report
- * like "the app crashed" can actually be diagnosed from Settings → Help →
- * "View Error Log" instead of only ever reaching a console nobody's attached
- * to on-device.
- *
- * Swap-in path for a real reporter later: call `reportToRemote(entry)` from
- * `logError()` below once a DSN exists — every *crash / uncaught* error funnels
- * through this one function. (Handled, transient failures like failed cloud
- * writes report separately via syncNotify → SyncToast and are deliberately NOT
- * captured here; bridge notifySyncError → logError if you ever want unified
- * telemetry.)
+ * Every render-time crash (via ErrorBoundary) and every uncaught exception /
+ * unhandled promise rejection (via the window listeners installed in main.jsx)
+ * comes through logError(). It is kept on the device here, capped at
+ * MAX_ENTRIES, so "the app crashed" can be diagnosed from Settings → Help →
+ * "View Error Log", and also sent to Sentry through crashReporter.js when a
+ * DSN is configured. Handled, transient failures like failed cloud writes
+ * report separately via syncNotify → SyncToast and are deliberately NOT
+ * captured here.
  */
 
 import { lsGet, lsSet } from './storage';
 import { STORAGE_KEYS } from './constants';
+import { reportCrash } from './crashReporter';
 
 const KEY = STORAGE_KEYS.ERROR_LOG;
 const MAX_ENTRIES = 25;
@@ -55,7 +48,7 @@ export function logError(error, meta = {}) {
     // logger become a second crash.
   }
 
-  // reportToRemote(entry); // ← enable once a Sentry DSN (or equivalent) exists
+  reportCrash(error, { source: entry.source });
 }
 
 // lsGet/lsSet already guard their own throws (see storage.js) — no wrapper needed here.

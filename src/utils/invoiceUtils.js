@@ -146,3 +146,71 @@ export function formatOrderDate(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+/** An invoice's store name, trimmed; '' when it has none (an Easy Mode invoice can). */
+export function storeNameOf(inv) {
+  return String(inv?.storeName || inv?.store_name || '').trim();
+}
+
+/** An invoice's title in lists: its store, or "No store" rather than a blank. */
+export function storeLabelOf(inv) {
+  return storeNameOf(inv) || 'No store';
+}
+
+/** The later of two invoice dates (as stored, e.g. "October 9, 2026"). */
+function laterDate(a, b) {
+  const ta = Date.parse(a || '') || 0;
+  const tb = Date.parse(b || '') || 0;
+  return tb > ta ? b : a;
+}
+
+/**
+ * The Stores tab's per-store rows: outstanding balance, invoice count, total
+ * and last delivery date, biggest balance first. Invoices with no store are
+ * not a store — they're counted in `unassigned` (and in the overall total).
+ */
+export function groupInvoicesByStore(invoices) {
+  const map = {};
+  const unassigned = { count: 0, outstanding: 0 };
+  invoices.forEach(inv => {
+    const owed = getStatus(inv) !== 'paid' ? subtotalOf(inv) : 0;
+    const name = storeNameOf(inv);
+    if (!name) {
+      unassigned.count += 1;
+      unassigned.outstanding += owed;
+      return;
+    }
+    if (!map[name]) map[name] = { name, count: 0, outstanding: 0, total: 0, lastDate: '' };
+    const st = map[name];
+    st.count += 1;
+    st.total += subtotalOf(inv);
+    st.outstanding += owed;
+    st.lastDate = laterDate(st.lastDate, inv.date);
+  });
+  const stores = Object.values(map).sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name));
+  return { stores, unassigned };
+}
+
+/** Revenue per store, biggest first, as [name, total] pairs; no-store invoices skipped. */
+export function revenueByStore(invoices, totalOf) {
+  const map = {};
+  invoices.forEach(inv => {
+    const name = storeNameOf(inv);
+    if (name) map[name] = (map[name] || 0) + totalOf(inv);
+  });
+  return Object.entries(map).sort((a, b) => b[1] - a[1]);
+}
+
+/** The Stores tab's note about invoices that have no store yet. */
+export function unassignedStoreNote(count) {
+  return count === 1
+    ? '1 invoice has no store. Open it and tap ⋯ → Edit to add it.'
+    : `${count} invoices have no store. Open one and tap ⋯ → Edit to add it.`;
+}
+
+/** What the Stores tab's Total Outstanding covers, including invoices with no store. */
+export function outstandingScopeLine(storeCount, unassignedCount) {
+  const stores = storeCount ? `${storeCount} store${storeCount > 1 ? 's' : ''}` : '';
+  const noStore = unassignedCount ? `${unassignedCount} invoice${unassignedCount > 1 ? 's' : ''} with no store` : '';
+  return `across ${[stores, noStore].filter(Boolean).join(' and ')}`;
+}

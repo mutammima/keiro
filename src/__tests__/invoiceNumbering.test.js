@@ -126,6 +126,20 @@ describe('runMigrationIfNeeded — guest invoices joining an account', () => {
     expect(db.saveSignatureRow).toHaveBeenCalledWith({ invoiceNumber: 1003, seller: 'data:seller', buyer: null });
   });
 
+  it('a renumbered signature loses its "uploaded" stamp: the cloud has it under the old number only', async () => {
+    db.getInvoiceNumberIndex.mockResolvedValue({
+      data: [{ invoice_number: 1002, created_at: '2026-08-15T12:00:00.000Z' }],
+      error: null,
+    });
+    set(STORAGE_KEYS.LIST, [guest1002]);
+    const at = '2026-10-01T09:06:00.000Z';
+    set(`${STORAGE_KEYS.SIG_PREFIX}1002`, { seller: 'data:seller', buyer: null, updatedAt: at, syncedVersion: at });
+
+    await runMigrationIfNeeded();
+
+    expect(get(`${STORAGE_KEYS.SIG_PREFIX}1003`)).toEqual({ seller: 'data:seller', buyer: null, updatedAt: at });
+  });
+
   it('leaves an invoice alone when the cloud copy is the same invoice (a retried migration)', async () => {
     db.getInvoiceNumberIndex.mockResolvedValue({
       data: [{ invoice_number: 1002, created_at: '2026-10-01T09:00:00+00:00' }],

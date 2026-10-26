@@ -5,6 +5,7 @@
 import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
+import { versionLabel } from '../utils/appVersion';
 
 const SECTIONS = [
   {
@@ -87,7 +88,7 @@ export default function About({ onOpenDrawer, onNav }) {
         ))}
 
         {/* Version line */}
-        <p style={{ ...s.version, color: C.textMuted }}>Keiro v5.9 — Built for delivery drivers.</p>
+        <p style={{ ...s.version, color: C.textMuted }}>{versionLabel()} — Built for delivery drivers.</p>
 
         <AppFooter onNav={onNav} />
       </div>

@@ -13,17 +13,12 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import { getInvoices } from '../../utils/storage';
-import { subtotalOf, getStatus } from '../../utils/invoiceUtils';
+import { groupInvoicesByStore, unassignedStoreNote, outstandingScopeLine } from '../../utils/invoiceUtils';
 import { getBridgeRequests, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnections, loadConnectionsFromCloud, cancelInvite, inviteLink, getCachedUid, respondToRequest } from '../../utils/connectionStorage';
 import InviteModal from '../../components/connections/InviteModal';
 import AppFooter from '../../components/navigation/AppFooter';
 
-function lastDateOf(a, b) {
-  const ta = Date.parse(a || '') || 0;
-  const tb = Date.parse(b || '') || 0;
-  return tb > ta ? b : a;
-}
 
 export default function DriverStores({ onNav, onSelectStore }) {
   const { dark } = useTheme();
@@ -67,21 +62,9 @@ export default function DriverStores({ onNav, onSelectStore }) {
   }
 
   // Group invoices by store → outstanding balance, count, last delivery date.
-  const stores = (() => {
-    const map = {};
-    invoices.forEach(inv => {
-      const name = inv.storeName || inv.store_name || 'Unknown';
-      if (!map[name]) map[name] = { name, count: 0, outstanding: 0, total: 0, lastDate: '' };
-      const st = map[name];
-      st.count   += 1;
-      st.total   += subtotalOf(inv);
-      if (getStatus(inv) !== 'paid') st.outstanding += subtotalOf(inv);
-      st.lastDate = lastDateOf(st.lastDate, inv.date);
-    });
-    return Object.values(map).sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name));
-  })();
-
-  const totalOutstanding = stores.reduce((s, st) => s + st.outstanding, 0);
+  // Invoices with no store (Easy Mode) aren't a store; they're noted below the list.
+  const { stores, unassigned } = groupInvoicesByStore(invoices);
+  const totalOutstanding = stores.reduce((s, st) => s + st.outstanding, 0) + unassigned.outstanding;
 
   return (
     <div style={{ ...s.page, background: C.bg }}>
@@ -198,7 +181,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
         )}
 
         {/* Outstanding summary */}
-        {stores.length > 0 && (
+        {(stores.length > 0 || unassigned.count > 0) && (
           <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 18, padding: '16px 18px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.textMuted }}>
               Total Outstanding
@@ -207,7 +190,7 @@ export default function DriverStores({ onNav, onSelectStore }) {
               ${totalOutstanding.toFixed(2)}
             </div>
             <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>
-              across {stores.length} store{stores.length > 1 ? 's' : ''}
+              {outstandingScopeLine(stores.length, unassigned.count)}
             </div>
           </div>
         )}
@@ -250,6 +233,11 @@ export default function DriverStores({ onNav, onSelectStore }) {
               </button>
             ))}
           </div>
+        )}
+        {!loading && unassigned.count > 0 && (
+          <p style={{ fontSize: 12, color: C.textMuted, margin: '2px 4px 0', lineHeight: 1.5 }}>
+            {unassignedStoreNote(unassigned.count)}
+          </p>
         )}
 
         <AppFooter onNav={onNav} />

@@ -13,6 +13,7 @@ import * as db from '../services/db';
 import { enqueueSync } from './syncQueue';
 import { incrementalLoader, byCreatedDesc } from './incrementalSync';
 import { STORAGE_KEYS, INVOICE_NUMBER_START } from './constants';
+import { writeLocal } from './storageRoom';
 
 // ─── Keys (localStorage only — device preferences) ───────────────────────────
 const KEYS = {
@@ -33,12 +34,20 @@ export function lsGet(key, fallback) {
   }
 }
 
+/**
+ * Writes a value as JSON. Returns whether it was written: false means this
+ * phone's storage is full even after freeing room (StorageBanner says so).
+ * @returns {boolean}
+ */
 export function lsSet(key, value) {
+  let text;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    text = JSON.stringify(value);
   } catch (e) {
-    console.error('localStorage write failed', e);
+    console.error('lsSet: value cannot be stored', key, e);
+    return false;
   }
+  return writeLocal(key, text);
 }
 
 // ─── Invoice Number ───────────────────────────────────────────────────────────
@@ -74,9 +83,11 @@ export async function getNextInvoiceNumber() {
 // ─── Invoices ─────────────────────────────────────────────────────────────────
 
 /**
- * Save an invoice to Supabase, falling back to localStorage if not authenticated.
+ * Saves an invoice to the cloud, and to this phone's cache either way.
  * @param {object} invoice
- * @returns {Promise<void>}
+ * @returns {Promise<{ error: object|null, savedLocally: boolean }>} savedLocally
+ *   is false when this phone's storage is full; with an error as well, the
+ *   invoice is nowhere and the caller must keep it on screen.
  */
 export async function saveInvoice(invoice) {
   const { error } = await db.saveInvoice(invoice);
@@ -88,13 +99,13 @@ export async function saveInvoice(invoice) {
   const list = lsGet(STORAGE_KEYS.LIST, []);
   const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
   if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
-  lsSet(STORAGE_KEYS.LIST, list);
+  const savedLocally = lsSet(STORAGE_KEYS.LIST, list);
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, queued for retry', error);
     enqueueSync({ type: 'save_invoice', payload: { invoice } });
   }
-  return { error };
+  return { error, savedLocally };
 }
 
 // Invoices waiting in the sync queue (or set aside after repeated rejection)
@@ -197,36 +208,55 @@ export async function updateInvoicePaymentStatus(number, status) {
 // ─── Product Catalog ──────────────────────────────────────────────────────────
 
 /**
- * Look up a product by barcode.
- * Falls back to localStorage cache on error.
+ * Look up a product by barcode: the cloud catalog first, then this phone's.
+ * The phone's catalog is checked whenever the cloud has no row, not only on an
+ * error — a guest's query doesn't fail, RLS just returns nothing, and a product
+ * saved offline isn't in the cloud until the sync queue uploads it.
  * @param {string} barcode
  * @returns {Promise<{name:string,lastPrice:number}|null>}
  */
 export async function getProductByBarcode(barcode) {
-  const { data, error } = await db.getProductByBarcode(barcode);
-  if (error) {
-    // offline fallback
-    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
-    return catalog[barcode] || null;
-  }
-  return data;
+  const { data } = await db.getProductByBarcode(barcode);
+  if (data) return data;
+  const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
+  return catalog[barcode] || null;
 }
 
 /**
- * Case-insensitive product name search.
+ * Case-insensitive product name search: the cloud catalog first, then this
+ * phone's (see getProductByBarcode for why).
  * @param {string} name
  * @returns {Promise<{name:string,lastPrice:number}|null>}
  */
 export async function getProductByName(name) {
   if (!name?.trim()) return null;
-  const { data, error } = await db.getProductByName(name);
-  if (error) {
-    // offline fallback
-    const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
-    const lower = name.trim().toLowerCase();
-    return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
-  }
-  return data;
+  const { data } = await db.getProductByName(name);
+  if (data) return data;
+  const catalog = lsGet(STORAGE_KEYS.CATALOG, {});
+  const lower = name.trim().toLowerCase();
+  return Object.values(catalog).find(p => p.name.toLowerCase() === lower) || null;
+}
+
+/**
+ * What other Keiro drivers call this barcode, trimmed — or null (not shared
+ * yet, guest, offline, or the cloud function isn't there). Never throws.
+ * @param {string} barcode
+ * @returns {Promise<string|null>}
+ */
+export async function getSharedProductName(barcode) {
+  const { data } = await db.getSharedProductName(barcode);
+  return typeof data === 'string' && data.trim() ? data.trim() : null;
+}
+
+/**
+ * Product names other drivers use that contain `query`, trimmed, blanks
+ * dropped. [] on any problem. Never throws.
+ * @param {string} query
+ * @returns {Promise<string[]>}
+ */
+export async function getSharedProductSuggestions(query) {
+  const { data } = await db.suggestProductNames(query);
+  return Array.isArray(data) ? data.filter(n => typeof n === 'string' && n.trim()).map(n => n.trim()) : [];
 }
 
 /**

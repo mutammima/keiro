@@ -54,6 +54,8 @@ Every account picks a role on first launch (stored in `inv_user_role`). The top 
 | `stores` | Store map, contact list |
 | `reports` | Today / Week / Month / Year analytics |
 
+**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the ☰ menu.
+
 **Store Owner** — `inv_user_role = 'store_owner'`
 
 | Tab key | What it is |
@@ -308,7 +310,12 @@ src/
 | `src/utils/syncNotify.js` | Bridges non-React storage-layer cloud-write failures to a global toast (`inv-sync-error` event) |
 | `src/components/ui/SyncToast.jsx` | Global banner that surfaces failed critical cloud writes |
 | `src/utils/pdfGenerator.js` | jsPDF invoice generation; `sharePDFBlob()` hands the result to the native share sheet on iOS (blob: URLs don't work in the wrapper) or the browser/Web Share API on web |
-| `src/utils/barcodeApi.js` | Barcode lookup API |
+| `src/utils/barcodeApi.js` | Barcode lookup: Open Food Facts from the app, then `/api/barcode` |
+| `api/barcode.js` | Vercel Function — asks UPCitemdb (non-food), which blocks direct browser/app calls by CORS. Free tier: 100 lookups/day shared by all users, so answers are CDN-cached |
+| `supabase-shared-product-names.sql` | `shared_product_name(barcode)` / `suggest_product_names(query)`: other drivers' product names (name only, once 2 accounts agree, signed-in only). Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`. The app treats a missing function as "no shared name" |
+| `src/utils/barcodeFormat.js` | Before lookup: expands 8-digit UPC-E to UPC-A (by the scanner's reported format, never by length), and flags store-made GS1 codes (02x/04x/2xx) that no database has |
+| `src/utils/easyMode.js` | The one reader for Easy Mode (`isEasyMode`, `easyModeFor(role)`, drivers only). Feeds `tabs.js`, the ☰ menu, the invoice screen, the PDF template and the tour |
+| `src/components/invoice/EasyInvoice.jsx` | Easy Mode's invoice: optional store with type-to-search + recent stores, Scan item → `ScanCheckCard` (name/qty/price) → Add → camera reopens; built on `useInvoiceForm(…, { easy: true })`. Spec: `docs/specs/2026-10-14-easy-mode-design.md` |
 | `public/service-worker.js` | PWA caching, SKIP_WAITING controlled update (web/installed-PWA only — skipped inside the native wrapper) |
 | `public/version.json` | Written at build time with git hash for update detection |
 | `vite.config.js` | Auto-versioning: writes version.json + injects __APP_VERSION__ |
@@ -333,12 +340,18 @@ names), so re-running is always safe:
 - `supabase-connection-orders.sql` — cross-account orders; INSERT gated on an active connection linking store → driver
 - `supabase-marketplace.sql` — cross-user listings/demand (authenticated read-all, owner write, constrained claim)
 - `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
+- `supabase-shared-product-names.sql` — `shared_product_name(barcode)` / `suggest_product_names(query)` SECURITY DEFINER RPCs (authenticated only): another driver's product name, name only, once two OTHER accounts agree. Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`; the app treats a missing function as "no shared name"
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant
 before it runs. After any manual run, verify the live schema with an anon REST
 probe (`GET $URL/rest/v1/<table>?select=<critical_column>&limit=1` — 42703 =
 column missing, 42P01 = table missing, `[]` = OK).
+
+**Keep-awake + outage alert:** `.github/workflows/keep-supabase-awake.yml` reads one row
+every 3 days so the free project never pauses; a run that doesn't get HTTP 200 fails and
+GitHub emails the owner. Needs repo secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+GitHub disables scheduled workflows after 60 days without repo activity; any push re-arms it.
 
 ## Update System
 
@@ -366,6 +379,13 @@ the opposite of "taught in one go."
 - First-run gated by `useOnboarding` (`inv_onboarding_complete`); replayable from the drawer ("How
   it Works") and Settings → Help ("Replay tutorial") — both relaunch the exact same tour. On finish
   (driver only) a pulse dot appears on the Home tab.
+- **One driver tour per mode.** `QuickStart` takes `mode` (`'full'` | `'easy'`). Easy Mode's 7 steps
+  teach the scan-first invoice (targets `data-qs="easy-store|easy-scan|easy-make"` on
+  `EasyInvoice.jsx`). Switching Easy Mode (which reloads) plays that mode's tour once:
+  `inv_tour_seen_full` / `inv_tour_seen_easy` via `tutorialProgress.isTourSeen/markTourSeen`.
+  Finishing the original one-time tour counts as having seen the full tour. Replays: How it Works.
+  Store owners are unaffected. The full tour's descriptions live in `DRIVER_STEP_TEXT`;
+  `tourModes.test.jsx` pins them to the app's real button names.
 - **Nothing else teaches the user anything after this** — no scattered tips, no checklist, no demo.
 
 Shared primitives: `useElementRect.js` (polls the target's live rect via `setTimeout`, not
@@ -469,6 +489,8 @@ an id/flag and lazy-load the payload.
 
 ## Data & State Gotchas
 
+- **Every sign-out goes through `useSafeSignOut()`** (`src/hooks/useSafeSignOut.jsx`), never `signOut()` directly. Sign-out wipes all account-scoped `inv_*` keys, including the sync queue and, for a guest, all their data; the hook uploads first and asks before deleting anything not yet in the cloud. A guest who wants an account goes through `promptAccount()`, which keeps their data for migration.
+- **The sync queue never deletes a change unsaved.** Unreachable failures (offline, timeouts, expired session) don't count as retries; a change the server rejects 5 times moves to `inv_sync_failed`, shown by `SyncAttentionBanner` with "Try again".
 - **All `inv_*` localStorage values are JSON-encoded.** `localStorage.getItem('inv_user_role')` returns `'"driver"'` (with quotes) — comparing it raw against `'driver'` shipped a real bug (invisible walkthrough). Always `JSON.parse` before comparing.
 
 ## Testing & Verification
@@ -522,11 +544,11 @@ redeemed.
 
 - **Two-device pass** — the cross-account flows (invite → connect, order → invoice →
   receiving confirmation) are code-complete but have never been exercised on two physical
-  phones with live accounts. Numbered test script written and ready to run.
+  phones with live accounts. Test script: [docs/device-test.md](docs/device-test.md).
 - **Native PDF share + Google sign-in — confirm on a real device.** Verified as far as possible
   without one (clean simulator build/launch, URL scheme registered at the OS level per iOS's own
   "Open in Keiro?" prompt), but the actual share-sheet content and a completed Google login round-
-  trip still need a real device or TestFlight pass. On-device checklist written and ready to run.
+  trip still need a real device or TestFlight pass. Covered by docs/device-test.md (steps 5 and 12).
 - **Password recovery — SMTP live and verified; one delivery limitation left.** Supabase custom
   SMTP is configured against Resend (host `smtp.resend.com`, port 465), and the full reset round-trip
   is verified end-to-end with a real account: sign-up → confirmation email → "Forgot password" →
@@ -535,10 +557,13 @@ redeemed.
   2/hour to 30/hour. All 6 auth email templates are Keiro-branded. Two dead-domain redirect bugs were
   fixed in the same pass: the Auth **Site URL** and Redirect URLs allowlist pointed at `keiro.app`
   (a domain this project never deployed to) instead of the live Vercel URL — that's what made earlier
-  confirmation/reset links land on a dead page. **Remaining blocker:** Resend's shared
-  `onboarding@resend.dev` sender only delivers to the Resend account's own address until a domain is
-  verified at resend.com/domains — so real users still can't receive reset/confirmation emails. No
-  domain purchased yet, by choice.
+  confirmation/reset links land on a dead page. **Remaining blocker (owner, 2026-10-07 decision):** switch
+  Supabase SMTP from Resend's shared `onboarding@resend.dev` sender (delivers only to the Resend
+  account's own address) to a Gmail account made for Keiro: `smtp.gmail.com`, port 465, the Gmail
+  address as user and sender, a Google app password (needs 2-Step Verification), sender name "Keiro";
+  templates and the 30/hour limit stay. Gmail allows ~500 messages a day. Steps:
+  `docs/superpowers/plans/2026-10-07-launch-readiness.md`, "Owner actions". Every "we sent you an
+  email" notice adds `SPAM_HINT` because Gmail-sent mail lands in Spam more often.
 - **Real push notifications** — deferred; requires the paid Apple Developer Program (free
   "personal team" signing can't enable the Push Notifications entitlement at all, independent of
   code). Would also unlock TestFlight for the item above. Local-notifications and louder in-app

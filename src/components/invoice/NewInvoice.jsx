@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import AutofillInput from '../ui/AutofillInput';
 import InvoicePreview from './InvoicePreview';
 import LiveInvoicePreview from './LiveInvoicePreview';
@@ -14,9 +13,10 @@ import { LIGHT, DARK, ACCENT, glassStyle } from '../../theme';
 import AppFooter from '../navigation/AppFooter';
 import { useInvoiceForm } from '../../hooks/useInvoiceForm';
 import { GuestCapModal, GuestBanner } from '../auth/GuestUpsell';
+import ZeroTotalConfirm from './ZeroTotalConfirm';
 import { isGuest } from '../../utils/guestMode';
 import { isContactsSupported, pickContact } from '../../hooks/useContactImport';
-import { BUSINESS_NAME_PLACEHOLDER } from '../../utils/constants';
+import { BUSINESS_NAME_PLACEHOLDER, LOOKING_UP_TEXT } from '../../utils/constants';
 
 // Lazy-loaded so html5-qrcode (the heavy scanner dependency) is split into its
 // own chunk and only fetched when the user actually taps the scan button.
@@ -55,8 +55,9 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
     paymentMethod, setPaymentMethod,
     productName, setProductName,
     qty, setQty, price, setPrice,
-    lastBarcode, productNames,
-    handleScan, addItem,
+    lastBarcode,
+    productSuggestions, pendingName, acceptPendingName, rejectPendingName,
+    handleScan, retryLookup, lookupUnavailable, addItem,
     items, removeItem,
     suggestions, addSuggestedItem,
     anomaly,
@@ -154,34 +155,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
       {editingItem && <EditItemModal item={editingItem} onSave={handleEditSave} onClose={() => setEditingItem(null)} />}
       <GuestCapModal open={guestWall} onClose={() => setGuestWall(false)} />
 
-      {/* $0-invoice guard — portaled to body (iOS: escapes overflow-clipped ancestors) */}
-      {zeroConfirm && createPortal(
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 9600, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-          onClick={() => setZeroConfirm(false)}
-        >
-          <div
-            style={{ width: '100%', maxWidth: 340, borderRadius: 18, border: `1px solid ${C.cardBorder}`, background: C.card, padding: '22px 20px 18px', boxShadow: '0 16px 48px rgba(0,0,0,0.35)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <p style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: C.text }}>Generate a $0.00 invoice?</p>
-            <p style={{ fontSize: 14, lineHeight: 1.5, margin: '0 0 20px', color: C.textSub }}>
-              This invoice totals <strong>$0.00</strong> — usually that means an item is missing a price. Generate it anyway?
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setZeroConfirm(false)}
-                style={{ flex: 1, height: 46, borderRadius: 12, border: `1px solid ${C.inputBorder}`, background: C.inputBg, color: C.text, fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-              >Go back</button>
-              <button
-                onClick={confirmZeroTotal}
-                style={{ flex: 1, height: 46, borderRadius: 12, border: 'none', background: ACCENT, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-              >Generate anyway</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ZeroTotalConfirm open={zeroConfirm} onCancel={() => setZeroConfirm(false)} onConfirm={confirmZeroTotal} />
 
       <div data-tutorial="invoice-form" style={{ ...s.page, background: C.bg }}>
         {/* Header */}
@@ -388,7 +362,7 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
             <div style={s.productRow}>
               <div data-tip="product-name" style={{ flex: 1, minWidth: 0 }}>
                 <AutofillInput label={<>Product Name <Req /></>} placeholder="GMan V Cut T-Shirt"
-                  value={productName} onChange={setProductName} suggestions={productNames} required dark={dark}
+                  value={productName} onChange={setProductName} suggestions={productSuggestions} required dark={dark}
                   enterKeyHint="next" onKeyDown={focusNext} />
               </div>
               <button data-tip="barcode" style={{ ...s.scanBtn, background: C.inputBg, borderColor: C.inputBorder }}
@@ -397,9 +371,31 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               </button>
             </div>
             {lastBarcode && (
-              <p style={{ ...s.barcodeTag, background: C.tagBg, color: C.textMuted }}>
-                Barcode: {lastBarcode}
-              </p>
+              <div style={s.barcodeRow}>
+                <p style={{ ...s.barcodeTag, background: C.tagBg, color: C.textMuted }}>
+                  Barcode: {lastBarcode}
+                </p>
+                {lookupUnavailable && (
+                  <button type="button" onClick={retryLookup}
+                    style={{ ...s.retryBtn, color: ACCENT, borderColor: C.inputBorder }}>
+                    Try again
+                  </button>
+                )}
+              </div>
+            )}
+            {/* A looked-up name is a question, never silently filled in (spec #188 Part B). */}
+            {pendingName && (
+              <div style={{ ...s.pendingCard, background: C.inputBg, borderColor: C.inputBorder }}>
+                <p style={{ ...s.pendingTitle, color: C.textMuted }}>Is this it?</p>
+                <p style={{ ...s.pendingName, color: C.text }}>{pendingName.name}</p>
+                <p style={{ ...s.pendingSource, color: C.textMuted }}>
+                  {pendingName.source === 'drivers' ? 'from other Keiro drivers' : 'from a product database'}
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={acceptPendingName} style={{ ...s.pendingYes, background: ACCENT }}>Yes, use it</button>
+                  <button type="button" onClick={rejectPendingName} style={{ ...s.pendingNo, borderColor: C.inputBorder, color: C.text }}>No, I’ll type it</button>
+                </div>
+              </div>
             )}
             <div style={s.twoCol}>
               <div style={{ flex: 1 }}>
@@ -427,7 +423,9 @@ export default function NewInvoice({ onGenerated, onNav, onBack }) {
               </div>
             )}
             {error && <p style={{ ...s.error, color: C.danger }}>{error}</p>}
-            <button data-tutorial="invoice-add-item-btn" style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub }} onClick={addItem} type="button">
+            {/* Disabled until a scanned name comes back (addItem refuses "Looking up…" anyway). */}
+            <button data-tutorial="invoice-add-item-btn" disabled={productName === LOOKING_UP_TEXT}
+              style={{ ...s.addItemBtn, background: C.rowBg, color: C.textSub, opacity: productName === LOOKING_UP_TEXT ? 0.5 : 1 }} onClick={addItem} type="button">
               + Add Item
             </button>
           </div>
@@ -609,9 +607,21 @@ const s = {
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 20, WebkitTapHighlightColor: 'transparent',
   },
+  pendingCard:   { border: '1px solid', borderRadius: 12, padding: '12px 14px', margin: '0 0 10px' },
+  pendingTitle:  { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 },
+  pendingName:   { fontSize: 15, fontWeight: 700, margin: '4px 0 2px' },
+  pendingSource: { fontSize: 12, margin: '0 0 10px' },
+  pendingYes:    { flex: 1, height: 44, border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  pendingNo:     { flex: 1, height: 44, background: 'transparent', border: '1px solid', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  barcodeRow: { display: 'flex', alignItems: 'center', gap: 8, margin: '-4px 0 8px' },
   barcodeTag: {
     fontSize: 12, padding: '3px 8px', borderRadius: 6,
-    margin: '-4px 0 8px', fontFamily: 'monospace',
+    margin: 0, fontFamily: 'monospace',
+  },
+  retryBtn: {
+    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+    background: 'transparent', border: '1px solid', cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
   },
   error: { fontSize: 13, margin: '8px 0 0', fontWeight: 600 },
   addItemBtn: {

@@ -93,6 +93,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Keiro's own API routes (/api/barcode) answer per query string, so caching
+  // them would store one entry per scanned barcode — the same unbounded growth
+  // as the cross-origin case below. Leave them to the network.
+  if (url.pathname.startsWith('/api/')) return;
+
   // Everything else — network-first, cache as fallback.
   // IMPORTANT: only cache SAME-ORIGIN, successful responses. Caching every GET
   // (cross-origin map tiles, the barcode API, Supabase, opaque responses) grew

@@ -16,6 +16,8 @@
  * allocations on a hot path for no reason.
  */
 
+import { easyModeFor } from '../../utils/easyMode';
+
 export const DRIVER_TABS = [
   { id: 'home',    label: 'Home'    },
   { id: 'route',   label: 'Route'   },
@@ -30,15 +32,36 @@ export const OWNER_TABS = [
   { id: 'so-invoices', label: 'Invoices' },
 ];
 
-const DRIVER_TAB_IDS = DRIVER_TABS.map(t => t.id);
-const OWNER_TAB_IDS  = OWNER_TABS.map(t => t.id);
+// Easy Mode (drivers): scan-first invoicing. Home is hidden, and Route comes
+// first so the app opens on it.
+export const EASY_DRIVER_TABS = [
+  { id: 'route',   label: 'Route'   },
+  { id: 'stores',  label: 'Stores'  },
+  { id: 'reports', label: 'Reports' },
+];
+
+const DRIVER_TAB_IDS      = DRIVER_TABS.map(t => t.id);
+const OWNER_TAB_IDS       = OWNER_TABS.map(t => t.id);
+const EASY_DRIVER_TAB_IDS = EASY_DRIVER_TABS.map(t => t.id);
+const ALL_TAB_IDS = new Set([...DRIVER_TAB_IDS, ...OWNER_TAB_IDS]);
 
 /** Tab descriptors ({ id, label }) for a role. Stable reference. */
-export function tabsForRole(role) {
-  return role === 'store_owner' ? OWNER_TABS : DRIVER_TABS;
+export function tabsForRole(role, easy = easyModeFor(role)) {
+  if (role === 'store_owner') return OWNER_TABS;
+  return easy ? EASY_DRIVER_TABS : DRIVER_TABS;
 }
 
 /** Just the page ids for a role, in tab order. Stable reference — see above. */
-export function tabIdsForRole(role) {
-  return role === 'store_owner' ? OWNER_TAB_IDS : DRIVER_TAB_IDS;
+export function tabIdsForRole(role, easy = easyModeFor(role)) {
+  if (role === 'store_owner') return OWNER_TAB_IDS;
+  return easy ? EASY_DRIVER_TAB_IDS : DRIVER_TAB_IDS;
+}
+
+/**
+ * Where navigating to `page` should land. A tab this set hides (Home in Easy
+ * Mode) lands on the set's first tab — otherwise App.jsx would treat it as an
+ * overlay that doesn't exist and show a blank screen. Anything else is unchanged.
+ */
+export function tabTargetFor(tabIds, page) {
+  return ALL_TAB_IDS.has(page) && !tabIds.includes(page) ? tabIds[0] : page;
 }

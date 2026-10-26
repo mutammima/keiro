@@ -18,8 +18,89 @@
 import { Capacitor } from '@capacitor/core';
 import { STORAGE_KEYS } from './constants';
 import { notifySyncError } from './syncNotify';
+import { recolorSignature, PRINT_INK } from './signatureImage';
+import { isEasyMode } from './easyMode';
+// ── Easy Mode template (docs/specs/2026-10-14-easy-mode-design.md §2) ───────
+// Anything the driver left empty prints as a labeled ruled line to fill in by
+// pen; anything filled prints as text. Only used when invoice.layout is
+// 'template' (the default while Easy Mode is on).
+
+/** `text` at the current font, cut with "..." so it fits `maxWidth`. */
+function fitText(doc, text, maxWidth) {
+  if (doc.getTextWidth(text) <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && doc.getTextWidth(`${cut}...`) > maxWidth) cut = cut.slice(0, -1);
+  return `${cut.trimEnd()}...`;
+}
+
+/** "Label: value", or "Label: ______" ruled to the field's right edge. */
+function templateField(doc, label, value, x, y, right) {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text(label, x, y);
+  const valueX = x + doc.getTextWidth(label) + 6;
+  if (value && String(value).trim()) {
+    doc.setFont('helvetica', 'normal');
+    // Cut to the field so a long value never runs into the next label or off the page.
+    doc.text(fitText(doc, String(value).trim(), right - valueX), valueX, y);
+  } else {
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.6);
+    doc.line(valueX, y + 2, right, y + 2);
+  }
+}
+
+/** The template's Bill To rows. Returns the y of the last row. */
+function drawTemplateBillTo(doc, { storeName, customerName, storePhone, storeAddress }, y, margin, pageW) {
+  const right = pageW - margin;
+  const mid = margin + (pageW - margin * 2) / 2;
+  templateField(doc, 'Store:', storeName, margin, y, right);
+  templateField(doc, 'Contact:', customerName, margin, y + 22, mid - 10);
+  templateField(doc, 'Phone:', storePhone, mid + 10, y + 22, right);
+  templateField(doc, 'Address:', storeAddress, margin, y + 44, right);
+  return y + 44;
+}
+
+/** "Paid by: ☐ Cash ☐ Card ☐ Check   Amount: ____", then Notes. Returns the y below. */
+function drawTemplatePaidByAndNotes(doc, notes, y, margin, pageW) {
+  const right = pageW - margin;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text('Paid by:', margin, y);
+  doc.setDrawColor(120, 120, 120);
+  doc.setLineWidth(0.6);
+  doc.setFont('helvetica', 'normal');
+  let x = margin + doc.getTextWidth('Paid by:') + 12;
+  for (const method of ['Cash', 'Card', 'Check']) {
+    doc.rect(x, y - 8, 9, 9);
+    doc.text(method, x + 14, y);
+    x += 14 + doc.getTextWidth(method) + 18;
+  }
+  templateField(doc, 'Amount:', '', x + 8, y, right);
+
+  const notesY = y + 26;
+  if (!(notes && notes.trim())) {
+    templateField(doc, 'Notes:', '', margin, notesY, right);
+    return notesY;
+  }
+  // Typed notes print as text, wrapped to the page width.
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  doc.text('Notes:', margin, notesY);
+  const notesX = margin + doc.getTextWidth('Notes:') + 6;
+  doc.setFont('helvetica', 'normal');
+  const lines = doc.splitTextToSize(notes.trim(), right - notesX);
+  doc.text(lines, notesX, notesY);
+  return notesY + (lines.length - 1) * 13;
+}
+
 async function buildPDF(invoice) {
-  const { businessName, businessPhone, number, storeName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0 } = invoice;
+  const { businessName, businessPhone, number, storeName, customerName, storePhone, storeAddress, date, time, items, notes, sellerSignature, buyerSignature, paidAmount = 0, layout } = invoice;
+  // Easy Mode prints the fill-in template unless the caller chose a layout.
+  const template = (layout ?? (isEasyMode() ? 'template' : 'standard')) === 'template';
 
   // Lazy-load the PDF engine only at generation time (keeps it off startup).
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
@@ -89,28 +170,33 @@ async function buildPDF(invoice) {
   const dateTimeStr = time ? `Issue Date:  ${date}  ·  ${time}` : `Issue Date:  ${date}`;
   doc.text(dateTimeStr, pageW / 2, metaY + 14, { align: 'center' });
 
-  // ── Bill To (centered) ───────────────────────────────────────────────────
+  // ── Bill To ──────────────────────────────────────────────────────────────
   const billY = metaY + 40;
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  doc.setFont('helvetica', 'bold');
-  doc.text(storeName, pageW / 2, billY, { align: 'center' });
-
   let billBottomY = billY;
-  if (storePhone) {
-    doc.setFont('helvetica', 'normal');
+  if (template) {
+    billBottomY = drawTemplateBillTo(doc, { storeName, customerName, storePhone, storeAddress }, billY, margin, pageW);
+  } else {
+    // Centered store block (normal invoices always have a store name).
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(storePhone, pageW / 2, billY + 14, { align: 'center' });
-    billBottomY = billY + 14;
-  }
-  if (storeAddress) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    const addrY = billBottomY + 14;
-    doc.text(storeAddress, pageW / 2, addrY, { align: 'center' });
-    billBottomY = addrY;
+    doc.setTextColor(60, 60, 60);
+    doc.setFont('helvetica', 'bold');
+    doc.text(storeName, pageW / 2, billY, { align: 'center' });
+
+    if (storePhone) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(storePhone, pageW / 2, billY + 14, { align: 'center' });
+      billBottomY = billY + 14;
+    }
+    if (storeAddress) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      const addrY = billBottomY + 14;
+      doc.text(storeAddress, pageW / 2, addrY, { align: 'center' });
+      billBottomY = addrY;
+    }
   }
 
   // ── Divider ──────────────────────────────────────────────────────────────
@@ -165,7 +251,18 @@ async function buildPDF(invoice) {
     0
   );
 
-  const finalY = doc.lastAutoTable.finalY + 16;
+  let finalY = doc.lastAutoTable.finalY + 16;
+  // The totals, (template) Paid-by, Notes and signature lines need room below
+  // the table. On a long delivery, start them on a fresh page instead of
+  // printing past the footer. Short invoices are drawn exactly as before.
+  const noteLines = notes && notes.trim() ? doc.splitTextToSize(notes.trim(), pageW - margin * 2 - 48).length : 0;
+  const tailHeight = template
+    ? 212 + Math.max(0, noteLines - 1) * 13
+    : 160 + (noteLines ? 22 + noteLines * 13 : 0);
+  if (finalY + tailHeight > pageH - 60) {
+    doc.addPage();
+    finalY = margin;
+  }
   const labelX = pageW - margin - 110;
   const valueX = pageW - margin;
   const rowH = 18;
@@ -199,7 +296,9 @@ async function buildPDF(invoice) {
 
   // ── Notes ─────────────────────────────────────────────────────────────────
   let notesEndY = finalY + rowH * 3 + 6;
-  if (notes && notes.trim()) {
+  if (template) {
+    notesEndY = drawTemplatePaidByAndNotes(doc, notes, notesEndY + 26, margin, pageW);
+  } else if (notes && notes.trim()) {
     const notesStartY = notesEndY + 22;
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.4);
@@ -215,6 +314,9 @@ async function buildPDF(invoice) {
   }
 
   // ── Signatures ────────────────────────────────────────────────────────────
+  // Signatures may be drawn in white (dark-mode ink): print them dark.
+  const sellerInk = sellerSignature ? await recolorSignature(sellerSignature, PRINT_INK) : null;
+  const buyerInk  = buyerSignature  ? await recolorSignature(buyerSignature,  PRINT_INK) : null;
   const sigStartY = notesEndY + 28;
   const sigBoxW = (pageW - margin * 2 - 20) / 2;
   const sigBoxH = 60;
@@ -224,10 +326,10 @@ async function buildPDF(invoice) {
   doc.setFontSize(8);
   doc.setTextColor(130, 130, 130);
   doc.text('Seller / Deliverer Signature', margin, sigStartY);
-  if (sellerSignature) {
+  if (sellerInk) {
     // Unreadable signature data: fall through to the blank ruled line below
     // rather than aborting the whole PDF over a decorative image.
-    try { doc.addImage(sellerSignature, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
+    try { doc.addImage(sellerInk, 'PNG', margin, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.setDrawColor(180, 180, 180);
   doc.setLineWidth(0.5);
@@ -239,9 +341,9 @@ async function buildPDF(invoice) {
   doc.setFontSize(8);
   doc.setTextColor(130, 130, 130);
   doc.text('Buyer / Recipient Signature', buyerX, sigStartY);
-  if (buyerSignature) {
+  if (buyerInk) {
     // Same as the seller box above: a bad image must not fail the PDF.
-    try { doc.addImage(buyerSignature, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
+    try { doc.addImage(buyerInk, 'PNG', buyerX, sigStartY + 4, sigBoxW, sigBoxH); } catch { /* leave the line blank */ }
   }
   doc.line(buyerX, sigStartY + sigBoxH + 8, buyerX + sigBoxW, sigStartY + sigBoxH + 8);
 
@@ -256,7 +358,9 @@ async function buildPDF(invoice) {
   doc.text('Thank you for your business.', pageW / 2, pageH - 36, { align: 'center' });
   doc.text(businessName || '', pageW / 2, pageH - 22, { align: 'center' });
 
-  const filename = `Invoice_${number}_${storeName.replace(/\s+/g, '_')}.pdf`;
+  const filename = storeName && storeName.trim()
+    ? `Invoice_${number}_${storeName.trim().replace(/\s+/g, '_')}.pdf`
+    : `Invoice_${number}.pdf`;
   const blob = doc.output('blob');
   return { blob, filename, doc };  // doc exposed so callers can use doc.output('bloburl')
 }

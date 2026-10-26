@@ -1,0 +1,30 @@
+name: Keep Supabase awake
+
+# The free Supabase plan pauses a project after about 7 days without activity,
+# which takes sign-in and sync down for everyone. One tiny read every 3 days
+# keeps it awake. A run that gets anything but HTTP 200 fails, and GitHub
+# emails the owner: the same job is the "Keiro's database is down" alert.
+# Needs repo secrets SUPABASE_URL and SUPABASE_ANON_KEY (the public anon key).
+# GitHub disables scheduled workflows after 60 days with no repo activity; any
+# push re-arms it.
+
+on:
+  schedule:
+    - cron: '17 9 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read one row
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1")
+          echo "Supabase answered HTTP $code"
+          test "$code" = "200"

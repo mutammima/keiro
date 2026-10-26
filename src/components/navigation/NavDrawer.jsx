@@ -15,13 +15,14 @@
  * in both modes, and a second copy would drift.
  */
 
-import { STORAGE_KEYS, SIDE_NAV_WIDTH } from '../../utils/constants';
+import { SIDE_NAV_WIDTH } from '../../utils/constants';
 import { useTheme } from '../../context/ThemeContext';
 import { LIGHT, DARK, ACCENT } from '../../theme';
-import { signOut } from '../../services/auth';
+import { useSafeSignOut } from '../../hooks/useSafeSignOut';
 import { getPinnedStores } from '../../utils/storage';
 import { isGuest, promptAccount } from '../../utils/guestMode';
 import { tabsForRole } from './tabs';
+import { easyModeFor } from '../../utils/easyMode';
 import KeiroWordmark from '../ui/KeiroWordmark';
 
 // SVG icon components — clean geometric shapes, no emoji
@@ -102,13 +103,10 @@ const NAV_ITEMS_OWNER = [
   { id: 'notes',        label: 'Notes',        icon: Icons.notes },
 ];
 
-const NAV_ITEMS_EASY = [];
+const NAV_ITEMS_EASY = [{ id: 'products', label: 'Products', icon: Icons.box }];
 
 const SETTINGS_ITEM = { id: 'settings', label: 'Settings', icon: Icons.settings };
 
-function isEasyMode() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.EASY_MODE)); } catch { return false; }
-}
 
 export default function NavDrawer({
   open, onClose, onNav, currentPage, onTutorial, role, onSwitchRole,
@@ -118,7 +116,7 @@ export default function NavDrawer({
   const C = dark ? DARK : LIGHT;
 
   const isOwner = role === 'store_owner';
-  const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (isEasyMode() ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
+  const NAV_ITEMS = isOwner ? NAV_ITEMS_OWNER : (easyModeFor(role) ? NAV_ITEMS_EASY : NAV_ITEMS_FULL);
 
   // Pinned chips (drivers only). Read straight from storage while the drawer is
   // open — a plain derived value, so toggling a pin elsewhere shows up on the
@@ -128,10 +126,8 @@ export default function NavDrawer({
 
   const guest = isGuest();
 
-  async function handleSignOut() {
-    await signOut();
-    window.location.reload();
-  }
+  // Uploads pending changes first and asks before deleting any that won't go.
+  const { requestSignOut: handleSignOut, signOutPrompt } = useSafeSignOut();
 
   return (
     <>
@@ -355,6 +351,7 @@ export default function NavDrawer({
           )}
         </div>
       </div>
+      {signOutPrompt}
     </>
   );
 }

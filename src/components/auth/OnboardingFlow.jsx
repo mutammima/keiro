@@ -29,9 +29,11 @@ import KeiroWordmark from '../ui/KeiroWordmark';
 import {
   sendPhoneOtp, verifyPhoneOtp, fetchProfile, saveProfile,
   signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword,
+  isServerUnreachableError, SERVER_UNREACHABLE_MESSAGE,
 } from '../../services/auth';
 import { setRole } from '../../utils/storeOwnerStorage';
 import { getBusinessName, saveBusinessName } from '../../utils/storage';
+import { SPAM_HINT } from '../../utils/constants';
 
 // inv_-prefixed so the backup sweep captures them automatically.
 const PLAN_KEY = 'inv_plan';
@@ -47,6 +49,8 @@ function formatUSPhone(raw) {
 }
 
 function friendlyAuthError(error) {
+  // The browser's raw "Failed to fetch" etc. (server paused/down, or offline).
+  if (isServerUnreachableError(error)) return SERVER_UNREACHABLE_MESSAGE;
   const m = (error?.message || '').toLowerCase();
   if (m.includes('invalid') && m.includes('token')) return 'That code was incorrect. Check it and try again.';
   if (m.includes('expired')) return 'That code expired. Tap Resend for a new one.';
@@ -636,7 +640,7 @@ function EmailLoginScreen({ onBack, onAuthedUser, initialMode = 'signin', C, dar
       if (err) { setError(friendlyAuthError(err) || err.message || 'Something went wrong. Please try again.'); setLoading(false); return; }
       if (!session) {
         // "Confirm email" is on for this project — no session until they click the link.
-        setNotice(`Almost there — we sent a confirmation link to ${email}. Tap it, then come back and log in.`);
+        setNotice(`Almost there — we sent a confirmation link to ${email}. Tap it, then come back and log in. ${SPAM_HINT}`);
         setMode('signin'); setLoading(false); return;
       }
       onAuthedUser(user);
@@ -650,7 +654,7 @@ function EmailLoginScreen({ onBack, onAuthedUser, initialMode = 'signin', C, dar
     const { error: err } = await resetPassword(email);
     setLoading(false);
     if (err) { setError(friendlyAuthError(err) || err.message || 'Could not send the reset email. Try again.'); return; }
-    setNotice(`Reset link sent to ${email} — tap it to choose a new password.`);
+    setNotice(`Reset link sent to ${email} — tap it to choose a new password. ${SPAM_HINT}`);
   }
 
   return (

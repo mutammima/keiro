@@ -4,7 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 
 const SCANNER_ID = 'qr-reader';
 
-export default function BarcodeScanner({ onScan, onClose }) {
+export default function BarcodeScanner({ onScan, onClose, closeLabel = 'Enter manually' }) {
   const scannerRef = useRef(null);
   const [status, setStatus] = useState('starting'); // starting | ready | error
   const [errorMsg, setErrorMsg] = useState('');
@@ -28,7 +28,8 @@ export default function BarcodeScanner({ onScan, onClose }) {
         { facingMode: 'environment' },
         { fps: 12, qrbox: { width: 240, height: 140 },
           formatsToSupport: [9, 10, 14, 15, 5, 4, 3, 8] }, // EAN-13, EAN-8, UPC-A, UPC-E, CODE-128, CODE-93, CODE-39, ITF
-        (text) => { stopAndClose(); onScan(text); },
+        // The format tells an 8-digit UPC-E (expanded before lookup) from an EAN-8.
+        (text, result) => { stopAndClose(); onScan(text, result?.result?.format?.formatName); },
         () => {}
       )
       .then(() => setStatus('ready'))
@@ -97,7 +98,7 @@ export default function BarcodeScanner({ onScan, onClose }) {
         )}
       </div>
 
-      <button style={s.manualBtn} onClick={stopAndClose}>Enter manually</button>
+      <button style={s.manualBtn} onClick={stopAndClose}>{closeLabel}</button>
 
       <style>{`
         @keyframes scanMove {

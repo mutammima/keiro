@@ -16,7 +16,8 @@ import { hasSignature } from '../../utils/signatureStorage';
 import { getBridgeRequests, dismissBridgeRequest, loadBridgeRequestsFromCloud } from '../../utils/storeOwnerStorage';
 import { getConnectionOrders, loadConnectionOrdersFromCloud, updateConnectionOrderStatus, setActiveConnectionOrder } from '../../utils/connectionOrderStorage';
 import { buildReminderUrl } from '../../utils/reminderMessage';
-import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines } from '../../utils/invoiceUtils';
+import { isOverdue as isInvoiceOverdue, getFlagDays, daysSince, orderLines, storeLabelOf } from '../../utils/invoiceUtils';
+import { shareLabel } from '../../utils/easyMode';
 import { STORAGE_KEYS, EVENTS } from '../../utils/constants';
 
 /** Format a payment timestamp to "Jun 2 · 3:45 PM" */
@@ -320,7 +321,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
             }} />
             {/* Store name */}
             <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {inv.storeName || inv.store_name}
+              {storeLabelOf(inv)}
               {isOverdue && <span style={{ fontSize: 9, fontWeight: 800, color: '#ef4444', marginLeft: 6, textTransform: 'uppercase' }}>OVRD</span>}
             </span>
             {/* Total */}
@@ -355,7 +356,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   {(status === 'unpaid' || status === 'partial') && (
                     <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleRemind(inv)}>Send Reminder</button>
                   )}
-                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>Share PDF</button>
+                  <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleShare(inv)}>{shareLabel('Share PDF')}</button>
                   <button style={{ ...s.dropdownItem, color: C.text }} onClick={() => handleDuplicate(inv)}>Duplicate</button>
                   <button style={{ ...s.dropdownItem, color: C.danger }} onClick={() => requestDelete(inv.number)}>Delete Invoice</button>
                 </div>
@@ -410,7 +411,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: sharing === inv.number ? 0.6 : 1 }}
                   onClick={() => handleShare(inv)}
                   disabled={!!sharing}
-                >Share PDF</button>
+                >{shareLabel('Share PDF')}</button>
               </div>
             </div>
           )}
@@ -434,7 +435,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 style={{ ...s.storeName, fontSize: D.storeNameSize, color: C.text, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
                 onClick={() => { const sn = inv.storeName || inv.store_name; onSelectStore?.(sn); if (isFirst) window.dispatchEvent(new CustomEvent(EVENTS.ONBOARDING_STORE_VIEWED)); }}
               >
-                {inv.storeName || inv.store_name}
+                {storeLabelOf(inv)}
               </button>
               {isOverdue && (
                 <span style={{
@@ -510,7 +511,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleShare(inv)}
                   >
-                    Share PDF
+                    {shareLabel('Share PDF')}
                   </button>
                   <button style={{ ...s.dropdownItem, color: C.text }}
                     onClick={() => handleDuplicate(inv)}
@@ -653,7 +654,7 @@ export default function InvoiceHistory({ onSelectStore, onNav, onNewInvoice }) {
                 onClick={() => handleShare(inv)}
                 disabled={!!sharing}
               >
-                Share PDF
+                {shareLabel('Share PDF')}
               </button>
             </div>
           </>
