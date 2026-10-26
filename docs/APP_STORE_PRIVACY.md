@@ -23,7 +23,7 @@ so neither counts.
 | Contact Info → Physical Address | ❌ | Keiro stores *stores'* addresses, not the user's own (that goes under User Content) |
 | Financial Info → **Other Financial Info** | ✅ | Invoices (totals, line items, prices), payment records and paid/unpaid status |
 | Financial Info → Payment Info / Credit Info | ❌ | No cards or bank details. Revisit when payments ship |
-| Location → **Precise Location** | ✅ | GPS coordinates saved with Marketplace posts and store requests (unrounded, see Gaps) |
+| Location → **Coarse Location** | ✅ | The location saved with Marketplace posts and store requests, rounded to ~1 km by #198. **Before #198 ships, and until the existing posts are rounded (its cowork doc), tick Precise Location instead** |
 | User Content → **Other User Content** | ✅ | Store/customer names, store phones and addresses, products, notes, orders, drawn signatures |
 | User Content → Photos or Videos | ❌ | The camera only reads barcodes; no image is kept |
 | Identifiers → **User ID** | ✅ | The Supabase account ID |
@@ -42,7 +42,7 @@ Apple asks three questions per type. For Keiro the answers are the same everywhe
 | Email Address | App Functionality | Yes | No |
 | Phone Number | App Functionality | Yes | No |
 | Other Financial Info | App Functionality | Yes | No |
-| Precise Location | App Functionality | Yes | No |
+| Coarse Location | App Functionality | Yes | No |
 | Other User Content | App Functionality | Yes | No |
 | User ID | App Functionality | Yes | No |
 | Crash Data | App Functionality | **No**: reports carry no user ID, email or IP (`crashReporter.js` drops `user` and turns off IP, cookies, headers and query strings) | No |
@@ -56,11 +56,14 @@ Analytics, Product Personalization, Other Purposes.
 
 ## Step 4: Privacy Policy URL
 
-App Store Connect requires a public URL. **Keiro doesn't have one yet** (see Gaps).
+App Store Connect requires a public URL. Once #199 is live, it's
+`https://keiro-mutammimas-projects.vercel.app/privacy` (built from `PRIVACY.md` on every deploy).
 
 ---
 
 ## Gaps found while checking (fix before the public release)
+
+Status 2026-10-26: gaps 1–4 have PRs (#199 for 1, #198 for 2–4). Gap 5 is designed in #196.
 
 1. **No public privacy-policy URL.** The policy exists in the repo (`PRIVACY.md`) and inside the app
    (Legal page), but the website has no page at a public address. Options:
