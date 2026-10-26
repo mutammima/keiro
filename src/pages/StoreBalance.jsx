@@ -11,6 +11,7 @@ import { getInvoices, updateInvoicePaymentStatus, getBusinessName } from '../uti
 import { subtotalOf, getStatus, buildWhatsAppUrl } from '../utils/invoiceUtils';
 import { getTotalPaid, getPaymentsFor, loadAllPaymentsFromCloud } from '../utils/paymentStorage';
 import { pdfLayoutFor, shareLabel } from '../utils/easyMode';
+import BackButton from '../components/navigation/BackButton';
 
 const STATUS_CYCLE = ['unpaid', 'paid', 'partial'];
 
@@ -157,9 +158,9 @@ export default function StoreBalance({ storeName, onBack, easyMode = false }) {
 
       {/* Sticky glass header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.backBtn, color: ACCENT }} onClick={onBack}>← Back</button>
+        <BackButton onClick={onBack} />
         <span style={{ ...s.title, color: C.text }}>{storeName}</span>
-        <div style={{ width: 60 }} />
+        <div style={{ width: 78 }} />
       </div>
 
       <div style={s.body}>
@@ -317,10 +318,6 @@ const s = {
     padding: '14px 20px 12px',
     paddingTop: 'max(14px, env(safe-area-inset-top))',
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  },
-  backBtn: {
-    background: 'none', border: 'none', fontSize: 15, fontWeight: 600,
-    cursor: 'pointer', padding: '4px 0', WebkitTapHighlightColor: 'transparent',
   },
   title: { fontSize: 17, fontWeight: 700, textAlign: 'center', flex: 1 },
   body: {

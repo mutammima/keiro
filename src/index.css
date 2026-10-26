@@ -65,6 +65,9 @@ textarea {
 @keyframes tut-confetti { 0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(86vh) rotate(620deg); opacity: 0.9; } }
 @keyframes tut-pop      { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
 @keyframes tut-spin       { to { transform: rotate(360deg); } }
+/* The Easy tour's docked card (TourCard): rises from the bottom, or drops from the top. */
+@keyframes tut-card-up   { from { opacity: 0; transform: translateY(18px); }  to { opacity: 1; transform: translateY(0); } }
+@keyframes tut-card-down { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Spotlight dim panels: glide between tutorial targets instead of snapping ──
    Applied to DimPanels' panels + highlight ring (className="tut-dim-panel").
@@ -81,4 +84,5 @@ textarea {
   button { transition: none; }
   button:active { transform: none; opacity: 0.8; }
   .tut-dim-panel { transition: none; }
+  .tut-card { animation: none !important; }
 }

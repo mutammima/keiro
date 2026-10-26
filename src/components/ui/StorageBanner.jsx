@@ -67,7 +67,7 @@ const s = {
   bar: {
     position: 'fixed',
     // One row above SyncAttentionBanner (bottom + 52px) so both can show.
-    bottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
+    bottom: 'calc(max(env(safe-area-inset-bottom, 0px), var(--tab-bar-h, 0px)) + 112px)',
     left: 'calc(var(--app-inset-left, 0px) + (100% - var(--app-inset-left, 0px)) / 2)',
     transform: 'translateX(-50%)',
     width: 'calc(100% - var(--app-inset-left, 0px) - 32px)',

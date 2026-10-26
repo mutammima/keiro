@@ -54,7 +54,7 @@ Every account picks a role on first launch (stored in `inv_user_role`). The top 
 | `stores` | Store map, contact list |
 | `reports` | Today / Week / Month / Year analytics |
 
-**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the ☰ menu. A signed-in driver on the free plan is always in Easy Mode (normal mode is Pro).
+**Easy Mode** (Settings, drivers only): Route · Stores · Reports, and Products + Settings in the menu. A signed-in driver on the free plan is always in Easy Mode (normal mode is Pro). On phone/tablet Easy Mode puts the tabs at the **bottom** (`BottomTabBar.jsx`: Route · Stores · Reports · More, where More opens the menu), gives every page opened over them a labeled `‹ Back` (`BackButton.jsx`, `data-back`) in place of ☰, and a swipe from the left edge presses that Back (`useEdgeSwipeBack.js`). Fixed banners offset by `--tab-bar-h`, which the bar sets while it's on screen. Spec: `docs/specs/2026-10-26-easy-mode-feel.md`.
 
 **Store Owner** — `inv_user_role = 'store_owner'`
 
@@ -392,6 +392,13 @@ the opposite of "taught in one go."
   Finishing the original one-time tour counts as having seen the full tour. Replays: How it Works.
   Store owners are unaffected. The full tour's descriptions live in `DRIVER_STEP_TEXT`;
   `tourModes.test.jsx` pins them to the app's real button names.
+- **Every step waits for the screen**: `useElementRect` reports `settled` once the target has held still
+  350ms (≥ 600ms into the step, 2.5s at most); until then Spotlight shows only the dim — no hole, no card.
+  QuickStart remounts Spotlight per step (`key={stepIndex}`).
+- **The Easy tour is the calm one**: `TourCard.jsx`, a big card docked at the bottom (top when the target
+  is in the lower half), 20/18pt text, 56pt Back + Next on every step (Next presses the target on a tap
+  step), Skip inside it. Easy steps carry `screen` so Back returns to the right page. The full and owner
+  tours keep the small `TutorialTooltip`.
 - **Nothing else teaches the user anything after this** — no scattered tips, no checklist, no demo.
 
 Shared primitives: `useElementRect.js` (polls the target's live rect via `setTimeout`, not

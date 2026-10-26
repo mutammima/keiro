@@ -980,7 +980,8 @@ const s = {
     // Above contextual tips (z 9500) — the Undo action is time-critical, so it
     // must never be hidden behind a tip popover.
     position: 'fixed', left: '50%', transform: 'translateX(-50%)',
-    bottom: 'calc(20px + env(safe-area-inset-bottom))',
+    // Clear of Easy Mode's bottom tab bar (--tab-bar-h, unset without one).
+    bottom: 'calc(20px + max(env(safe-area-inset-bottom, 0px), var(--tab-bar-h, 0px)))',
     zIndex: 9700, width: 'calc(100% - 32px)', maxWidth: 420,
     boxSizing: 'border-box',
     display: 'flex', alignItems: 'center', gap: 12,

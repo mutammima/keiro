@@ -367,7 +367,10 @@ const s = {
     transition: 'opacity 0.4s ease',
   },
   drawer: {
-    position: 'fixed', top: 0, left: 0, bottom: 0,
+    // Ends above Easy Mode's bottom tab bar (--tab-bar-h, unset elsewhere) so
+    // Sign Out isn't hidden under it, and starts below the clock / Dynamic Island.
+    position: 'fixed', top: 0, left: 0, bottom: 'var(--tab-bar-h, 0px)',
+    paddingTop: 'env(safe-area-inset-top)',
     width: 'min(220px, 65vw)', zIndex: 1600,
     transition: 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94), background-color 0.3s ease',
     display: 'flex', flexDirection: 'column',
@@ -381,7 +384,6 @@ const s = {
   drawerDocked: {
     width: SIDE_NAV_WIDTH,
     transition: 'background-color 0.3s ease',
-    paddingTop: 'env(safe-area-inset-top)',
     // Well below the z-index 200 that portaled modals/sheets use. As an
     // overlay the drawer sits at 1600 so it can cover the app, but a docked
     // rail that outranks a modal stays lit behind the dialog's backdrop and

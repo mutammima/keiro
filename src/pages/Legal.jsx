@@ -14,6 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LIGHT, DARK, ACCENT, glassStyle } from '../theme';
 import AppFooter from '../components/navigation/AppFooter';
 import { FREE_INVOICES_PER_MONTH } from '../utils/constants';
+import BackButton from '../components/navigation/BackButton';
 
 const LAST_UPDATED = 'October 26, 2026';
 const CONTACT = 'alomonds@gmail.com';
@@ -47,7 +48,7 @@ const TERMS = {
   ],
 };
 
-export default function Legal({ section = 'privacy', onOpenDrawer, onNav }) {
+export default function Legal({ section = 'privacy', onOpenDrawer, onNav, onBack }) {
   const { dark } = useTheme();
   const C = dark ? DARK : LIGHT;
   const [tab, setTab] = useState(section === 'terms' ? 'terms' : 'privacy');
@@ -59,9 +60,9 @@ export default function Legal({ section = 'privacy', onOpenDrawer, onNav }) {
     <div style={{ ...s.page, background: C.bg }}>
       {/* Sticky header */}
       <div style={{ ...s.header, ...glassStyle(dark) }}>
-        <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>
+        {onBack ? <BackButton onClick={onBack} /> : <button style={{ ...s.hamburger, color: C.text }} aria-label="Open menu" data-drawer-toggle onClick={onOpenDrawer}>☰</button>}
         <span style={{ ...s.title, color: C.text }}>Legal</span>
-        <div style={{ width: 36 }} />
+        <div style={{ width: onBack ? 78 : 36 }} />
       </div>
 
       <div style={s.body}>

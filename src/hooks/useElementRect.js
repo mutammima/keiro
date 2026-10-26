@@ -14,20 +14,33 @@
  * show/hide or permission dialog. setTimeout keeps firing regardless, so a
  * step that starts a beat late still settles on the correct rect.
  *
- * Returns { rect, missing }:
+ * Returns { rect, missing, settled }:
  *   rect    — { top,left,width,height,bottom,right } | null
  *   missing — true once the element has failed to resolve for ~1.5s, so callers
  *             can give up gracefully instead of hanging on a tip that can't anchor.
+ *   settled — true once the element exists and has held still for SETTLE_MS, and
+ *             at least MIN_WAIT_MS after the selector changed (or MAX_WAIT_MS at the
+ *             latest, for a target that never stops moving). A tour step waits for
+ *             it, so a card never points at a screen that is still sliding in or
+ *             loading (spec docs/specs/2026-10-26-easy-mode-feel.md). It stays true
+ *             for that selector once set; the rect keeps following the element.
  */
 
 import { useEffect, useState } from 'react';
 
 const TICK_MS = 16; // ~60fps
 const GIVE_UP_TICKS = Math.round(1500 / TICK_MS); // ~1.5s
+const SETTLE_MS   = 350;  // the target must hold still this long…
+const MIN_WAIT_MS = 600;  // …and no sooner than this after the step changed…
+const MAX_WAIT_MS = 2500; // …but a target that keeps moving shows by this time anyway
 
 export function useElementRect(selector, { active = true, scrollIntoView = true } = {}) {
   const [rect, setRect]       = useState(null);
   const [missing, setMissing] = useState(false);
+  // The selector it settled for, not a boolean: on the render where the selector
+  // changes (before this effect resets anything) the new step must not count as
+  // settled on the previous target's say-so.
+  const [settledFor, setSettledFor] = useState(null);
 
   useEffect(() => {
     // The synchronous reset below is deliberate: it clears the rect to null the
@@ -37,12 +50,16 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
     // and flicker the spotlight mid page-transition. The loop's own setState is
     // async (in a setTimeout), which the rule does not flag.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!active || !selector) { setRect(null); setMissing(false); return; }
+    if (!active || !selector) { setRect(null); setMissing(false); setSettledFor(null); return; }
 
     let timer = 0;
     let tries = 0;
     let scrolled = false;
     let cancelled = false;
+    const started = Date.now();
+    let still = null;    // the element's last measured box, and since when it has held it
+    let stillSince = 0;
+    let isSettled = false;
     setMissing(false);
 
     const tick = () => {
@@ -55,6 +72,15 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
           scrolled = true;
         }
         const r = el.getBoundingClientRect();
+        const now = Date.now();
+        if (!still || still.top !== r.top || still.left !== r.left || still.width !== r.width || still.height !== r.height) {
+          still = r;
+          stillSince = now;
+        }
+        if (!isSettled && ((now - stillSince >= SETTLE_MS && now - started >= MIN_WAIT_MS) || now - started >= MAX_WAIT_MS)) {
+          isSettled = true;
+          setSettledFor(selector);
+        }
         setRect(prev => {
           if (prev && prev.top === r.top && prev.left === r.left &&
               prev.width === r.width && prev.height === r.height) {
@@ -73,5 +99,5 @@ export function useElementRect(selector, { active = true, scrollIntoView = true 
     return () => { cancelled = true; clearTimeout(timer); };
   }, [selector, active, scrollIntoView]);
 
-  return { rect, missing };
+  return { rect, missing, settled: active && settledFor === selector };
 }

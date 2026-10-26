@@ -10,7 +10,8 @@
  *   • A caret points back at the target from the chosen side.
  *
  * The card measures its own height after first paint (useLayoutEffect) and stays
- * invisible for that one frame to avoid a position flash.
+ * invisible for that one frame to avoid a position flash — and until `ready`
+ * (Spotlight: the target has stopped moving), fading in only then.
  *
  * Does NOT portal itself — the parent (Spotlight) owns the portal.
  */
@@ -20,7 +21,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 const MARGIN = 12; // min gap from screen edge
 const GAP    = 12; // gap between target and card
 
-export default function TutorialTooltip({ rect, dark, children, footer, header, z = 1, compact = false }) {
+export default function TutorialTooltip({ rect, dark, children, footer, header, z = 1, compact = false, ready = true }) {
   const cardRef = useRef(null);
   const [size, setSize] = useState(null); // { w, h } measured after paint
 
@@ -84,8 +85,8 @@ export default function TutorialTooltip({ rect, dark, children, footer, header, 
         padding: compact ? '12px 14px 11px' : '16px 18px 14px',
         boxShadow: '0 18px 50px rgba(0,0,0,0.5)',
         border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
-        visibility: size ? 'visible' : 'hidden',
-        animation: 'tut-fadein 0.32s ease both',
+        visibility: size && ready ? 'visible' : 'hidden',
+        animation: ready ? 'tut-fadein 0.45s ease both' : 'none',
         boxSizing: 'border-box',
       }}
     >

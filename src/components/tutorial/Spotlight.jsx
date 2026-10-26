@@ -16,6 +16,16 @@
  *     fields, or a screen with no data yet to tap into).
  * A step provides exactly one of the two.
  *
+ * Every step waits for the screen (useElementRect's `settled`): until its target
+ * exists and has held still, the screen just stays dimmed — no hole, no card — so
+ * nothing points at a page that is still sliding in or loading. A target that
+ * never appears shows the card anyway after ~1.5 s (`missing`), centered.
+ *
+ * `calm` (the Easy tour) swaps the small bubble for TourCard: a big docked card
+ * with Skip, Back and Next inside it. There Next also works on a tap step, by
+ * pressing the highlighted element for the user, so nobody gets stuck.
+ * Spec: docs/specs/2026-10-26-easy-mode-feel.md §2.
+ *
  * Portaled to document.body per the codebase's iOS containing-block rule.
  */
 
@@ -23,13 +33,16 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useElementRect } from '../../hooks/useElementRect';
 import TutorialTooltip from './TutorialTooltip';
+import TourCard from './TourCard';
 import DimPanels from './DimPanels';
 
 const Z = 9000;
 const DIM = 'rgba(0,0,0,0.66)';
 
-export default function Spotlight({ targetSelector, onTargetTap, onNext, title, desc, stepNumber, total, canSkip, onSkip, dark, accent }) {
-  const { rect } = useElementRect(targetSelector, { active: true });
+export default function Spotlight({ targetSelector, onTargetTap, onNext, onBack, title, desc, stepNumber, total, canSkip, onSkip, dark, accent, calm = false }) {
+  const { rect, missing, settled } = useElementRect(targetSelector, { active: true });
+  const ready = settled || missing;
+  const shownRect = ready ? rect : null;
 
   // Advance when the real target is tapped. Capture phase so we see it even
   // though the panels sit above; we do NOT preventDefault, so the element's own
@@ -45,6 +58,28 @@ export default function Spotlight({ targetSelector, onTargetTap, onNext, title, 
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+
+  if (calm) {
+    // Next on a tap step presses the real element, which advances the step through
+    // the click listener above and also does what the tap does (opens the invoice,
+    // switches the tab). With nothing to press, it just moves on.
+    const next = onNext ?? (() => {
+      const el = document.querySelector(targetSelector);
+      if (el && !el.disabled) el.click();
+      else onTargetTap?.();
+    });
+    return createPortal(
+      <>
+        <DimPanels rect={shownRect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} blockTaps />
+        <TourCard
+          rect={shownRect} ready={ready} dark={dark} accent={accent}
+          title={title} desc={desc} stepNumber={stepNumber} total={total}
+          onBack={onBack} onNext={next} onSkip={onSkip} z={Z + 2}
+        />
+      </>,
+      document.body
+    );
+  }
 
   const header = (
     <div style={{ fontSize: 16, fontWeight: 800, color: dark ? '#fff' : '#111', marginBottom: 6, lineHeight: 1.25 }}>
@@ -68,7 +103,7 @@ export default function Spotlight({ targetSelector, onTargetTap, onNext, title, 
     <>
       {/* Dim — full screen until the target resolves, then a hole around it.
           Blocking panels: only the highlighted element shows through + stays tappable. */}
-      <DimPanels rect={rect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} blockTaps />
+      <DimPanels rect={shownRect} vw={vw} vh={vh} dim={DIM} accent={accent} z={Z} blockTaps />
 
       {/* Top chrome — Skip (left) + progress (right) */}
       <div style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: 0, right: 0, zIndex: Z + 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
@@ -86,7 +121,7 @@ export default function Spotlight({ targetSelector, onTargetTap, onNext, title, 
         </span>
       </div>
 
-      <TutorialTooltip rect={rect} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2}>
+      <TutorialTooltip rect={shownRect} ready={ready} dark={dark} accent={accent} header={header} footer={footer} z={Z + 2}>
         {desc}
       </TutorialTooltip>
     </>,

@@ -19,6 +19,7 @@ import { GuestCapModal } from '../auth/GuestUpsell';
 import ScanCheckCard from './ScanCheckCard';
 import ZeroTotalConfirm from './ZeroTotalConfirm';
 import ConfirmDialog from '../ui/ConfirmDialog';
+import BackButton from '../navigation/BackButton';
 
 // Lazy-loaded so html5-qrcode is only fetched when the camera first opens.
 const BarcodeScanner = lazy(() => import('../ui/BarcodeScanner'));
@@ -95,11 +96,11 @@ export default function EasyInvoice({ onGenerated, onBack }) {
 
       <div data-tutorial="easy-invoice" style={{ ...s.page, background: C.bg }}>
         <div style={{ ...s.header, ...glassStyle(dark) }}>
-          <button onClick={back} aria-label="Back" style={{ ...s.back, color: C.text }}>←</button>
+          <BackButton onClick={back} />
           <span style={{ ...s.title, color: C.text }}>
             {form.editNumber != null ? `Edit invoice #${form.editNumber}` : 'New invoice'}
           </span>
-          <div style={{ width: 36 }} />
+          <div style={{ width: 78 }} />
         </div>
 
         <div style={s.body}>
@@ -166,7 +167,6 @@ export default function EasyInvoice({ onGenerated, onBack }) {
 const s = {
   page:      { minHeight: '100%', display: 'flex', flexDirection: 'column', overflowX: 'clip' },
   header:    { padding: '12px 16px 10px', paddingTop: 'max(12px, env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 5 },
-  back:      { background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: '3px 4px', width: 36, WebkitTapHighlightColor: 'transparent' },
   title:     { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 700 },
   body:      { padding: '14px 16px 88px', display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 'var(--form-max)', width: '100%', margin: '0 auto', boxSizing: 'border-box' },
   card:      { borderRadius: 18, padding: 18, border: '1px solid' },
