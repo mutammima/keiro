@@ -28,8 +28,11 @@ import { withoutUploadStamp } from '../utils/storageRoom';
  * Tutorial:    inv_tip_<id> (contextual tip seen), inv_act_<id> (feature
  *              discovered, drives the checklist), inv_pulse_home, inv_seen_<tab>
  *              — all swept automatically by collectBackupKeys (inv_ prefix).
- * Sync:        inv_sync_queue (offline retry outbox) is also swept automatically
- *              so pending cloud writes survive a backup. EDGE CASE: backing up
+ * Sync:        inv_sync_queue (offline retry outbox), inv_sync_failed (set aside)
+ *              and inv_sync_held (refused for the free limit) are also swept
+ *              automatically, so pending cloud writes survive a backup: all three
+ *              can hold the only copy of an invoice, so none is excluded
+ *              (backupRestore.test pins it). EDGE CASE: backing up
  *              mid-queue then restoring on another device could replay the same
  *              actions twice — harmless here because every queued op is an
  *              idempotent upsert/delete, but worth knowing. Restoring mid-queue
@@ -56,6 +59,11 @@ const EXCLUDE_KEYS = new Set([
   // The account's invoices as the cloud has them: a cache, re-downloaded on the
   // next launch, and restoring it would upload nothing (migration reads inv_list).
   STORAGE_KEYS.INVOICE_MIRROR,
+  // The server's plan answer for whoever exported. Restoring it onto another
+  // account (or after Pro ended) would show Pro offline until the next fetch.
+  STORAGE_KEYS.PLAN_CACHE,
+  // Another account's month count or one-time plan note must not ride a backup.
+  STORAGE_KEYS.USAGE, STORAGE_KEYS.PLAN_NOTICE,
 ]);
 
 /**

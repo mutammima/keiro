@@ -6,6 +6,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
+import { STORAGE_KEYS } from '../utils/constants';
 
 // The custom URL scheme registered in ios/App/App/Info.plist
 // (CFBundleURLTypes) that Google's consent screen redirects back into on
@@ -163,6 +164,9 @@ export const DEVICE_PREF_KEYS = new Set(['inv_dark_mode', 'inv_accent_color', 'i
 
 function clearAccountLocalData() {
   try {
+    // Easy Mode survives sign-out as a device preference, but not when the free PLAN put the account
+    // there (plan.js sets EASY_BY_PLAN, which is wiped below): the next account must not start in it.
+    if (localStorage.getItem(STORAGE_KEYS.EASY_BY_PLAN) !== null) localStorage.removeItem(STORAGE_KEYS.EASY_MODE);
     const doomed = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);

@@ -18,6 +18,7 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: vi.fn(() => f
 import { Capacitor } from '@capacitor/core';
 import { GET } from '../../api/barcode.js';
 import { lookupBarcode } from '../utils/barcodeApi';
+import { withoutAbortSignalTimeout } from './helpers/withoutAbortSignalTimeout';
 
 const jsonResponse = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -187,5 +188,46 @@ describe('lookupBarcode (in the app)', () => {
     fetchMock.mockResolvedValueOnce(offDown()).mockResolvedValueOnce(jsonResponse(200, { name: 'Coca-Cola Can, 12 fl oz' }));
 
     expect(await lookupBarcode('049000006346')).toEqual({ name: 'Coca-Cola Can, 12 fl oz', status: 'found' });
+  });
+});
+
+describe('lookupBarcode on iOS 15 (no AbortSignal.timeout)', () => {
+  // Safari before 16 has no AbortSignal.timeout. The call threw inside lookupBarcode's try blocks, so neither
+  // source was ever asked and every scan ended as "unavailable".
+  afterEach(() => vi.useRealTimers());
+
+  it('still asks Open Food Facts, with a signal', async () => {
+    fetchMock.mockResolvedValueOnce(offHit('Chunky Salsa Mild', 'Tostitos'));
+    await withoutAbortSignalTimeout(async () => {
+      expect(await lookupBarcode('028400055970')).toEqual({ name: 'Tostitos Chunky Salsa Mild', status: 'found' });
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('still asks Keiro\'s route when Open Food Facts has nothing, with a signal', async () => {
+    fetchMock.mockResolvedValueOnce(offMiss()).mockResolvedValueOnce(jsonResponse(200, { name: 'Mobil 1 5W-30' }));
+    await withoutAbortSignalTimeout(async () => {
+      expect(await lookupBarcode('071924145009')).toEqual({ name: 'Mobil 1 5W-30', status: 'found' });
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('keeps the 6 s and 8 s limits: a source that never answers is given up on, then the other', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    fetchMock.mockImplementation((_url, { signal }) => new Promise((_, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+    }));
+    await withoutAbortSignalTimeout(async () => {
+      const lookup = lookupBarcode('049000006346');
+      await vi.advanceTimersByTimeAsync(5999);
+      expect(fetchMock).toHaveBeenCalledTimes(1); // Open Food Facts still has its 6 s
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2); // gave up at 6 s: the route is asked
+      await vi.advanceTimersByTimeAsync(7999);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await lookup).toEqual({ name: null, status: 'unavailable' });
+    });
   });
 });

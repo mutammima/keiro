@@ -33,6 +33,7 @@ describe('useQuickStart', () => {
 
   it('switching to Easy Mode plays the Easy tour once, then never again', () => {
     localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true');
+    localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');   // the switch turned it on
     const first = setup({ mode: 'easy' });
     expect(first.result.current.visible).toBe(true);
 
@@ -44,6 +45,44 @@ describe('useQuickStart', () => {
 
     const afterReload = setup({ mode: 'easy' });
     expect(afterReload.result.current.visible).toBe(false);
+  });
+
+  // The dad's first launch after the update: onboarding is done, no plan answer is cached yet and the
+  // flag is off, so the shell is in Easy Mode only as a stopgap. The Pro answer reloads it into normal
+  // mode a moment later, so the Easy tour must not start over that.
+  describe('a returning driver in Easy Mode only because no plan answer is cached yet', () => {
+    beforeEach(() => localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true'));
+
+    it('is not shown the Easy tour (it plays on a later launch, once he is in Easy Mode)', () => {
+      const { result } = setup({ mode: 'easy' });
+      expect(result.current.visible).toBe(false);
+    });
+    it('...but How it Works still plays it', () => {
+      const { result, navigate } = setup({ mode: 'easy' });
+      act(() => { result.current.start(); });
+      expect(navigate).toHaveBeenCalledWith('route');
+      expect(result.current.visible).toBe(true);
+    });
+    it('a cached Free answer makes the Easy shell real: the tour plays', () => {
+      localStorage.setItem(STORAGE_KEYS.PLAN_CACHE, JSON.stringify({ pro: false, usedThisMonth: 2, month: '2026-10' }));
+      expect(setup({ mode: 'easy' }).result.current.visible).toBe(true);
+    });
+    it('the Easy flag makes it real too (the Easy Mode switch, or an earlier Free answer)', () => {
+      localStorage.setItem(STORAGE_KEYS.EASY_MODE, 'true');
+      expect(setup({ mode: 'easy' }).result.current.visible).toBe(true);
+    });
+    it('a new driver\'s first-run tour is unchanged', () => {
+      localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE);
+      const { result, onboarding, navigate } = setup({ firstRun: true, mode: 'easy' });
+      expect(result.current.visible).toBe(true);
+      act(() => { result.current.finish(false); });
+      expect(onboarding.markComplete).toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledWith('route');
+      expect(isTourSeen('easy')).toBe(true);
+    });
+    it('and in normal mode nothing changes', () => {
+      expect(setup({ mode: 'full' }).result.current.visible).toBe(false);
+    });
   });
 
   it('first run in full mode: completes onboarding, pulses Home, lands on Route', () => {

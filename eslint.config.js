@@ -10,6 +10,12 @@ export default defineConfig([
   // project — build output, gitignored, and it otherwise floods `npm run lint`
   // with ~9.6k phantom problems from minified vendor code.
   globalIgnores(['dist', 'node_modules', 'public', 'ios']),
+  // Run by Node, not the browser: the Vite config (reads the Sentry env vars)
+  // and the Vercel Functions.
+  {
+    files: ['vite.config.js', 'api/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -31,6 +37,20 @@ export default defineConfig([
       'prefer-const': 'warn',
       'no-var': 'error',
       'no-extra-semi': 'off',
+    },
+  },
+  // AbortSignal.timeout is missing before Safari 16 and the iOS app targets iOS 15: calling it there throws before the
+  // request goes out (the plan answer, the barcode lookups and the shared product names all failed that way once).
+  // The helper itself looks it up at call time, and the tests take it away and put it back, so both are exempt.
+  {
+    files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/utils/timeoutSignal.js', 'src/__tests__/**'],
+    rules: {
+      'no-restricted-properties': ['error', {
+        object: 'AbortSignal',
+        property: 'timeout',
+        message: 'Use timeoutSignal() from utils/timeoutSignal — AbortSignal.timeout is missing on iOS 15',
+      }],
     },
   },
 ]);
