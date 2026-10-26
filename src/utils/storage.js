@@ -54,12 +54,12 @@ export function lsSet(key, value) {
 
 /**
  * The highest invoice number this device knows is taken: the last number it
- * handed out (`inv_number`) and every invoice in the local cache, which
- * includes ones made offline that haven't reached the cloud yet.
+ * handed out (`inv_number`), every invoice made on it (including ones made
+ * offline that haven't reached the cloud yet) and the account's cloud copy.
  * @returns {number}
  */
 function highestLocalInvoiceNumber() {
-  const cachedMax = lsGet(STORAGE_KEYS.LIST, [])
+  const cachedMax = [...lsGet(STORAGE_KEYS.LIST, []), ...mirrorRows()]
     .reduce((max, i) => Math.max(max, Number(i.number ?? i.invoice_number) || 0), 0);
   return Math.max(INVOICE_NUMBER_START, Number(lsGet(STORAGE_KEYS.NUMBER, 0)) || 0, cachedMax);
 }
@@ -100,6 +100,7 @@ export async function saveInvoice(invoice) {
   const idx = list.findIndex(i => (i.number || i.invoice_number) === invoice.number);
   if (idx >= 0) list[idx] = invoice; else list.unshift(invoice);
   const savedLocally = lsSet(STORAGE_KEYS.LIST, list);
+  patchMirror(rows => [invoice, ...rows.filter(i => numberOf(i) !== invoice.number)]);
 
   if (error) {
     console.warn('saveInvoice: cloud save failed, queued for retry', error);
@@ -108,52 +109,84 @@ export async function saveInvoice(invoice) {
   return { error, savedLocally };
 }
 
-// Invoices waiting in the sync queue (or set aside after repeated rejection)
-// are the phone's truth until they upload: a queued save keeps the phone's
-// version — or the invoice itself, if the cloud has never seen it — and a
-// queued delete keeps it gone.
+const numberOf = inv => inv.number ?? inv.invoice_number;
+
+// The account's invoices as the cloud has them, kept apart from inv_list:
+// inv_list holds invoices made on this phone, and migration uploads it on
+// sign-in, so cloud copies stored there would be re-uploaded over newer edits,
+// and a guest's invoices overwritten before migration reads them.
+function mirrorRows() {
+  const m = lsGet(STORAGE_KEYS.INVOICE_MIRROR, null);
+  return Array.isArray(m?.rows) ? m.rows : [];
+}
+
+// Applies this phone's own write to the cloud copy at once, so screens see it
+// before the next refresh (or while the refresh can't reach the cloud).
+function patchMirror(fn) {
+  const m = lsGet(STORAGE_KEYS.INVOICE_MIRROR, null);
+  if (Array.isArray(m?.rows)) lsSet(STORAGE_KEYS.INVOICE_MIRROR, { ...m, rows: fn(m.rows) });
+}
+
+// Changes waiting in the sync queue are the phone's truth until they upload:
+// a queued save keeps the phone's version (or the invoice itself, if the cloud
+// has never seen it), a queued delete keeps it gone, and a queued payment
+// status stays. They apply oldest first: everything set aside (inv_sync_failed)
+// left the head of the queue, so it is older than all still queued
+// (syncQueue.retryFailedSyncs relies on the same order).
 function pendingInvoiceChanges() {
   const saves = new Map();
   const deletes = new Set();
-  for (const key of [STORAGE_KEYS.SYNC_QUEUE, STORAGE_KEYS.SYNC_FAILED]) {
-    if (!key) continue;
+  const statuses = new Map();
+  for (const key of [STORAGE_KEYS.SYNC_FAILED, STORAGE_KEYS.SYNC_QUEUE]) {
     for (const item of lsGet(key, [])) {
       const p = item?.payload || {};
       if (item?.type === 'save_invoice' && p.invoice?.number != null) {
-        saves.set(p.invoice.number, p.invoice); deletes.delete(p.invoice.number);
+        saves.set(p.invoice.number, p.invoice); deletes.delete(p.invoice.number); statuses.delete(p.invoice.number);
       } else if (item?.type === 'delete_invoice' && p.number != null) {
-        deletes.add(p.number); saves.delete(p.number);
+        deletes.add(p.number); saves.delete(p.number); statuses.delete(p.number);
+      } else if (item?.type === 'update_payment_status' && p.number != null) {
+        statuses.set(p.number, p.status);
       }
     }
   }
-  return { saves, deletes };
+  return { saves, deletes, statuses };
+}
+
+function withPendingChanges(rows) {
+  const { saves, deletes, statuses } = pendingInvoiceChanges();
+  const shown = rows
+    .filter(inv => !deletes.has(numberOf(inv)))
+    .map(inv => saves.get(numberOf(inv)) ?? inv);
+  const onServer = new Set(rows.map(numberOf));
+  for (const [number, inv] of saves) if (!onServer.has(number)) shown.push(inv);
+  return shown
+    .map(inv => (statuses.has(numberOf(inv))
+      ? { ...inv, paymentStatus: statuses.get(numberOf(inv)), payment_status: statuses.get(numberOf(inv)) }
+      : inv))
+    .sort(byCreatedDesc);
 }
 
 const loadInvoices = incrementalLoader({
-  key: STORAGE_KEYS.LIST,
+  key: STORAGE_KEYS.INVOICE_MIRROR,
+  owner: () => db.getCurrentUserId(),
   full: () => db.getInvoices(),
   ids: () => db.getInvoiceNumberIndex(),
   changedSince: since => db.getInvoicesChangedSince(since),
-  idOf: inv => inv.number ?? inv.invoice_number,
+  idOf: numberOf,
   rowIdOf: row => row.invoice_number,
-  view: list => {
-    const { saves, deletes } = pendingInvoiceChanges();
-    const shown = list
-      .filter(inv => !deletes.has(inv.number))
-      .map(inv => saves.get(inv.number) ?? inv);
-    const onServer = new Set(list.map(inv => inv.number));
-    for (const [number, inv] of saves) if (!onServer.has(number)) shown.push(inv);
-    return shown.sort(byCreatedDesc);
-  },
+  view: withPendingChanges,
   absentOnPurpose: number => pendingInvoiceChanges().deletes.has(number),
+  // No cloud copy for this account yet (a guest, or offline since before the
+  // first download): the invoices made on this phone, as before the mirror.
+  fallback: rows => (rows ? withPendingChanges(rows) : lsGet(STORAGE_KEYS.LIST, [])),
 });
 
 /**
- * Returns all of this account's invoices, newest first, and keeps them in the
- * local list (inv_list) so the phone holds the whole account. Downloads
- * everything once per launch, then only changes (see utils/incrementalSync.js);
- * screens that ask at the same moment share one request. Falls back to the
- * local list when the cloud can't be reached, or for a guest.
+ * Returns all of this account's invoices, newest first, and keeps a copy of
+ * them on the phone (inv_invoice_mirror) for when the cloud can't be reached.
+ * Downloads everything once per launch, then only changes (see
+ * utils/incrementalSync.js); screens that ask at the same moment share one
+ * request. A guest, or an account with no copy yet, gets inv_list.
  * @returns {Promise<object[]>}
  */
 export function getInvoices() {
@@ -170,6 +203,7 @@ export async function deleteInvoice(number) {
   // Local-first: remove immediately so the delete survives offline
   const list = lsGet(STORAGE_KEYS.LIST, []);
   lsSet(STORAGE_KEYS.LIST, list.filter(i => (i.number || i.invoice_number) !== number));
+  patchMirror(rows => rows.filter(i => numberOf(i) !== number));
   // Best-effort cloud delete — there is no retry queue, so a failure here
   // means the cloud copy survives and the invoice reappears on next load.
   // Tell the user instead of failing silently.
@@ -196,6 +230,7 @@ export async function updateInvoicePaymentStatus(number, status) {
       : i
   );
   lsSet(STORAGE_KEYS.LIST, updated);
+  patchMirror(rows => rows.map(i => (numberOf(i) === number ? { ...i, paymentStatus: status, payment_status: status } : i)));
   // Best-effort cloud sync — a silent failure here reverts the status on the
   // next cloud load (and the store side never sees the change), so surface it.
   const { error } = await db.updateInvoicePaymentStatus(number, status);

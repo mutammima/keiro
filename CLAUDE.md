@@ -475,8 +475,12 @@ re-downloaded constantly. Two causes, both now fixed:
   and concurrent loads share one request. Run `supabase-connection-orders-updated-at.sql`
   so the server, not the phone's clock, stamps order changes.
 - **The driver's own invoice list** (`storage.getInvoices`, read by nine screens) works the
-  same way, through the shared `utils/incrementalSync.js`. It now keeps the whole account in
-  `inv_list`, with invoices still in the sync queue overriding the server copy until they upload.
+  same way, through the shared `utils/incrementalSync.js`. The account's cloud copy lives in
+  `inv_invoice_mirror` (`{ owner, rows }`, only read back by that account), **never in
+  `inv_list`**: `inv_list` is "invoices made on this phone" and `runMigrationIfNeeded` uploads it
+  on sign-in, so cloud copies there clobbered guest invoices and re-uploaded stale ones. Queued
+  and set-aside changes override the copy until they upload, oldest first (set-aside before
+  queued). Whole-account invoice reads page by invoice number past PostgREST's 1000-row cap.
   New cloud-backed lists should use `incrementalLoader` rather than a bare `select('*')`.
 - **Signature blobs** (base64 PNGs, 20-60 KB each) were fetched for *every* invoice on
   *every* InvoiceHistory mount. Now only an index of signed invoice numbers loads

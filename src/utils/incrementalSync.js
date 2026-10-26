@@ -11,10 +11,15 @@
  *     since the newest updated_at seen, and rebuilds the list from those — so
  *     rows still come, change and go exactly as on the server;
  *   • falls back to a full download if the list lacks a row the server has;
- *   • shares one request between loads that start at the same time;
  *   • downloads everything again if the server has no updated_at column to
  *     filter on (its migration not run), rather than freezing the list;
+ *   • shares one request between loads that start at the same time;
  *   • returns the stored list unchanged when the cloud can't be reached.
+ *
+ * With `owner`, the stored list remembers whose it is: a different signed-in
+ * account (a switch without a reload, or a sign-in after the session ended
+ * server-side, which leaves local data in place) starts from a full download
+ * and never sees the previous account's rows, even offline.
  *
  * The overlap re-reads rows stamped up to 10 minutes before the newest one, for
  * clocks that drift and commits that land late.
@@ -26,15 +31,9 @@ const SYNC_OVERLAP_MS = 10 * 60 * 1000;
 // Postgres "undefined column": the table's updated_at migration hasn't run.
 const MISSING_COLUMN = '42703';
 
-function readList(key) {
-  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
-  catch { return []; }
-}
-
-// Through storageRoom, like lsSet: a full phone frees room or raises the
-// storage banner instead of losing the write silently.
-function writeList(key, list) {
-  writeLocal(key, JSON.stringify(list));
+function readJson(key) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null'); }
+  catch { return null; }
 }
 
 function newestStamp(rows, floor) {
@@ -57,10 +56,15 @@ export function byCreatedDesc(a, b) {
  * @param {(row) => object} [o.map]       server row → list item
  * @param {(item) => *} [o.idOf]          an item's id
  * @param {(row) => *} [o.rowIdOf]        an id row's id
- * @param {(list: object[]) => object[]} [o.view]  last say on what is stored and
- *   returned (e.g. local changes still waiting to upload)
+ * @param {(list: object[]) => object[]} [o.view]  last say on what is returned
+ *   (e.g. local changes still waiting to upload); the server's rows are stored
  * @param {(id) => boolean} [o.absentOnPurpose]  ids the list leaves out on purpose,
  *   which must not trigger a full download
+ * @param {() => Promise<string|null>} [o.owner]  the signed-in account; the list
+ *   is then stored as { owner, rows } and only read back by that account
+ * @param {(stored: object[]|null) => object[]} [o.fallback]  what to return when
+ *   the cloud can't be reached; gets the stored list, or null if there is none
+ *   (for `owner`: none for this account)
  * @returns {() => Promise<object[]>}
  */
 export function incrementalLoader({
@@ -70,14 +74,27 @@ export function incrementalLoader({
   rowIdOf = row => row.id,
   view = list => list,
   absentOnPurpose = () => false,
+  owner = null,
+  fallback = stored => view(stored ?? []),
 }) {
-  let watermark = null; // newest server updated_at seen (ms); null until this launch's full load
+  let watermark = null; // newest server updated_at seen (ms); null until a full load for `scope`
+  let scope = null;     // the owner the watermark and stored rows belong to
   let inFlight = null;
 
-  function store(list) {
-    const shown = view(list);
-    writeList(key, shown);
-    return shown;
+  function stored() {
+    const v = readJson(key);
+    if (!owner) return Array.isArray(v) ? v : null;
+    return v && v.owner === scope && Array.isArray(v.rows) ? v.rows : null;
+  }
+
+  // Through storageRoom, like lsSet: a full phone frees room or raises the
+  // storage banner instead of losing the write silently. Not if the account
+  // changed while the request ran: a sign-out has wiped the list by then, and
+  // writing it back would leave that account's rows on the phone.
+  async function store(rows) {
+    if (owner && (await owner()) !== scope) return null;
+    writeLocal(key, JSON.stringify(owner ? { owner: scope, rows } : rows));
+    return view(rows);
   }
 
   async function fullLoad() {
@@ -96,7 +113,7 @@ export function incrementalLoader({
     const live = new Set(idRes.data.map(rowIdOf));
     const changed = changedRes.data.map(map);
     const changedIds = new Set(changed.map(idOf));
-    const kept = readList(key).filter(item => live.has(idOf(item)) && !changedIds.has(idOf(item)));
+    const kept = (stored() ?? []).filter(item => live.has(idOf(item)) && !changedIds.has(idOf(item)));
     const merged = [...changed, ...kept].sort(byCreatedDesc);
 
     const have = new Set(merged.map(idOf));
@@ -106,12 +123,17 @@ export function incrementalLoader({
     return store(merged);
   }
 
-  return function load() {
-    if (!inFlight) {
-      inFlight = (watermark === null ? fullLoad() : changesOnly())
-        .then(result => result ?? readList(key))
-        .finally(() => { inFlight = null; });
+  async function run() {
+    if (owner) {
+      const who = await owner();
+      if (who !== scope) { scope = who; watermark = null; }
     }
+    const result = await (watermark === null ? fullLoad() : changesOnly());
+    return result ?? fallback(stored());
+  }
+
+  return function load() {
+    if (!inFlight) inFlight = run().finally(() => { inFlight = null; });
     return inFlight;
   };
 }
