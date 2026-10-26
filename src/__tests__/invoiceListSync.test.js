@@ -65,6 +65,19 @@ describe('getInvoices', () => {
     expect(list.map(i => [i.number, i.paymentStatus])).toEqual([[1002, 'paid']]);
   });
 
+  it('downloads everything again, rather than freezing the list, when the server has no updated_at column', async () => {
+    db.getInvoices.mockResolvedValue(ok([inv(1001, '2026-10-05T10:00:00.000Z')]));
+    await storage.getInvoices();
+    db.getInvoiceNumberIndex.mockResolvedValue(index(1001, 1002));
+    db.getInvoicesChangedSince.mockResolvedValue({ data: null, error: { code: '42703', message: 'column invoices.updated_at does not exist' } });
+    db.getInvoices.mockResolvedValue(ok([inv(1001, '2026-10-05T10:00:00.000Z'), inv(1002, '2026-10-05T11:00:00.000Z')]));
+
+    const list = await storage.getInvoices();
+
+    expect(db.getInvoices).toHaveBeenCalledTimes(2);
+    expect(list.map(i => i.number).sort()).toEqual([1001, 1002]);
+  });
+
   it('shares one download between screens that ask at the same time', async () => {
     db.getInvoices.mockResolvedValue(ok([inv(1001, '2026-10-05T10:00:00.000Z')]));
 

@@ -12,22 +12,29 @@
  *     rows still come, change and go exactly as on the server;
  *   • falls back to a full download if the list lacks a row the server has;
  *   • shares one request between loads that start at the same time;
+ *   • downloads everything again if the server has no updated_at column to
+ *     filter on (its migration not run), rather than freezing the list;
  *   • returns the stored list unchanged when the cloud can't be reached.
  *
  * The overlap re-reads rows stamped up to 10 minutes before the newest one, for
  * clocks that drift and commits that land late.
  */
 
+import { writeLocal } from './storageRoom';
+
 const SYNC_OVERLAP_MS = 10 * 60 * 1000;
+// Postgres "undefined column": the table's updated_at migration hasn't run.
+const MISSING_COLUMN = '42703';
 
 function readList(key) {
   try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
   catch { return []; }
 }
 
+// Through storageRoom, like lsSet: a full phone frees room or raises the
+// storage banner instead of losing the write silently.
 function writeList(key, list) {
-  try { localStorage.setItem(key, JSON.stringify(list)); }
-  catch (e) { console.error('incrementalSync: localStorage write failed', e); }
+  writeLocal(key, JSON.stringify(list));
 }
 
 function newestStamp(rows, floor) {
@@ -83,6 +90,7 @@ export function incrementalLoader({
   async function changesOnly() {
     const since = new Date(watermark - SYNC_OVERLAP_MS).toISOString();
     const [idRes, changedRes] = await Promise.all([ids(), changedSince(since)]);
+    if (changedRes.error?.code === MISSING_COLUMN) return fullLoad();
     if (idRes.error || !idRes.data || changedRes.error || !changedRes.data) return null;
 
     const live = new Set(idRes.data.map(rowIdOf));
