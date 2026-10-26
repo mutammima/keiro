@@ -282,6 +282,7 @@ src/
 | `src/components/navigation/AppFooter.jsx` | In-page footer links |
 | `src/components/auth/AuthGate.jsx` | Auth wrapper |
 | `src/components/auth/OnboardingFlow.jsx` | Sign-in / sign-up flow — Google primary, email/password + recovery (PR #140) |
+| `src/components/settings/DeleteAccountSheet.jsx` | In-app account deletion (Apple 5.1.1(v)): Settings → Security & Permissions and Profile, signed-in only. Type DELETE (Google accounts have no password), server deletes at once via `auth.deleteAccount()`, local data cleared only after it confirms. Spec: `docs/specs/2026-10-26-account-deletion.md` |
 | `src/components/settings/PinLock.jsx` | PIN lock screen |
 | `src/components/settings/ThemeToggle.jsx` | Dark/light toggle |
 | `src/components/tutorial/QuickStart.jsx` | The entire onboarding tutorial — one 7-step spotlight tour per role, replayable (see Onboarding section) |
@@ -345,6 +346,7 @@ names), so re-running is always safe:
 - `supabase-connection-orders-updated-at.sql` — server-side trigger stamping `connection_orders.updated_at` on every update, so incremental refreshes can't miss a change stamped by a slow phone clock (same pattern as `supabase-invoice-updated-at.sql`)
 - `supabase-shared-product-names.sql` — `shared_product_name(barcode)` / `suggest_product_names(query)` SECURITY DEFINER RPCs (authenticated only): another driver's product name, name only, once two OTHER accounts agree. Run via `docs/COWORK_SHARED_PRODUCT_NAMES.md`; the app treats a missing function as "no shared name"
 - `supabase-pricing.sql` — `subscriptions` (who is Pro: the owner's switch for now) + `invoice_usage` (new invoices per UTC month), `is_pro()` / `my_plan()`, and triggers on `invoices` that count them and refuse a non-Pro account's upload past 25 a month (`KEIRO_FREE_LIMIT`). Users read only their own rows and write neither. Run via `docs/COWORK_PRICING.md` (it also sets the owner's dad free forever) **before the app update** — with no plan answer the app treats a driver as Free, so the dad would be moved to Easy Mode
+- `supabase-account-deletion.sql` — `delete_my_account()` SECURITY DEFINER RPC (authenticated only): deletes the caller's account at once. It first deletes their `connections` rows (live FKs there are SET NULL, not the CASCADE the repo's file says) and `profiles` row, then `auth.users`, which cascades everything else. Run via `docs/COWORK_ACCOUNT_DELETION.md` **before** the app update with the Delete account button (until then the button says "email us"). Checked by `scripts/sql-checks/account-deletion.mjs` (PGlite, copies the live delete rules)
 - `supabase-realtime.sql` — adds `connection_orders` + `invoices` to the `supabase_realtime` publication so the app's websocket subscription actually receives events. **Not correctness-critical** (the app falls back to a 1-min poll if unrun) but it's the difference between instant cross-account updates and the cheap-but-slower fallback — see Egress below
 
 **Rule:** SQL handed to the user may get rewritten by the dashboard assistant

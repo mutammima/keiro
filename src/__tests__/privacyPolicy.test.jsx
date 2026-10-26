@@ -30,6 +30,8 @@ const PLAN_KEPT = "For your plan, Keiro keeps whether you're on Free or Pro (and
 // address goes to OpenStreetMap to draw the map: both texts must say so in these words.
 const LOCATION = 'If you allow location access, Keiro reads your location when you publish a Marketplace post and saves it with the post rounded to about 1 km, so posts can be sorted by distance. Keiro never sends your exact location anywhere.';
 const MAP_LOOKUP = "To show a store on the map, its address (only the address) is sent to OpenStreetMap's Nominatim service to find it.";
+// Account deletion is in the app now (Settings → Delete account), not "email us".
+const DELETION = "You can delete your account and all its data in the app, in Settings → Security & Permissions → Delete account. It is deleted at once and can't be recovered.";
 const PLANS_TERMS = `Keiro has a free plan for drivers: Easy Mode and ${FREE_INVOICES_PER_MONTH} new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.`;
 
 describe('privacy policy', () => {
@@ -59,6 +61,12 @@ describe('privacy policy', () => {
     expect(screen.getByText(/your approximate location when you created it \(rounded to about 1 km\)/)).toBeInTheDocument();
     expect(screen.queryByText(/the coordinates recorded when you created it/)).toBeNull();
     expect(screen.getByText((content) => content.includes(MAP_LOOKUP))).toBeInTheDocument();
+  });
+
+  it('says the account can be deleted in the app, at once, not by emailing', () => {
+    render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
+    expect(screen.getByText((content) => content.includes(DELETION))).toBeInTheDocument();
+    expect(screen.queryByText(/full account deletion by contacting us/)).toBeNull();
   });
 
   it('says what Keiro keeps for the plan, and still that the app takes no payments', () => {
@@ -110,6 +118,8 @@ describe('PRIVACY.md and TERMS.md', () => {
     expect(privacy).toContain(PLAN_KEPT);
     expect(privacy).toContain(LOCATION);
     expect(privacy).toContain(MAP_LOOKUP);
+    expect(privacy).toContain(DELETION);
+    expect(privacy).not.toContain('To delete your entire account and associated data, contact us');
     const terms = markdown('TERMS.md');
     expect(terms).toMatch(/## \d+\. Plans Keiro has a free plan/); // its own numbered section
     expect(terms).toContain(PLANS_TERMS);

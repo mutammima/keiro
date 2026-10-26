@@ -148,6 +148,9 @@ export const STORE_MADE_BARCODE_MESSAGE = "This is a store-made barcode, so no d
 /** Gmail-sent sign-in mail lands in Spam more often than domain mail. */
 export const SPAM_HINT = "Can't find it? Check your Spam folder.";
 
+/** Where people write to Keiro (privacy requests, account help). */
+export const CONTACT_EMAIL = 'alomonds@gmail.com';
+
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;

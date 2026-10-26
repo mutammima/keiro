@@ -30,6 +30,7 @@ import { supabase } from '../services/supabase';
 import { useSafeSignOut } from '../hooks/useSafeSignOut';
 import AppFooter from '../components/navigation/AppFooter';
 import PinLock from '../components/settings/PinLock';
+import DeleteAccountSheet from '../components/settings/DeleteAccountSheet';
 import { isPinEnabled, clearPin } from '../utils/pinStorage';
 import { Toggle, Row, Divider, Section } from '../components/ui/SettingsUI';
 import { createPortal } from 'react-dom';
@@ -157,6 +158,9 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
 
   // ── Switch Role ────────────────────────────────────────────────────────────
   const [confirmSwitchRole, setConfirmSwitchRole] = useState(false);
+
+  // ── Delete account (signed-in accounts only) ───────────────────────────────
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Get the current role to know which one to switch TO
   const currentRole = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_ROLE)); } catch { return 'driver'; } })();
@@ -384,7 +388,21 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
               Switch
             </button>
           </Row>
+          {session && (
+            <>
+              <Divider C={C} />
+              <Row label="Delete account" sub="Delete your account and all its data" C={C}>
+                <button
+                  style={{ ...s.smallBtn, background: C.rowBg, color: C.danger, border: `1px solid ${C.divider}` }}
+                  onClick={() => setDeletingAccount(true)}
+                >
+                  Delete
+                </button>
+              </Row>
+            </>
+          )}
         </Section>
+        {deletingAccount && <DeleteAccountSheet onClose={() => setDeletingAccount(false)} />}
 
         {/* PIN setup overlay */}
         {pinModal === 'setup' && (
@@ -486,15 +504,15 @@ export default function Settings({ onOpenDrawer, onNav, onClose, onSwitchRole, o
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Privacy Policy</div>
-                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user, with your location rounded to about 1 km. If the app crashes, a report goes to Sentry (our error-monitoring provider): the error, the app version, your device type and the screen it happened on, never your invoices, names or contact details. You can switch this off above. There is no in-app way to delete your account yet — email the address below and it will be deleted manually.
+                  Keiro stores your invoice and product data in Supabase, a third-party cloud provider. Your data is associated with your account and is not sold or shared with third parties, with one exception: anything you publish to Marketplace is readable by every signed-in Keiro user, with your location rounded to about 1 km. If the app crashes, a report goes to Sentry (our error-monitoring provider): the error, the app version, your device type and the screen it happened on, never your invoices, names or contact details. You can switch this off above. You can delete your account and all its data under Security & Permissions → Delete account.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Data Retention</div>
-                  Data is retained for the lifetime of your account. There is no in-app account deletion yet: to have your account and its data removed, email the address below and it will be deleted manually. Exported backup files are entirely in your control and are not managed by Keiro.
+                  Data is retained for the lifetime of your account. Delete account (under Security & Permissions) deletes your account and all its data at once. Exported backup files are entirely in your control and are not managed by Keiro.
                 </div>
                 <div>
                   <div style={{ color: C.textSub, fontWeight: 700, marginBottom: 4 }}>Contact</div>
-                  For questions or data deletion requests, email: <span style={{ color: ACCENT }}>alomonds@gmail.com</span>
+                  For questions or privacy requests, email: <span style={{ color: ACCENT }}>alomonds@gmail.com</span>
                 </div>
                 <button style={{ background: 'none', border: 'none', color: C.textMuted, fontSize: 12, cursor: 'pointer', padding: 0, textAlign: 'left' }} onClick={() => setTermsOpen(false)}>
                   Collapse ↑
