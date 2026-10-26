@@ -10,6 +10,12 @@ export default defineConfig([
   // project — build output, gitignored, and it otherwise floods `npm run lint`
   // with ~9.6k phantom problems from minified vendor code.
   globalIgnores(['dist', 'node_modules', 'public', 'ios']),
+  // Run by Node, not the browser: the Vite config (reads the Sentry env vars)
+  // and the Vercel Functions.
+  {
+    files: ['vite.config.js', 'api/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['**/*.{js,jsx}'],
     extends: [
