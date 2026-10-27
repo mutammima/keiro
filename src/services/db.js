@@ -55,7 +55,7 @@ if (typeof window !== 'undefined') {
  * gives up after AUTH_LOOKUP_TIMEOUT_MS (see above).
  * @returns {Promise<string|null>}
  */
-async function getCurrentUserId() {
+export async function getCurrentUserId() {
   if (_cachedUserId !== null) return _cachedUserId;
   if (Date.now() < _authUnreachableUntil) return null;
   if (!_userLookup) {
@@ -88,54 +88,95 @@ async function noSession() {
 
 /**
  * Fetch all invoices for the current user, newest first, with their line items.
- * Items are stored in a separate `invoice_items` table and joined here.
+ * Items are stored in a separate `invoice_items` table and joined here. Pages
+ * past PostgREST's row cap (see pagedByInvoiceNumber).
  * @returns {Promise<{ data: object[]|null, error: object|null }>}
  */
 export async function getInvoices() {
+  return fetchOwnInvoices();
+}
+
+/**
+ * The current user's invoices whose updated_at is at or after `sinceIso`, with
+ * their line items. invoices.updated_at is stamped by a trigger on every header
+ * change (supabase-invoice-updated-at.sql), and every save re-writes the
+ * header, so an item edit moves it too.
+ * @param {string} sinceIso
+ */
+export async function getInvoicesChangedSince(sinceIso) {
+  return fetchOwnInvoices(query => query.gte('updated_at', sinceIso));
+}
+
+async function fetchOwnInvoices(narrow = query => query) {
   const userId = await getCurrentUserId();
   if (!userId) return { data: null, error: new Error('no session') };
   try {
     // Explicit owner filter — RLS also lets a store read invoices ADDRESSED to
     // them (store_user_id), and those must not leak into the own-invoices list.
-    const { data, error } = await supabase
+    const { data, error } = await pagedByInvoiceNumber(() => narrow(supabase
       .from('invoices')
       .select(`
         *,
         invoice_items (*)
       `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('user_id', userId)));
 
     if (error) return { data: null, error };
-
-    // Reshape to match existing app shape: { items: [...], number, ... }
-    // Every snake_case column the UI reads gets a camelCase twin so consumers
-    // never need the `inv.storeName || inv.store_name` dance (and the ones
-    // that forgot it — pin toggle, Reports today list — work on cloud rows).
-    const shaped = (data || []).map(inv => ({
-      ...inv,
-      number: inv.invoice_number,
-      storeName: inv.store_name || '',
-      storePhone: inv.store_phone || '',
-      storeAddress: inv.store_address || '',
-      businessName: inv.business_name || '',
-      businessPhone: inv.business_phone || '',
-      customerName: inv.customer_name || '',
-      paymentMethod: inv.payment_method || 'cash',
-      paymentStatus: inv.payment_status || 'unpaid',
-      items: (inv.invoice_items || []).map(item => ({
-        id: item.id,
-        name: item.name,
-        qty: item.qty,
-        price: item.price,
-      })),
-      invoice_items: undefined,
-    }));
-
-    return { data: shaped, error: null };
+    const newestFirst = (a, b) => (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0);
+    return { data: data.sort(newestFirst).map(shapeInvoice), error: null };
   } catch (err) {
     return { data: null, error: err };
   }
+}
+
+// PostgREST returns at most max-rows (1000 on Supabase) per request and says
+// nothing about the rest, so reads that cover a whole account page through it
+// by invoice number. Keyset, not offset: an invoice added or deleted between
+// pages can't shift a row out of the read. A page shorter than INVOICE_PAGE is
+// the last; the page sits under the server's cap so a capped page can't pass
+// for the end.
+const INVOICE_PAGE = 500;
+
+async function pagedByInvoiceNumber(build) {
+  const rows = [];
+  let after = null;
+  for (;;) {
+    let query = build();
+    if (after !== null) query = query.gt('invoice_number', after);
+    const { data, error } = await query.order('invoice_number', { ascending: true }).limit(INVOICE_PAGE);
+    if (error) return { data: null, error };
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < INVOICE_PAGE) return { data: rows, error: null };
+    after = page[page.length - 1].invoice_number;
+  }
+}
+
+// Reshape to match existing app shape: { items: [...], number, ... }
+// Every snake_case column the UI reads gets a camelCase twin so consumers
+// never need the `inv.storeName || inv.store_name` dance (and the ones
+// that forgot it — pin toggle, Reports today list — work on cloud rows).
+function shapeInvoice(inv) {
+  return {
+    ...inv,
+    number: inv.invoice_number,
+    storeName: inv.store_name || '',
+    storePhone: inv.store_phone || '',
+    storeAddress: inv.store_address || '',
+    businessName: inv.business_name || '',
+    businessPhone: inv.business_phone || '',
+    customerName: inv.customer_name || '',
+    paymentMethod: inv.payment_method || 'cash',
+    paymentStatus: inv.payment_status || 'unpaid',
+    createdAt: inv.createdAt || inv.created_at,
+    items: (inv.invoice_items || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      qty: item.qty,
+      price: item.price,
+    })),
+    invoice_items: undefined,
+  };
 }
 
 /**
@@ -310,11 +351,10 @@ export async function getInvoiceNumberIndex() {
     const userId = await getCurrentUserId();
     if (!userId) return { data: null, error: new Error('no session') };
     // Own invoices only — see getNextInvoiceNumber for why the filter matters.
-    const { data, error } = await supabase
+    return await pagedByInvoiceNumber(() => supabase
       .from('invoices')
       .select('invoice_number, created_at, store_name, date')
-      .eq('user_id', userId);
-    return { data, error };
+      .eq('user_id', userId));
   } catch (err) {
     return { data: null, error: err };
   }

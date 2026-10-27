@@ -16,6 +16,7 @@ vi.mock('../services/db', () => ({
   saveInvoice: vi.fn(), deleteInvoice: vi.fn(async () => ({ error: null })), getInvoices: vi.fn(),
   saveInvoicePayment: vi.fn(), updateInvoicePaymentStatus: vi.fn(), deleteInvoicePayment: vi.fn(), clearInvoicePayments: vi.fn(),
   saveSignatureRow: vi.fn(), deleteSignatureRow: vi.fn(),
+  getCurrentUserId: vi.fn(), getInvoiceNumberIndex: vi.fn(), getInvoicesChangedSince: vi.fn(),
 }));
 
 import * as db from '../services/db';
@@ -719,7 +720,15 @@ describe('invoices not in the cloud yet stay on every screen (storage.getInvoice
   // A cloud row has both spellings of its fields (db.getInvoices shapes it so); the phone's copy has the app's own.
   const cloudRow = (number, extra = {}) => ({ number, invoice_number: number, storeName: 'Cloud Deli', created_at: at(number - 1000), items: [], ...extra });
   const phoneCopy = (number, extra = {}) => ({ number, storeName: 'Phone Deli', createdAt: at(number - 1000), items: [], ...extra });
-  const cloudHas = (...rows) => db.getInvoices.mockResolvedValue({ data: rows, error: null });
+  // getInvoices downloads everything once, then only changes (utils/incrementalSync.js): the server's
+  // three answers all come from the same rows, and each test is a new account, so it starts with a full load.
+  const cloudHas = (...rows) => {
+    db.getInvoices.mockResolvedValue({ data: rows, error: null });
+    db.getInvoiceNumberIndex.mockResolvedValue({ data: rows.map(r => ({ invoice_number: r.number })), error: null });
+    db.getInvoicesChangedSince.mockResolvedValue({ data: rows, error: null });
+  };
+  let account = 0;
+  beforeEach(() => { db.getCurrentUserId.mockResolvedValue(`user-${++account}`); });
   const phoneHas = (...list) => localStorage.setItem(STORAGE_KEYS.LIST, JSON.stringify(list));
   const waiting = (key, ...numbers) => localStorage.setItem(key, JSON.stringify(numbers.map(n => ({ id: `${key}-${n}`, type: 'save_invoice', payload: { invoice: { number: n } }, ts: 1, retries: 0 }))));
   const numbers = (list) => list.map(i => i.number);
@@ -767,14 +776,21 @@ describe('invoices not in the cloud yet stay on every screen (storage.getInvoice
     expect(list[0].storeName).toBe('Cloud Deli');
   });
 
-  it('only a waiting save counts: other queued changes leave the cloud row alone', async () => {
+  it('only a waiting save brings in the phone\'s copy: a queued payment status changes just the status', async () => {
     cloudHas(cloudRow(1020));
     phoneHas(phoneCopy(1020, { storeName: 'Stale copy' }));
     localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([
       { id: 'q1', type: 'update_payment_status', payload: { number: 1020, status: 'paid' }, ts: 1, retries: 0 },
+    ]));
+    expect((await getInvoices())[0]).toMatchObject({ storeName: 'Cloud Deli', paymentStatus: 'paid' });
+  });
+
+  it('a queued delete keeps the invoice gone while the cloud still has it', async () => {
+    cloudHas(cloudRow(1020), cloudRow(1019));
+    localStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify([
       { id: 'q2', type: 'delete_invoice', payload: { number: 1020 }, ts: 2, retries: 0 },
     ]));
-    expect((await getInvoices())[0].storeName).toBe('Cloud Deli');
+    expect(numbers(await getInvoices())).toEqual([1019]);
   });
 
   it('no duplicates: an invoice waiting in two lists, or already in the cloud, is listed once', async () => {
@@ -786,11 +802,11 @@ describe('invoices not in the cloud yet stay on every screen (storage.getInvoice
     expect(numbers(await getInvoices())).toEqual([1021, 1020, 1019]);
   });
 
-  it('a waiting save the phone has no copy of adds nothing', async () => {
+  it('a waiting save the phone\'s list has no copy of is listed from the waiting copy, which may be the only one', async () => {
     cloudHas(cloudRow(1020));
     phoneHas(phoneCopy(1020));
-    waiting(STORAGE_KEYS.SYNC_HELD, 1099);
-    expect(numbers(await getInvoices())).toEqual([1020]);
+    waiting(STORAGE_KEYS.SYNC_HELD, 1099); // e.g. the phone was full when it was saved (see releaseHeldSyncs)
+    expect(numbers(await getInvoices())).toEqual([1099, 1020]); // no date: first
   });
 
   it('an invoice deleted while it was held stays gone', async () => {

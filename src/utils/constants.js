@@ -13,7 +13,8 @@
 export const STORAGE_KEYS = {
   // Data
   NUMBER:           'inv_number',
-  LIST:             'inv_list',
+  LIST:             'inv_list',          // invoices made on this phone (migration uploads these)
+  INVOICE_MIRROR:   'inv_invoice_mirror', // { owner, rows }: the signed-in account's invoices as the cloud has them
   CATALOG:          'inv_catalog',
   PAYMENTS:         'inv_payments',
   LOGO_B64:         'inv_logo_b64',

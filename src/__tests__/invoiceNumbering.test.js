@@ -73,7 +73,7 @@ describe('getNextInvoiceNumber', () => {
     db.getNextInvoiceNumber.mockResolvedValueOnce(cloudNext(1051));
     expect(await getNextInvoiceNumber()).toBe(1051);
 
-    // The invoice list cache can be empty here (getInvoices never writes it),
+    // The invoice list cache can be empty here (e.g. before the first load),
     // so the counter alone has to carry the cloud's position.
     db.getNextInvoiceNumber.mockResolvedValueOnce(offline());
     expect(await getNextInvoiceNumber()).toBe(1052);
