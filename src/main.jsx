@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core'
 import './index.css'
 import App from './App.jsx'
 import ErrorBoundary from './components/ui/ErrorBoundary.jsx'
+import MissingConfig from './components/ui/MissingConfig.jsx'
+import { SUPABASE_CONFIGURED } from './services/supabase'
 import { captureInviteFromUrl } from './utils/connectionStorage'
 import { initOtaUpdates } from './utils/otaUpdate'
 import { initOAuthDeepLinkHandler } from './services/auth'
@@ -34,17 +36,21 @@ if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   });
 }
 
+// A build without its Supabase settings says so instead of starting the app.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
+    {SUPABASE_CONFIGURED
+      ? <ErrorBoundary><App /></ErrorBoundary>
+      : <MissingConfig />}
   </StrictMode>,
 )
 
 // Native only: signal a healthy boot (rollback guard) + check for an OTA update.
 // No-op on web. Fire-and-forget after render so it never blocks first paint.
-initOtaUpdates();
+// Not for a build without its settings: it must not tell the updater it booted
+// fine, so the phone rolls back to the last good bundle (which then fetches the
+// next update itself).
+if (SUPABASE_CONFIGURED) initOtaUpdates();
 
 // Native only: catch Google sign-in's redirect back into the app. No-op on web.
 initOAuthDeepLinkHandler();
