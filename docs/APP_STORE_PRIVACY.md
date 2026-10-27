@@ -1,8 +1,9 @@
 # App Store Connect: privacy answers for Keiro
 
 Copy these into **App Store Connect → your app → App Privacy**. Each answer was checked against the
-code on `main` (2026-10-26), not against the privacy policy. Where the two disagree, see "Gaps" at
-the end. Re-check this file whenever a feature starts sending something new off the phone.
+code on `main` (2026-10-26, status updated 2026-10-27), not against the privacy policy. Before you
+submit, do the two owner steps under "Before you submit" at the end. Re-check this file whenever a
+feature starts sending something new off the phone.
 
 Apple counts data as **collected** when it leaves the device and is kept longer than it takes to
 answer the request. Data a guest keeps only on their phone is not collected. A barcode sent for a
@@ -23,7 +24,7 @@ so neither counts.
 | Contact Info → Physical Address | ❌ | Keiro stores *stores'* addresses, not the user's own (that goes under User Content) |
 | Financial Info → **Other Financial Info** | ✅ | Invoices (totals, line items, prices), payment records and paid/unpaid status |
 | Financial Info → Payment Info / Credit Info | ❌ | No cards or bank details. Revisit when payments ship |
-| Location → **Coarse Location** | ✅ | The location saved with Marketplace posts and store requests, rounded to ~1 km by #198. **Before #198 ships, and until the existing posts are rounded (its cowork doc), tick Precise Location instead** |
+| Location → **Coarse Location** | ✅ | The location saved with Marketplace posts and store requests, rounded to ~1 km since #198 (merged 2026-10-27). **Posts saved before that keep their exact position until `docs/COWORK_ROUND_MARKETPLACE_LOCATIONS.md` is run; until then tick Precise Location instead** |
 | User Content → **Other User Content** | ✅ | Store/customer names, store phones and addresses, products, notes, orders, drawn signatures |
 | User Content → Photos or Videos | ❌ | The camera only reads barcodes; no image is kept |
 | Identifiers → **User ID** | ✅ | The Supabase account ID |
@@ -56,34 +57,31 @@ Analytics, Product Personalization, Other Purposes.
 
 ## Step 4: Privacy Policy URL
 
-App Store Connect requires a public URL. Once #199 is live, it's
-`https://keiro-mutammimas-projects.vercel.app/privacy` (built from `PRIVACY.md` on every deploy).
+App Store Connect requires a public URL:
+`https://keiro-mutammimas-projects.vercel.app/privacy` (#199, merged 2026-10-27; built from
+`PRIVACY.md` on every deploy). Open it once before pasting it in.
 
 ---
 
-## Gaps found while checking (fix before the public release)
+## Before you submit
 
-Status 2026-10-26: gaps 1–4 have PRs (#199 for 1, #198 for 2–4). Gap 5 is designed in #196.
+The five gaps found on 2026-10-26 are fixed in the code:
 
-1. **No public privacy-policy URL.** The policy exists in the repo (`PRIVACY.md`) and inside the app
-   (Legal page), but the website has no page at a public address. Options:
-   - **A page on the existing site:** e.g. `…vercel.app/privacy`, generated from `PRIVACY.md` at
-     build time so it can't drift from the copy in the repo. This is the recommended option, and a
-     small code task.
-   - **A link to `PRIVACY.md` on GitHub.** That only works if the repo is public.
-2. **Exact GPS coordinates are published to every signed-in user.** Marketplace posts and store
-   requests save the phone's position unrounded (`MyListings.jsx`, `NewRequest.jsx`). Anyone signed
-   in can read them, which can point to someone's home. "Near me" sorting only needs about 1 km.
-   **Recommend rounding to 2 decimals (~1 km) before saving.** That's a two-line change, and the
-   label can then say **Coarse Location** instead of Precise. The in-app policy already discloses
-   the coordinates; `PRIVACY.md` doesn't mention location at all.
-3. **`PRIVACY.md` is behind the in-app policy.** Section 2 doesn't mention the profile name,
-   location, or that a store's address is sent to OpenStreetMap (Nominatim) to show it on the map.
-4. **Settings says "We collect minimal usage data."** No code collects usage data (no analytics
-   anywhere), so the sentence is wrong in the cautious direction and would contradict a "no Usage
-   Data" label. Remove it.
-5. **Account deletion** is still "email us". See `docs/specs/2026-10-26-account-deletion.md` (#196).
-   Once it ships, update the policy's retention section.
+| Gap | Fixed by |
+|---|---|
+| No public privacy-policy URL | #199: `/privacy`, built from `PRIVACY.md` |
+| Exact GPS published with Marketplace posts | #198: rounded to 2 decimals (~1 km) before saving; a missing position stays empty instead of 0°, 0° |
+| `PRIVACY.md` behind the in-app policy | #198: name, rounded location and the OpenStreetMap address lookup are in both |
+| Settings said "We collect minimal usage data" | #198: removed (nothing collects usage data) |
+| Account deletion was "email us" | #200: Settings → Security & Permissions → Delete account, and on Profile; the policy's retention section says so |
+
+Two steps are still yours, and both change the live database, so they run through Cowork:
+
+1. **Round the posts saved before #198**: `docs/COWORK_ROUND_MARKETPLACE_LOCATIONS.md`. Until it
+   has run, tick Precise Location, not Coarse.
+2. **Install account deletion on the server**: `docs/COWORK_ACCOUNT_DELETION.md`. Until it has run,
+   the Delete account button says to email instead of deleting, which App Review rejects
+   (guideline 5.1.1(v)).
 
 ## When to revisit
 
