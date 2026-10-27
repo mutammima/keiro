@@ -23,7 +23,9 @@ vi.mock('../services/db', () => ({
   whoAmI: vi.fn(async () => null),
 }));
 vi.mock('../utils/syncNotify', () => ({ notifySyncError: vi.fn() }));
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: vi.fn(() => false) } }));
 
+import { Capacitor } from '@capacitor/core';
 import * as db from '../services/db';
 import {
   genInviteCode,
@@ -33,7 +35,32 @@ import {
   getPendingInviteCode,
   redeemPendingInvite,
   getConnections,
+  inviteLink,
 } from '../utils/connectionStorage.js';
+import { PROD_ORIGIN } from '../utils/constants';
+
+// The link is opened on someone else's phone, so it must name a real site.
+describe('inviteLink', () => {
+  beforeEach(() => { Capacitor.isNativePlatform.mockReturnValue(false); });
+
+  it('in the iOS app, points at the live site, not the app\'s own capacitor://localhost', () => {
+    Capacitor.isNativePlatform.mockReturnValue(true);
+    expect(inviteLink('AB23CD')).toBe(`${PROD_ORIGIN}/?invite=AB23CD`);
+    expect(PROD_ORIGIN).toBe('https://keiro-mutammimas-projects.vercel.app');
+  });
+
+  it('on the web, keeps the page\'s own address, so a preview hands out preview links', () => {
+    expect(inviteLink('AB23CD')).toBe(`${window.location.origin}/?invite=AB23CD`);
+  });
+
+  it('a link made in the app, opened in a browser, is picked up as an invite', () => {
+    Capacitor.isNativePlatform.mockReturnValue(true);
+    const url = new URL(inviteLink('AB23CD'));
+    window.history.pushState({}, '', `/${url.search}`);
+    captureInviteFromUrl();
+    expect(getPendingInviteCode()).toBe('AB23CD');
+  });
+});
 
 describe('connectionStorage — invite → redeem', () => {
   beforeEach(() => {

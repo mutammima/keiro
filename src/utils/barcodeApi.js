@@ -14,10 +14,11 @@
 
 import { Capacitor } from '@capacitor/core';
 import { timeoutSignal } from './timeoutSignal';
+import { PROD_ORIGIN } from './constants';
 
 // The iOS app serves its pages from capacitor://localhost, where a relative
 // /api path would point inside the app bundle — so it calls the live site.
-const PROD_LOOKUP_URL = 'https://keiro-mutammimas-projects.vercel.app/api/barcode';
+const PROD_LOOKUP_URL = `${PROD_ORIGIN}/api/barcode`;
 
 function lookupRouteUrl(barcode) {
   const base = Capacitor.isNativePlatform() ? PROD_LOOKUP_URL : '/api/barcode';

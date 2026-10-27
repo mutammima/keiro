@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { PROD_ORIGIN } from './constants';
 
 // ── Self-hosted over-the-air updates (native only) ───────────────────────────
 // On launch the installed iOS app compares its baked-in __APP_VERSION__ (the git
@@ -14,7 +15,7 @@ import { Capacitor } from '@capacitor/core';
 // On web (isNativePlatform() === false) this is a no-op; web keeps its existing
 // service-worker "Update available" banner.
 
-const MANIFEST_URL = 'https://keiro-mutammimas-projects.vercel.app/ota/latest.json';
+const MANIFEST_URL = `${PROD_ORIGIN}/ota/latest.json`;
 
 export async function initOtaUpdates() {
   if (!Capacitor.isNativePlatform()) return;
