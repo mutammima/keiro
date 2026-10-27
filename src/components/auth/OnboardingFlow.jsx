@@ -142,10 +142,14 @@ function textInputStyle(C) {
 }
 
 // Each screen mounts inside this so a step change re-animates.
+// App.css pins html/body/#root to the viewport with overflow hidden (the app shell
+// scrolls its own pages), so the page itself never scrolls: the screen has to be the
+// scroll container, or a form taller than the phone's visible area can't reach its button.
 function Screen({ children, C }) {
   return (
     <div style={{
-      minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+      height: '100dvh', overflowY: 'auto', overflowX: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: C.bg, animation: 'tut-fadein 0.3s ease both',
     }}>
       {children}
@@ -156,7 +160,7 @@ function Screen({ children, C }) {
 function Body({ children }) {
   return (
     <div style={{
-      flex: 1, overflowY: 'auto', overflowX: 'clip',
+      flex: '1 0 auto', overflowX: 'clip',
       display: 'flex', flexDirection: 'column',
       padding: '16px 22px max(24px, env(safe-area-inset-bottom))',
       maxWidth: 480, width: '100%', margin: '0 auto', boxSizing: 'border-box',
