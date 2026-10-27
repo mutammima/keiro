@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { policyPage } from './scripts/policyPage.mjs';
 
 // ── Auto-versioning ───────────────────────────────────────────────────────────
 // Compute a unique version from the git commit hash at build/dev-start time.
@@ -39,9 +40,27 @@ const uploadSourceMaps = Boolean(
   process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
 );
 
+// The public privacy page (<prod>/privacy, the URL App Store Connect asks for),
+// built from PRIVACY.md on every build so it is never a copy to keep in step.
+// vercel.json rewrites /privacy to it. See scripts/policyPage.mjs.
+function privacyPage() {
+  return {
+    name: 'keiro-privacy-page',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'privacy/index.html',
+        source: policyPage(fs.readFileSync('./PRIVACY.md', 'utf8')),
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    privacyPage(),
     ...(uploadSourceMaps
       ? [sentryVitePlugin({
           org: process.env.SENTRY_ORG,

@@ -324,6 +324,7 @@ src/
 | `public/version.json` | Written at build time with git hash for update detection |
 | `vite.config.js` | Auto-versioning: writes version.json + injects __APP_VERSION__ |
 | `src/utils/otaUpdate.js` | Native-only: checks `/ota/latest.json` on launch, downloads + applies a newer bundle — see iOS Native Wrapper |
+| `scripts/policyPage.mjs` | Builds the public privacy page (`<prod>/privacy`, the URL App Store Connect asks for) from `PRIVACY.md` on every `vite build` (plugin in `vite.config.js`; `vercel.json` rewrites `/privacy`). Edit `PRIVACY.md`, never the page |
 | `scripts/build-ota.mjs` | Runs after every `vite build`; packages `dist/` into `dist/ota/<hash>.zip` + `latest.json` |
 | `capacitor.config.json` | Capacitor config — appId, webDir, OTA updater plugin settings |
 | `ios/App/App/Info.plist` | Native permissions (camera, location), `keiro://` URL scheme for Google OAuth, file-sharing keys for PDF share |
