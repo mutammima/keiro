@@ -19,8 +19,9 @@
  *   inv_pending_invite  — string code captured from an invite link, awaiting redeem
  */
 
+import { Capacitor } from '@capacitor/core';
 import { lsGet, lsSet, getBusinessName } from './storage';
-import { STORAGE_KEYS } from './constants';
+import { STORAGE_KEYS, PROD_ORIGIN } from './constants';
 import { notifySyncError } from './syncNotify';
 import * as db from '../services/db';
 
@@ -41,8 +42,14 @@ export function genInviteCode(len = 6) {
   return out;
 }
 
+// The link is opened by someone else, in their browser, so it must point at a site.
+// In the iOS app the page's own origin is capacitor://localhost, which opens nothing
+// on another phone: there it is the live site. On the web it stays the page's own
+// origin, so a Vercel preview hands out preview links.
 export function inviteLink(code) {
-  const origin = (typeof window !== 'undefined' && window.location && window.location.origin) || '';
+  const origin = Capacitor.isNativePlatform()
+    ? PROD_ORIGIN
+    : (typeof window !== 'undefined' && window.location && window.location.origin) || '';
   return `${origin}/?invite=${code}`;
 }
 

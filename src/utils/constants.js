@@ -151,6 +151,14 @@ export const SPAM_HINT = "Can't find it? Check your Spam folder.";
 /** Where people write to Keiro (privacy requests, account help). */
 export const CONTACT_EMAIL = 'alomonds@gmail.com';
 
+/**
+ * The live site. The iOS app serves itself from capacitor://localhost, so anything it
+ * fetches from the site (barcode lookup, OTA updates) or hands to someone else (an
+ * invite link) must name this address rather than the page's own origin.
+ * scripts/build-ota.mjs has its own copy (a Node build script; it can't import this).
+ */
+export const PROD_ORIGIN = 'https://keiro-mutammimas-projects.vercel.app';
+
 // ── Overdue / time ──────────────────────────────────────────────────────────
 /** Milliseconds in one day — used for all "days between" math. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
