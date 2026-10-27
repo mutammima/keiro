@@ -11,6 +11,7 @@
 import { supabase } from './supabase';
 import { INVOICE_NUMBER_START, SHARED_RPC_TIMEOUT_MS, PLAN_RPC_TIMEOUT_MS } from '../utils/constants';
 import { timeoutSignal } from '../utils/timeoutSignal';
+import { publicCoord } from '../utils/geo';
 
 // ── Auth cache ────────────────────────────────────────────────────────────────
 // Cache the user ID so we don't hit supabase.auth.getUser() on every query.
@@ -1095,8 +1096,8 @@ export async function saveMarketplaceListing(listing) {
         price:        Number(listing.price) || 0,
         unit:         listing.unit || 'each',
         active:       listing.active !== false,
-        lat:          Number.isFinite(Number(listing.lat)) ? Number(listing.lat) : null,
-        lng:          Number.isFinite(Number(listing.lng)) ? Number(listing.lng) : null,
+        lat:          publicCoord(listing.lat),   // ~1 km: every signed-in user can read it
+        lng:          publicCoord(listing.lng),
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'id' })
       .select()
@@ -1147,8 +1148,8 @@ export async function saveMarketplaceDemand(demand) {
         needed_by:    demand.neededBy || '',
         notes:        demand.notes    || '',
         status:       demand.status   || 'open',
-        lat:          Number.isFinite(Number(demand.lat)) ? Number(demand.lat) : null,
-        lng:          Number.isFinite(Number(demand.lng)) ? Number(demand.lng) : null,
+        lat:          publicCoord(demand.lat),   // ~1 km: every signed-in user can read it
+        lng:          publicCoord(demand.lng),
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'id' })
       .select()

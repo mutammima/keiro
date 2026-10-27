@@ -7,7 +7,8 @@
  *
  * It also says what Keiro keeps for the plan, still says the app takes no
  * payments, and the terms describe the free plan for drivers (Pro is coming
- * soon). PRIVACY.md and TERMS.md carry the same sentences.
+ * soon), and that a Marketplace post's location is rounded to about 1 km. PRIVACY.md
+ * and TERMS.md carry the same sentences.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -25,6 +26,10 @@ import Legal from '../pages/Legal.jsx';
 // limit as a number, so it is built from the constant here: changing the limit fails
 // these tests until the Terms (and their date) are changed on purpose.
 const PLAN_KEPT = "For your plan, Keiro keeps whether you're on Free or Pro (and until when) and how many invoices you made each month.";
+// Marketplace posts carry a location rounded to about 1 km (db.js, publicCoord), and a store's
+// address goes to OpenStreetMap to draw the map: both texts must say so in these words.
+const LOCATION = 'If you allow location access, Keiro reads your location when you publish a Marketplace post and saves it with the post rounded to about 1 km, so posts can be sorted by distance. Keiro never sends your exact location anywhere.';
+const MAP_LOOKUP = "To show a store on the map, its address (only the address) is sent to OpenStreetMap's Nominatim service to find it.";
 // Account deletion is in the app now (Settings → Delete account), not "email us".
 const DELETION = "You can delete your account and all its data in the app, in Settings → Security & Permissions → Delete account. It is deleted at once and can't be recovered.";
 const PLANS_TERMS = `Keiro has a free plan for drivers: Easy Mode and ${FREE_INVOICES_PER_MONTH} new invoices a month. Keiro Pro (unlimited invoices, the full app and signing on the phone) is coming soon; when payments are available, the price will be shown in the app before you pay. What each plan includes may change; we will tell you in the app before a change affects you.`;
@@ -48,6 +53,14 @@ describe('privacy policy', () => {
     render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
     expect(screen.getByText(/so no other account can read them, except as described under What other users can see/i)).toBeInTheDocument();
     expect(screen.queryByText(/the one exception/i)).toBeNull();
+  });
+
+  it('says a Marketplace post carries a location rounded to about 1 km, never the exact one, and lists the map lookup', () => {
+    render(<ThemeProvider><Legal section="privacy" onOpenDrawer={vi.fn()} onNav={vi.fn()} /></ThemeProvider>);
+    expect(screen.getByText((content) => content.includes(LOCATION))).toBeInTheDocument();
+    expect(screen.getByText(/your approximate location when you created it \(rounded to about 1 km\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/the coordinates recorded when you created it/)).toBeNull();
+    expect(screen.getByText((content) => content.includes(MAP_LOOKUP))).toBeInTheDocument();
   });
 
   it('says the account can be deleted in the app, at once, not by emailing', () => {
@@ -103,6 +116,8 @@ describe('PRIVACY.md and TERMS.md', () => {
     const privacy = markdown('PRIVACY.md');
     expect(privacy).toContain('The App does not process payments.');
     expect(privacy).toContain(PLAN_KEPT);
+    expect(privacy).toContain(LOCATION);
+    expect(privacy).toContain(MAP_LOOKUP);
     expect(privacy).toContain(DELETION);
     expect(privacy).not.toContain('To delete your entire account and associated data, contact us');
     const terms = markdown('TERMS.md');

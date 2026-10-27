@@ -185,6 +185,13 @@ export const SHARED_RPC_TIMEOUT_MS = 4000;
  */
 export const DELETE_UNDO_MS = 5000;
 
+/**
+ * Decimal places kept on a location saved with a Marketplace post, which every
+ * signed-in user can read. Two is about 1 km: enough for "near me" sorting, too
+ * coarse to point at someone's home. The exact fix never leaves the phone.
+ */
+export const PUBLIC_COORD_DECIMALS = 2;
+
 // Cross-account refresh cadence. Realtime (a websocket subscription) is the
 // primary signal; these polls are only a safety net, because postgres_changes
 // silently delivers nothing unless the table is in the `supabase_realtime`
