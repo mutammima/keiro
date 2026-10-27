@@ -22,6 +22,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          # Missing secrets used to fail as a bare curl error (exit 3), which reads
+          # like the database is down. Say what's actually wrong.
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::The repo secrets SUPABASE_URL and SUPABASE_ANON_KEY are not set, so nothing is keeping the database awake. Add them under Settings → Secrets and variables → Actions (the same values Vercel has)."
+            exit 1
+          fi
           code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \

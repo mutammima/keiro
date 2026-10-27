@@ -39,6 +39,12 @@ npm run build      # production build (must pass zero errors before any PR)
 ## Live Deployment
 
 - **Production URL: `https://keiro-mutammimas-projects.vercel.app`** — the only URL that serves the app. `keiro.vercel.app`, `delivery-invoice.vercel.app`, and `invoicego.app` do **not** (the project was renamed delivery-invoice → invoice-go → invogo → keiro over time; old URLs are dead or detached). Verify what's live with `curl -s <prod>/version.json` — it returns the deployed git hash.
+- **Vercel environment variables:** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are baked in at build
+  time and are public by design (the anon key is guarded by RLS), so they must keep the `VITE_` prefix.
+  Vercel won't let a *Secret*-type variable with that prefix be added to Preview: Production has
+  Secret entries, Preview has separate **Config** entries with the same names (2026-10-27). A build
+  without them shows `MissingConfig` ("Keiro can't start") instead of the app, and in the iOS app it
+  doesn't confirm its OTA bundle, so the phone rolls back to the last good one.
 - **Dev-server config names** (`.claude/launch.json`): `invoicego` (dev, port 5173) and `invoicego-preview` (preview, port 4174). These predate the Keiro rename — use these exact names; there is no server named `keiro`.
 
 ## Two Roles and Their Tabs
