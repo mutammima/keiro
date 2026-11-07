@@ -22,6 +22,16 @@ describe('shared product names SQL', () => {
   });
 });
 
+describe('connection security SQL', () => {
+  it('the cowork doc inlines exactly the whole .sql file', () => {
+    const sql = readFileSync(resolve(root, 'supabase-connection-security.sql'), 'utf8');
+    const doc = readFileSync(resolve(root, 'docs/COWORK_CONNECTION_SECURITY.md'), 'utf8');
+    const block = doc.match(/```sql\n(-- =+\n-- KEIRO — CONNECTION SECURITY[\s\S]*?)\n```/);
+    expect(block).not.toBeNull();
+    expect(norm(block[1])).toBe(norm(sql));
+  });
+});
+
 describe('account deletion SQL', () => {
   it('the cowork doc inlines exactly the .sql file (from the function to the end)', () => {
     const sql = readFileSync(resolve(root, 'supabase-account-deletion.sql'), 'utf8');
