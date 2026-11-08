@@ -434,6 +434,16 @@ native project) and `npm run ios:open` (opens `ios/App/App.xcodeproj` in Xcode).
 `@capacitor/share` (PDF sharing), `@capacitor/browser` + `@capacitor/app` (Google OAuth), and
 `@capgo/capacitor-updater` (OTA updates — see Update System above).
 
+**The app launches through a scene — required on iOS 27:** an app built with the iOS 27 SDK that
+still uses the old AppDelegate-only lifecycle is killed by UIKit before any of its code runs
+(`_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`, EXC_BREAKPOINT). TestFlight build
+2 (Xcode 27.2, 2026-11-07) crashed on every open on iOS 27.2 this way. The fix is Capacitor 8.6's
+own migration (`migrateToUIScene`): `UIApplicationSceneManifest` in `Info.plist`,
+`ios/App/App/SceneDelegate.swift` (forwards `keiro://` links to `SceneDelegateProxy`, which still
+fires `appUrlOpen`), and `configurationForConnecting` in `AppDelegate.swift`.
+`src/__tests__/iosSceneLifecycle.test.js` pins all three. An iOS 26 simulator doesn't enforce
+this, so test native launches on an **iOS 27** simulator or device.
+
 **Finding native-only code:** every native branch point checks `Capacitor.isNativePlatform()` —
 grep for it to find them all. Current ones: skip the web service worker (`main.jsx`), OTA update
 check (`otaUpdate.js`), the OAuth deep-link handler (`auth.js`), and the PDF share-sheet bridge
